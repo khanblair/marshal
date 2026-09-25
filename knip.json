@@ -7,8 +7,8 @@
       "ignoreDependencies": ["jscpd", "solid-js"]
     },
     "apps/web": {
-      "entry": ["src/**/*.test.{ts,tsx}"],
-      "project": ["src/**/*.{ts,tsx}"]
+      "entry": ["src/**/*.test.{ts,tsx}", "e2e/**/*.ts", "playwright.config.ts"],
+      "project": ["src/**/*.{ts,tsx}", "e2e/**/*.ts"]
     },
     "packages/ui": {
       "entry": ["scripts/*.mjs", "src/**/*.test.{ts,tsx}"],
