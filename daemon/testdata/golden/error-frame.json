@@ -1,0 +1,10 @@
+{
+  "type": "error",
+  "error": {
+    "code": "invalid_argument",
+    "message": "That topic is not one Marshal knows. Check the topic and connect again.",
+    "details": {
+      "topic": "project:Bad_ID"
+    }
+  }
+}
