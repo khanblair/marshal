@@ -6,7 +6,7 @@ import type { Attachment } from "~/mock";
  * comment draft, which members menu is open, which diff files are expanded, and so on.
  * A new card gets a new panel state, as the design resets these fields on a card change.
  */
-export interface PanelState {
+interface PanelState {
   cDraft: string;
   pending: Attachment[];
   linkOpen: boolean;

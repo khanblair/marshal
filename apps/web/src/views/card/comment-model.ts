@@ -1,6 +1,6 @@
 import { type Attachment, type Card, type Comment, M } from "~/mock";
 
-export interface CommentFileView {
+interface CommentFileView {
   name: string;
   icon: string;
   meta: string;

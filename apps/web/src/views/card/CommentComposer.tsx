@@ -1,7 +1,6 @@
 import { Button, Icon, Input, Tag } from "@marshal/ui";
 import { Index, Show } from "solid-js";
-import { M } from "~/mock";
-import { attachmentsFrom, linkAttachment } from "./comment-model";
+import { createComposerActions } from "./comment-composer-actions";
 import type { Panel } from "./panel-state";
 
 export interface CommentComposerProps {
@@ -9,8 +8,6 @@ export interface CommentComposerProps {
   panel: Panel;
 }
 
-/** The link field only exists after the toggle renders it, so focus waits a moment. */
-const LINK_FOCUS_DELAY_MS = 30;
 const ATTACH_LABEL =
   "inline-flex items-center gap-1.5 h-8 px-2 rounded-sm text-secondary text-small cursor-pointer hover:bg-surface-hover";
 const HIDDEN_INPUT = "absolute w-px h-px opacity-0";
@@ -23,36 +20,10 @@ const attachmentIcon = (kind: string): string => {
 /** The new-comment box: text, attachments (files, images, links), and Post comment. */
 export function CommentComposer(props: CommentComposerProps) {
   let linkInput: HTMLInputElement | undefined;
-  const state = () => props.panel.state;
-  const empty = () => !state().cDraft.trim() && !state().pending.length;
-  const post = () => {
-    M.addComment(props.cardId, state().cDraft, state().pending);
-    props.panel.set({ cDraft: "", pending: [], linkOpen: false });
-  };
-  const addLink = () => {
-    const value = linkInput?.value.trim();
-    if (!value) return;
-    props.panel.set({ pending: [...state().pending, linkAttachment(value)], linkOpen: false });
-  };
-  const onFiles = (e: Event & { currentTarget: HTMLInputElement }) => {
-    props.panel.set({ pending: [...state().pending, ...attachmentsFrom(e.currentTarget.files)] });
-    e.currentTarget.value = "";
-  };
-  const toggleLink = () => {
-    props.panel.set({ linkOpen: !state().linkOpen });
-    setTimeout(() => linkInput?.focus(), LINK_FOCUS_DELAY_MS);
-  };
-  const onLinkKey = (e: KeyboardEvent) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      addLink();
-    }
-    if (e.key === "Escape") {
-      e.preventDefault();
-      e.stopPropagation();
-      props.panel.set({ linkOpen: false });
-    }
-  };
+  const { state, empty, post, addLink, onFiles, toggleLink, onLinkKey } = createComposerActions(
+    props,
+    () => linkInput,
+  );
   return (
     <form
       onSubmit={(e) => {

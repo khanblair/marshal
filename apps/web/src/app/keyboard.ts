@@ -109,7 +109,7 @@ function plainKey(e: KeyboardEvent, active: Element | null): void {
   else if (k.startsWith("Arrow") && !active?.closest?.("[data-no-nav]")) navigate(k, e);
 }
 
-export function onGlobalKey(e: KeyboardEvent): void {
+function onGlobalKey(e: KeyboardEvent): void {
   const S = M.S;
   if (S.onboarding || S.tour) return;
   const mod = e.metaKey || e.ctrlKey;

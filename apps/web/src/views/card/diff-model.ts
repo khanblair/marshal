@@ -1,8 +1,8 @@
 import type { DiffFile } from "~/mock";
 
-export type DiffSign = " " | "+" | "-";
+type DiffSign = " " | "+" | "-";
 
-export interface DiffLineView {
+interface DiffLineView {
   n: number;
   text: string;
   sign: string;
@@ -88,5 +88,3 @@ export function toggled(open: ReadonlySet<string>, path: string): string[] {
 }
 
 export const allOpen = (diff: readonly DiffFile[]): string[] => diff.map((file) => file.path);
-
-export const minus = (n: number): string => `${MINUS}${n}`;
