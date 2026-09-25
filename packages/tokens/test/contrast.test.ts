@@ -9,7 +9,10 @@ describe("contrastRatio", () => {
   });
 
   it("is symmetric", () => {
-    expect(contrastRatio("#6A727B", "#EEF0F2")).toBeCloseTo(contrastRatio("#EEF0F2", "#6A727B"), 10);
+    expect(contrastRatio("#6A727B", "#EEF0F2")).toBeCloseTo(
+      contrastRatio("#EEF0F2", "#6A727B"),
+      10,
+    );
   });
 });
 
@@ -26,7 +29,9 @@ describe("design contrast rules", () => {
   });
 
   it("keeps primary text and ink readable on every surface", () => {
-    const strict = measureAll().filter((p) => p.fg === "color-text-primary" || p.fg === "color-ink");
+    const strict = measureAll().filter(
+      (p) => p.fg === "color-text-primary" || p.fg === "color-ink",
+    );
     expect(strict.every((p) => p.ratio >= p.min)).toBe(true);
   });
 });

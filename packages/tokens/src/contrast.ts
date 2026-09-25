@@ -69,7 +69,8 @@ function rules(): Rule[] {
       out.push([`color-diff-${kind}-text`, `color-diff-${kind}-${bg}`, TEXT_MIN]);
     }
   }
-  for (const bg of ["color-bypass-bg", "color-bypass-stripe"]) out.push(["color-bypass-text", bg, TEXT_MIN]);
+  for (const bg of ["color-bypass-bg", "color-bypass-stripe"])
+    out.push(["color-bypass-text", bg, TEXT_MIN]);
   return out;
 }
 
@@ -98,4 +99,5 @@ export function measureAll(): ContrastPair[] {
   return pairs;
 }
 
-export const pairKey = (p: Pick<ContrastPair, "theme" | "fg" | "bg">) => `${p.theme}|${p.fg}|${p.bg}`;
+export const pairKey = (p: Pick<ContrastPair, "theme" | "fg" | "bg">) =>
+  `${p.theme}|${p.fg}|${p.bg}`;

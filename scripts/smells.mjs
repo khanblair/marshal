@@ -21,7 +21,8 @@ const SOURCE_EXT = /\.(ts|tsx|css|mjs)$/;
 const SKIP_DIR = new Set(["node_modules", "dist", "coverage", "test-results", "playwright-report"]);
 const SKIP_FILE = /(\.d\.ts|\/dist\/)/;
 
-const baseline = JSON.parse(readFileSync(join(root, ".smells-baseline.json"), "utf8")).accepted ?? [];
+const baseline =
+  JSON.parse(readFileSync(join(root, ".smells-baseline.json"), "utf8")).accepted ?? [];
 const isAccepted = (rule, file) => baseline.some((b) => b.rule === rule && b.file === file);
 
 function* walk(dir) {
@@ -40,7 +41,8 @@ function checkFileLengths() {
     for (const path of walk(join(root, top))) {
       const file = relative(root, path);
       const lines = readFileSync(path, "utf8").split("\n").length;
-      if (lines > FILE_BLOCK_LINES && !isAccepted("file-length", file)) blocking.push(`${file}: ${lines} lines`);
+      if (lines > FILE_BLOCK_LINES && !isAccepted("file-length", file))
+        blocking.push(`${file}: ${lines} lines`);
       else if (lines > FILE_WARN_LINES) warnings.push(`${file}: ${lines} lines`);
     }
   }
@@ -69,7 +71,10 @@ function biomeSoftLimits() {
   const report = JSON.parse(run.stdout.slice(start));
   return report.diagnostics
     .filter((d) => !/\.test\.tsx?$/.test(d.location?.path ?? ""))
-    .map((d) => `${d.location.path}:${d.location.start.line} ${d.category.split("/").pop()}: ${d.message}`);
+    .map(
+      (d) =>
+        `${d.location.path}:${d.location.start.line} ${d.category.split("/").pop()}: ${d.message}`,
+    );
 }
 
 function runTool(label, args) {
@@ -82,7 +87,12 @@ function main() {
   const lengths = checkFileLengths();
   const soft = biomeSoftLimits();
   const knip = runTool("unused code (knip)", ["knip", "--no-progress"]);
-  const dupes = runTool("duplicated code (jscpd)", ["jscpd", ...SOURCE_ROOTS, "--config", ".jscpd.json"]);
+  const dupes = runTool("duplicated code (jscpd)", [
+    "jscpd",
+    ...SOURCE_ROOTS,
+    "--config",
+    ".jscpd.json",
+  ]);
 
   console.log("Code smell checks\n");
   const report = (label, blocking) => {
@@ -95,10 +105,17 @@ function main() {
     console.log(`${tool.ok ? "ok  " : "FAIL"}  ${tool.label}`);
     if (!tool.ok) {
       failed = true;
-      console.log(tool.output.split("\n").map((l) => `        ${l}`).join("\n"));
+      console.log(
+        tool.output
+          .split("\n")
+          .map((l) => `        ${l}`)
+          .join("\n"),
+      );
     }
   }
-  console.log(`\nWarnings (fix, or explain in the change): ${lengths.warnings.length + soft.length}`);
+  console.log(
+    `\nWarnings (fix, or explain in the change): ${lengths.warnings.length + soft.length}`,
+  );
   for (const line of [...lengths.warnings, ...soft].slice(0, 60)) console.log(`  warn  ${line}`);
   process.exit(failed ? 1 : 0);
 }
