@@ -1,0 +1,4 @@
+# Screenshots and reports from `pnpm parity` go to .parity/ at the repo root.
+.parity/
+*.png
+!scenarios/**
