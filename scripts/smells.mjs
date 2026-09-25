@@ -34,7 +34,8 @@ const SKIP_DIR = new Set([
   "testdata",
   "tmp",
 ]);
-const SKIP_FILE = /(\.d\.ts|\/dist\/)/;
+/** Generated code is not written by hand, so its size is not a smell (`generated/` from tygo, `store/db/` from sqlc). */
+const SKIP_FILE = /(\.d\.ts|\/dist\/|\/generated\/|\/store\/db\/)/;
 
 const baseline =
   JSON.parse(readFileSync(join(root, ".smells-baseline.json"), "utf8")).accepted ?? [];
@@ -45,7 +46,7 @@ function* walk(dir) {
     if (SKIP_DIR.has(name)) continue;
     const path = join(dir, name);
     if (statSync(path).isDirectory()) yield* walk(path);
-    else if (SOURCE_EXT.test(name) && !SKIP_FILE.test(path)) yield path;
+    else if (SOURCE_EXT.test(name) && !SKIP_FILE.test(path.replaceAll("\\", "/"))) yield path;
   }
 }
 

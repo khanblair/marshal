@@ -1,6 +1,12 @@
-# Generates TypeScript types for the app from the Go wire types. Run through `pnpm gen`.
+# Generates TypeScript types for the app from the Go wire types. Run through `pnpm gen`, which
+# also runs scripts/gen-protocol.mjs to add the <Type>Values arrays and format the result.
 packages:
   - path: "github.com/khanblair/marshal/daemon/internal/protocol"
     output_path: "../packages/protocol/src/generated/index.ts"
+    # Each const block of a string type becomes a union type (see docs/architecture.md 11.5).
+    enum_style: "union"
     type_mappings:
-      time.Time: "string /* an RFC 3339 time */"
+      # Only protocol.Timestamp is allowed to hold a time; a test rejects a bare time.Time field.
+      time.Time: "string /* UTC, RFC 3339, milliseconds */"
+      # Event data is decoded by event type, so it is unknown until then.
+      json.RawMessage: "unknown"

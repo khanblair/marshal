@@ -3,7 +3,8 @@ import solid from "vite-plugin-solid";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
-  plugins: [solid()],
+  // Hot reload is for the dev server. Its `file:///@solid-refresh` import cannot be read on Windows.
+  plugins: [solid({ hot: false })],
   resolve: {
     conditions: ["development", "browser"],
     alias: { "~": fileURLToPath(new URL("./src", import.meta.url)) },

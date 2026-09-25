@@ -1,0 +1,16 @@
+# Turns the SQL in internal/store/queries into typed Go in internal/store/db. The schema is read
+# from the goose migrations (sqlc ignores their Down sections, and we have none). Run it with
+# `pnpm gen`, and commit the result: the generated files are never edited by hand.
+version: "2"
+sql:
+  - engine: sqlite
+    schema: internal/store/migrations
+    queries: internal/store/queries
+    gen:
+      go:
+        package: db
+        out: internal/store/db
+        sql_package: database/sql
+        emit_empty_slices: true
+        emit_pointers_for_null_types: true
+        initialisms: [id, json]

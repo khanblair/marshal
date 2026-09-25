@@ -2,7 +2,8 @@ import solid from "vite-plugin-solid";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
-  plugins: [solid()],
+  // Hot reload is for the dev server. Its `file:///@solid-refresh` import cannot be read on Windows.
+  plugins: [solid({ hot: false })],
   resolve: { conditions: ["development", "browser"] },
   test: {
     // A slow or busy machine, such as a CI runner, should not fail a test that is only slow.

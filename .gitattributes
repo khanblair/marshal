@@ -2,3 +2,5 @@
 pnpm-lock.yaml -diff
 packages/tokens/dist/** linguist-generated=true
 design/** linguist-vendored=true
+daemon/internal/store/db/** linguist-generated=true
+packages/protocol/src/generated/** linguist-generated=true
