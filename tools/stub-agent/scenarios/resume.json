@@ -1,0 +1,7 @@
+{
+  "description": "Asks a question, so that the next prompt can answer it after a restart.",
+  "steps": [
+    { "type": "pause", "ms": 200 },
+    { "type": "say", "text": "Which file should I look at first?" }
+  ]
+}

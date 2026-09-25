@@ -44,7 +44,7 @@ At the end of every work session, whether by a person or an agent:
 
 | Phase | Status | Notes |
 |---|---|---|
-| 0. Foundation | In progress | Docs written. Frontend workspace, tokens, UI library, prototype port, TypeScript checks and CI are done. Go 1.27.1 is installed. The daemon module, protocol package, Go CI, stub agent, and dev mode are next (`backend-checklist.md` Phase 0). |
+| 0. Foundation | In progress | Done locally: Go tools, daemon module, protocol package, Go lint and smells, fixtures, stub agent, budgets, dev mode. Not verified: three-platform CI has not run. Deferred: keychain entries (library check first), desktop shell and release (after Phase 2). |
 | 1. First card | Not started | |
 | 2. Core UI | Not started | |
 | 3. Control and safety | Not started | |
@@ -109,6 +109,16 @@ Tasks for later phases are added here when their phase starts.
 | 2026-09-25 | Build order follows the build plan as a guide, not strictly. A piece that needs something from a later phase is built early and skipped when its phase comes | Integration work depends on what exists. Rules are in `backend-checklist.md` section 2.7 |
 | 2026-09-25 | Each project numbers its own cards. A card is known by its project and number, and lists that mix projects show the project name with the number | Chosen by the owner. The client's card key changes from the bare number (`backend-inventory.md` N26) |
 | 2026-09-25 | The Tauri desktop shell and signed releases are built after Phase 2 | They are not needed to replace the mock, so the first desktop app ships with a working daemon |
+| 2026-09-25 | The 30 pieces of work the prototype needs that the docs did not cover are numbered tasks in `build-plan.md` marked (prototype), each with its screen work, and the docs features that had no screen get screen tasks too | The owner wants the backend and its screens built together. Reference list: `backend-inventory.md` section 5 |
+| 2026-09-25 | Timeline bars show the actual span for started cards and the planned span for cards not started | Shows slips and plans together |
+| 2026-09-25 | Screen preferences (theme, list columns, sort, last view, filters, swimlane) are saved with the user. Layout stays on the device | Follows the user to a phone without forcing one layout on every screen |
+| 2026-09-25 | Labels are a managed list per project, each with a name and a color from a fixed set of tokens | Chosen by the owner. Needs label color tokens that pass the contrast check |
+| 2026-09-25 | Keep awake lasts 15 minutes and is a setting under General | Matches the prototype and lets users change it |
+| 2026-09-25 | A service that is not set up shows "Not connected" with a Connect button and no sample data. Windows and Linux are covered by CI plus a manual pass before release. Solo use shows only the owner | Nothing looks real that is not. Owner's choices |
+| 2026-09-25 | The stub agent uses `github.com/coder/acp-go-sdk` v0.13.5, so the ACP library choice for task 1.6 is made and the JSON-RPC layer is built early. Scenarios are JSON files, not YAML | The SDK is generated from the official schema, and JSON adds no dependency. Recorded under task 1.6 in the checklist |
+| 2026-09-25 | Each Go program is its own module (the daemon and each program under `tools/`), with no `go.work`. The daemon keeps `internal/` private, and the tools share nothing with it | The tools need no daemon internals, so they stay small and build alone. The daemon builds and tests them by running them as programs |
+| 2026-09-25 | The Go tools install without cgo (`CGO_ENABLED=0`), and the daemon uses no cgo | The tools then need no C toolchain, and this Mac's Command Line Tools cannot link cgo programs that use system frameworks. The race detector still works for tests |
+| 2026-09-25 | `marshal dev reset` in Go replaces `scripts/dev-reset.mjs`, and only deletes a folder ending in `-dev` that sits well below the home folder | One place holds the folder rules, shared with how the dev daemon picks its data folder. Refuses while the dev daemon runs |
 | 2026-09-25 | The prototype toolbar (device frames, Reset to first launch) is not part of the app | Requested by the project owner; it is a prototyping aid. The app fills the window and follows its size |
 | 2026-09-23 | Strong models by default for Reviewer and Integrator | Weak models break code at review and merge time |
 | 2026-09-23 | Plan first mode keeps plans in chat, no plan document unless asked | Plans are quick to review and should not create clutter |
@@ -171,6 +181,8 @@ Newest entries first.
 
 ### 2026-09-25
 
+- **Phase 0 (backend foundation), local:** Go 1.27.1 and the pinned tools, the daemon module with a health endpoint, settings, dev mode and the guarded dev reset, the protocol package generated with tygo, Go lint and smell checks, fixture repos, the stub agent, the webhook replay tool, and the daemon budgets. `pnpm check` and the 81 end-to-end specs pass. Not verified: real CI on three platforms.
+
 - **Done:** the frontend port of the prototype (SolidJS app, `@marshal/ui`, tokens, typed mock store) is finished and pushed to `khanblair/marshal`. The parity check was used to build it and is now retired. The prototype toolbar was removed, buttons got larger corners and no-wrap labels, and 81 end-to-end specs check phone, tablet, and desktop. `pnpm check` passes: 9 tokens, 260 UI, and 1,258 web tests.
 - **Also done:** wrote `backend-checklist.md` and `backend-inventory.md`, which map all 116 store members and 78 state fields to daemon modules, tables, API calls, events, and build plan tasks, and list 30 pieces of work the docs did not cover. Installed Go 1.27.1.
 - **Next:** agree the checklist, then start Phase 0 of it: the daemon module, the Go tools, the protocol package, Go in CI, the stub agent, and dev mode.
@@ -198,7 +210,13 @@ Every file added, moved, renamed, or deleted in the repo. Newest first. The plan
 
 | Date | File | Change | Task | Notes |
 |---|---|---|---|---|
-| | | | | No code files yet. Repo setup starts with task 0.2. |
+| 2026-09-25 | `daemon/` (`go.mod`, `package.json`, `.air.toml`, `tygo.yaml`, `cmd/marshald`, `cmd/marshal`, `internal/{api,buildinfo,config,gitx,platform,protocol,testutil}`, `testdata/{golden,hooks,repos}`) | Added | 0.2, 0.3, 0.8, 0.10 | Health endpoint on localhost, settings from flags and environment, dev token, guarded dev reset, gitx with the Git version check, fixture repos, golden files |
+| 2026-09-25 | `tools/stub-agent/` | Added | 0.11, 1.6 (built early) | Scripted ACP agent with resume, six JSON scenarios, 105 tests |
+| 2026-09-25 | `tools/hooks-replay/`, `tools/budgets/` | Added | 0.9, 0.13 | Webhook replay, and the daemon idle RAM and CPU budget |
+| 2026-09-25 | `packages/protocol/` | Added | 0.7 | Types generated from Go with tygo, and the golden file test |
+| 2026-09-25 | `scripts/setup-tools.mjs`, `scripts/go-tool.mjs`, `scripts/gen-protocol.mjs`, `.golangci.yml`, `.golangci.warn.yml` | Added | 0.1, 0.7, 0.15 | Pinned Go tools, a cross-platform tool runner, protocol generation, and the Go lint limits |
+| 2026-09-25 | `package.json`, `pnpm-workspace.yaml`, `knip.json`, `.jscpd.json`, `biome.json`, `.gitignore`, `scripts/{check,smells,budgets}.mjs`, `apps/web/vite.config.ts`, `apps/web/src/app/keyboard.ts`, `.github/workflows/ci.yml` | Changed | 0.3, 0.4, 0.6, 0.9 | Go added to the root scripts, smells, and budgets, and the Vite proxy to the dev daemon. Windows script fix and a guarded focus timer. CI runs Go (not run yet) |
+| 2026-09-25 | `apps/web/`, `packages/ui/`, `packages/tokens/`, `design/`, `.github/`, and the root config files | Added | 0.4, 0.6, 0.8, 0.12, 0.15 | The frontend workspace, the prototype port, and its checks, from earlier in the project |
 
 ---
 
@@ -208,6 +226,7 @@ Every change to a doc. Newest first.
 
 | Date | Doc | Change |
 |---|---|---|
+| 2026-09-25 | `build-plan.md`, `backend-checklist.md`, `backend-inventory.md`, `progress-tracker.md` | Added 39 tasks marked (prototype) to the build plan, linked each inventory item to its task, and recorded the ten decisions |
 | 2026-09-25 | `backend-checklist.md`, `backend-inventory.md`, `README.md`, `project-structure.md`, `progress-tracker.md` | Added the backend checklist and the inventory of every prototype action and field, listed both in the index and the docs structure, and logged the backend decisions |
 | 2026-09-25 | `ui-tokens.md`, `ui-rules.md`, `design-port.md`, `architecture.md`, `progress-tracker.md` | Colors back to the design's exact values, `color-border-control` removed, section 2.9 rewritten around the exceptions list, chart values fixed, prototype toolbar and `z-prototype` removed, web build size budget added. |
 | 2026-09-24 | `ui-tokens.md`, `ui-rules.md`, `marshal-product-scope.md`, `build-plan.md`, `progress-tracker.md` | Consistency and contrast fixes: new `color-border-control` token, adjusted muted text, status solid, and chart values, listed the contrast pairs checked in CI, clarified `size-header`, `size-topbar`, and the breakpoints, fixed split view pane counts, and replaced stale UI framework and "Checks tab" wording |

@@ -21,6 +21,10 @@ Made on 2026-09-25. They are logged in `progress-tracker.md`.
 - The mock is replaced section by section. A section stops using mock data only after it has been verified working with the daemon. A section that is not integrated yet keeps its mock data. When every section is integrated, the mock is deleted.
 - Go is installed (version 1.27.1, on 2026-09-25). The pinned Go tools are set up in item B0.1.
 - "Simulate CI failure" is built as a real feature with two modes: a synthetic failed run that goes through the daemon's CI monitor, and a real failing run on GitHub (N28).
+- Screen preferences follow the user between devices (theme, list columns, sort, last view, filters, swimlane), and layout stays on the device. Labels are a managed list per project with a name and a color. Keep awake lasts 15 minutes and is a setting. Timeline bars show the actual span, and the planned span for cards not started. Solo use shows only the owner.
+- A service that is not set up shows a "Not connected" state with a Connect button, and no sample data.
+- Windows and Linux are covered by CI, plus a manual pass on real machines before the first release.
+- The 30 items from the inventory are numbered tasks in `build-plan.md`, each with its screen work, so the backend and its screens are built together.
 - Each project numbers its own cards. A card is identified by its project and its number, and any place that mixes projects shows the project name next to the number (N26).
 - The desktop shell and signed releases (Tasks 0.5 and 0.14) are built after Phase 2, once the board works against the daemon.
 - Parity checking against the prototype stays retired. Approved deviations stay in `design-port.md`.
@@ -105,7 +109,7 @@ Shortcuts and Help in Settings are static and have no backend. They are not sect
 1. **Sections that show the same objects move together.** If the Board shows real cards, the List, the Timeline, the Agents view, the card panel header, and the Home needs you list must show real cards too, or a card could appear in one place and not another. That is why S5a is one section, and why a card-based section never cuts over before S5a has.
 2. **A mock-backed section must tolerate real IDs.** When a real card, project, or chat opens a section that is still on the mock (for example Comments), that section shows its empty state for it. It never fails and never invents content for it. This is tested in both directions.
 3. **One switch per section, never half a section.** A part of a screen that arrives in a later phase is its own section (for example S8a, S8b, and S8c for chat, approvals, and plans), so each section switches once. The register in 2.2 is the only place that says which sections are on the daemon.
-4. **A section that shows data from a service that is not connected yet stays on the mock** until the connection test for that service passes. Its screen may not be mixed, for example real cards with mock calendar events, unless it is one of the Home blocks, which are separate sections on purpose.
+4. **A section that needs a service that is not set up shows "Not connected"**, with a Connect button and no sample data, until the connection test for that service passes. Sections whose backend is not built yet stay on the mock. A screen is never mixed, for example real cards with mock calendar events, unless it is one of the Home blocks, which are separate sections on purpose.
 5. **The mock's removal is part of the cutover.** When a section switches, its mock seed data, its simulation, and its mock-only tests are deleted or moved in the same change.
 
 ### 2.4 Cutover gate
@@ -170,7 +174,7 @@ Some steps need an account, a key, or a decision that only the owner can make. T
 | Release | Provide the macOS Developer ID and notarization access and the Windows signing certificate as CI secrets | 0.14 |
 | Optional | Install the Codex CLI to test an installed Codex agent | 1.8 |
 
-An integration whose account step is not done yet keeps its mock section (rule 4 in 2.3).
+An integration whose account step is not done yet shows "Not connected" (rule 4 in 2.3).
 
 ---
 
@@ -220,16 +224,16 @@ Already done for the frontend:
 
 To do:
 
-- [ ] **B0.1 Go and tools.** Go 1.27.1 was installed with Homebrew on 2026-09-25 (approved by the owner). Then `pnpm setup:tools` installs `air`, `sqlc`, `tygo`, and `golangci-lint` into `.tools/`. Done when: the pinned versions are in `daemon/go.mod` and `library-docs.md`, CI uses the same versions, and `go version` and each tool run on this machine. (Task 0.3)
-- [ ] **B0.2 Daemon module.** Create `daemon/` with `cmd/marshald`, `cmd/marshal`, a scripts-only `package.json`, and `internal/` packages as they are needed (no empty packages). Done when: both binaries build on macOS, Linux, and Windows in CI. (Tasks 0.2, 0.3)
-- [ ] **B0.3 Root scripts.** Add `pnpm dev`, `dev:daemon`, `dev:web`, `gen`, `test:daemon`, and Go in `lint`, `smells`, `check`, and `build`, as in `development.md` section 4. The Vite dev server forwards API and WebSocket calls to the dev daemon so the browser talks to one address. Done when: each command works on all three platforms. (Task 0.12)
-- [ ] **B0.4 Go smell tooling.** Add the `golangci-lint` config that matches `code-standards.md` section 12.2, jscpd over Go, and the new-smells-only check with an empty baseline. Done when: CI fails on a test change that adds a blocking smell and passes when it is fixed. (Task 0.15)
-- [ ] **B0.5 Protocol package.** Create `packages/protocol` and generate TypeScript from Go with `tygo` inside `pnpm gen`. Done when: one sample type round-trips in a test, and the generated folder is marked as generated, ignored by hand edits, and covered by `knip`. (Task 0.7)
-- [ ] **B0.6 Go in CI.** Add format, lint, race tests, and builds for Go on the three platforms to the existing workflow. Done when: the pipeline runs on every pull request. (Task 0.8)
-- [ ] **B0.7 Daemon budgets.** Add the budget harness (`tools/budgets`) that measures daemon idle RAM and CPU, and connect it to `pnpm budgets` next to the web budgets. Done when: the report runs in CI and fails when over budget. (Task 0.9)
-- [ ] **B0.8 Fixture repos.** Create a small repo and a monorepo under `daemon/testdata/repos`. Tests copy them to a temp folder. Done when: both load in an integration test. (Task 0.10)
-- [ ] **B0.9 Stub agent.** Create `tools/stub-agent`, a fake agent that speaks ACP, supports resume, and is scripted: ask for approval, fail a test, get stuck in a loop, survive a restart, write code with known smells. Start its scripts from the mock's simulation (`mock/sim/scripts.ts` and `ci-failure.ts`), which already act these cases out. Done when: harness tests run without real models. (Task 0.11)
-- [ ] **B0.10 Dev mode.** Add the `--dev` flag with a separate data folder, port 47801, keychain entries, a dev token accepted on localhost only, the stub agent by default, the `MARSHAL_*` environment settings, `pnpm dev:reset` with confirmation, and `pnpm hooks:replay` with recorded webhooks in `daemon/testdata/hooks`. Done when: a dev daemon and a normal install run side by side without touching each other. (Task 0.13, `development.md` sections 3.4 to 3.9)
+- [x] **B0.1 Go and tools.** Go 1.27.1 was installed with Homebrew on 2026-09-25 (approved by the owner). Then `pnpm setup:tools` installs `air`, `sqlc`, `tygo`, and `golangci-lint` into `.tools/`. Done when: the pinned versions are in `daemon/go.mod` and `library-docs.md`, CI uses the same versions, and `go version` and each tool run on this machine. (Task 0.3) Status: done on 2026-09-25.
+- [ ] **B0.2 Daemon module.** Create `daemon/` with `cmd/marshald`, `cmd/marshal`, a scripts-only `package.json`, and `internal/` packages as they are needed (no empty packages). Done when: both binaries build on macOS, Linux, and Windows in CI. (Tasks 0.2, 0.3) Status: not ticked. Both binaries build and pass tests here, and cross-compile for macOS, Linux, and Windows, but three-platform CI has not run.
+- [x] **B0.3 Root scripts.** Add `pnpm dev`, `dev:daemon`, `dev:web`, `gen`, `test:daemon`, and Go in `lint`, `smells`, `check`, and `build`, as in `development.md` section 4. The Vite dev server forwards API and WebSocket calls to the dev daemon so the browser talks to one address. Done when: each command works on all three platforms. (Task 0.12)
+- [x] **B0.4 Go smell tooling.** Add the `golangci-lint` config that matches `code-standards.md` section 12.2, jscpd over Go, and the new-smells-only check with an empty baseline. Done when: CI fails on a test change that adds a blocking smell and passes when it is fixed. (Task 0.15)
+- [x] **B0.5 Protocol package.** Create `packages/protocol` and generate TypeScript from Go with `tygo` inside `pnpm gen`. Done when: one sample type round-trips in a test, and the generated folder is marked as generated, ignored by hand edits, and covered by `knip`. (Task 0.7)
+- [ ] **B0.6 Go in CI.** Add format, lint, race tests, and builds for Go on the three platforms to the existing workflow. Done when: the pipeline runs on every pull request. (Task 0.8) Status: not ticked. The workflow is written, but CI has not run because nothing was pushed.
+- [x] **B0.7 Daemon budgets.** Add the budget harness (`tools/budgets`) that measures daemon idle RAM and CPU, and connect it to `pnpm budgets` next to the web budgets. Done when: the report runs in CI and fails when over budget. (Task 0.9)
+- [x] **B0.8 Fixture repos.** Create a small repo and a monorepo under `daemon/testdata/repos`. Tests copy them to a temp folder. Done when: both load in an integration test. (Task 0.10)
+- [x] **B0.9 Stub agent.** Create `tools/stub-agent`, a fake agent that speaks ACP, supports resume, and is scripted: ask for approval, fail a test, get stuck in a loop, survive a restart, write code with known smells. Start its scripts from the mock's simulation (`mock/sim/scripts.ts` and `ci-failure.ts`), which already act these cases out. Done when: harness tests run without real models. (Task 0.11) Status: done. It uses `github.com/coder/acp-go-sdk` v0.13.5, so the ACP decision of task 1.6 is made and its JSON-RPC layer was built early. Scenarios are JSON files.
+- [x] **B0.10 Dev mode.** Add the `--dev` flag with a separate data folder, port 47801, keychain entries, a dev token accepted on localhost only, the stub agent by default, the `MARSHAL_*` environment settings, `pnpm dev:reset` with confirmation, and `pnpm hooks:replay` with recorded webhooks in `daemon/testdata/hooks`. Done when: a dev daemon and a normal install run side by side without touching each other. (Task 0.13, `development.md` sections 3.4 to 3.9) Status: done except the keychain entries, which wait for the `go-keyring` library check in `library-docs.md` section 1.
 - [ ] **B0.11 Desktop shell and release (deferred).** The Tauri shell and the signed release pipeline do not block replacing the mock. The owner decided to build them after the Phase 2 milestone. Done when: the Tauri window loads the app and the daemon starts as its sidecar on all three platforms, and a test release produces signed installers. (Tasks 0.5, 0.14)
 
 **Gate:** `pnpm check` runs Go and TypeScript checks on three platforms, generated types are reproducible, and the stub agent and fixture repos are usable from tests.
@@ -503,20 +507,20 @@ Every rule document maps to at least one item or gate here. If a rule has no row
 
 ## 8. Decisions
 
-Each has an answer or a recommendation. Confirm or change the open ones before the phase that needs them.
+All ten are decided. If one changes, update this table, `architecture.md`, and the decisions log in `progress-tracker.md`.
 
 | ID | Decision | Answer or recommendation | Status | Needed by |
 |---|---|---|---|---|
-| D1 | What the Timeline draws with the start, end, and due dates | Bars show the actual working span for started cards, and the planned span (start and due) for cards not started. Confirm against the prototype's seed. | Open | B2.4 |
-| D2 | Where screen preferences are saved | Theme, list columns, sort, per-project last view, filters, and swimlane are saved with the user so they follow them between devices. Layout (side panel width, collapsed sidebar, split panes, calendar mode, dashboard range) stays on the device. | Open | B2.5 |
-| D3 | The label model | A label is a short text tag per project, created on first use, mapped to a Trello label later. | Open | B2.4 |
-| D4 | Keep awake time | 15 minutes as the prototype shows, as a setting. | Open | B5.6 |
+| D1 | What the Timeline draws with the start, end, and due dates | Bars show the actual working span for started cards, and the planned span (start and due) for cards not started. | Decided 2026-09-25 | B2.4 |
+| D2 | Where screen preferences are saved | Theme, list columns, sort, per-project last view, filters, and swimlane are saved with the user so they follow them between devices. Layout (side panel width, collapsed sidebar, split panes, calendar mode, dashboard range) stays on the device. | Decided 2026-09-25 | B2.5 |
+| D3 | The label model | A managed list of labels per project, each with a name and a color from a fixed set of color tokens. Cards pick from the list, and labels map to Trello labels later. | Decided 2026-09-25 | B2.4 |
+| D4 | Keep awake time | 15 minutes, as a setting under General. | Decided 2026-09-25 | B5.6 |
 | D5 | What "Simulate CI failure" does | Two modes: a synthetic run through the CI monitor, and a real failing run on GitHub. Shown in dev mode or with Developer options on. | Decided 2026-09-25 | B6.4 |
 | D6 | Card numbers | Each project has its own counter. A card is known by project and number, and mixed lists show the project name with the number. | Decided 2026-09-25 | B1.15 |
 | D7 | When to build the Tauri shell and the signed release | After the Phase 2 milestone. | Decided 2026-09-25 | B0.11 |
-| D8 | Windows and Linux testing | Only CI covers them, since the dev machine is a Mac. Real-device checks run on the Mac and phones. | Open | B13.2 |
-| D9 | An integration whose owner account step is missing | It keeps its mock section until its connection test passes (rule 4 in 2.3). | Open | Phases 6 to 9 |
-| D10 | People in the prototype seed (Ada and Blair) | They are seed data only. Solo use has one person until Phase 12. | Open | B2.2 |
+| D8 | Windows and Linux testing | CI runs the full checks on both for every pull request, and a manual pass on real machines happens before the first release. | Decided 2026-09-25 | B13.2 |
+| D9 | An integration whose owner account step is missing | It shows a "Not connected" state with a Connect button and no sample data, until its connection test passes (rule 4 in 2.3). | Decided 2026-09-25 | Phases 6 to 9 |
+| D10 | People in the prototype seed (Ada and Blair) | They exist only in the sample fixture. Solo use shows only the owner until team mode in Phase 12. | Decided 2026-09-25 | B2.2 |
 
 ---
 

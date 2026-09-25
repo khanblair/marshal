@@ -1,0 +1,23 @@
+{
+  "description": "Repeats the same failing tool call with the same error six times.",
+  "steps": [
+    { "type": "say", "text": "I will build the project." },
+    {
+      "type": "repeat",
+      "count": 6,
+      "steps": [
+        { "type": "pause", "ms": 200 },
+        {
+          "type": "tool",
+          "id": "build",
+          "title": "Run npm run build",
+          "kind": "execute",
+          "command": "npm run build",
+          "status": "failed",
+          "result": "error TS2304: Cannot find name 'refreshToken'."
+        }
+      ]
+    },
+    { "type": "say", "text": "The build still fails with the same error." }
+  ]
+}
