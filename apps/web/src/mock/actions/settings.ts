@@ -1,15 +1,17 @@
+import type { CardKey } from "../card-key";
 import type { Ctx } from "../context";
 import { addAct, later, toast } from "../engine";
-import { card } from "../selectors";
+import { card, cardLabelOf } from "../selectors";
 import { ciFailure } from "../sim/ci-failure";
 import type { Theme } from "../types";
 
-const DEFAULT_CI_CARD_ID = 40;
+const DEFAULT_CI_CARD_ID: CardKey = "api#40";
 
-export function simulateCiFailure(ctx: Ctx, id?: number): void {
+export function simulateCiFailure(ctx: Ctx, id?: CardKey): void {
   const target = id || DEFAULT_CI_CARD_ID;
   ciFailure(ctx, target, true);
-  toast(ctx, `Simulating a CI failure on #${target}`);
+  const c = card(ctx, target);
+  toast(ctx, `Simulating a CI failure on ${c ? cardLabelOf(ctx, c) : target}`);
 }
 
 export function setTheme(ctx: Ctx, theme: Theme): void {
@@ -21,7 +23,7 @@ export function setTheme(ctx: Ctx, theme: Theme): void {
 const FIRST_CHECK_MS = 1500;
 const NEXT_CHECK_MS = 900;
 
-export function runChecks(ctx: Ctx, id: number): void {
+export function runChecks(ctx: Ctx, id: CardKey): void {
   const ks = ctx.S.checks[id];
   if (!ks) return;
   for (const k of ks) if (k.cmd) k.st = "running";

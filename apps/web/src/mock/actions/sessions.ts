@@ -1,8 +1,9 @@
+import type { CardKey } from "../card-key";
 import { isAwake } from "../constants";
 import type { Ctx } from "../context";
 import { addAct, announce, later, pushMsg, runTool, toast } from "../engine";
 import { firstFile } from "../seed/files";
-import { card } from "../selectors";
+import { card, cardLabelOf } from "../selectors";
 import type { Card, SleepNotice } from "../types";
 
 const BRANCH_SLUG_MAX = 28;
@@ -21,7 +22,7 @@ const slug = (title: string): string =>
 /** Starts an agent session on a card. `c` must be the live card from the store. */
 export function startSession(ctx: Ctx, c: Card, to?: "working" | "planning"): void {
   c.state = to || (c.perm === "Plan only" ? "planning" : "working");
-  c.branch = c.branch || `marshal/${c.id}-${slug(c.title)}`;
+  c.branch = c.branch || `marshal/${c.n}-${slug(c.title)}`;
   c.asleep = false;
   c.paused = false;
   c.doing =
@@ -45,7 +46,7 @@ export function startSession(ctx: Ctx, c: Card, to?: "working" | "planning"): vo
   );
 }
 
-export function start(ctx: Ctx, id: number): void {
+export function start(ctx: Ctx, id: CardKey): void {
   const c = card(ctx, id);
   if (!c) return;
   if (c.state === "backlog") {
@@ -61,7 +62,7 @@ export function start(ctx: Ctx, id: number): void {
   if (c.asleep) wake(ctx, id);
 }
 
-export function pause(ctx: Ctx, id: number): void {
+export function pause(ctx: Ctx, id: CardKey): void {
   const c = card(ctx, id);
   if (!c) return;
   if (c.state !== "working") {
@@ -77,14 +78,14 @@ const sleepNotice = (ctx: Ctx): SleepNotice | undefined =>
   ctx.S.notices.find((n): n is SleepNotice => n.kind === "sleep");
 
 /** Takes a card off the pending sleep notice, and drops the notice once it is empty. */
-function dropFromSleep(ctx: Ctx, id: number): void {
+function dropFromSleep(ctx: Ctx, id: CardKey): void {
   const n = sleepNotice(ctx);
   if (!n) return;
   n.cards = n.cards.filter((x) => x !== id);
   if (!n.cards.length) ctx.S.notices = ctx.S.notices.filter((x) => x !== n);
 }
 
-export function sleep(ctx: Ctx, id: number): void {
+export function sleep(ctx: Ctx, id: CardKey): void {
   const c = card(ctx, id);
   if (!c) return;
   if (c.state === "working" && !c.paused) {
@@ -102,10 +103,10 @@ export function sleep(ctx: Ctx, id: number): void {
   c.asleep = true;
   dropFromSleep(ctx, id);
   toast(ctx, "Card asleep");
-  announce(ctx, `#${id} is asleep`);
+  announce(ctx, `${cardLabelOf(ctx, c)} is asleep`);
 }
 
-export function wake(ctx: Ctx, id: number): void {
+export function wake(ctx: Ctx, id: CardKey): void {
   const c = card(ctx, id);
   if (!c?.asleep) return;
   c.waking = true;
@@ -117,7 +118,7 @@ export function wake(ctx: Ctx, id: number): void {
   });
 }
 
-export function pin(ctx: Ctx, id: number): void {
+export function pin(ctx: Ctx, id: CardKey): void {
   const c = card(ctx, id);
   if (!c) return;
   c.pinned = !c.pinned;
@@ -125,7 +126,7 @@ export function pin(ctx: Ctx, id: number): void {
   toast(ctx, c.pinned ? "Card pinned. It won't sleep." : "Card unpinned");
 }
 
-export function keepAwake(ctx: Ctx, id: number): void {
+export function keepAwake(ctx: Ctx, id: CardKey): void {
   dropFromSleep(ctx, id);
   toast(ctx, "Kept awake for 15 more minutes");
 }

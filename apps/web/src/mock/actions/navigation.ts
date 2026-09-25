@@ -1,3 +1,4 @@
+import type { CardKey } from "../card-key";
 import type { Ctx } from "../context";
 import { later, set } from "../engine";
 import { card, isMobile } from "../selectors";
@@ -35,7 +36,7 @@ export function setView(ctx: Ctx, view: ViewKey): void {
 }
 
 /** Opens a card in the detail panel, switching project when the board shows another one. */
-export function openCard(ctx: Ctx, id: number | string, tab?: CardTab): void {
+export function openCard(ctx: Ctx, id: CardKey, tab?: CardTab): void {
   const { S } = ctx;
   const c = card(ctx, id);
   if (!c) return;

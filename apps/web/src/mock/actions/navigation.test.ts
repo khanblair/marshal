@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createMarshal } from "../marshal";
-import type { KeyValueStore } from "../storage";
+import type { KeyValueStore } from "~/data/storage";
+import { createTestMarshal } from "~/testing/test-store";
 import { FIXED_TIME, makeTwin, SLOW_TEST_MS, type Twin } from "../testing/twin";
 
 describe("navigation", { timeout: SLOW_TEST_MS }, () => {
@@ -32,7 +32,7 @@ describe("navigation", { timeout: SLOW_TEST_MS }, () => {
   it("uses the phone rules on narrow screens", () => {
     t.run("setViewport", 390, 844);
     expect(t.port.mobile).toBe(true);
-    t.run("openCard", 41);
+    t.run("openCard", "api#41");
     t.run("go", "project", "api", "chat");
     expect(t.port.S).toMatchObject({ openId: null, mobileTab: "chat" });
     t.run("go", "project", "api", "board");
@@ -45,9 +45,9 @@ describe("navigation", { timeout: SLOW_TEST_MS }, () => {
 
   it("opens and closes cards, following the card's project", () => {
     t.run("go", "project", "api");
-    t.run("openCard", "118", "diff");
+    t.run("openCard", "web#118", "diff");
     t.same();
-    expect(t.port.S).toMatchObject({ openId: 118, focusId: 118, tab: "diff" });
+    expect(t.port.S).toMatchObject({ openId: "web#118", focusId: "web#118", tab: "diff" });
     expect(t.port.S.route.pid).toBe("web");
     t.run("openCard", 9999);
     t.run("setTab", "activity");
@@ -99,7 +99,7 @@ describe("onboarding and tour", { timeout: SLOW_TEST_MS }, () => {
   it("finishes onboarding, remembers it, and resets to a first launch", () => {
     const t = makeTwin();
     expect(t.port.S.onboarding).toBe(true);
-    t.run("openCard", 41);
+    t.run("openCard", "api#41");
     t.run("finishOnboarding");
     t.same();
     expect(t.port.S).toMatchObject({ onboarding: false, tour: { step: 0 }, openId: null });
@@ -117,7 +117,12 @@ describe("onboarding and tour", { timeout: SLOW_TEST_MS }, () => {
   });
 
   const make = (storage: KeyValueStore | null) =>
-    createMarshal({ hash: "#nosim", storage, viewport: { w: 1440, h: 900 }, applyTheme: () => {} });
+    createTestMarshal({
+      hash: "#nosim",
+      storage,
+      viewport: { w: 1440, h: 900 },
+      applyTheme: () => {},
+    });
 
   it("skips onboarding once it was finished before", () => {
     const saved = new Map([["marshal-proto-onboarded", "1"]]);

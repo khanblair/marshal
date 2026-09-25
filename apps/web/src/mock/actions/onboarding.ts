@@ -1,5 +1,6 @@
+import { writeKey } from "~/data/storage";
 import type { Ctx } from "../context";
-import { ONBOARDED_KEY, writeKey } from "../storage";
+import { ONBOARDED_KEY } from "../storage";
 
 export function finishOnboarding(ctx: Ctx): void {
   const { S } = ctx;

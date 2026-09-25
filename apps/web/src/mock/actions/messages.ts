@@ -1,3 +1,4 @@
+import type { CardKey } from "../card-key";
 import type { Ctx } from "../context";
 import { later, pushMsg, setState, streamCard } from "../engine";
 import { firstFile } from "../seed/files";
@@ -23,7 +24,7 @@ function reply(ctx: Ctx, c: Card): void {
 }
 
 /** Sends a message to a card's agent. A backlog card starts; a sleeping one wakes first. */
-export function send(ctx: Ctx, id: number, text: string): void {
+export function send(ctx: Ctx, id: CardKey, text: string): void {
   const c = card(ctx, id);
   if (!c || !text.trim()) return;
   pushMsg(ctx, id, ctx.msg.user(text));

@@ -1,8 +1,9 @@
 import { batch } from "solid-js";
+import { type CardKey, cardLabel } from "../card-key";
 import { STATUS, tone, VIEWS } from "../constants";
 import type { Ctx } from "../context";
 import { set, toast } from "../engine";
-import { card, pendingApproval, proj } from "../selectors";
+import { card, cardLabelOf, pendingApproval } from "../selectors";
 import { approve } from "./approvals";
 import { newCard } from "./card-create";
 import { fork } from "./cards";
@@ -17,12 +18,14 @@ export interface Command {
   icon: string;
   kbd?: string[];
   hint?: string;
+  /** The card a Cards row opens, so a list can tell which row is which card. */
+  card?: CardKey;
   iconColor?: string;
   run: () => void;
 }
 
 const MERGE_START_PCT = 10;
-const CI_DEMO_CARD_ID = 40;
+const CI_DEMO_CARD_ID: CardKey = "api#40";
 
 const SETTINGS: [section: string, label: string][] = [
   ["profile", "Profile"],
@@ -91,30 +94,41 @@ function openCardCommands(ctx: Ctx): Command[] {
   const out: Command[] = [
     {
       group: "Actions",
-      label: `${c.pinned ? "Unpin" : "Pin"} #${c.id}`,
+      label: `${c.pinned ? "Unpin" : "Pin"} ${cardLabel(c)}`,
       icon: "pin",
       kbd: ["P"],
       run: () => pin(ctx, c.id),
     },
     {
       group: "Actions",
-      label: c.asleep ? `Resume session on #${c.id}` : `Sleep #${c.id}`,
+      label: c.asleep ? `Resume session on ${cardLabel(c)}` : `Sleep ${cardLabel(c)}`,
       icon: "moon",
       kbd: ["S"],
       run: () => (c.asleep ? wake(ctx, c.id) : sleep(ctx, c.id)),
     },
-    { group: "Actions", label: `Fork #${c.id}`, icon: "git-fork", run: () => fork(ctx, c.id) },
+    {
+      group: "Actions",
+      label: `Fork ${cardLabel(c)}`,
+      icon: "git-fork",
+      run: () => fork(ctx, c.id),
+    },
   ];
   if (pendingApproval(ctx, c.id)) {
     out.push({
       group: "Actions",
-      label: `Approve on #${c.id}`,
+      label: `Approve on ${cardLabel(c)}`,
       icon: "check",
       kbd: ["A"],
       run: () => approve(ctx, c.id),
     });
   }
   return out;
+}
+
+/** The demo card, named with its project because the palette opens in any project. */
+function ciDemoName(ctx: Ctx): string {
+  const demo = card(ctx, CI_DEMO_CARD_ID);
+  return demo ? cardLabelOf(ctx, demo) : CI_DEMO_CARD_ID;
 }
 
 function projectCommands(ctx: Ctx): Command[] {
@@ -124,7 +138,7 @@ function projectCommands(ctx: Ctx): Command[] {
   if (rm) {
     out.push({
       group: "Actions",
-      label: `Merge #${rm.id} ${rm.title}`,
+      label: `Merge ${cardLabel(rm)} ${rm.title}`,
       icon: "git-merge",
       run: () => {
         rm.state = "merging";
@@ -137,7 +151,7 @@ function projectCommands(ctx: Ctx): Command[] {
   out.push(
     {
       group: "Actions",
-      label: `Simulate CI failure on #${CI_DEMO_CARD_ID}`,
+      label: `Simulate CI failure on ${ciDemoName(ctx)}`,
       icon: "circle-x",
       run: () => simulateCiFailure(ctx, CI_DEMO_CARD_ID),
     },
@@ -164,10 +178,10 @@ function cardAndSettingsCommands(ctx: Ctx): Command[] {
   const { S } = ctx;
   const cards: Command[] = S.cards.map((c) => ({
     group: "Cards",
-    label: `#${c.id} ${c.title}`,
+    label: `${cardLabelOf(ctx, c)} ${c.title}`,
     icon: STATUS[c.state].icon,
     iconColor: tone(STATUS[c.state].tone, "solid"),
-    hint: proj(ctx, c.p)?.name ?? "",
+    card: c.id,
     run: () => openCard(ctx, c.id),
   }));
   const settings: Command[] = SETTINGS.map(([section, label]) => ({

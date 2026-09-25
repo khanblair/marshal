@@ -14,9 +14,10 @@ describe("command palette", { timeout: SLOW_TEST_MS }, () => {
 
   const labels = (): string[] => t.port.commands().map((c) => c.label);
 
-  /** Runs the command with this label on both stores. */
+  /** Runs the command with this label (as the prototype words it) on both stores. */
   const runBoth = (label: string): void => {
-    const port = t.port.commands().find((c) => c.label === label);
+    // The port names a card with its project, `api-gateway #41`; the prototype writes `#41`.
+    const port = t.port.commands().find((c) => t.shape(c.label) === label);
     const proto = (t.proto.call("commands") as { label: string; run: () => void }[]).find(
       (c) => c.label === label,
     );
@@ -43,11 +44,11 @@ describe("command palette", { timeout: SLOW_TEST_MS }, () => {
   });
 
   it("adds card commands for the open card", () => {
-    t.run("openCard", 115);
+    t.run("openCard", "web#115");
     expect(labels()).toEqual(
       expect.arrayContaining(["Pin #115", "Resume session on #115", "Fork #115"]),
     );
-    t.run("openCard", 41);
+    t.run("openCard", "api#41");
     expect(labels()).toEqual(expect.arrayContaining(["Sleep #41"]));
   });
 
@@ -75,13 +76,13 @@ describe("command palette", { timeout: SLOW_TEST_MS }, () => {
     t.run("go", "project", "api");
     runBoth("Switch to timeline view");
     runBoth("New card");
-    t.run("openCard", 44);
+    t.run("openCard", "api#44");
     runBoth("Pin #44");
     runBoth("Fork #44");
     runBoth("Approve on #44");
-    t.run("openCard", 115);
+    t.run("openCard", "web#115");
     runBoth("Resume session on #115");
-    t.run("openCard", 39);
+    t.run("openCard", "api#39");
     runBoth("Sleep #39");
     t.same();
     t.play(3000, 250);
