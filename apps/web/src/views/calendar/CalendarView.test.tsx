@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type CalEvent, type Card, M, type Schedule } from "~/mock";
+import { cardLabel } from "~/mock/card-key";
 import { CalendarView } from "./CalendarView";
 import { fullDate, monthLabel, shiftCursor, weekdayLabels } from "./calendar-dates";
 
@@ -142,7 +143,7 @@ describe("CalendarView month grid", () => {
     const due = M.cardsOf("web").find((c) => c.due === 0) as Card;
     M.set({ calExpand: String(M.T0) });
     render(() => <CalendarView />);
-    const button = within(cellOf(M.T0)).getByTitle(`#${due.id} ${due.title} is due`);
+    const button = within(cellOf(M.T0)).getByTitle(`${cardLabel(due)} ${due.title} is due`);
     expect(button).toHaveClass("bg-surface-sunken");
     expect(within(button).queryByText(/^\d\d:\d\d$/)).toBeNull();
     fireEvent.click(button);
@@ -232,7 +233,7 @@ describe("CalendarView on a phone", () => {
     expect(within(section).getByText("01:00")).toBeInTheDocument();
     const due = M.cardsOf("web").find((c) => c.due === 0) as Card;
     expect(within(section).getByText("Due")).toBeInTheDocument();
-    fireEvent.click(within(section).getByText(`#${due.id} ${due.title}`));
+    fireEvent.click(within(section).getByText(`${cardLabel(due)} ${due.title}`));
     expect(M.S.openId).toBe(due.id);
   });
 

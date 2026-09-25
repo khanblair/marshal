@@ -1,10 +1,11 @@
 import { Button, Icon } from "@marshal/ui";
 import { Index, Show } from "solid-js";
 import { M } from "~/mock";
+import type { CardKey } from "~/mock/card-key";
 import { CHECK_LOOKS } from "./checks-model";
 
 export interface ChecksListProps {
-  cardId: number;
+  cardId: CardKey;
 }
 
 /** The acceptance checks Marshal runs by itself, with a Run checks button. */

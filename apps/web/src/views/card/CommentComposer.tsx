@@ -1,10 +1,11 @@
 import { Button, Icon, Input, Tag } from "@marshal/ui";
 import { Index, Show } from "solid-js";
+import type { CardKey } from "~/mock/card-key";
 import { createComposerActions } from "./comment-composer-actions";
 import type { Panel } from "./panel-state";
 
 export interface CommentComposerProps {
-  cardId: number;
+  cardId: CardKey;
   panel: Panel;
 }
 

@@ -13,7 +13,7 @@ export interface ActivityTabProps {
 export function ActivityTab(props: ActivityTabProps) {
   const rows = () => activityRows(M.S.act[props.card.id] ?? []);
   const checkpoints = () =>
-    checkpointsFor(props.card.id, props.card.state !== "backlog", M.filesFor(props.card)[0] ?? "");
+    checkpointsFor(props.card.n, props.card.state !== "backlog", M.filesFor(props.card)[0] ?? "");
   return (
     <div class="flex-1 min-h-0 overflow-auto">
       <Show when={props.c.showDoing}>

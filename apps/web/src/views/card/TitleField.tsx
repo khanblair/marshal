@@ -1,9 +1,10 @@
 import { onMount } from "solid-js";
 import { M } from "~/mock";
+import type { CardKey } from "~/mock/card-key";
 import type { Panel } from "./panel-state";
 
 export interface TitleFieldProps {
-  cardId: number;
+  cardId: CardKey;
   title: string;
   panel: Panel;
 }

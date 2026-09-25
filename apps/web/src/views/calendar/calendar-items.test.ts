@@ -29,8 +29,8 @@ const event = (over: Partial<CalEvent>): CalEvent => ({
   time: "10:00",
   ...over,
 });
-const dueCard = (id: number, due: number | null): Card =>
-  ({ id, title: `Card ${id}`, due }) as Card;
+const dueCard = (n: number, due: number | null): Card =>
+  ({ id: `api#${n}`, n, p: "api", title: `Card ${n}`, due }) as Card;
 
 const source = (over: Partial<CalSource>): CalSource => ({
   schedules: [],

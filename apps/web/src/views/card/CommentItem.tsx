@@ -1,10 +1,11 @@
 import { Avatar, Icon, IconLabel } from "@marshal/ui";
 import { Index, Show } from "solid-js";
 import { M } from "~/mock";
+import type { CardKey } from "~/mock/card-key";
 import type { CommentView } from "./comment-model";
 
 export interface CommentItemProps {
-  cardId: number;
+  cardId: CardKey;
   comment: CommentView;
 }
 

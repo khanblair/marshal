@@ -4,6 +4,7 @@
  * design/CalendarView.dc.html. Pure: the view passes the store's lists in.
  */
 import type { CalEvent, Card, Schedule } from "~/mock";
+import { cardLabel } from "~/mock/card-key";
 import { fullDate } from "./calendar-dates";
 
 /** Which entry an item came from, so the view knows what a click opens. */
@@ -88,8 +89,8 @@ function dueItems(src: CalSource, off: number): CalItem[] {
       kind: "due",
       icon: "calendar-check",
       time: "",
-      label: `#${c.id} ${c.title}`,
-      tip: `#${c.id} ${c.title} is due`,
+      label: `${cardLabel(c)} ${c.title}`,
+      tip: `${cardLabel(c)} ${c.title} is due`,
       target: { kind: "card", card: c },
     }));
 }

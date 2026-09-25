@@ -1,8 +1,9 @@
 import { Icon } from "@marshal/ui";
 import { M } from "~/mock";
+import type { CardKey } from "~/mock/card-key";
 
 export interface BypassBannerProps {
-  cardId: number;
+  cardId: CardKey;
 }
 
 /** A red striped bar above everything while the agent runs with bypass permissions. */
