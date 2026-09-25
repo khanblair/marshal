@@ -1,6 +1,8 @@
 import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { M } from "~/mock";
+import { GOLDEN_CATALOG, wireAgent, wireCatalog } from "~/testing/agents";
+import { useCatalog } from "~/testing/test-store";
 import { Onboarding } from "./Onboarding";
 
 vi.hoisted(() => {
@@ -36,6 +38,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+  vi.restoreAllMocks();
 });
 
 const click = (name: string | RegExp, role = "button"): void => {
@@ -227,6 +230,55 @@ describe("Onboarding agents screen", () => {
     ]);
   });
 
+  it("shows what the daemon found: installed, installed but untested, and not installed", () => {
+    const restore = useCatalog(M, GOLDEN_CATALOG);
+    render(() => <Onboarding />);
+    const rows = screen.getAllByRole("listitem").map((row) => row.textContent);
+    expect(rows).toEqual([
+      "Claude Code2.1.282Found",
+      expect.stringMatching(
+        /^Gemini CLI0\.36\.0FoundMarshal has not been tested with Gemini CLI 0\.36\.0\./,
+      ),
+      expect.stringMatching(
+        /^CodexNot installedCodex is not installed\. Install it with: npm install -g @openai\/codex$/,
+      ),
+    ]);
+    expect(screen.getByText("Not installed")).toBeVisible();
+    restore();
+  });
+
+  it("does not list the built-in agent as found, because it is Marshal's own", () => {
+    render(() => <Onboarding />);
+    expect(screen.queryByText("Built-in agent")).toBeNull();
+  });
+
+  it("says Marshal looked, not found, while an agent is missing", () => {
+    const restore = useCatalog(M, GOLDEN_CATALOG);
+    render(() => <Onboarding />);
+    expect(screen.getByText(/^Marshal looked for these agents on this computer\./)).toBeVisible();
+    restore();
+    cleanup();
+    render(() => <Onboarding />);
+    expect(screen.getByText(/^Marshal found these agents on this computer\./)).toBeVisible();
+  });
+
+  it("lists no agent rows when the daemon reports none", () => {
+    const restore = useCatalog(M, wireCatalog([]));
+    render(() => <Onboarding />);
+    expect(screen.queryAllByRole("listitem")).toEqual([]);
+    restore();
+  });
+
+  it("shows no version for an agent that has none", () => {
+    const restore = useCatalog(
+      M,
+      wireCatalog([wireAgent({ kind: "codex", name: "Codex", status: "missing", version: "" })]),
+    );
+    render(() => <Onboarding />);
+    expect(screen.getByRole("listitem").querySelector("code")).toBeNull();
+    restore();
+  });
+
   it("saves a masked key on Continue", () => {
     render(() => <Onboarding />);
     const field = screen.getByLabelText("Anthropic API key");
@@ -241,13 +293,19 @@ describe("Onboarding agents screen", () => {
 describe("Onboarding project screen", () => {
   beforeEach(() => goTo(3));
 
-  it("selects the sample project first, without an extra field", () => {
+  it("offers a folder or a GitHub clone only, and starts on the folder with its field", () => {
     render(() => <Onboarding />);
-    expect(screen.getByRole("radio", { name: /Use a sample project/ })).toHaveAttribute(
+    const choices = screen.getAllByRole("radio").map((radio) => radio.textContent);
+    expect(choices).toEqual([
+      "Pick a folderA repository already on this computer",
+      "Clone from GitHubPaste a repository URL",
+    ]);
+    expect(screen.getByRole("radio", { name: /Pick a folder/ })).toHaveAttribute(
       "aria-checked",
       "true",
     );
-    expect(screen.queryByText("Repository folder")).toBeNull();
+    expect(screen.queryByRole("radio", { name: /sample/i })).toBeNull();
+    expect(screen.getByPlaceholderText("~/code/my-repo")).toBeInTheDocument();
     expect(screen.queryByText("Repository URL")).toBeNull();
   });
 
@@ -261,19 +319,19 @@ describe("Onboarding project screen", () => {
   });
 
   it("adds the project named by the path on Continue", () => {
+    const add = vi.spyOn(M, "addProject").mockResolvedValue({ id: "orbit" });
     render(() => <Onboarding />);
-    const count = M.S.projects.length;
     click(/Pick a folder/, "radio");
     type(screen.getByPlaceholderText("~/code/my-repo"), "~/code/orbit");
     click("Continue");
-    expect(M.S.projects).toHaveLength(count + 1);
-    expect(M.S.projects.at(-1)).toMatchObject({ name: "orbit", path: "~/code/orbit" });
+    expect(add).toHaveBeenCalledWith({ source: "folder", path: "~/code/orbit", name: "orbit" });
   });
 
-  it("adds the sample project when nothing else is chosen", () => {
+  it("adds nothing on Continue while the folder is left empty", () => {
+    const add = vi.spyOn(M, "addProject").mockResolvedValue({ id: "orbit" });
     render(() => <Onboarding />);
     click("Continue");
-    expect(M.S.projects.some((p) => p.name === "marshal-sample")).toBe(true);
+    expect(add).not.toHaveBeenCalled();
   });
 });
 

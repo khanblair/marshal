@@ -1,6 +1,7 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Marshal } from "~/mock";
-import { createMarshal } from "~/mock/marshal";
+import { createFakeDaemon, type FakeDaemon } from "~/testing/fake-daemon";
+import { createSyncedMarshal, createTestMarshal } from "~/testing/test-store";
 import { commitStep } from "./commit-step";
 import { initialDraft, type OnboardingDraft } from "./onboarding-draft";
 
@@ -8,7 +9,7 @@ let m: Marshal;
 let draft: OnboardingDraft;
 
 beforeEach(() => {
-  m = createMarshal({
+  m = createTestMarshal({
     hash: "#nosim",
     storage: null,
     viewport: { w: 1440, h: 900 },
@@ -16,8 +17,6 @@ beforeEach(() => {
   });
   draft = initialDraft();
 });
-
-const projectNames = (): string[] => m.S.projects.map((p) => p.name);
 
 describe("commitStep on the profile screen", () => {
   it("saves the trimmed name and email and the time zone", () => {
@@ -60,38 +59,58 @@ describe("commitStep on the agents screen", () => {
 });
 
 describe("commitStep on the project screen", () => {
-  it("adds the sample project with its cards, once", () => {
-    const cards = m.S.cards.length;
-    commitStep(3, draft, m);
-    expect(projectNames()).toContain("marshal-sample");
-    expect(m.S.cards.length).toBe(cards + 3);
-    commitStep(3, draft, m);
-    expect(projectNames().filter((n) => n === "marshal-sample")).toHaveLength(1);
+  let daemon: FakeDaemon;
+  let synced: Marshal;
+  beforeEach(async () => {
+    daemon = createFakeDaemon();
+    synced = await createSyncedMarshal(daemon);
+  });
+  afterEach(() => daemon.data.stop());
+
+  const created = () => daemon.bodies("POST /v1/projects");
+  const names = () => synced.S.projects.map((p) => p.name);
+
+  it("starts on Pick a folder, so a screen the person did not touch adds nothing", () => {
+    expect(draft.source).toBe("folder");
+    commitStep(3, draft, synced);
+    expect(created()).toEqual([]);
+    expect(names()).toEqual([]);
   });
 
-  it("adds a project from a folder, keeping the typed path", () => {
-    Object.assign(draft, { source: "folder", path: "~/code/my-repo" });
-    commitStep(3, draft, m);
-    expect(m.S.projects.at(-1)).toMatchObject({ name: "my-repo", path: "~/code/my-repo" });
+  it("adds a project from a folder, keeping the typed path", async () => {
+    Object.assign(draft, { source: "folder", path: " ~/code/my-repo " });
+    commitStep(3, draft, synced);
+    await vi.waitFor(() => expect(names()).toContain("my-repo"));
+    expect(created()).toEqual([{ source: "folder", path: "~/code/my-repo", name: "my-repo" }]);
   });
 
-  it("clones a GitHub URL into ~/code and detects monorepos", () => {
+  it("clones a GitHub URL into ~/code", async () => {
     Object.assign(draft, { source: "github", url: "https://github.com/acme/web-monorepo.git" });
-    commitStep(3, draft, m);
-    expect(m.S.projects.at(-1)).toMatchObject({
+    commitStep(3, draft, synced);
+    await vi.waitFor(() => expect(created()).toHaveLength(1));
+    expect(created()[0]).toEqual({
+      source: "clone",
+      url: "https://github.com/acme/web-monorepo.git",
+      dest: "~/code/web-monorepo",
       name: "web-monorepo",
-      path: "~/code/web-monorepo",
-      lang: "Monorepo",
     });
   });
 
+  it("shows the daemon's refusal as a toast and lets setup carry on", async () => {
+    const sentence = "That folder does not exist. Check the path and try again.";
+    daemon.refuseNext("POST /v1/projects", 400, "invalid_argument", sentence);
+    Object.assign(draft, { source: "folder", path: "~/code/nowhere" });
+    commitStep(3, draft, synced);
+    await vi.waitFor(() => expect(synced.S.toasts.map((t) => t.msg)).toContain(sentence));
+    expect(synced.S.projects).toHaveLength(0);
+  });
+
   it("adds nothing for an empty or nameless path", () => {
-    const count = m.S.projects.length;
     Object.assign(draft, { source: "folder", path: "" });
-    commitStep(3, draft, m);
+    commitStep(3, draft, synced);
     Object.assign(draft, { source: "github", url: "///" });
-    commitStep(3, draft, m);
-    expect(m.S.projects).toHaveLength(count);
+    commitStep(3, draft, synced);
+    expect(created()).toEqual([]);
   });
 });
 

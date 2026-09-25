@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { initialDraft, initialsOf, isMonorepoHint, maskKey, repoNameOf } from "./onboarding-draft";
+import { initialDraft, initialsOf, maskKey, repoNameOf } from "./onboarding-draft";
 
 describe("initialsOf", () => {
   it.each([
@@ -35,23 +35,15 @@ describe("repoNameOf", () => {
   });
 });
 
-describe("isMonorepoHint", () => {
-  it("matches mono and apps in any case", () => {
-    expect(isMonorepoHint("~/code/acme-monorepo")).toBe(true);
-    expect(isMonorepoHint("https://github.com/acme/Apps")).toBe(true);
-    expect(isMonorepoHint("~/code/api")).toBe(false);
-  });
-});
-
 describe("initialDraft", () => {
-  it("starts empty, on the sample project and the London time zone", () => {
+  it("starts empty, on Pick a folder and the London time zone", () => {
     expect(initialDraft()).toEqual({
       name: "",
       email: "",
       tz: "Europe/London",
       avatarChosen: false,
       keys: { anthropic: "", openai: "", gemini: "" },
-      source: "sample",
+      source: "folder",
       path: "",
       url: "",
       chatApps: { telegram: false, discord: false },

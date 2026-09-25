@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { M } from "~/mock";
+import type { CardKey } from "~/mock/card-key";
 import { AgentsView } from "./AgentsView";
 
 vi.hoisted(() => {
@@ -28,7 +29,7 @@ const dataCards = (): string[] =>
     .getAllByRole("row")
     .slice(1)
     .map((row) => row.getAttribute("data-card") ?? "");
-const rowOf = (id: number): HTMLElement => {
+const rowOf = (id: CardKey): HTMLElement => {
   const row = document.querySelector<HTMLElement>(`tr[data-card="${id}"]`);
   if (!row) throw new Error(`no row for #${id}`);
   return row;
@@ -86,13 +87,13 @@ describe("AgentsView table", () => {
     expect(orchestrator).toHaveTextContent("Plan only");
     expect(within(orchestrator).getByRole("button", { name: "Open project chat" })).toBeVisible();
     expect(rest.length).toBeGreaterThan(5);
-    expect(dataCards()).not.toContain("45");
-    expect(dataCards().slice(0, 5)).toEqual(["", "42", "41", "44", "43"]);
+    expect(dataCards()).not.toContain("api#45");
+    expect(dataCards().slice(0, 5)).toEqual(["", "api#42", "api#41", "api#44", "api#43"]);
   });
 
   it("describes a card row: number, state, session, activity, and cost", () => {
     render(() => <AgentsView />);
-    const row = rowOf(41);
+    const row = rowOf("api#41");
     expect(row).toHaveAttribute("aria-label", "#41 Fix token refresh on login. Working");
     expect(row).toHaveTextContent("#41");
     expect(row).toHaveTextContent("Fix token refresh on login");
@@ -105,7 +106,7 @@ describe("AgentsView table", () => {
 
   it("shows the reason for a card that needs you, in the needs-you color", () => {
     render(() => <AgentsView />);
-    expect(within(rowOf(43)).getByText("Plan ready for review")).toHaveClass(
+    expect(within(rowOf("api#43")).getByText("Plan ready for review")).toHaveClass(
       "text-status-needs-you-text",
     );
   });
@@ -113,40 +114,42 @@ describe("AgentsView table", () => {
   it("says Not supported for a model without thinking and Merged for a done card", () => {
     M.S.cards = structuredClone(seed);
     M.go("project", "api", "agents");
-    const backlog = M.card(45);
+    const backlog = M.card("api#45");
     if (backlog) backlog.state = "working";
     render(() => <AgentsView />);
-    expect(rowOf(45)).toHaveTextContent("Not supported");
-    expect(rowOf(33)).toHaveTextContent("Merged");
-    expect(rowOf(33)).toHaveTextContent("Stopped");
+    expect(rowOf("api#45")).toHaveTextContent("Not supported");
+    expect(rowOf("api#33")).toHaveTextContent("Merged");
+    expect(rowOf("api#33")).toHaveTextContent("Stopped");
   });
 
   it("marks the focused card's row with the selected fill", () => {
     render(() => <AgentsView />);
-    expect(rowOf(41)).not.toHaveClass("bg-surface-selected");
-    M.set({ focusId: 41 });
-    expect(rowOf(41)).toHaveClass("bg-surface-selected");
-    M.set({ focusId: 43 });
-    expect(rowOf(41)).not.toHaveClass("bg-surface-selected");
-    expect(rowOf(43)).toHaveClass("bg-surface-selected");
+    expect(rowOf("api#41")).not.toHaveClass("bg-surface-selected");
+    M.set({ focusId: "api#41" });
+    expect(rowOf("api#41")).toHaveClass("bg-surface-selected");
+    M.set({ focusId: "api#43" });
+    expect(rowOf("api#41")).not.toHaveClass("bg-surface-selected");
+    expect(rowOf("api#43")).toHaveClass("bg-surface-selected");
   });
 
   it("opens the card on click and on Enter, and the chat from the Orchestrator row", () => {
     render(() => <AgentsView />);
-    fireEvent.click(rowOf(43));
-    expect(M.S.openId).toBe(43);
+    fireEvent.click(rowOf("api#43"));
+    expect(M.S.openId).toBe("api#43");
     M.set({ openId: null });
-    fireEvent.keyDown(rowOf(44), { key: "Enter" });
-    expect(M.S.openId).toBe(44);
-    fireEvent.keyDown(rowOf(41), { key: "a" });
-    expect(M.S.openId).toBe(44);
+    fireEvent.keyDown(rowOf("api#44"), { key: "Enter" });
+    expect(M.S.openId).toBe("api#44");
+    fireEvent.keyDown(rowOf("api#41"), { key: "a" });
+    expect(M.S.openId).toBe("api#44");
     fireEvent.click(screen.getByRole("row", { name: "Orchestrator session" }));
     expect(M.S.route.view).toBe("chat");
   });
 
   it("does not open the card when Enter is pressed inside an action button", () => {
     render(() => <AgentsView />);
-    fireEvent.keyDown(within(rowOf(41)).getByRole("button", { name: "Pin #41" }), { key: "Enter" });
+    fireEvent.keyDown(within(rowOf("api#41")).getByRole("button", { name: "Pin #41" }), {
+      key: "Enter",
+    });
     expect(M.S.openId).toBeNull();
   });
 });
@@ -179,69 +182,69 @@ describe("AgentsView sorting", () => {
 
   it("keeps the same row element, and its focus, when the card changes", () => {
     render(() => <AgentsView />);
-    const before = rowOf(41);
+    const before = rowOf("api#41");
     before.focus();
-    const card = M.card(41);
+    const card = M.card("api#41");
     if (card) card.doing = "Reading the diff";
-    expect(rowOf(41)).toBe(before);
+    expect(rowOf("api#41")).toBe(before);
     expect(before).toHaveTextContent("Reading the diff");
     expect(document.activeElement).toBe(before);
     fireEvent.click(screen.getByRole("button", { name: "Card" }));
-    expect(rowOf(41)).toBe(before);
+    expect(rowOf("api#41")).toBe(before);
   });
 });
 
 describe("AgentsView row actions", () => {
   it("runs an action without opening the card", () => {
     render(() => <AgentsView />);
-    fireEvent.click(within(rowOf(43)).getByRole("button", { name: "Pin #43" }));
-    expect(M.card(43)?.pinned).toBe(true);
+    fireEvent.click(within(rowOf("api#43")).getByRole("button", { name: "Pin #43" }));
+    expect(M.card("api#43")?.pinned).toBe(true);
     expect(M.S.openId).toBeNull();
-    const unpin = within(rowOf(43)).getByRole("button", { name: "Unpin #43" });
+    const unpin = within(rowOf("api#43")).getByRole("button", { name: "Unpin #43" });
     expect(unpin).toHaveAttribute("title", "Unpin");
-    expect(within(rowOf(43)).getByText("Pinned")).toBeVisible();
+    expect(within(rowOf("api#43")).getByText("Pinned")).toBeVisible();
   });
 
   it("keeps the button element when its label changes", () => {
     render(() => <AgentsView />);
-    const pin = within(rowOf(43)).getByRole("button", { name: "Pin #43" });
+    const pin = within(rowOf("api#43")).getByRole("button", { name: "Pin #43" });
     fireEvent.click(pin);
-    expect(within(rowOf(43)).getByRole("button", { name: "Unpin #43" })).toBe(pin);
+    expect(within(rowOf("api#43")).getByRole("button", { name: "Unpin #43" })).toBe(pin);
   });
 
   it("puts a card to sleep with the button and shows Wake", () => {
     render(() => <AgentsView />);
-    fireEvent.click(within(rowOf(39)).getByRole("button", { name: "Sleep #39" }));
-    expect(M.card(39)?.asleep).toBe(true);
-    expect(within(rowOf(39)).getByRole("button", { name: "Wake #39" })).toBeVisible();
-    expect(within(rowOf(39)).queryByRole("button", { name: /Stop session/ })).toBeNull();
-    expect(rowOf(39)).toHaveTextContent("Asleep");
+    fireEvent.click(within(rowOf("api#39")).getByRole("button", { name: "Sleep #39" }));
+    expect(M.card("api#39")?.asleep).toBe(true);
+    expect(within(rowOf("api#39")).getByRole("button", { name: "Wake #39" })).toBeVisible();
+    expect(within(rowOf("api#39")).queryByRole("button", { name: /Stop session/ })).toBeNull();
+    expect(rowOf("api#39")).toHaveTextContent("Asleep");
   });
 
   it("shows Waking while a sleeping card wakes, then Awake", () => {
     showProject("web");
     render(() => <AgentsView />);
-    expect(rowOf(115)).toHaveTextContent("Asleep");
-    fireEvent.click(within(rowOf(115)).getByRole("button", { name: "Wake #115" }));
-    expect(rowOf(115)).toHaveTextContent("Waking");
+    expect(rowOf("web#115")).toHaveTextContent("Asleep");
+    fireEvent.click(within(rowOf("web#115")).getByRole("button", { name: "Wake #115" }));
+    expect(rowOf("web#115")).toHaveTextContent("Waking");
     vi.advanceTimersByTime(2000);
-    expect(rowOf(115)).toHaveTextContent("Awake");
+    expect(rowOf("web#115")).toHaveTextContent("Awake");
   });
 
   it("asks before stopping a session, then shows the card asleep", () => {
     render(() => <AgentsView />);
-    fireEvent.click(within(rowOf(41)).getByRole("button", { name: "Stop session on #41" }));
+    fireEvent.click(within(rowOf("api#41")).getByRole("button", { name: "Stop session on #41" }));
     expect(M.S.dialog?.title).toBe("Stop session");
     expect(M.S.openId).toBeNull();
     M.S.dialog?.run();
-    expect(rowOf(41)).toHaveTextContent("Asleep");
-    expect(rowOf(41)).not.toHaveTextContent("Running auth tests");
+    expect(rowOf("api#41")).toHaveTextContent("Asleep");
+    expect(rowOf("api#41")).not.toHaveTextContent("Running auth tests");
   });
 
   it("gives a done card only the Open button", () => {
     render(() => <AgentsView />);
     expect(
-      within(rowOf(33))
+      within(rowOf("api#33"))
         .getAllByRole("button")
         .map((b) => b.getAttribute("aria-label")),
     ).toEqual(["Open #33"]);
@@ -252,7 +255,7 @@ describe("AgentsView bypass card", () => {
   it("shows the Bypass badge and a bold red permission mode", () => {
     showProject("mobile");
     render(() => <AgentsView />);
-    const row = rowOf(209);
+    const row = rowOf("mobile#209");
     expect(within(row).getByText("Bypass")).toHaveClass("bg-bypass-bg");
     expect(within(row).getByText("Bypass permissions")).toHaveClass(
       "text-status-danger-text",
@@ -264,7 +267,7 @@ describe("AgentsView bypass card", () => {
   it("shows Pinned next to the session of a pinned card", () => {
     showProject("mobile");
     render(() => <AgentsView />);
-    expect(within(rowOf(207)).getByText("Pinned")).toBeVisible();
+    expect(within(rowOf("mobile#207")).getByText("Pinned")).toBeVisible();
   });
 });
 
@@ -283,7 +286,7 @@ describe("AgentsView sizes", () => {
       "Actions",
     ]);
     expect(screen.getByRole("table")).toHaveStyle({ "min-width": "820px" });
-    expect(rowOf(41)).not.toHaveTextContent("Awake");
+    expect(rowOf("api#41")).not.toHaveTextContent("Awake");
   });
 
   it("switches between table and phone list when the width changes", () => {
@@ -320,7 +323,7 @@ describe("AgentsView phone list", () => {
     expect(pin).toHaveAttribute("data-compact", "1");
     expect(pin).toHaveClass("min-h-11");
     fireEvent.click(pin);
-    expect(M.card(209)?.pinned).toBe(true);
+    expect(M.card("mobile#209")?.pinned).toBe(true);
     expect(M.S.openId).toBeNull();
     expect(screen.getByRole("button", { name: "Unpin #209" })).toBeVisible();
   });
@@ -329,7 +332,7 @@ describe("AgentsView phone list", () => {
     render(() => <AgentsView />);
     const row = screen.getAllByRole("listitem").find((li) => li.textContent?.includes("#209"));
     fireEvent.click(within(row as HTMLElement).getAllByRole("button")[0] as HTMLElement);
-    expect(M.S.openId).toBe(209);
+    expect(M.S.openId).toBe("mobile#209");
     fireEvent.click(screen.getByRole("button", { name: "Open project chat" }));
     expect(M.S.route.view).toBe("chat");
   });
@@ -357,18 +360,18 @@ describe("AgentsView keyboard navigation", () => {
   it("publishes the card order to the shell, and clears it on unmount", () => {
     const { unmount } = render(() => <AgentsView />);
     expect(M.nav?.owner).toBe("agents");
-    expect(M.nav?.rows?.slice(0, 4)).toEqual([42, 41, 44, 43]);
+    expect(M.nav?.rows?.slice(0, 4)).toEqual(["api#42", "api#41", "api#44", "api#43"]);
     fireEvent.click(screen.getByRole("button", { name: "Card" }));
-    expect(M.nav?.rows?.[0]).toBe(33);
+    expect(M.nav?.rows?.[0]).toBe("api#33");
     unmount();
     expect(M.nav).toBeNull();
   });
 
   it("leaves another view's navigation alone on unmount", () => {
     const { unmount } = render(() => <AgentsView />);
-    M.nav = { owner: "list", rows: [1] };
+    M.nav = { owner: "list", rows: ["api#1"] };
     unmount();
-    expect(M.nav).toEqual({ owner: "list", rows: [1] });
+    expect(M.nav).toEqual({ owner: "list", rows: ["api#1"] });
     M.nav = null;
   });
 });

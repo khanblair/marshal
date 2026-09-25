@@ -20,7 +20,7 @@ export function initialDraft(): OnboardingDraft {
     tz: "Europe/London",
     avatarChosen: false,
     keys: { anthropic: "", openai: "", gemini: "" },
-    source: "sample",
+    source: "folder",
     path: "",
     url: "",
     chatApps: { telegram: false, discord: false },
@@ -59,6 +59,3 @@ export function repoNameOf(value: string): string {
       .pop() ?? ""
   );
 }
-
-/** Names that hint at a monorepo. */
-export const isMonorepoHint = (value: string): boolean => /mono|apps/i.test(value);

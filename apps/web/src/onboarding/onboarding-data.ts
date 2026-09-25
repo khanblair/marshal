@@ -78,13 +78,6 @@ export const THEME_OPTIONS: readonly { value: Theme; label: string; icon: IconNa
   { value: "system", label: "System", icon: "monitor" },
 ];
 
-/** Agents the welcome flow reports as found on this computer. */
-export const FOUND_AGENTS = [
-  { name: "Claude Code", version: "2.0.14" },
-  { name: "Codex", version: "0.42.0" },
-  { name: "Gemini CLI", version: "0.8.1" },
-] as const;
-
 export type KeyId = "anthropic" | "openai" | "gemini";
 
 /** The provider id doubles as the id in `M.S.providers`. */
@@ -94,7 +87,7 @@ export const KEY_FIELDS: readonly { id: KeyId; label: string }[] = [
   { id: "gemini", label: "Gemini API key" },
 ];
 
-export type ProjectSource = "folder" | "github" | "sample";
+export type ProjectSource = "folder" | "github";
 
 export const SOURCE_CHOICES: readonly {
   id: ProjectSource;
@@ -109,15 +102,7 @@ export const SOURCE_CHOICES: readonly {
     desc: "A repository already on this computer",
   },
   { id: "github", label: "Clone from GitHub", icon: "github", desc: "Paste a repository URL" },
-  {
-    id: "sample",
-    label: "Use a sample project",
-    icon: "flask-conical",
-    desc: "Try Marshal on a small sample repository",
-  },
 ];
-
-export const SAMPLE_PROJECT = { name: "marshal-sample", path: "~/.marshal/sample" } as const;
 
 export const PAIRING_CODE = "4K7-Q2M";
 

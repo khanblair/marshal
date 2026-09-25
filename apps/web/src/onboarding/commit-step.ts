@@ -1,21 +1,10 @@
+import type { CreateProjectRequest } from "@marshal/protocol";
 import type { Marshal } from "~/mock";
-import {
-  AGENTS_STEP,
-  CONTROL_STEP,
-  PROFILE_STEP,
-  PROJECT_STEP,
-  SAMPLE_PROJECT,
-} from "./onboarding-data";
-import {
-  isMonorepoHint,
-  maskKey,
-  type OnboardingDraft,
-  repoNameOf,
-  SHORT_KEY_LENGTH,
-} from "./onboarding-draft";
+import { AGENTS_STEP, CONTROL_STEP, PROFILE_STEP, PROJECT_STEP } from "./onboarding-data";
+import { maskKey, type OnboardingDraft, repoNameOf, SHORT_KEY_LENGTH } from "./onboarding-draft";
 
 /** The part of the store a step writes to. */
-type Store = Pick<Marshal, "S" | "addProject">;
+type Store = Pick<Marshal, "S" | "addProject" | "toast">;
 
 function commitProfile(m: Store, draft: OnboardingDraft): void {
   const { profile } = m.S;
@@ -35,20 +24,23 @@ function commitKeys(m: Store, draft: OnboardingDraft): void {
   }
 }
 
+/** Adds the first project on the daemon. A refusal shows as a toast and setup carries on. */
+async function addFirstProject(m: Store, request: CreateProjectRequest): Promise<void> {
+  const result = await m.addProject(request);
+  if ("error" in result) m.toast(result.error);
+}
+
+/** Adds the project the person named, from a folder or a URL. An empty field adds nothing. */
 function commitProject(m: Store, draft: OnboardingDraft): void {
-  if (draft.source === "sample") {
-    if (m.S.projects.some((p) => p.name === SAMPLE_PROJECT.name)) return;
-    m.addProject({ ...SAMPLE_PROJECT, sample: true });
-    return;
-  }
-  const value = draft.source === "folder" ? draft.path : draft.url;
+  const value = (draft.source === "folder" ? draft.path : draft.url).trim();
   const name = repoNameOf(value);
-  if (!value.trim() || !name) return;
-  m.addProject({
-    name,
-    path: draft.source === "folder" ? value : `~/code/${name}`,
-    mono: isMonorepoHint(value),
-  });
+  if (!value || !name) return;
+  void addFirstProject(
+    m,
+    draft.source === "folder"
+      ? { source: "folder", path: value, name }
+      : { source: "clone", url: value, dest: `~/code/${name}`, name },
+  );
 }
 
 function commitChatApps(m: Store, draft: OnboardingDraft): void {
