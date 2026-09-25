@@ -128,3 +128,18 @@ describe("ViewHeader Split view", () => {
     );
   });
 });
+
+describe("ViewHeader on a narrow header", () => {
+  it("keeps Split view and New card named for screen readers but hides their labels", () => {
+    showProject("board", TABLET_PX);
+    render(() => <ViewHeader />);
+    const row = screen.getAllByRole("tab")[0]?.closest("[data-tour=views]")?.parentElement;
+    expect(row).toHaveClass("@container");
+    for (const name of ["Split view", "New card"]) {
+      const button = screen.getByRole("button", { name });
+      expect(button).toHaveClass("@max-[720px]:px-3!");
+      expect(screen.getByText(name)).toHaveClass("@max-[720px]:sr-only");
+    }
+    expect(screen.getByRole("button", { name: "New card" })).toHaveAttribute("title", "New card");
+  });
+});

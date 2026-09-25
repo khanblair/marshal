@@ -35,13 +35,16 @@ const SMALL_SIZE: IconButtonSize = 24;
 const SMALL_ICON_PX = 12;
 const ICON_PX = 16;
 
+/** The same radii as `Button`: 7 px up to 32, 10 px at 36 and above and on touch screens. */
 const SIZES: Record<IconButtonSize, string> = {
   24: "size-6 rounded-xs",
-  28: "size-7 rounded-sm",
-  32: "size-8 rounded-sm",
-  36: "size-9 rounded-sm",
-  44: "size-11 rounded-sm",
+  28: "size-7 rounded-md",
+  32: "size-8 rounded-md",
+  36: "size-9 rounded-lg",
+  44: "size-11 rounded-lg",
 };
+
+const TOUCH_RADIUS = "[[data-touch='1']_&]:rounded-lg";
 
 const GHOST_TONES = {
   secondary: "text-secondary hover:bg-surface-hover",
@@ -79,6 +82,7 @@ export function IconButton(props: IconButtonProps) {
       class={cx(
         "inline-flex flex-none items-center justify-center p-0",
         SIZES[size()],
+        size() !== SMALL_SIZE && TOUCH_RADIUS,
         variantClass(local.variant ?? "ghost", local.tone ?? "secondary"),
         local.class,
       )}

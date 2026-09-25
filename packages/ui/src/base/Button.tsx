@@ -33,11 +33,19 @@ const SMALL_SIZE: ButtonSize = 28;
 const SMALL_ICON_PX = 14;
 const ICON_PX = 16;
 
+/**
+ * The corner radius of every button comes from its size, here and nowhere else: 7 px up to
+ * 32 and 10 px at 36. On touch screens, where buttons grow to 44 px, all sizes use 10 px.
+ * (The design draws 5 px; a larger radius suits the taller buttons and was requested.)
+ */
 const SIZES: Record<ButtonSize, string> = {
-  28: "h-7 px-2.5 text-small",
-  32: "h-8 px-3",
-  36: "h-9 px-3.5",
+  28: "h-7 px-2.5 text-small rounded-md",
+  32: "h-8 px-3 rounded-md",
+  36: "h-9 px-3.5 rounded-lg",
 };
+
+/** Touch screens: `[data-touch="1"]` is set on the app root, and buttons grow to 44 px. */
+const TOUCH_RADIUS = "[[data-touch='1']_&]:rounded-lg";
 
 const VARIANTS: Record<ButtonVariant, string> = {
   primary: "border border-ink bg-ink text-on-ink font-semibold hover:bg-ink-hover",
@@ -78,7 +86,8 @@ export function Button(props: ButtonProps) {
       data-compact={local.compact ? "1" : undefined}
       {...others}
       class={cx(
-        "inline-flex items-center justify-center gap-1.5 rounded-sm disabled:opacity-50",
+        "inline-flex items-center justify-center gap-1.5 whitespace-nowrap disabled:opacity-50",
+        TOUCH_RADIUS,
         SIZES[size()],
         VARIANTS[variant()],
         toneClass(variant(), local.tone === "danger"),

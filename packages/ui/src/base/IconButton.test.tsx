@@ -8,7 +8,7 @@ describe("IconButton", () => {
     expect(button).toHaveAttribute("type", "button");
     expect(button).toHaveClass(
       "size-7",
-      "rounded-sm",
+      "rounded-md",
       "border-none",
       "bg-transparent",
       "text-secondary",
@@ -21,6 +21,16 @@ describe("IconButton", () => {
     const button = screen.getByRole("button");
     expect(button).toHaveClass("size-6", "rounded-xs");
     expect(button.querySelector("svg")).toHaveAttribute("width", "12");
+  });
+
+  it.each([
+    [28, "rounded-md"],
+    [32, "rounded-md"],
+    [36, "rounded-lg"],
+    [44, "rounded-lg"],
+  ] as const)("rounds the corners of a %i px button with %s", (size, radius) => {
+    render(() => <IconButton label="Go" icon="x" size={size} />);
+    expect(screen.getByRole("button")).toHaveClass(radius);
   });
 
   it.each([

@@ -21,6 +21,23 @@ describe("Button", () => {
     expect(screen.getByRole("button")).toHaveClass(...classes);
   });
 
+  it.each([
+    [28, "rounded-md"],
+    [32, "rounded-md"],
+    [36, "rounded-lg"],
+  ] as const)("rounds the corners of a %i px button with %s", (size, radius) => {
+    render(() => <Button size={size}>Go</Button>);
+    expect(screen.getByRole("button")).toHaveClass(radius);
+  });
+
+  it("uses the larger radius on touch screens and never wraps its label", () => {
+    render(() => <Button>Split view</Button>);
+    expect(screen.getByRole("button")).toHaveClass(
+      "[[data-touch='1']_&]:rounded-lg",
+      "whitespace-nowrap",
+    );
+  });
+
   it("uses 13 px text and 14 px icons at 28 px, 16 px icons otherwise", () => {
     render(() => (
       <>
