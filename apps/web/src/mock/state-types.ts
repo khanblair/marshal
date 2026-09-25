@@ -1,3 +1,6 @@
+import type { Agent } from "@marshal/protocol";
+import type { ConnectionState } from "~/data/connection-machine";
+import type { CardKey } from "./card-key";
 import type { CalEvent, Integration, Profile, Provider, Role, Schedule } from "./settings-types";
 import type {
   Activity,
@@ -31,6 +34,19 @@ import type {
 
 type PreviewState = "stopped" | "starting" | "running";
 
+/** The link with the daemon as the screens see it. The store follows `data.connection` into this. */
+interface ConnectionView {
+  state: ConnectionState;
+  /** When the next check happens, in ms on this device's clock, or null. */
+  retryAt: number | null;
+  /** The technical reason for the last failure, for the collapsed "Details". Never a token. */
+  detail: string;
+  /** The daemon's plain sentence when it refused the token that is stored, else empty. */
+  rejection: string;
+  /** True from the moment a token is submitted until the daemon has answered. */
+  busy: boolean;
+}
+
 /** The single mutable app state (`M.S`). Field names and shapes match the prototype. */
 export interface State {
   ready: boolean;
@@ -41,16 +57,18 @@ export interface State {
   lastView: Record<string, ViewKey>;
   people: Person[];
   projects: Project[];
+  /** The daemon's agent catalog, as mirrored by `sync/agents.ts`. The built-in agent is added by `mock/agents.ts`. */
+  agents: Agent[];
   cards: Card[];
-  chat: Record<number, Msg[]>;
-  act: Record<number, Activity[]>;
+  chat: Record<CardKey, Msg[]>;
+  act: Record<CardKey, Activity[]>;
   chats: Record<string, Chat[]>;
-  checks: Record<number, Check[]>;
+  checks: Record<CardKey, Check[]>;
   chatOpen: Record<string, string | null>;
   chatQuery: Record<string, string>;
   archOpen: Record<string, boolean>;
-  openId: number | null;
-  focusId: number | null;
+  openId: CardKey | null;
+  focusId: CardKey | null;
   tab: CardTab;
   mode: Mode;
   switching: false | Mode;
@@ -99,7 +117,7 @@ export interface State {
      They stay absent until first written, exactly like the prototype, because some
      views tell `undefined` apart from `null`. */
   resolvedTheme?: ResolvedTheme;
-  dragId?: number | null;
+  dragId?: CardKey | null;
   dropCol?: string | null;
   newProject?: NewProjectDraft | null;
   removeProject?: RemoveProjectDraft | null;
@@ -108,10 +126,14 @@ export interface State {
   sideOpen?: boolean;
   settingsPid?: string;
   schedEdit?: string | null;
-  preview?: Record<number, PreviewState>;
-  notes?: Record<number, string>;
+  preview?: Record<CardKey, PreviewState>;
+  notes?: Record<CardKey, string>;
   allKind?: "activity" | "ci";
   quickAddAt?: string | null;
   mobileCol?: Column;
   calExpand?: string | null;
+  /** Absent when no daemon is connected (a test). It is set as soon as the store starts following the daemon. */
+  connection?: ConnectionView;
+  /** A plain sentence when the first snapshots could not be loaded, which the app shows with a Try again. */
+  loadError?: string;
 }

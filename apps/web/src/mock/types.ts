@@ -1,5 +1,7 @@
 /* Domain model of the fake daemon. Shapes match design/store.js exactly. */
 
+import type { CardKey } from "./card-key";
+
 export type Status =
   | "backlog"
   | "planning"
@@ -39,10 +41,15 @@ export interface Project {
   name: string;
   lang: string;
   path: string;
-  ci: CiState;
-  ciAgo: number;
-  monthBase: number;
-  runs: CiRun[];
+  /*
+   * The four fields below come from CI and cost data the daemon does not have until a later phase, so
+   * a project from the daemon has none of them. Read them defensively, and show an honest empty state
+   * instead of a made-up state (backend-checklist.md 2.3, rule 4).
+   */
+  ci?: CiState;
+  ciAgo?: number;
+  monthBase?: number;
+  runs?: CiRun[];
   packages?: string[] | undefined;
   branch?: string;
   dev?: string;
@@ -82,7 +89,10 @@ export interface Comment {
 }
 
 export interface Card {
-  id: number;
+  /** The card's key, `<projectId>#<number>`. It is the same in every map, message, and route. */
+  id: CardKey;
+  /** The number within its project, which is what the label `#41` shows. */
+  n: number;
   p: string;
   title: string;
   state: Status;
@@ -102,7 +112,7 @@ export interface Card {
   paused: boolean;
   pkg: string | null;
   labels: string[];
-  deps: number[];
+  deps: CardKey[];
   members: string[];
   checklists: Checklist[];
   comments: Comment[];
@@ -170,18 +180,18 @@ export interface ApprovalMsg {
   st: ApprovalState;
   cmd: string;
   why: string;
-  cardId?: number;
+  cardId?: CardKey;
 }
 export interface CardRefMsg {
   id: string;
   k: "card";
-  cardId: number;
+  cardId: CardKey;
 }
 export interface LinksMsg {
   id: string;
   k: "links";
   text: string;
-  cards: number[];
+  cards: CardKey[];
 }
 export type Msg =
   | UserMsg
@@ -245,14 +255,14 @@ export interface FeedItem {
   text: string;
   pid: string | null;
   ts: number;
-  cardId?: number;
+  cardId?: CardKey;
   job?: string;
 }
 
 export interface SleepNotice {
   id: string;
   kind: "sleep";
-  cards: number[];
+  cards: CardKey[];
   deadline: number;
   ts: number;
 }
@@ -260,7 +270,7 @@ export interface InfoNotice {
   id: string;
   kind: "ci-main" | "cost" | "plan" | "ci";
   pid?: string;
-  cardId?: number;
+  cardId?: CardKey;
   text: string;
   sub: string;
   ts: number;
@@ -303,8 +313,13 @@ export interface NewProjectDraft {
   path: string;
   url: string;
   name: string;
+  /** The branch to check out when cloning. Empty means the repository's own default. */
   branch: string;
   nameTouched?: boolean;
+  /** True while the daemon is adding the project, so a second press is refused. */
+  busy?: boolean;
+  /** The daemon's plain sentence when it refused, shown under the fields. */
+  error?: string;
 }
 export interface RemoveProjectDraft {
   id: string;
@@ -335,3 +350,8 @@ export interface SortSpec {
   k: string;
   dir: number;
 }
+
+/* One agent in the shape the prototype's `AGENTS` table had: the model ids, an icon, and a
+   version. The shape lives in the data layer, because the mapper that fills it must not depend on
+   the mock; it is re-exported here for the store's own modules. */
+export type { AgentInfo } from "~/data/mappers/agents";

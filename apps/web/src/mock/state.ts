@@ -100,7 +100,11 @@ export function initialState(seed: Seed, opts: StateOptions): State {
     vh: opts.vh,
     theme: "system",
     reduced: false,
-    route: { page: "home", pid: "api", view: "board" },
+    route: { page: "home", pid: null, view: "board" },
+    // Projects come from the daemon (`sync/projects.ts`), so there are none until it answers.
+    projects: [],
+    // Agents come from the daemon too (`sync/agents.ts`).
+    agents: [],
     ...projectState(),
     ...uiState(),
     ...seed,

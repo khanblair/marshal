@@ -1,10 +1,14 @@
 /**
  * Drives the prototype store and the port side by side on one fake clock, so a test
- * can run the same calls on both and compare every field of `S` afterwards.
+ * can run the same calls on both and compare every field of `S` afterwards. Tests name
+ * cards by key (`api#41`); `proto-shape.ts` translates to the prototype's numbers.
  */
 import { expect, vi } from "vitest";
+import { forgetProject } from "~/sync/projects";
+import { contextOf, createTestMarshal } from "~/testing/test-store";
 import { applyTheme } from "../dom/theme";
-import { createMarshal, type Marshal } from "../marshal";
+import type { Marshal } from "../marshal";
+import { createProtoShape, withoutOrphans } from "./proto-shape";
 import { loadPrototype, type ProtoM, snapshot } from "./prototype";
 
 export const FIXED_TIME = new Date("2026-09-24T10:00:00");
@@ -18,10 +22,19 @@ export const SLOW_TEST_MS = 60_000;
 export interface Twin {
   proto: ProtoM;
   port: Marshal;
-  /** Calls `M[name](...args)` on both stores. */
+  /** Calls `M[name](...args)` on both stores. Card keys become the prototype's numbers for it. */
   run(name: string, ...args: unknown[]): void;
-  /** Calls a query on both stores and returns both results as plain JSON. */
+  /** Calls a query on both stores and returns both results as plain JSON, in the prototype's shape. */
   ask(name: string, ...args: unknown[]): { proto: unknown; port: unknown };
+  /**
+   * Removes a project on both sides. The port's removal is a call to the daemon, so this does
+   * what its success path does: forget the project (its cards, chats, and notices) and toast.
+   */
+  removeProject(id: string): void;
+  /** The prototype's id of the card with this key. */
+  protoId(key: string): number | undefined;
+  /** A value read from the port (plain JSON), in the prototype's shape. */
+  shape(value: unknown): unknown;
   /** Asserts both states are equal. */
   same(): void;
   /** Advances the clock `ms` in steps of `step`, asserting equal states after each step. */
@@ -47,7 +60,7 @@ function dialogRun(S: unknown): () => void {
 export function makeTwin(hash = "#nosim"): Twin {
   window.localStorage.clear();
   const proto = loadPrototype(hash);
-  const port = createMarshal({
+  const port = createTestMarshal({
     hash,
     storage: window.localStorage,
     viewport: { w: window.innerWidth, h: window.innerHeight },
@@ -60,17 +73,33 @@ export function makeTwin(hash = "#nosim"): Twin {
     proto,
     port,
     run(name, ...args) {
-      proto.call(name, ...args);
+      const twinArgs = args.map(createProtoShape(port, proto).arg);
+      proto.call(name, ...twinArgs);
       callPort(port, name, args);
     },
     ask(name, ...args) {
+      const map = createProtoShape(port, proto);
       return {
-        proto: snapshot(proto.call(name, ...args)),
-        port: snapshot(callPort(port, name, args)),
+        proto: snapshot(proto.call(name, ...args.map(map.arg))),
+        port: map.shape(snapshot(callPort(port, name, args))),
       };
     },
+    removeProject(id) {
+      proto.call("removeProject", id);
+      const project = port.proj(id);
+      if (!project) return;
+      forgetProject(contextOf(port), project);
+      port.toast("Project removed");
+    },
+    protoId(key) {
+      return createProtoShape(port, proto).protoId(key);
+    },
+    shape(value) {
+      return createProtoShape(port, proto).shape(value);
+    },
     same() {
-      expect(snapshot(port.S)).toEqual(snapshot(proto.S));
+      const shaped = createProtoShape(port, proto).shape(snapshot(port.S));
+      expect(withoutOrphans(shaped)).toEqual(withoutOrphans(snapshot(proto.S)));
     },
     play(ms, step = 250) {
       for (let t = 0; t < ms; t += step) {
