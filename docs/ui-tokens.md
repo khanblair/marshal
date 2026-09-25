@@ -242,9 +242,9 @@ Radius follows hierarchy. Small controls are tighter, large surfaces are softer.
 | Token | Value | Use |
 |---|---|---|
 | `radius-xs` | 3 px | Badges, checkboxes, tags, code spans |
-| `radius-sm` | 5 px | Buttons, inputs, selects, agent avatars (rounded squares) |
-| `radius-md` | 7 px | Cards, list rows with a background |
-| `radius-lg` | 10 px | Panels, popovers, menus |
+| `radius-sm` | 5 px | Inputs, selects, agent avatars (rounded squares) |
+| `radius-md` | 7 px | Buttons up to 32 px tall, cards, list rows with a background |
+| `radius-lg` | 10 px | Buttons 36 px tall and every button on touch screens, panels, popovers, menus |
 | `radius-xl` | 14 px | Dialogs, the command palette |
 | `radius-full` | 9999 px | Status dots, person avatars, toggles |
 

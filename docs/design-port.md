@@ -25,7 +25,7 @@ A frontend only, with dummy data. No backend, no daemon, no Tauri shell.
 | Repeated styled elements | `packages/ui/src/` |
 | Design colors, type, radius, motion | `packages/tokens/` |
 
-Out of scope: `Marshal Showcase.dc.html` (two marketing posters), and the prototype's own floating toolbar in `Marshal.dc.html` (Fit window, Phone, Tablet, Desktop, Reset to first launch). The toolbar was first included, then removed on request on 2026-09-25: the app always fills the window and its size follows the window, driven by `M.S.vw` and `M.S.vh` (`apps/web/src/app/use-window-viewport.ts`). The parity harness hides the toolbar in the prototype so both sides compare the same screen.
+Out of scope: `Marshal Showcase.dc.html` (two marketing posters), and the prototype's own floating toolbar in `Marshal.dc.html` (Fit window, Phone, Tablet, Desktop, Reset to first launch). The toolbar was first included, then removed on request on 2026-09-25: the app always fills the window and its size follows the window, driven by `M.S.vw` and `M.S.vh` (`apps/web/src/app/use-window-viewport.ts`).
 
 ## 2. Translating a template
 
@@ -94,25 +94,27 @@ The design's own code breaks these limits in places (`renderVals` in the shell i
 
 Every component or module with logic has a Vitest test next to it (`Foo.test.tsx`). Views render with the mock store and assert the key text, roles, and one or two interactions. Coverage floor: 60 percent for `apps/web` and `packages/ui`.
 
-## 7. Parity check
+## 7. Checking a view
 
-`pnpm parity` renders the original prototype and the port with the same frozen clock, the same size and theme, and the same steps, then compares screenshots pixel by pixel and compares the visible text line by line. Scenarios live in `tools/parity/scenarios/`. A view is done when its scenarios pass at phone (390 by 844), tablet (820 by 1180), and desktop (1440 by 900), in both themes.
+The port was built against the prototype with a pixel and text comparison tool. That tool was retired on 2026-09-25, because the design is exported and the app is now the source of truth; it stays in Git history. A view is done when its tests pass and it looks right at phone (390 by 844), tablet (820 by 1180), and desktop (1440 by 900), in both themes, with no sideways scrolling and no button label that wraps. The end-to-end specs in `apps/web/e2e/` check the responsive part.
 
 ### Known deviations from the rendered prototype
 
-Approved by the project owner. Each is hidden or handled in the parity harness so the rest of the screen still compares exactly.
+Approved by the project owner.
 
-| Deviation | Why | Handling in `pnpm parity` |
-|---|---|---|
-| Home charts draw axis labels and the limit label | The prototype's template engine wraps every interpolation in an HTML span, and an HTML span inside an SVG `text` element is never drawn, so the rendered prototype has no labels. The design's markup asks for them, and a chart without a scale is not readable. Approved 2026-09-25. | Chart text (`svg[role="img"] text`) is hidden in both apps |
-| No prototype toolbar | Removed on request, 2026-09-25. | Hidden in the prototype |
+| Deviation | Why |
+|---|---|
+| Home charts draw axis labels and the limit label | The prototype's template engine wraps every interpolation in an HTML span, and an HTML span inside an SVG `text` element is never drawn, so the rendered prototype has no labels. The design's markup asks for them, and a chart without a scale is not readable. Approved 2026-09-25. |
+| No prototype toolbar | Removed on request, 2026-09-25. |
+| Buttons have larger corners: 7 px up to 32 px tall, 10 px at 36 px and on touch screens (the design draws 5 px). `IconButton` follows the same rule. | Requested 2026-09-25: 5 px looked too tight on 36 to 44 px buttons. The radius is set once, by size, in `packages/ui/src/base/Button.tsx` and `IconButton.tsx`. |
+| Button labels never wrap. In the view header, Split view and New card keep only their icon when the header has less than 720 px inside its padding | Requested 2026-09-25: on small tablets the labels wrapped onto two lines. The label stays for screen readers, and New card gets a tooltip. |
 
 ## 8. Rules for agents working on the port
 
 1. Read this guide, then the design files you own. Read `store.js` for any `M.*` function you call.
 2. Only create or edit files in the folders you own. If you need a change in a shared file (`tokens.ts`, `themes.ts`), make an append-only edit.
-3. Do not create commits. There is no repository yet.
+3. Commits have at most 10 files each, and work is pushed to `khanblair/marshal` in phases.
 4. Reuse `@marshal/ui` components. If two places in the design share a pattern, it becomes a component, not a copy.
 5. Update `docs/ui-registry.md` when you add a component, and list new files in your report so `docs/project-structure.md` can be updated.
 6. If the design conflicts with any doc, follow the design and list the conflict in your report.
-7. Finish with a short report: what you built, tests run and their result, parity result, deviations from the design, and conflicts with docs.
+7. Finish with a short report: what you built, tests run and their result, deviations from the design, and conflicts with docs.
