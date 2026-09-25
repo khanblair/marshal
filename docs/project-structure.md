@@ -74,6 +74,9 @@ docs/
   ui-tokens.md                  Design values
   ui-rules.md                   How the UI looks, reads, and behaves
   ui-registry.md                Every UI component
+  design-port.md                How the Claude Design became the app, and approved deviations
+  backend-checklist.md          The backend build and cutover checklist
+  backend-inventory.md          Every prototype action and field, mapped to the backend
   progress-tracker.md           Live status, decisions, questions, and file changes
 ```
 

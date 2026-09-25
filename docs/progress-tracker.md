@@ -36,7 +36,7 @@ At the end of every work session, whether by a person or an agent:
 |---|---|
 | **Current phase** | Phase 0: Foundation |
 | **Next milestone** | First card (end of Phase 1) |
-| **Last updated** | 2026-09-24 |
+| **Last updated** | 2026-09-25 |
 
 ---
 
@@ -44,7 +44,7 @@ At the end of every work session, whether by a person or an agent:
 
 | Phase | Status | Notes |
 |---|---|---|
-| 0. Foundation | In progress | Docs written, repo setup next |
+| 0. Foundation | In progress | Docs written. Frontend workspace, tokens, UI library, prototype port, TypeScript checks and CI are done. Go 1.27.1 is installed. The daemon module, protocol package, Go CI, stub agent, and dev mode are next (`backend-checklist.md` Phase 0). |
 | 1. First card | Not started | |
 | 2. Core UI | Not started | |
 | 3. Control and safety | Not started | |
@@ -101,6 +101,11 @@ Tasks for later phases are added here when their phase starts.
 | 2026-09-25 | The app uses the Claude Design's exact colors, including the pairs that miss the contrast targets. `color-border-control` is removed, and muted text, status solids, and chart values are back to the design's values. The pairs that miss are listed in `packages/tokens/src/contrast-exceptions.ts`, and CI fails on a new miss or a stale exception. | The project owner decided that the design wins over `ui-tokens.md`. The contrast targets stay as goals for the next design revision. |
 | 2026-09-25 | The parity check (a pixel and text comparison of the port against the prototype) is retired and its tooling removed | The design is exported and the app is now the source of truth. The tool stays in Git history. Views are checked by their tests, by the end-to-end responsive specs, and in the browser |
 | 2026-09-25 | Buttons use larger corners (7 px up to 32 px tall, 10 px at 36 px and on touch screens), labels never wrap, and Split view and New card show only an icon in a header narrower than 720 px | Requested by the project owner after seeing wrapped labels and tight corners on small tablets. Set once, by size, in `Button` and `IconButton` |
+| 2026-09-25 | The backend follows the prototype. What the prototype does that the docs do not describe is built and the docs are updated (`backend-inventory.md` section 5, entries N1 to N30) | The prototype is the design, and the docs only gave examples for the API |
+| 2026-09-25 | Every integration is real, built in build plan order | No stand-ins. An integration whose account step is missing keeps its mock section until its connection test passes |
+| 2026-09-25 | The mock is replaced section by section, and deleted once every section is verified on the daemon | Lets each part of the screens switch only when it works, and keeps the rest running. Rules and the register are in `backend-checklist.md` section 2 |
+| 2026-09-25 | Go is installed with Homebrew (Go 1.27.1) | Needed for the daemon. Approved by the owner |
+| 2026-09-25 | "Simulate CI failure" is built as a real feature through the CI monitor, and shown only in dev mode or with a Developer options setting | The prototype had it as a hidden action that no doc covered. The owner asked for a real one integrated with the project |
 | 2026-09-25 | The prototype toolbar (device frames, Reset to first launch) is not part of the app | Requested by the project owner; it is a prototyping aid. The app fills the window and follows its size |
 | 2026-09-23 | Strong models by default for Reviewer and Integrator | Weak models break code at review and merge time |
 | 2026-09-23 | Plan first mode keeps plans in chat, no plan document unless asked | Plans are quick to review and should not create clutter |
@@ -161,6 +166,12 @@ Tasks for later phases are added here when their phase starts.
 
 Newest entries first.
 
+### 2026-09-25
+
+- **Done:** the frontend port of the prototype (SolidJS app, `@marshal/ui`, tokens, typed mock store) is finished and pushed to `khanblair/marshal`. The parity check was used to build it and is now retired. The prototype toolbar was removed, buttons got larger corners and no-wrap labels, and 81 end-to-end specs check phone, tablet, and desktop. `pnpm check` passes: 9 tokens, 260 UI, and 1,258 web tests.
+- **Also done:** wrote `backend-checklist.md` and `backend-inventory.md`, which map all 116 store members and 78 state fields to daemon modules, tables, API calls, events, and build plan tasks, and list 30 pieces of work the docs did not cover. Installed Go 1.27.1.
+- **Next:** agree the checklist, then start Phase 0 of it: the daemon module, the Go tools, the protocol package, Go in CI, the stub agent, and dev mode.
+
 ### 2026-09-24
 
 - **Done:** added the home dashboard, many chats per project, project and chat management, profile, onboarding, tutorial tour, and full responsive rules to the docs. Updated the project structure.
@@ -194,6 +205,7 @@ Every change to a doc. Newest first.
 
 | Date | Doc | Change |
 |---|---|---|
+| 2026-09-25 | `backend-checklist.md`, `backend-inventory.md`, `README.md`, `project-structure.md`, `progress-tracker.md` | Added the backend checklist and the inventory of every prototype action and field, listed both in the index and the docs structure, and logged the backend decisions |
 | 2026-09-25 | `ui-tokens.md`, `ui-rules.md`, `design-port.md`, `architecture.md`, `progress-tracker.md` | Colors back to the design's exact values, `color-border-control` removed, section 2.9 rewritten around the exceptions list, chart values fixed, prototype toolbar and `z-prototype` removed, web build size budget added. |
 | 2026-09-24 | `ui-tokens.md`, `ui-rules.md`, `marshal-product-scope.md`, `build-plan.md`, `progress-tracker.md` | Consistency and contrast fixes: new `color-border-control` token, adjusted muted text, status solid, and chart values, listed the contrast pairs checked in CI, clarified `size-header`, `size-topbar`, and the breakpoints, fixed split view pane counts, and replaced stale UI framework and "Checks tab" wording |
 | 2026-09-24 | `marshal-product-scope.md`, `architecture.md`, `ui-rules.md`, `ui-registry.md`, `ui-tokens.md`, `build-plan.md`, `project-structure.md`, `project-overview.md` | Added "Add a card", checklists, comments with attachments and links, members and their notices, and Trello sync for these |
