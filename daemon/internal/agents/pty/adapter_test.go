@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"sync"
@@ -374,6 +375,10 @@ func TestHandleCarriesTheRequestedSettingsWithoutApplyingThem(t *testing.T) {
 	}
 }
 
+// pwdLine finds the folder that the helper's pwd mode prints, and stops at a line end or at the
+// escape character that starts a terminal control code.
+var pwdLine = regexp.MustCompile(`pwd: ([^\r\n\x1b]+)`)
+
 func TestTheWorkingFolderIsRespected(t *testing.T) {
 	dir := t.TempDir()
 	a := newAdapter(t, Config{Args: []string{"pwd"}})
@@ -384,11 +389,11 @@ func TestTheWorkingFolderIsRespected(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// A Windows pseudo console writes escape codes before and after the program's own text, so the
+	// folder is read from inside the output and not from the start of a line.
 	var got string
-	for line := range strings.SplitSeq(r.output(), "\n") {
-		if rest, ok := strings.CutPrefix(strings.TrimSpace(line), "pwd: "); ok {
-			got = rest
-		}
+	if m := pwdLine.FindStringSubmatch(r.output()); m != nil {
+		got = strings.TrimSpace(m[1])
 	}
 	if resolved, err := filepath.EvalSymlinks(got); err != nil || !strings.EqualFold(resolved, want) {
 		t.Errorf("the program ran in %q, want %q", got, want)

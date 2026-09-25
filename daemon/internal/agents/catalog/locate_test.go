@@ -23,8 +23,11 @@ func TestKnownDirs(t *testing.T) {
 			name: "macos",
 			goos: "darwin",
 			home: "/Users/pat",
+			// The folders made from the home folder use the separator of the operating system that
+			// runs the test, so the expectation is built the same way.
 			want: []string{
-				"/Users/pat/.local/bin", "/Users/pat/.claude/local", "/Users/pat/.npm-global/bin",
+				filepath.Join("/Users/pat", ".local", "bin"), filepath.Join("/Users/pat", ".claude", "local"),
+				filepath.Join("/Users/pat", ".npm-global", "bin"),
 				"/opt/homebrew/bin", "/usr/local/bin",
 			},
 		},
@@ -34,8 +37,9 @@ func TestKnownDirs(t *testing.T) {
 			home: "/home/pat",
 			vars: map[string]string{"NPM_CONFIG_PREFIX": "/opt/npm"},
 			want: []string{
-				"/home/pat/.local/bin", "/home/pat/.claude/local", "/home/pat/.npm-global/bin",
-				"/opt/npm/bin", "/opt/homebrew/bin", "/usr/local/bin",
+				filepath.Join("/home/pat", ".local", "bin"), filepath.Join("/home/pat", ".claude", "local"),
+				filepath.Join("/home/pat", ".npm-global", "bin"), filepath.Join("/opt/npm", "bin"),
+				"/opt/homebrew/bin", "/usr/local/bin",
 			},
 		},
 		{

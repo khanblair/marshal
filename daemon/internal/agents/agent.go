@@ -17,8 +17,10 @@ type Agent interface {
 	// restore rules in architecture section 5.3.
 	Resume(ctx context.Context, sessionID string, spec StartSpec) (SessionHandle, error)
 	// Send starts one turn and returns at once. What happens next arrives on Events, and the
-	// turn ends with a TurnEnded event. It returns ErrBusy while a turn is running, and the
-	// caller queues the message.
+	// turn ends with a TurnEnded event, except for an agent whose Capabilities says
+	// StructuredEvents is false (the PTY adapter), which never sends one and never returns
+	// ErrBusy either. It returns ErrBusy while a turn is running, and the caller queues the
+	// message.
 	Send(ctx context.Context, h SessionHandle, msg UserMessage) error
 	// Interrupt stops the running turn and keeps the session, so the next Send continues it.
 	// The turn ends with TurnEnded and the reason "cancelled". It does nothing when no turn runs.

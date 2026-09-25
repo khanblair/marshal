@@ -135,6 +135,9 @@ func TestAuthRequiredErrorReadsAsASentence(t *testing.T) {
 	if got := err.Error(); got != "the agent needs you to sign in first (Browser, API key)" {
 		t.Errorf("Error = %q", got)
 	}
+	if got := (&AuthRequiredError{}).Error(); got != "the agent needs you to sign in first" {
+		t.Errorf("Error with no methods = %q", got)
+	}
 	cause := errors.New("no account")
 	if !errors.Is(&AuthRequiredError{Cause: cause}, cause) {
 		t.Error("errors.Is cannot see the cause")
@@ -144,7 +147,7 @@ func TestAuthRequiredErrorReadsAsASentence(t *testing.T) {
 func TestEveryEventIsAnAgentEvent(t *testing.T) {
 	events := []AgentEvent{
 		MessageChunk{}, ThoughtChunk{}, ToolCall{}, ToolCallUpdate{}, PlanUpdate{},
-		PermissionRequested{}, TurnEnded{}, Failed{}, Exited{},
+		PermissionRequested{}, TurnEnded{}, Failed{}, Exited{}, TerminalOutput{},
 	}
 	for _, ev := range events {
 		ev.agentEvent()

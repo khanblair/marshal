@@ -2,6 +2,7 @@ package gitx_test
 
 import (
 	"errors"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -109,6 +110,15 @@ func TestParseCloneURLLocalAddressesNeedAllowLocal(t *testing.T) {
 		"\\\\server\\share\\repo":      "repo",
 		"/tmp/repo\u00a0name":          "repo\u00a0name",
 		"/tmp/git@host:not-an-address": "git@host:not-an-address",
+	}
+	if runtime.GOOS == "windows" {
+		// A folder that starts with a slash is a full path on macOS and Linux only. Windows wants a
+		// drive or a share, and those forms are in the list above.
+		for raw := range good {
+			if strings.HasPrefix(raw, "/tmp/") {
+				delete(good, raw)
+			}
+		}
 	}
 	for raw, name := range good {
 		got, err := gitx.ParseCloneURL(raw, true)

@@ -6,6 +6,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -278,7 +279,8 @@ func TestNewNeedsAPathAndFactoryMakesAgents(t *testing.T) {
 }
 
 func TestConfigBuildsTheAcpAdapterSettings(t *testing.T) {
-	cfg := acpConfig(Config{Path: "/opt/homebrew/bin/gemini", Env: []string{"NO_BROWSER=false", "X=1"}})
+	program := "/opt/homebrew/bin/gemini"
+	cfg := acpConfig(Config{Path: program, Env: []string{"NO_BROWSER=false", "X=1"}})
 	if len(cfg.Args) != 1 || cfg.Args[0] != "--acp" {
 		t.Errorf("args = %v, want --acp", cfg.Args)
 	}
@@ -292,7 +294,8 @@ func TestConfigBuildsTheAcpAdapterSettings(t *testing.T) {
 	if last := cfg.Env[len(cfg.Env)-2:]; last[0] != "NO_BROWSER=false" || last[1] != "X=1" {
 		t.Errorf("env = %v, want the config's entries last", cfg.Env)
 	}
-	if !strings.HasPrefix(cfg.Env[0], "PATH=/opt/homebrew/bin") {
+	// The folder is written with the separator of the operating system that runs the test.
+	if !strings.HasPrefix(cfg.Env[0], "PATH="+filepath.Dir(program)) {
 		t.Errorf("env[0] = %q, want a PATH that starts with the program's folder", cfg.Env[0])
 	}
 	for mode, want := range map[string]string{

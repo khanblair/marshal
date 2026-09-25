@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -306,7 +307,12 @@ func TestStubProcessKilledMidTurnFailsAndExits(t *testing.T) {
 	if !strings.Contains(failed.Message, "middle of its work") || failed.Detail == "" {
 		t.Errorf("failed = %+v", failed)
 	}
-	if exited.Code != -1 || exited.Err == nil {
+	// A signal shows as -1. Windows has no signals: it ends a killed process with exit code 1.
+	killed := exited.Code == -1
+	if runtime.GOOS == "windows" {
+		killed = exited.Code != 0
+	}
+	if !killed || exited.Err == nil {
 		t.Errorf("exited = %+v, want a kill", exited)
 	}
 	// The dead session is gone from the adapter, and stopping it is still fine.
