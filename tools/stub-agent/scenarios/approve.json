@@ -1,0 +1,41 @@
+{
+  "description": "Asks for permission before a risky command. Continues if allowed, apologizes and stops if denied.",
+  "steps": [
+    {
+      "type": "say",
+      "text": "The build folder is stale. I want to delete it before I fix the bug."
+    },
+    { "type": "pause", "ms": 400 },
+    {
+      "type": "permission",
+      "id": "clean-build",
+      "title": "Run rm -rf build",
+      "kind": "execute",
+      "command": "rm -rf build",
+      "result": "Removed build/",
+      "onAllow": [
+        { "type": "say", "text": "The build folder is gone. I will apply the fix now." },
+        { "type": "pause", "ms": 300 },
+        {
+          "type": "tool",
+          "id": "write-fix",
+          "title": "Write notes/fix.md",
+          "kind": "edit",
+          "write": {
+            "path": "notes/fix.md",
+            "content": "# Fix\n\nThe build folder was cleaned and the fix was applied.\n"
+          },
+          "result": "Wrote notes/fix.md"
+        },
+        { "type": "say", "text": "Done. The fix is in notes/fix.md." }
+      ],
+      "onDeny": [
+        {
+          "type": "say",
+          "text": "Sorry, I should not have asked to run that. I left everything as it was, and I will stop here."
+        },
+        { "type": "end", "reason": "end_turn" }
+      ]
+    }
+  ]
+}

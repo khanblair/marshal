@@ -1,0 +1,13 @@
+{
+  "name": "stub-agent",
+  "version": "0.0.0",
+  "private": true,
+  "description": "A fake coding agent that speaks ACP with scripted behavior, for tests and dev mode. Scripts only: the program is Go.",
+  "scripts": {
+    "build": "node ../../scripts/go-tool.mjs go build -o ../../dist/bin/ .",
+    "test": "node ../../scripts/go-tool.mjs go test -race ./...",
+    "lint:go": "node ../../scripts/go-tool.mjs golangci-lint run ./...",
+    "format:go": "node ../../scripts/go-tool.mjs golangci-lint fmt ./...",
+    "format:check:go": "node ../../scripts/go-tool.mjs golangci-lint fmt --diff ./..."
+  }
+}

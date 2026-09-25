@@ -1,0 +1,34 @@
+{
+  "description": "Reads a file, says a short summary, then edits a file.",
+  "steps": [
+    { "type": "say", "text": "I will start by reading the project notes." },
+    { "type": "pause", "ms": 400 },
+    {
+      "type": "tool",
+      "id": "read-readme",
+      "title": "Read README.md",
+      "kind": "read",
+      "path": "README.md",
+      "result": "# Project\n\nA small service. The token refresh has a known bug."
+    },
+    { "type": "pause", "ms": 300 },
+    {
+      "type": "say",
+      "text": "The README says the token refresh has a known bug. I will write down my plan for it."
+    },
+    { "type": "pause", "ms": 400 },
+    {
+      "type": "tool",
+      "id": "write-plan",
+      "title": "Write notes/plan.md",
+      "kind": "edit",
+      "write": {
+        "path": "notes/plan.md",
+        "content": "# Plan\n\nShare one token refresh between concurrent requests.\n"
+      },
+      "result": "Wrote notes/plan.md"
+    },
+    { "type": "pause", "ms": 300 },
+    { "type": "say", "text": "Done. The plan is in notes/plan.md." }
+  ]
+}

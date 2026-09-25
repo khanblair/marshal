@@ -1,0 +1,48 @@
+{
+  "description": "Runs a test that fails, edits a file, and runs the test again so that it passes.",
+  "steps": [
+    { "type": "say", "text": "I will run the tests first." },
+    { "type": "pause", "ms": 300 },
+    {
+      "type": "tool",
+      "id": "run-tests",
+      "title": "Run go test ./internal/auth/...",
+      "kind": "execute",
+      "command": "go test ./internal/auth/...",
+      "status": "failed",
+      "result": "FAIL: TestRefreshSharesOneRequest (expected 1 refresh, got 3)"
+    },
+    { "type": "pause", "ms": 300 },
+    {
+      "type": "say",
+      "text": "One test fails. Concurrent requests each start their own refresh. I will share a single one."
+    },
+    { "type": "pause", "ms": 300 },
+    {
+      "type": "tool",
+      "id": "fix-refresh",
+      "title": "Edit internal/auth/refresh.go",
+      "kind": "edit",
+      "write": {
+        "path": "internal/auth/refresh.go",
+        "lines": [
+          "package auth",
+          "",
+          "// refreshOnce lets concurrent callers share one token refresh.",
+          "func refreshOnce() {}"
+        ]
+      },
+      "result": "Edited internal/auth/refresh.go"
+    },
+    { "type": "pause", "ms": 300 },
+    {
+      "type": "tool",
+      "id": "run-tests-again",
+      "title": "Run go test ./internal/auth/...",
+      "kind": "execute",
+      "command": "go test ./internal/auth/...",
+      "result": "ok: 14 passed"
+    },
+    { "type": "say", "text": "All 14 tests pass now." }
+  ]
+}
