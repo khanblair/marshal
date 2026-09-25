@@ -27,7 +27,7 @@ const colors = new Set([
 /** Suffixes after a color prefix that are not colors: sizes, widths, styles, alignment. */
 const NOT_COLORS = new Set([
   ...Object.keys(textSizes),
-  ...["left", "right", "center", "none", "1", "2", "t", "b", "l", "r", "x", "y"],
+  ...["left", "right", "center", "none", "1", "2", "3", "t", "b", "l", "r", "x", "y"],
 ]);
 const COLOR_CLASS =
   /^(?:[a-z-]+:)*-?(?:bg|text|border(?!-separate\b|-collapse\b|-spacing)(?:-[trblxy])?|outline|accent)-([a-z0-9-]+)!?$/;
