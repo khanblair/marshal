@@ -10,7 +10,12 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 )
+
+// killWaitDelay is how long Run waits for a cancelled Git to let go of its output. Without it a
+// cancelled clone can hang while a helper process still holds the pipe open.
+const killWaitDelay = 5 * time.Second
 
 // Git runs Git commands.
 type Git struct {
@@ -59,11 +64,16 @@ func (g *Git) Run(ctx context.Context, dir string, args ...string) (string, erro
 	cmd := exec.CommandContext(ctx, g.bin, args...)
 	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), g.env...)
+	cmd.WaitDelay = killWaitDelay
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
 	if err := cmd.Run(); err != nil {
 		if errors.Is(err, exec.ErrNotFound) {
 			return "", errors.New("Git is not installed, or is not on the PATH")
+		}
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			// Keep the cancel in the chain, so callers can tell a cancel from a Git failure.
+			err = fmt.Errorf("%w: %w", ctxErr, err)
 		}
 		return "", &Error{Args: args, Stderr: stderr.String(), Err: err}
 	}
