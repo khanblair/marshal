@@ -29,22 +29,22 @@ const starterThreads = (b: MsgFactory): Starters => ({
     b.agent(
       "I looked at the proxy middleware and the tier config. This fits in one card. I created it in plan first mode, so you'll see a plan before any code.",
     ),
-    b.cardRef(43),
+    b.cardRef("api#43"),
     b.user("Also make a card to upgrade grpc-go, we're two minor versions behind."),
-    b.cardRef(44),
+    b.cardRef("api#44"),
     b.agent("#44 is waiting on your approval to change go.mod."),
     b.approval({
       st: "waiting",
       cmd: "go get google.golang.org/grpc@v1.66.0",
       why: "Requested by #44 Upgrade grpc-go to 1.66",
-      cardId: 44,
+      cardId: "api#44",
     }),
   ],
   web: [
     b.user("What is blocked?"),
     b.links(
       "One card is blocked. #119 is stuck on the same type error in columns.tsx and is asking how to type the column helper. #121 waits for #119 to merge.",
-      [119, 121],
+      ["web#119", "web#121"],
     ),
   ],
   mobile: [
@@ -52,7 +52,7 @@ const starterThreads = (b: MsgFactory): Starters => ({
     b.agent(
       "The android workflow failed on main 22 minutes ago in LoginFlowTest. I started #213 with the Tester role to fix it. It is reading the failed step log now.",
     ),
-    b.cardRef(213),
+    b.cardRef("mobile#213"),
   ],
 });
 
@@ -80,7 +80,7 @@ const apiChats = (b: MsgFactory, s: Starters): ChatSeed[] => [
       b.agent(
         "p99 was 182 ms at 500 requests per second. #42 is running the 1,000 requests per second step now.",
       ),
-      b.cardRef(42),
+      b.cardRef("api#42"),
     ],
     ago: 90,
   },
@@ -91,7 +91,7 @@ const apiChats = (b: MsgFactory, s: Starters): ChatSeed[] => [
     msgs: () => [
       b.user("Do we cache JWKS keys?"),
       b.agent("Yes. #33 added a 10 minute cache and merged 2 days ago."),
-      b.cardRef(33),
+      b.cardRef("api#33"),
     ],
     ago: 2 * DAYS,
     archived: true,
@@ -103,7 +103,7 @@ const otherChats = (b: MsgFactory, s: Starters): ChatSeed[] => [
   {
     pid: "web",
     title: "Settings dark mode",
-    target: "#118",
+    target: "web#118",
     msgs: () => [
       b.user("Use the same tokens as the reports page."),
       b.agent("Understood. I am reusing the report tokens for all 14 hard-coded grays."),
@@ -126,7 +126,7 @@ const otherChats = (b: MsgFactory, s: Starters): ChatSeed[] => [
       b.agent(
         "I left 2 comments on pull request #1432. Both are about focus styles on the ghost variant.",
       ),
-      b.cardRef(207),
+      b.cardRef("mobile#207"),
     ],
     ago: 44,
   },

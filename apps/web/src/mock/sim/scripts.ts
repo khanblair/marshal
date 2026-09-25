@@ -1,4 +1,5 @@
 import { batch } from "solid-js";
+import type { CardKey } from "../card-key";
 import type { Ctx } from "../context";
 import {
   addAct,
@@ -16,9 +17,9 @@ import { takeMid } from "../ids";
 import { card } from "../selectors";
 import type { Activity, Card, ChecklistItem } from "../types";
 
-const TOKEN_REFRESH_CARD_ID = 41;
-const CONFIG_SPLIT_CARD_ID = 46;
-const MERGING_CARD_ID = 35;
+const TOKEN_REFRESH_CARD_ID: CardKey = "api#41";
+const CONFIG_SPLIT_CARD_ID: CardKey = "api#46";
+const MERGING_CARD_ID: CardKey = "api#35";
 /** Pull request #41 opens at the end of its script. */
 const TOKEN_REFRESH_PR = 287;
 /** The race-detector checklist item is ticked just after the race run finishes. */

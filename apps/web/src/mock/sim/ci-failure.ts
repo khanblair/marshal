@@ -1,9 +1,10 @@
+import { type CardKey, cardLabel } from "../card-key";
 import type { Ctx } from "../context";
 import { addAct, feed, notice, pushMsg, runTool, seq, setState, streamCard } from "../engine";
 import { card } from "../selectors";
 import type { Card } from "../types";
 
-const DEFAULT_CARD_ID = 40;
+const DEFAULT_CARD_ID: CardKey = "api#40";
 /** Pull request number given to a card that fails CI before it had one. */
 const FALLBACK_PR = 290;
 /** "Simulate CI failure" plays the same story faster. */
@@ -61,14 +62,14 @@ function gaveUp(ctx: Ctx, c: Card, test: string): void {
   if (tests) tests.st = "failed";
   feed(ctx, {
     kind: "ci",
-    text: `CI failed 3 times on #${c.id} ${c.title}`,
+    text: `CI failed 3 times on ${cardLabel(c)} ${c.title}`,
     pid: c.p,
     cardId: c.id,
   });
   notice(ctx, {
     kind: "ci",
     cardId: c.id,
-    text: `CI failed on #${c.id}`,
+    text: `CI failed on ${cardLabel(c)}`,
     sub: `${c.title}. ${test} failed 3 times.`,
   });
   ctx.flags.ciFailRunning = false;
@@ -118,7 +119,7 @@ function fixSteps(ctx: Ctx, c: Card, k: number) {
  * CI fails on a card in review, a rerun fails too, the agent tries a fix, and after
  * the third failure the card needs you. Only one runs at a time.
  */
-export function ciFailure(ctx: Ctx, id: number | undefined, fast: boolean): void {
+export function ciFailure(ctx: Ctx, id: CardKey | undefined, fast: boolean): void {
   const c = card(ctx, id || DEFAULT_CARD_ID);
   if (!c || ctx.flags.ciFailRunning) return;
   ctx.flags.ciFailRunning = true;

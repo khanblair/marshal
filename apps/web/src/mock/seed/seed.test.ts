@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createContext, type Env } from "../context";
+import { PROTOTYPE_PROJECTS } from "~/testing/projects";
+import { createTestContext } from "~/testing/test-store";
+import type { Env } from "../context";
 import { createIds } from "../ids";
+import { createProtoShape } from "../testing/proto-shape";
 import { loadPrototype, snapshot } from "../testing/prototype";
 import { buildSeed } from ".";
 
@@ -25,9 +28,14 @@ describe("seed", () => {
 
   it("matches the prototype's initial state value for value", () => {
     const proto = loadPrototype("#nosim");
-    const ctx = createContext(env());
+    // The store starts with no projects: they come in through the mirror, like the daemon's.
+    const ctx = createTestContext(env());
     const expected = snapshot(proto.S) as Record<string, unknown>;
-    const actual = snapshot(ctx.S) as Record<string, unknown>;
+    // The store names a card by project and number; the prototype numbers cards across projects.
+    const actual = createProtoShape({ S: ctx.S }, proto).shape(snapshot(ctx.S)) as Record<
+      string,
+      unknown
+    >;
     // `ready` is set by index.ts after boot; `resolvedTheme` by the DOM theme hook.
     for (const key of ["ready", "resolvedTheme"]) {
       delete expected[key];
@@ -65,7 +73,7 @@ describe("seed", () => {
     const seed = buildSeed(createIds(), FIXED.getTime());
     const ids = new Set(seed.cards.map((c) => c.id));
     const people = new Set(seed.people.map((p) => p.id));
-    const projects = new Set(seed.projects.map((p) => p.id));
+    const projects = new Set(PROTOTYPE_PROJECTS.map((p) => p.id));
     expect(seed.cards.flatMap((c) => c.deps).every((id) => ids.has(id))).toBe(true);
     expect(seed.cards.flatMap((c) => c.members).every((id) => people.has(id))).toBe(true);
     expect(seed.cards.every((c) => projects.has(c.p))).toBe(true);
@@ -87,9 +95,19 @@ describe("seed", () => {
       if (n.kind === "sleep") return n.cards;
       return n.cardId ? [n.cardId] : [];
     });
-    expect(chatRefs).toEqual([43, 44, 44, 42, 33, 119, 121, 213, 207]);
+    expect(chatRefs).toEqual([
+      "api#43",
+      "api#44",
+      "api#44",
+      "api#42",
+      "api#33",
+      "web#119",
+      "web#121",
+      "mobile#213",
+      "mobile#207",
+    ]);
     expect(feedRefs).toHaveLength(6);
-    expect(noticeRefs).toEqual([39, 36, 116, 213]);
+    expect(noticeRefs).toEqual(["api#39", "api#36", "web#116", "mobile#213"]);
     for (const id of [...chatRefs, ...feedRefs, ...noticeRefs]) expect(ids.has(id)).toBe(true);
   });
 

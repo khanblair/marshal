@@ -1,3 +1,4 @@
+import type { CardKey } from "../card-key";
 import type { Ctx } from "../context";
 import { later } from "../engine";
 import { ciFailure } from "./ci-failure";
@@ -9,7 +10,7 @@ const SCRIPT46_START_MS = 4000;
 const MERGE35_START_MS = 3000;
 const CI_FAILURE_START_MS = 5000;
 const TICK_MS = 1000;
-const CI_FAILURE_CARD_ID = 40;
+const CI_FAILURE_CARD_ID: CardKey = "api#40";
 
 /**
  * Starts the fake daemon. Hash flags switch parts off: `nosim` everything, `n41` and

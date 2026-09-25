@@ -17,10 +17,12 @@ describe("simulation parity with the prototype", { timeout: SLOW_TEST_MS }, () =
     // and the 125 s sleep notice.
     t.play(135_000, 1000);
     const S = t.port.S;
-    expect(S.cards.find((c) => c.id === 41)?.state).toBe("review");
-    expect(S.cards.find((c) => c.id === 46)?.state).toBe("needs");
-    expect(S.cards.find((c) => c.id === 35)?.state).toBe("done");
-    expect(S.cards.find((c) => c.id === 40)?.reason).toBe("CI failed 3 times: TestRetryBackoff");
+    expect(S.cards.find((c) => c.id === "api#41")?.state).toBe("review");
+    expect(S.cards.find((c) => c.id === "api#46")?.state).toBe("needs");
+    expect(S.cards.find((c) => c.id === "api#35")?.state).toBe("done");
+    expect(S.cards.find((c) => c.id === "api#40")?.reason).toBe(
+      "CI failed 3 times: TestRetryBackoff",
+    );
     expect(S.notices.some((n) => n.kind === "sleep")).toBe(false);
   });
 
@@ -44,11 +46,11 @@ describe("simulation parity with the prototype", { timeout: SLOW_TEST_MS }, () =
   });
 
   it.each([
-    ["#n41", 41, "working"],
-    ["#n46", 46, "planning"],
-    ["#nm", 35, "merging"],
-    ["#nci", 40, "review"],
-  ] as const)("%s keeps card %i out of the script", (hash, id, state) => {
+    ["#n41", "api#41", "working"],
+    ["#n46", "api#46", "planning"],
+    ["#nm", "api#35", "merging"],
+    ["#nci", "api#40", "review"],
+  ] as const)("%s keeps card %s out of the script", (hash, id, state) => {
     const t = makeTwin(hash);
     t.play(30_000, 1000);
     expect(t.port.S.cards.find((c) => c.id === id)?.state).toBe(state);
@@ -56,8 +58,8 @@ describe("simulation parity with the prototype", { timeout: SLOW_TEST_MS }, () =
 
   it("stops the tick with #nt", () => {
     const t = makeTwin("#n41-n46-nm-nci-nt");
-    const cost = t.port.S.cards.find((c) => c.id === 42)?.cost;
+    const cost = t.port.S.cards.find((c) => c.id === "api#42")?.cost;
     vi.advanceTimersByTime(10_000);
-    expect(t.port.S.cards.find((c) => c.id === 42)?.cost).toBe(cost);
+    expect(t.port.S.cards.find((c) => c.id === "api#42")?.cost).toBe(cost);
   });
 });

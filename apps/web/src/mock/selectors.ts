@@ -1,3 +1,4 @@
+import { type CardKey, cardLabelIn } from "./card-key";
 import { colOf, isAwake, PHONE_MAX_WIDTH_PX } from "./constants";
 import type { Ctx } from "./context";
 import { relTime } from "./format";
@@ -13,11 +14,9 @@ export const now = (ctx: Ctx): number => ctx.clock.now();
 /** Relative time that updates on every simulation tick. */
 export const rel = (ctx: Ctx, ts: number): string => relTime(ts, ctx.clock.now());
 
-/** Finds a card by id. Accepts strings too, as the views pass `"#118".slice(1)`. */
-export const card = (ctx: Ctx, id: number | string | null | undefined): Card | undefined => {
-  const n = Number(id);
-  return ctx.S.cards.find((c) => c.id === n);
-};
+/** Finds a card by its key, such as `api#41`. */
+export const card = (ctx: Ctx, id: CardKey | null | undefined): Card | undefined =>
+  id ? ctx.S.cards.find((c) => c.id === id) : undefined;
 
 export const proj = (ctx: Ctx, id: string | null | undefined): Project | undefined =>
   ctx.S.projects.find((p) => p.id === id);
@@ -25,17 +24,24 @@ export const proj = (ctx: Ctx, id: string | null | undefined): Project | undefin
 export const person = (ctx: Ctx, id: string): Person | undefined =>
   ctx.S.people.find((p) => p.id === id);
 
+/**
+ * The label of a card for text that can be read among cards of other projects: the project name
+ * and the number, such as `api-gateway #41`.
+ */
+export const cardLabelOf = (ctx: Ctx, c: Card): string =>
+  cardLabelIn(c, proj(ctx, c.p)?.name ?? c.p);
+
 export const cardsOf = (ctx: Ctx, pid: string | null): Card[] =>
   ctx.S.cards.filter((c) => c.p === pid);
 
-/** Cards of one column in board order: oldest first in Needs you, newest first in Done, else pinned then newest id. */
+/** Cards of one column in board order: oldest first in Needs you, newest first in Done, else pinned then newest number. */
 export function colCards(list: readonly Card[], col: Column): Card[] {
   return list
     .filter((c) => colOf(c.state) === col)
     .sort((a, b) => {
       if (col === "needs") return a.upd - b.upd;
       if (col === "done") return b.upd - a.upd;
-      return Number(b.pinned) - Number(a.pinned) || b.id - a.id;
+      return Number(b.pinned) - Number(a.pinned) || b.n - a.n;
     });
 }
 
@@ -70,7 +76,7 @@ export function costs(ctx: Ctx, pid?: string | null): Costs {
     spent * TODAY_SHARE + (pid ? ORCHESTRATOR_TODAY_USD.project : ORCHESTRATOR_TODAY_USD.all);
   const base = pid
     ? (proj(ctx, pid)?.monthBase ?? 0)
-    : S.projects.reduce((a, p) => a + p.monthBase, 0);
+    : S.projects.reduce((a, p) => a + (p.monthBase ?? 0), 0);
   const limits = (pid && S.limits[pid]) || S.limits.global;
   return {
     today,
@@ -90,7 +96,7 @@ export function costTone(value: number, limit: number): "over" | "near" | "norma
 }
 
 /** The approval or plan a card is waiting on, if any. */
-export const pendingApproval = (ctx: Ctx, id: number): ApprovalMsg | PlanMsg | undefined =>
+export const pendingApproval = (ctx: Ctx, id: CardKey): ApprovalMsg | PlanMsg | undefined =>
   (ctx.S.chat[id] ?? []).find(
     (x): x is ApprovalMsg | PlanMsg => (x.k === "approval" || x.k === "plan") && x.st === "waiting",
   );
