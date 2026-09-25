@@ -23,6 +23,11 @@ func testGit() *gitx.Git {
 	))
 }
 
+// Git returns the Git that fixtures are made with: it has an identity and ignores the machine's
+// own Git settings. Give it to the code under test, so a commit, a branch, or a worktree behaves
+// the same on every machine.
+func Git() *gitx.Git { return testGit() }
+
 // Fixture copies daemon/testdata/repos/<name> into a temp folder, makes it a Git repository with
 // one commit on the main branch, and returns its path. The fixture itself is never changed. The
 // fixtures are stored as plain files, because a repository cannot contain another one.
