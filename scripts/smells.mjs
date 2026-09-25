@@ -10,13 +10,16 @@
  * Accepted smells live in .smells-baseline.json, each with a reason and a task.
  */
 import { spawnSync } from "node:child_process";
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 
 const root = new URL("..", import.meta.url).pathname;
 const FILE_WARN_LINES = 400;
 const FILE_BLOCK_LINES = 800;
-const SOURCE_ROOTS = ["apps", "packages", "scripts", "tools"];
+/** Folders that exist only once something is added to them (`tools/`) are skipped until then. */
+const SOURCE_ROOTS = ["apps", "packages", "scripts", "tools"].filter((dir) =>
+  existsSync(join(root, dir)),
+);
 const SOURCE_EXT = /\.(ts|tsx|css|mjs)$/;
 const SKIP_DIR = new Set(["node_modules", "dist", "coverage", "test-results", "playwright-report"]);
 const SKIP_FILE = /(\.d\.ts|\/dist\/)/;
