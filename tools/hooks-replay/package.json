@@ -1,0 +1,14 @@
+{
+  "name": "hooks-replay",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Sends a recorded webhook to the dev daemon. Scripts only: the program is Go.",
+  "scripts": {
+    "replay": "node ../../scripts/go-tool.mjs go run .",
+    "build": "node ../../scripts/go-tool.mjs go build -o ../../dist/bin/ .",
+    "test": "node ../../scripts/go-tool.mjs go test -race ./...",
+    "lint:go": "node ../../scripts/go-tool.mjs golangci-lint run ./...",
+    "format:go": "node ../../scripts/go-tool.mjs golangci-lint fmt ./...",
+    "format:check:go": "node ../../scripts/go-tool.mjs golangci-lint fmt --diff ./..."
+  }
+}

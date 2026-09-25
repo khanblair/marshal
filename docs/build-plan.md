@@ -8,8 +8,10 @@ Progress on every task is tracked in `progress-tracker.md`. Task IDs here (for e
 
 ## How to use this plan
 
-- **Work top to bottom.** Phases 0 to 5 are the core. Later phases build on top of them and should not need the core to be rebuilt.
-- **Finish a phase before starting the next**, unless a task says it can run in parallel.
+- **Work top to bottom, as a guide.** Phases 0 to 5 are the core. Later phases build on top of them and should not need the core to be rebuilt.
+- **The order is not strict.** When a task needs something a later phase provides, build that part early and skip it when its phase comes. Tick it in its own phase and note which task needed it. `backend-checklist.md` section 2.7 has the rules.
+- **Finish a phase before starting the next**, unless a task says it can run in parallel or it is built early for another task.
+- **Tasks marked (prototype) were added on 2026-09-25** from `backend-inventory.md`. They cover what the prototype does or needs that this plan did not list. Each one includes its screen work, so the backend and its screens are built together.
 - **A task is done only when its done criteria pass**, including tests and budget checks.
 - **If a task turns out bigger than expected**, split it into smaller tasks here and in the tracker before continuing.
 - **Every integration task includes its connection test**, as described in `architecture.md` section 18. An integration is not done until its test works.
@@ -78,6 +80,10 @@ Each task lists:
 | 1.11 | Session logs to disk with a small memory buffer | Logs rotate, memory stays flat under heavy output |
 | 1.12 | HTTP API and WebSocket event stream with batching | Card events reach a test client in batches |
 | 1.13 | Client auth tokens | Requests without a valid token are rejected |
+| 1.14 | (prototype, N19) Agent catalog: `GET /v1/agents` with kind, version, status (supported, untested, missing), models, and capabilities including thinking support. Screen work: the agent, model, and thinking pickers read it, and a missing agent shows disabled with an install hint. | Pickers list the real agents, a missing agent such as Codex shows as missing, and thinking options follow the model's capability |
+| 1.15 | (prototype, N25, N26) Protocol conventions: absolute UTC timestamps, the daemon's time in every snapshot, ID rules, one error shape, cursor paging, fixed lists of enumerations, and event sequence numbers for re-sync. Each project numbers its own cards, so a card's client key is its project plus its number. Screen work: every list that mixes projects (Home, notices, search, the palette, the Agents view, chats) shows the project name next to the number. | Contract tests cover each rule, and a fixture with card 12 in two projects shows both correctly everywhere |
+| 1.16 | (prototype, N29) Client data layer and the states the mock never needed. Screen work: a full-screen "Can't reach the daemon" that recovers by itself, an offline banner, loading skeletons, a sign-in or pairing screen, and a "Not connected" empty state with a Connect button for services that are not set up, all built from existing components and tokens | Each state renders at three sizes and the app recovers when the daemon comes back |
+| 1.17 | (prototype, N16) Project fields: language, default branch, dev command, bypass lock, and the remove options keep branches and keep memory. Screen work: wire the Project settings fields and the remove dialog | Values save and read back through the API, and removing a project never touches the repo folder |
 
 **Milestone reached:** first card.
 
@@ -107,6 +113,15 @@ Each task lists:
 | 2.15 | Profile page and accounts module | Avatar opens the profile, edits save, devices listed |
 | 2.16 | Onboarding: four screens with skip and resume | A new user reaches Home with an agent and a project, or skips safely |
 | 2.17 | Tutorial tour on the Home dashboard with skip and replay | Tour runs on desktop and phone, and can be replayed from the profile menu |
+| 2.18 | (prototype, N1) Card fields the model lacks: managed labels (a per-project list where each label has a name and a color chosen from a fixed set of label color tokens), package, due date, planned start and end, pull request link, context used, needs-you reason, and "doing now". Screen work: label management in Project settings, a label picker on the card, date fields, the reason on the card and on Home, and the pull request chip. Add the label colors to `ui-tokens.md` and the tokens package | Fields round-trip through the API, labels filter and group the board, and the label colors pass the contrast check |
+| 2.19 | (prototype, N2, N3) Manual move rules and card edit: write the allowed-move matrix and the refusal messages from the prototype into `architecture.md`, and add `PATCH` and `DELETE /v1/cards/{id}`. Screen work: the drag snap-back and toast show the daemon's message, and the delete dialog warns about unmerged work | Every refused move returns a stable code and a plain message, and delete removes the session, worktree, comments, and attachments |
+| 2.20 | (prototype, N12) Terminal channel: input, resize, and key bar keys on the event stream. Screen work: the phone key bar sends real keys | Typing and resizing reach the process, and the key bar works on a phone |
+| 2.21 | (prototype, N13, N14, N15) Chat history, activity, and diff loading: typed message kinds in the protocol, paged history for cards and chats, a paged activity list with fixed kinds, and a diff file list with hunks loaded per file and large files collapsed. Screen work: the same screens load pages as the user scrolls, and "Load diff" fetches a large file's hunks | Long histories, long feeds, and a 1,240-line diff stay smooth |
+| 2.22 | (prototype, N17) Fixed vocabularies for Home feed kinds, notice kinds, and activity kinds in the protocol, and paged, filterable view-all lists. Screen work: the view-all pages page and filter | Each kind appears with its icon and text, and the lists page without reloading |
+| 2.23 | (prototype, N20, N30) Saved views API, and screen preferences saved with the user: theme, list columns, sort, last view per project, filters, and swimlane. Layout (side panel width, collapsed sidebar, split panes, calendar mode, dashboard range) stays on the device. Screen work: none new, the settings follow the user | Changing the theme or a saved view on one device shows on another |
+| 2.24 | (prototype, N23) Search extended to projects, cards, and chats for the command palette and the top bar. Screen work: results grouped by kind, with the project name next to a card number | Typing a card title, a project name, or a chat title finds it from the keyboard |
+| 2.25 | (prototype, N24) Sample project and Developer options: ship a small sample repository and let project creation use it, and add a Developer options section in Settings that appears only in dev mode or when a setting is on, starting with a first-launch reset. Screen work: "Use a sample project" creates a real project, and the section holds the reset button | A new user gets a working sample project, and the reset shows only in dev mode or with the setting on |
+| 2.26 | (prototype, N27) Users list for member pickers and avatar upload. Screen work: upload and remove controls on the profile, and the member picker reads real users (only the owner in solo use) | An uploaded avatar shows in the top bar, and the picker lists the owner only |
 
 **Milestone reached:** usable board.
 
@@ -128,6 +143,9 @@ Each task lists:
 | 3.8 | Thinking modes mapped per provider | Setting changes the provider request as expected |
 | 3.9 | Model switching per card, role, and mid-session | Switch works for built-in and CLI agents |
 | 3.10 | Deploy approval rule | Deploy workflows cannot be run by agents outside bypass |
+| 3.11 | (prototype, N7) One approval, many views: an approval a project chat asks for is the same row as the card's, and events reach every place that shows it | Approving in the chat updates the card and Home, and the reverse |
+| 3.12 | (prototype, N8) Card settings and bypass calls: agent, role, model, thinking, and permission mode through `PATCH /v1/cards/{id}`, and bypass on and off with a typed acknowledgement and the project's lock. The daemon writes the system message and the activity row. Screen work: the bypass dialog and banner use the calls | A change applies on the next turn with a system message, and bypass is refused when the project is locked |
+| 3.13 | (prototype) Audit log screen: list, search, and export the audit log, read only. Screen work: a new view under Settings built from existing table components | Actions from a test run are listed, searchable, and exportable, and nothing can be edited |
 
 **Milestone reached:** safe to trust.
 
@@ -148,6 +166,8 @@ Each task lists:
 | 4.7 | Usage and cost tracking | Cost meter per card, role, and model matches provider usage |
 | 4.8 | Cost limits per project and global | Hitting a limit pauses cards and notifies |
 | 4.9 | Connection test framework and provider key tests | Test button shows passed, partly working, and failed results with fix hints |
+| 4.10 | (prototype, N18) Provider and limits settings calls: save, remove, and test provider keys (only a masked value comes back), and read and write cost and awake limits. Screen work: the Providers and Limits sections read and write the daemon | A saved key is never shown again, and a limit change takes effect on the next check |
+| 4.11 | (prototype) Fallback and usage screens: choose a backup model per role and see usage and cost per card, role, and model. Screen work: new sections built from existing components | The backup model is used in a simulated outage, and the numbers match the usage table |
 
 ---
 
@@ -172,6 +192,12 @@ Each task lists:
 | 5.13 | Smell profiles per project with default thresholds and severity | Changing a threshold changes the findings |
 | 5.14 | Blocking findings loop back to the agent, warnings go to the Reviewer, model-only smells checked by the Reviewer | A card with a blocking smell is fixed before review |
 | 5.15 | Findings on the card: ask to fix, dismiss with reason, reasons feed lessons | Both actions work, and dismiss reasons appear in lessons |
+| 5.16 | (prototype, N4) Pause and resume: hold a Working card between turns. A working card cannot sleep until it is paused, a needs-you card stays awake, and a card without an awake session cannot sleep. Screen work: Pause becomes Resume, and a paused indicator shows on the card and the board | The rules match the prototype's messages, and pause and resume work through the API |
+| 5.17 | (prototype, N5) Sleep reminder actions: keep awake for a set time, sleep now, keep all, sleep all, and dismiss. The keep-awake time is 15 minutes by default and is a setting. Screen work: a "Keep awake time" field under General next to idle and warning time | Each action changes the cards it names and the notice updates for every device |
+| 5.18 | (prototype, N6) Plan calls: approve, reject, and edit and save a plan with its steps, files, risks, and checks. Screen work: the plan block actions use the calls | A card waits in Planning until its plan is approved |
+| 5.19 | (prototype, N18) Role calls: create, duplicate, edit, delete, reset, per-project override, import, and export. Screen work: Import and Export buttons in the role editor | Roles fully editable, and an exported role imports on another machine |
+| 5.20 | (prototype) Smell findings screen: the findings on a card with ask to fix and dismiss with a reason, and a smell profile section in Project settings. Screen work: new components in the card panel and settings | Both actions work and the profile thresholds change the findings |
+| 5.21 | (prototype) Checkpoints screen: a list of the card's checkpoints with labels and a restore action that can also restore the conversation. Screen work: a section in the card's Activity tab or menu | Restore returns the worktree, and optionally the conversation, to the chosen checkpoint |
 
 **Milestone reached:** idea to merge.
 
@@ -189,6 +215,9 @@ Each task lists:
 | 6.6 | Live preview per card on its own port with isolated browser profile | Two cards preview at once without shared state |
 | 6.7 | Screenshot checks before and after | Screenshots attach to card and PR |
 | 6.8 | GitHub connection test, including webhook ping | Test catches a missing permission and a blocked webhook |
+| 6.9 | (prototype, N10) Preview calls: start, stop, and state (stopped, starting, running), the project's dev command, and before and after screenshots. Screen work: the Preview tab buttons and screenshot pair use the calls | Two cards preview at once, and screenshots show in the tab and the pull request |
+| 6.10 | (prototype, N28) Simulate CI failure with two modes. The synthetic mode injects a failed run through the CI monitor's normal path (rerun, trimmed log, loop limits, notice) and never touches GitHub. The real mode asks for confirmation and pushes a deliberately failing change to the card's own branch so GitHub Actions really fails. Both are audited and shown only in dev mode or with Developer options on. Screen work: two items in the card menu, a confirmation dialog for the real mode, and a label that says which mode ran | Each mode produces the same events as a real failure, the fix loop can be tested from the screen, and the real mode leaves only the marked commit |
+| 6.11 | (prototype, N18) GitHub row calls: connect, disconnect, and test. Screen work: the GitHub row shows connected, not connected, or error, with the last test result | The row reflects the real connection and a Connect button starts the flow |
 
 ---
 
@@ -207,6 +236,8 @@ Each task lists:
 | 7.9 | Codebase map | Agents answer "where is X" without reading many files |
 | 7.10 | Session search | Search finds past work across cards |
 | 7.11 | Context budget meter and pinned files | Meter warns before auto-compaction |
+| 7.12 | (prototype, N11) Card notes calls: read and write the card's vault note. Screen work: the Notes tab uses the calls | Agents read the note at the start of a turn, and edits made in Obsidian show in the tab |
+| 7.13 | (prototype) Memory screens: a viewer and editor for the knowledge base and lessons, the context budget meter on the card, and pinned files. Screen work: new sections built from existing components | The meter warns before compaction, and pinned files stay in context |
 
 ---
 
@@ -222,6 +253,8 @@ Each task lists:
 | 8.6 | Gmail integration | Labeled emails become cards |
 | 8.7 | Morning and evening briefs across all projects | Briefs deliver on time with only new changes |
 | 8.8 | Brief times from Trello or Calendar | Changing the event changes the brief time |
+| 8.9 | (prototype, N21) Calendar range call: one call for a date range that returns events, scheduled jobs, briefs, and due cards. Screen work: the calendar and the Home coming up list read it, and show "Not connected" until Google Calendar is set up | Both screens show the same items, and a disconnected calendar shows the not-connected state with no sample data |
+| 8.10 | (prototype, N18) Schedule and integration calls: create, edit, delete, enable, and run now for schedules with the missed-run policy, and connect, disconnect, and test for Trello, Google Calendar, and Gmail. Screen work: the schedule editor and the integration rows use the calls, with a Run now button | Each schedule runs on time and after wake, and each integration row shows its real state |
 
 ---
 
@@ -237,6 +270,7 @@ Each task lists:
 | 9.6 | Discord bot with the same features | Same checks as Telegram |
 | 9.7 | Notification routing and grouping | Channels per event type, grouped notices |
 | 9.8 | Remote machines: a second daemon on the tailnet | A project runs on a remote machine from the laptop UI |
+| 9.9 | (prototype) Pairing and Tailscale screens: show the pairing code, tailnet status, and Funnel status, and revoke a device. Screen work: new sections beside the paired devices list, and the pairing step in onboarding | A phone pairs from the code on screen, and a revoked device loses access at once |
 
 **Milestone reached:** anywhere.
 
@@ -259,6 +293,11 @@ Each task lists:
 | 10.11 | Agent ticks with evidence, and auto untick when evidence stops being true | A failing test unticks the item it proved |
 | 10.12 | Comments with files, images, links, mentions, and "Agent read this" | @agent and questions get a reply, and attachments reach the agent |
 | 10.13 | Card members and member notices | Members get notices for mentions, replies, needs you, and merges |
+| 10.14 | (prototype, N9) Check calls: run and list a card's checks with states pending, running, passed, and failed, and use results as tick evidence. Screen work: the Checks tab runs checks and gets an editor to add, edit, and remove them | A card cannot finish until its checks pass |
+| 10.15 | (prototype, N22) Duplicate detection call: return similar cards for a draft title and body. Screen work: the new card dialog shows the warning from the call | Similar cards are flagged before creation |
+| 10.16 | (prototype) Checklist options screen: "required to finish" and "people only" per checklist, the evidence behind an agent tick, and the note when a tick is removed. Screen work: controls and notes in the checklist block | Required checklists block the merge queue and a failing test unticks the item it proved |
+| 10.17 | (prototype) Race mode and scorecard screens: a side-by-side comparison with a keep-winner action, and stats per agent, model, and role. Screen work: new views built from existing components | The winner is kept and the numbers match the usage and findings tables |
+| 10.18 | (prototype) Templates, sub-cards, and dependency editing screens: manage card templates, show a parent's combined progress, and edit dependencies on the card. Screen work: new sections in settings and the card panel | New cards start from templates and dependent cards start after merges |
 
 ---
 
@@ -271,6 +310,7 @@ Each task lists:
 | 11.3 | MCP manager and per-card MCP | Each card gets only its listed servers |
 | 11.4 | MCP health check | Broken servers show as broken |
 | 11.5 | Plugin API for agents, integrations, roles, and views | A sample plugin adds a new integration |
+| 11.6 | (prototype) Skills and MCP screens: the skills folder, import with a content preview, the MCP manager with health, and per-card MCP. Screen work: new Settings sections and card fields, and the role editor's skills and MCP fields become real | Skills load for the right agents and a broken server shows as broken |
 
 ---
 
@@ -287,6 +327,7 @@ Each task lists:
 | 12.7 | Export and import | A project moves to another machine |
 | 12.8 | Encrypted backup and sync over Tailscale | Settings and memory sync between two devices |
 | 12.9 | Team: shared boards, human handoff, user roles, comments | Two users work on one board |
+| 12.10 | (prototype) Export and import screens for a project, and remote machine choice per project. Screen work: buttons in Project settings and a machine picker | A project moves to another machine from the screen |
 
 > If the first real projects are monorepos, move task 12.5 into Phase 1 right after task 1.5. Full worktrees of a large monorepo are too heavy to use day to day.
 

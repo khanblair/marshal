@@ -23,7 +23,7 @@ Go tools are installed by one script, so everyone uses the same versions:
 pnpm setup:tools
 ```
 
-This installs `air` (reloads the daemon when Go files change), `sqlc`, `tygo`, and `golangci-lint` into a local `.tools/` folder that is ignored by Git.
+This installs `air` (reloads the daemon when Go files change), `sqlc`, `tygo`, and `golangci-lint` into a local `.tools/` folder that is ignored by Git, at the versions pinned in `scripts/setup-tools.mjs` and `library-docs.md`. They are built without cgo, so they need no C compiler. The race detector used by `pnpm test:daemon` does need one, which is already there on macOS, Linux, and the Windows CI runners.
 
 ### First-time setup
 
@@ -162,7 +162,7 @@ You have two options:
 pnpm dev:reset
 ```
 
-This stops the dev daemon and deletes the dev data folder, including dev worktrees. It never touches the normal install. You are asked to confirm first.
+This runs `marshal dev reset`. It refuses to run while the dev daemon is up (stop it first), asks you to confirm, and then deletes the dev data folder, including dev worktrees. It only ever deletes a folder whose name ends in `-dev` and that sits well below the home folder, so it can never touch the normal install. Pass `--yes` after `--` to skip the question.
 
 ---
 
@@ -176,11 +176,11 @@ This stops the dev daemon and deletes the dev data folder, including dev worktre
 | `pnpm lint` | Lint Go, TypeScript, and Rust |
 | `pnpm format` | Format all code |
 | `pnpm test` | All unit and integration tests |
-| `pnpm test:daemon` | Go tests with the race detector |
+| `pnpm test:daemon` | Go tests with the race detector, for the daemon (`pnpm test` also runs the Go tools' tests) |
 | `pnpm test:web` | UI unit and component tests |
 | `pnpm test:e2e` | End-to-end tests in the desktop shell |
 | `pnpm test:agents` | Smoke tests with real CLI agents. Needs `MARSHAL_AGENT=real` and keys. |
-| `pnpm budgets` | Measure RAM, CPU, and size budgets locally |
+| `pnpm budgets` | Measure the web build size, then the built daemon's idle RAM and CPU (run `pnpm build` first). `MARSHAL_BUDGET_IDLE` sets how long the daemon idles: 10 seconds by default, 60 in CI. |
 | `pnpm smells` | Code smell checks on changed code (see `code-standards.md` section 12) |
 | `pnpm smells:all` | Code smell checks on the whole repo |
 | `pnpm check` | Everything CI runs: format check, lint, code smells, tests, budgets |

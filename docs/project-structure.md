@@ -33,7 +33,8 @@ marshal/
   biome.json                    TypeScript formatting and lint rules, including smell limits
   knip.json                     Unused files, exports, and dependencies check
   .jscpd.json                   Duplicated code check across languages
-  .golangci.yml                 Go lint rules, including smell limits
+  .golangci.yml                 Go lint rules with the blocking smell limits
+  .golangci.warn.yml            Go soft limits (the warning levels), run by pnpm smells
   .smells-baseline.json         Accepted smells with reasons (starts empty)
   .github/
     workflows/
@@ -96,22 +97,36 @@ daemon/
   cmd/
     marshald/
       main.go                   Daemon entry point: flags, config, start modules
+      output.go                 Writes lines to the terminal
     marshal/
       main.go                   Command line tool entry point
+      output.go                 Writes lines to the terminal
       cmd_status.go             marshal status
       cmd_cards.go              marshal cards (list, new, start, send)
       cmd_keys.go               marshal keys set, list, remove
-      cmd_dev.go                Dev-only commands (reset, hooks replay)
+      cmd_dev.go                Dev-only commands (marshal dev reset, which only ever deletes the dev data folder)
 
   internal/
+    buildinfo/
+      buildinfo.go              The version number that the daemon, the tool, and the app share
+
+    protocol/
+      health.go                 Wire types (plain types only), generated into packages/protocol
+
+    testutil/
+      fixtures.go               Fixture repositories, copied to temp folders and committed for tests
+      golden.go                 Golden files shared with the app's tests
+
     platform/
       paths.go                  Data folder per OS, dev and normal
+      devtoken.go               The dev token file
+      reset.go                  Guard and delete for the dev data folder
       lock.go                   Single instance lock
       service.go                Install and run as a user service (launchd, systemd, Windows task)
       process.go                Child process helper: working folder, environment, process group, cleanup
 
     config/
-      config.go                 Load and save config.toml
+      config.go                 Settings from flags, MARSHAL_* environment settings, and defaults (config.toml comes later)
       defaults.go               Default settings and limits
 
     api/
@@ -783,30 +798,49 @@ packages/tokens/
 ```
 packages/protocol/
   package.json
+  tsconfig.json
+  vitest.config.ts
   src/
     index.ts                    Exports
-    generated/                  Generated from Go by tygo. Do not edit.
+    generated/                  Generated from Go by tygo (pnpm gen). Do not edit.
+  test/
+    golden.test.ts              Checks the daemon's golden files against the generated types
 ```
 
 ---
 
 ## 9. Tools
 
+Each program is its own Go module, with no `go.work`, and each has a `package.json` with scripts only (`build`, `test`, `lint:go`, `format:go`, `format:check:go`).
+
 ```
 tools/
   stub-agent/
-    package.json                pnpm scripts
-    main.go                     Fake ACP agent with resume
-    scenarios/
-      approve.yaml              Asks for approval
-      fail-test.yaml            Fails a test, then fixes it
-      stuck-loop.yaml           Repeats the same error
-      resume.yaml               Survives a restart
-      smells.yaml               Writes code with known smells
+    go.mod
+    main.go                     Flags and start-up
+    agent.go                    The ACP agent: initialize, sessions, prompt, cancel
+    unsupported.go              The ACP methods it does not support
+    scenario.go                 Loading scenarios and choosing one
+    runner.go                   Running a scenario's steps
+    session.go                  Session state saved to disk, so a restart can resume
+    output.go                   Writes lines to the terminal
+    scenarios/                  Embedded in the program (JSON, not YAML, to add no dependency)
+      default.json              Reads, summarizes, and edits a file
+      approve.json              Asks for approval
+      fail-test.json            Fails a test, then fixes it
+      stuck-loop.json           Repeats the same error
+      resume.json               Says its turn number, so tests can prove context survived a restart
+      smells.json               Writes code with known smells
   budgets/
-    main.go                     Measures budgets and fails when over
+    go.mod
+    main.go                     Flags and the budget report
+    measure.go                  Starts the daemon, lets it idle, and reads its memory and processor use
+    parse.go                    Reads ps, /proc, and PowerShell output
+    sample_darwin.go, sample_linux.go, sample_windows.go, sample_other.go
   hooks-replay/
-    main.go                     Replays recorded webhooks to the dev daemon
+    go.mod
+    main.go                     Flags and start-up
+    replay.go                   Reads a recorded webhook and sends it to the dev daemon
 ```
 
 ---
@@ -815,9 +849,12 @@ tools/
 
 ```
 scripts/
-  setup-tools.mjs               Installs Go tools into .tools/
-  gen.mjs                       Runs sqlc, tygo, and token generation
-  smells.mjs                    Runs all smell tools, compares with main and the baseline
-  dev-reset.mjs                 Deletes dev data after confirming
-  build.mjs                     Local production builds
+  setup-tools.mjs               Installs the pinned Go tools into .tools/
+  go-tool.mjs                   Runs a Go tool from .tools/bin, the same way on every platform
+  gen-protocol.mjs              Generates packages/protocol from the Go types with tygo, then formats it
+  smells.mjs                    Runs all smell tools (Biome, golangci-lint, knip, jscpd) and the file length check
+  budgets.mjs                   Web build size, then the daemon's idle memory and processor use
+  check.mjs                     Runs everything CI runs, in order
 ```
+
+There is no `gen.mjs`, `dev-reset.mjs`, or `build.mjs`: `pnpm gen` and `pnpm build` are chains of package scripts, and `marshal dev reset` does the dev reset in Go, so the folder rules live in one place.

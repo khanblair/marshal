@@ -254,46 +254,46 @@ The chat and terminal views draw these message kinds. Each becomes a typed event
 
 ## 5. Work the prototype needs that the docs do not have yet
 
-Each entry is built by the phase named in the last column, and includes updating `architecture.md` (data model, API, or events), `project-structure.md` if files change, and a row in the decisions log of `progress-tracker.md`. None of these changes a design decision already made. They fill in what the docs left as examples.
+Each entry is a numbered task in `build-plan.md`, marked (prototype), that includes its screen work. Each is built by the phase named in the last column, and includes updating `architecture.md` (data model, API, or events), `project-structure.md` if files change, and a row in the decisions log of `progress-tracker.md`. None of these changes a design decision already made. They fill in what the docs left as examples.
 
-| ID | What is missing | What to build | Phase |
+| ID | What is missing | What to build | Phase and task |
 |---|---|---|---|
-| N1 | Card fields with no home: labels, package, due date, start and end dates, pull request link, context used, needs-you reason, "doing now" | Add them to the data model, the API, and the generated types. Labels get their own table and a per-project list. | 2 |
-| N2 | The rules for manual moves are not written down | Write the allowed-move matrix and the refusal messages from `mock/actions/cards.ts` into `architecture.md` section 6. The daemon enforces them and returns a stable reason code and a plain message. | 2 |
-| N3 | No API to rename or delete a card | Add `PATCH` and `DELETE /v1/cards/{id}`. Delete asks for confirmation, stops the session, removes the worktree, comments, and attachments, and warns about unmerged work. | 2 |
-| N4 | "Pause" has no meaning in the docs | Define pause as holding a Working card between turns. A working card cannot sleep until it is paused. Add pause and resume calls and a session flag. The sleep refusal rules (needs you stays awake, no awake session) come from `mock/actions/sessions.ts`. | 5 |
-| N5 | Sleep reminder actions have no API | Add notice actions: keep awake for a set time (the prototype uses 15 minutes), sleep now, keep all, sleep all, and dismiss. The keep-awake time becomes a setting. | 5 |
-| N6 | Plan approve, reject, and edit have no API | Add plan calls and a `plan.updated` event. Define the plan's parts: steps, files, risks, and checks. | 5 |
-| N7 | Approvals asked in a project chat and on a card are one approval | Keep one row in `approvals`, and send its events to every chat and card that shows it. | 3 |
-| N8 | Card setting changes and the bypass confirmation have no API | Add `PATCH /v1/cards/{id}` for settings and the bypass calls. The daemon writes the system message and the activity row and checks the acknowledgement. | 3 |
-| N9 | "Run checks" has no API | Add run and list calls for a card's checks, with states pending, running, passed, and failed, and use their results as evidence for checklist ticks. | 10 |
-| N10 | Preview start and stop, and the project's dev command | Add preview calls and state events, a dev command setting per project, and before and after screenshots for the Preview tab. | 6 |
-| N11 | The Notes tab has no API | Read and write the card's vault note. Agents read it at the start of a turn. | 7 |
-| N12 | The terminal's input, resize, and key bar have no channel | Add input and resize message types to the event stream. Add the key bar keys the phone layout shows. | 2 |
-| N13 | Chat history and the message kinds are not defined | Define the typed message kinds in the protocol package (section 4.3). Add paged history for cards and chats, streaming text, and on-demand tool detail. | 2 |
-| N14 | Activity list API | Add a paged activity list per card, with the fixed list of kinds. | 2 |
-| N15 | Diff loading for large files | List files with counts first, and load hunks for a file when it is opened. Files over a size limit stay collapsed until asked. | 2 |
-| N16 | Project fields and remove options | Add language, dev command, and bypass lock to project settings, and keep-branches and keep-memory to remove. | 1 |
-| N17 | Vocabulary for the Home feed and notices, and the view-all pages | Fix the lists of feed kinds and notice kinds in the protocol. Add paged, filtered activity and CI lists. | 2 |
-| N18 | Settings have no create, edit, or delete calls (only connection tests are listed) | Add calls for roles (create, duplicate, edit, delete, reset, per-project override, import, export), provider keys (save, remove, test), integrations (connect, disconnect, test), schedules (create, edit, delete, enable, run now), limits, and settings. | 3 to 8 |
-| N19 | The agents and models are a fixed list | Add `GET /v1/agents` with kind, version, status (supported, untested, missing), models, and capabilities including thinking support. The UI lists come from it. | 1 |
-| N20 | Saved views have a table but no API | Add the saved view calls. | 2 |
-| N21 | The calendar has no single data call | Add a calendar call for a date range that returns events, scheduled jobs, briefs, and due cards. | 8 |
-| N22 | Duplicate detection has no API | Add a call that returns similar cards for a draft title and body. | 10 |
-| N23 | Search covers sessions and notes only | Extend search to projects, cards, and chats for the command palette. | 2 |
-| N24 | The sample project and dev reset | Ship a small sample repository. Let `POST /v1/projects` create a project from it. Add a dev-only reset of first-launch progress. | 2 |
-| N25 | Times in the mock are relative or made up | Send absolute timestamps and the daemon's current time. The client shows "4 min ago" and countdowns from them. Charts read `daily_stats`. | 1 |
-| N26 | IDs | Each project numbers its own cards, so the number alone is not unique. The client key for a card becomes the project plus the number, and any list that mixes projects (Home, notices, search, the palette, the Agents view, chats) shows the project name with the number. Projects use short readable ids, and chats and other objects use opaque ids. Write it in `architecture.md`. | 1 |
-| N27 | People and the avatar | Add a users list call for member pickers and an avatar upload call. | 2 |
-| N28 | "Simulate CI failure" | Build it as a real feature with two modes: a synthetic failed run through the CI monitor, and a real failing run on GitHub. See the checklist, item B6.4. | 6 |
-| N29 | The screens the mock never needed | Loading, empty, error, offline, reconnect, and sign-in or pairing states. | 1 to 2 |
-| N30 | Where screen preferences are saved | Confirm the split in open decision D2. | 2 |
+| N1 | Card fields with no home: labels, package, due date, start and end dates, pull request link, context used, needs-you reason, "doing now" | Add them to the data model, the API, and the generated types. Labels are a managed list per project, each with a name and a color from a fixed set of color tokens, chosen on the card. | 2 (build plan task 2.18) |
+| N2 | The rules for manual moves are not written down | Write the allowed-move matrix and the refusal messages from `mock/actions/cards.ts` into `architecture.md` section 6. The daemon enforces them and returns a stable reason code and a plain message. | 2 (build plan task 2.19) |
+| N3 | No API to rename or delete a card | Add `PATCH` and `DELETE /v1/cards/{id}`. Delete asks for confirmation, stops the session, removes the worktree, comments, and attachments, and warns about unmerged work. | 2 (build plan task 2.19) |
+| N4 | "Pause" has no meaning in the docs | Define pause as holding a Working card between turns. A working card cannot sleep until it is paused. Add pause and resume calls and a session flag. The sleep refusal rules (needs you stays awake, no awake session) come from `mock/actions/sessions.ts`. | 5 (build plan task 5.16) |
+| N5 | Sleep reminder actions have no API | Add notice actions: keep awake for a set time (the prototype uses 15 minutes), sleep now, keep all, sleep all, and dismiss. The keep-awake time becomes a setting. | 5 (build plan task 5.17) |
+| N6 | Plan approve, reject, and edit have no API | Add plan calls and a `plan.updated` event. Define the plan's parts: steps, files, risks, and checks. | 5 (build plan task 5.18) |
+| N7 | Approvals asked in a project chat and on a card are one approval | Keep one row in `approvals`, and send its events to every chat and card that shows it. | 3 (build plan task 3.11) |
+| N8 | Card setting changes and the bypass confirmation have no API | Add `PATCH /v1/cards/{id}` for settings and the bypass calls. The daemon writes the system message and the activity row and checks the acknowledgement. | 3 (build plan task 3.12) |
+| N9 | "Run checks" has no API | Add run and list calls for a card's checks, with states pending, running, passed, and failed, and use their results as evidence for checklist ticks. | 10 (build plan task 10.14) |
+| N10 | Preview start and stop, and the project's dev command | Add preview calls and state events, a dev command setting per project, and before and after screenshots for the Preview tab. | 6 (build plan task 6.9) |
+| N11 | The Notes tab has no API | Read and write the card's vault note. Agents read it at the start of a turn. | 7 (build plan task 7.12) |
+| N12 | The terminal's input, resize, and key bar have no channel | Add input and resize message types to the event stream. Add the key bar keys the phone layout shows. | 2 (build plan task 2.20) |
+| N13 | Chat history and the message kinds are not defined | Define the typed message kinds in the protocol package (section 4.3). Add paged history for cards and chats, streaming text, and on-demand tool detail. | 2 (build plan task 2.21) |
+| N14 | Activity list API | Add a paged activity list per card, with the fixed list of kinds. | 2 (build plan task 2.21) |
+| N15 | Diff loading for large files | List files with counts first, and load hunks for a file when it is opened. Files over a size limit stay collapsed until asked. | 2 (build plan task 2.21) |
+| N16 | Project fields and remove options | Add language, dev command, and bypass lock to project settings, and keep-branches and keep-memory to remove. | 1 (build plan task 1.17) |
+| N17 | Vocabulary for the Home feed and notices, and the view-all pages | Fix the lists of feed kinds and notice kinds in the protocol. Add paged, filtered activity and CI lists. | 2 (build plan task 2.22) |
+| N18 | Settings have no create, edit, or delete calls (only connection tests are listed) | Add calls for roles (create, duplicate, edit, delete, reset, per-project override, import, export), provider keys (save, remove, test), integrations (connect, disconnect, test), schedules (create, edit, delete, enable, run now), limits, and settings. | 3 to 8 (build plan tasks 4.10, 5.19, 6.11, 8.10) |
+| N19 | The agents and models are a fixed list | Add `GET /v1/agents` with kind, version, status (supported, untested, missing), models, and capabilities including thinking support. The UI lists come from it. | 1 (build plan task 1.14) |
+| N20 | Saved views have a table but no API | Add the saved view calls. | 2 (build plan task 2.23) |
+| N21 | The calendar has no single data call | Add a calendar call for a date range that returns events, scheduled jobs, briefs, and due cards. | 8 (build plan task 8.9) |
+| N22 | Duplicate detection has no API | Add a call that returns similar cards for a draft title and body. | 10 (build plan task 10.15) |
+| N23 | Search covers sessions and notes only | Extend search to projects, cards, and chats for the command palette. | 2 (build plan task 2.24) |
+| N24 | The sample project and dev reset | Ship a small sample repository. Let `POST /v1/projects` create a project from it. Add a dev-only reset of first-launch progress. | 2 (build plan task 2.25) |
+| N25 | Times in the mock are relative or made up | Send absolute timestamps and the daemon's current time. The client shows "4 min ago" and countdowns from them. Charts read `daily_stats`. | 1 (build plan task 1.15) |
+| N26 | IDs | Each project numbers its own cards, so the number alone is not unique. The client key for a card becomes the project plus the number, and any list that mixes projects (Home, notices, search, the palette, the Agents view, chats) shows the project name with the number. Projects use short readable ids, and chats and other objects use opaque ids. Write it in `architecture.md`. | 1 (build plan task 1.15) |
+| N27 | People and the avatar | Add a users list call for member pickers and an avatar upload call. | 2 (build plan task 2.26) |
+| N28 | "Simulate CI failure" | Build it as a real feature with two modes: a synthetic failed run through the CI monitor, and a real failing run on GitHub. See the checklist, item B6.4. | 6 (build plan task 6.10) |
+| N29 | The screens the mock never needed | Loading, empty, error, offline, reconnect, and sign-in or pairing states, and a "Not connected" state for services that are not set up. No sample data is shown for them. | 1 to 2 (build plan task 1.16) |
+| N30 | Where screen preferences are saved | Decided: theme, list columns, sort, per-project last view, filters, and swimlane are saved with the user. Layout stays on the device. | 2 (build plan task 2.23) |
 
 ---
 
 ## 6. What the docs need that the prototype has no screen for
 
-These belong to the daemon and are built in their phases. Their screens do not exist yet, so they need design work first (a new view or section follows `ui-rules.md` and `ui-registry.md`, and goes through design review). They are listed here so the backend is not built without a way to see it.
+These belong to the daemon and are built in their phases. Their screens do not exist yet, so they need design work first (a new view or section follows `ui-rules.md` and `ui-registry.md`, and goes through design review). They are listed here so the backend is not built without a way to see it. Each one is now a build plan task marked (prototype): the audit log screen is 3.13, fallback and usage screens 4.11, smell findings 5.20, checkpoints 5.21, memory screens 7.13, pairing and Tailscale screens 9.9, checklist options 10.16, race mode and scorecard 10.17, templates, sub-cards, and dependency editing 10.18, skills and MCP 11.6, and export and import 12.10. The acceptance check editor is part of task 10.14.
 
 - Checklist options "required to finish" and "people only", the evidence behind an agent tick, and the note when a tick is removed (tasks 10.10 and 10.11).
 - Acceptance check editor and their results on the card (task 10.4).

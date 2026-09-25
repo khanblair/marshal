@@ -1,0 +1,8 @@
+{
+  "headers": {
+    "X-GitHub-Event": "ping",
+    "X-GitHub-Delivery": "8b6f0c1e-0000-4000-8000-000000000001",
+    "User-Agent": "GitHub-Hookshot/recorded"
+  },
+  "body": {"zen":"Keep it logically awesome.","hook_id":1,"hook":{"type":"App","events":["push","pull_request","check_run"]}}
+}
