@@ -23,7 +23,10 @@ type Card struct {
 	// Model is the model the agent uses. Empty means the agent's own default.
 	Model string `json:"model"`
 	// Thinking is how much the agent thinks. It is null when the card has no thinking setting.
-	Thinking *ThinkingMode `json:"thinking"`
+	// The tstype tag makes the generated TypeScript `ThinkingMode | null` and required, because
+	// this field is always sent, as null when there is no setting: a pointer without `omitempty`
+	// encodes nothing away, so the type must not make it optional.
+	Thinking *ThinkingMode `json:"thinking" tstype:"ThinkingMode | null"`
 	// PermissionMode is how much the agent may do without asking.
 	PermissionMode PermissionMode `json:"permissionMode"`
 	// Branch is the Git branch of the card's work. Empty until the card starts.

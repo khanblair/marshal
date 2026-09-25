@@ -1,0 +1,69 @@
+{
+  "type": "events",
+  "epoch": "01M3C0ZZZZ000000000000000A",
+  "events": [
+    {
+      "seq": 1,
+      "topic": "card:01M3C107JB041061050R3GG28A",
+      "type": "session.state_changed",
+      "at": "2026-09-25T10:15:30.143Z",
+      "data": {
+        "cardId": "01M3C107JB041061050R3GG28A",
+        "sessionId": "01M3C107JF041061050R3GG28B",
+        "state": "awake"
+      }
+    },
+    {
+      "seq": 2,
+      "topic": "card:01M3C107JB041061050R3GG28A",
+      "type": "session.output",
+      "at": "2026-09-25T10:15:30.163Z",
+      "data": {
+        "cardId": "01M3C107JB041061050R3GG28A",
+        "kind": "message",
+        "text": "Looking at the code now."
+      }
+    },
+    {
+      "seq": 3,
+      "topic": "card:01M3C107JB041061050R3GG28A",
+      "type": "session.tool_call",
+      "at": "2026-09-25T10:15:30.183Z",
+      "data": {
+        "cardId": "01M3C107JB041061050R3GG28A",
+        "kind": "tool_call",
+        "toolCall": {
+          "id": "call-1",
+          "title": "Read main.go",
+          "toolKind": "read",
+          "status": "in_progress"
+        }
+      }
+    },
+    {
+      "seq": 4,
+      "topic": "card:01M3C107JB041061050R3GG28A",
+      "type": "session.tool_call",
+      "at": "2026-09-25T10:15:30.203Z",
+      "data": {
+        "cardId": "01M3C107JB041061050R3GG28A",
+        "kind": "tool_call_update",
+        "toolCall": {
+          "id": "call-1",
+          "status": "completed"
+        }
+      }
+    },
+    {
+      "seq": 5,
+      "topic": "card:01M3C107JB041061050R3GG28A",
+      "type": "session.state_changed",
+      "at": "2026-09-25T10:15:30.223Z",
+      "data": {
+        "cardId": "01M3C107JB041061050R3GG28A",
+        "sessionId": "01M3C107JF041061050R3GG28B",
+        "state": "stopped"
+      }
+    }
+  ]
+}
