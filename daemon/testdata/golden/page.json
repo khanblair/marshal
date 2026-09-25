@@ -1,0 +1,14 @@
+{
+  "items": [
+    {
+      "projectId": "api",
+      "number": 12
+    },
+    {
+      "projectId": "web-dashboard",
+      "number": 3
+    }
+  ],
+  "nextCursor": "eyJuIjoxM30",
+  "serverTime": "2026-09-25T10:15:30.123Z"
+}

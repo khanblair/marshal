@@ -1,0 +1,24 @@
+{
+  "type": "events",
+  "epoch": "01M3C0ZZZZ000000000000000A",
+  "events": [
+    {
+      "seq": 41,
+      "topic": "project:web-dashboard",
+      "type": "card.created",
+      "at": "2026-09-25T10:15:30.123Z",
+      "data": {
+        "cardId": "01M3C107JB041061050R3GG28A"
+      }
+    },
+    {
+      "seq": 42,
+      "topic": "card:01M3C107JB041061050R3GG28A",
+      "type": "session.state_changed",
+      "at": "2026-09-25T10:15:30.143Z",
+      "data": {
+        "state": "working"
+      }
+    }
+  ]
+}

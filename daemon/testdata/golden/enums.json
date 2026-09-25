@@ -1,0 +1,148 @@
+{
+  "ActivityKind": [
+    "file",
+    "command",
+    "test",
+    "tool",
+    "approval"
+  ],
+  "AgentKind": [
+    "claude",
+    "gemini",
+    "codex",
+    "builtin"
+  ],
+  "AgentStatus": [
+    "supported",
+    "untested",
+    "missing"
+  ],
+  "CIState": [
+    "queued",
+    "running",
+    "passed",
+    "failed",
+    "cancelled"
+  ],
+  "CardState": [
+    "backlog",
+    "planning",
+    "working",
+    "needs",
+    "review",
+    "ready",
+    "merging",
+    "done"
+  ],
+  "CardViewMode": [
+    "chat",
+    "terminal"
+  ],
+  "DeviceKind": [
+    "web",
+    "desktop",
+    "mobile",
+    "cli",
+    "dev"
+  ],
+  "ErrorCode": [
+    "invalid_argument",
+    "unauthorized",
+    "forbidden",
+    "not_found",
+    "method_not_allowed",
+    "conflict",
+    "refused",
+    "unsupported",
+    "unavailable",
+    "internal"
+  ],
+  "EventType": [
+    "project.created",
+    "project.updated",
+    "project.removed",
+    "chat.created",
+    "chat.updated",
+    "chat.archived",
+    "chat.deleted",
+    "activity.created",
+    "card.created",
+    "card.updated",
+    "card.moved",
+    "card.members_changed",
+    "checklist.updated",
+    "comment.created",
+    "comment.read_by_agent",
+    "session.state_changed",
+    "session.output",
+    "session.tool_call",
+    "approval.requested",
+    "approval.resolved",
+    "ci.updated",
+    "quality.checked",
+    "merge.progress",
+    "notice.created",
+    "usage.updated",
+    "budget.warning"
+  ],
+  "FeedKind": [
+    "brief",
+    "merge",
+    "schedule",
+    "approval",
+    "plan",
+    "ci",
+    "tool"
+  ],
+  "FrameType": [
+    "hello",
+    "events",
+    "resync",
+    "error"
+  ],
+  "NoticeKind": [
+    "sleep",
+    "ci-main",
+    "cost",
+    "plan",
+    "ci"
+  ],
+  "PermissionMode": [
+    "ask",
+    "auto-edits",
+    "plan",
+    "full-auto",
+    "bypass"
+  ],
+  "ProjectSource": [
+    "folder",
+    "clone"
+  ],
+  "ResyncReason": [
+    "epoch-changed",
+    "too-far-behind",
+    "unknown-position"
+  ],
+  "SessionState": [
+    "starting",
+    "awake",
+    "working",
+    "waiting-approval",
+    "sleep-warning",
+    "asleep",
+    "waking",
+    "stopped"
+  ],
+  "ThinkingMode": [
+    "low",
+    "medium",
+    "high",
+    "extra-high"
+  ],
+  "TopicKind": [
+    "home",
+    "project",
+    "card",
+    "chat"
+  ]
+}

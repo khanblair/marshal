@@ -1,0 +1,10 @@
+{
+  "type": "hello",
+  "subscribe": [
+    "home",
+    "project:web-dashboard",
+    "card:01M3C107JB041061050R3GG28A"
+  ],
+  "sinceSeq": 41,
+  "epoch": "01M3C0ZZZZ000000000000000A"
+}
