@@ -1,0 +1,15 @@
+{
+  "cardId": "01M3C107JB041061050R3GG28A",
+  "kind": "tool_call_update",
+  "toolCall": {
+    "id": "call-1",
+    "status": "completed",
+    "content": "package main\n",
+    "diffs": [
+      {
+        "path": "main.go",
+        "newText": "package main\n"
+      }
+    ]
+  }
+}

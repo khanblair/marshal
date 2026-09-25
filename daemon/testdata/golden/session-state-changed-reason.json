@@ -1,0 +1,6 @@
+{
+  "cardId": "01M3C107JB041061050R3GG28A",
+  "sessionId": "01M3C107JF041061050R3GG28B",
+  "state": "stopped",
+  "reason": "Marshal could not pick this session back up. Start a fresh session from the card."
+}

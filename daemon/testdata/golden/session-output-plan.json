@@ -1,0 +1,18 @@
+{
+  "cardId": "01M3C107JB041061050R3GG28A",
+  "kind": "plan",
+  "plan": [
+    {
+      "text": "Read the router",
+      "status": "completed"
+    },
+    {
+      "text": "Add the health check route",
+      "status": "in_progress"
+    },
+    {
+      "text": "Write a test",
+      "status": "pending"
+    }
+  ]
+}

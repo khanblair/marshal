@@ -1,0 +1,11 @@
+{
+  "cardId": "01M3C107JB041061050R3GG28A",
+  "kind": "tool_call",
+  "toolCall": {
+    "id": "call-1",
+    "title": "Read main.go",
+    "toolKind": "read",
+    "status": "in_progress",
+    "path": "/home/ada/code/api/main.go"
+  }
+}
