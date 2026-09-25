@@ -60,45 +60,6 @@ export const CI: Record<CiState, CiInfo> = {
   cancelled: { label: "Cancelled", icon: "slash", color: "var(--color-text-muted)" },
 };
 
-export interface AgentInfo {
-  models: string[];
-  icon: string;
-  version: string;
-}
-
-export const AGENTS: Record<string, AgentInfo> = {
-  "Claude Code": {
-    models: ["claude-sonnet-4-5", "claude-opus-4-1", "claude-haiku-4-5"],
-    icon: "terminal-square",
-    version: "2.0.14",
-  },
-  Codex: {
-    models: ["gpt-5-codex", "gpt-5", "gpt-5-mini"],
-    icon: "terminal-square",
-    version: "0.42.0",
-  },
-  "Gemini CLI": {
-    models: ["gemini-2.5-pro", "gemini-2.5-flash"],
-    icon: "terminal-square",
-    version: "0.8.1",
-  },
-  "Built-in agent": {
-    models: [
-      "claude-sonnet-4-5",
-      "gpt-5-mini",
-      "deepseek-chat",
-      "gemini-2.5-flash",
-      "qwen2.5-coder:32b",
-    ],
-    icon: "cpu",
-    version: "Marshal 0.9",
-  },
-};
-
-/** First model of an agent, which is what the prototype picks when the agent changes. */
-export const defaultModel = (agent: string): string | undefined => AGENTS[agent]?.models[0];
-
-export const NO_THINK: readonly string[] = ["deepseek-chat", "qwen2.5-coder:32b"];
 export const THINK: readonly string[] = ["Low", "Medium", "High", "Extra high"];
 export const PERMS: readonly string[] = [
   "Ask",
@@ -132,8 +93,6 @@ export const VIEWS: readonly ViewInfo[] = [
   { key: "timeline", label: "Timeline", icon: "gantt-chart" },
   { key: "calendar", label: "Calendar", icon: "calendar" },
 ];
-
-export const thinkSupported = (model: string): boolean => !NO_THINK.includes(model);
 
 /** A card has a live agent session unless it is in backlog, done, or asleep. */
 export const isAwake = (c: Card): boolean =>

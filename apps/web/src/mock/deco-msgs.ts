@@ -1,5 +1,6 @@
 import { approve, approvePlan, deny, editPlan, rejectPlan, savePlan } from "./actions/approvals";
 import { openCard } from "./actions/navigation";
+import { type CardKey, cardLabel } from "./card-key";
 import { tone } from "./constants";
 import type { Ctx } from "./context";
 import { type CardView, deco } from "./deco";
@@ -130,7 +131,7 @@ function toolView(x: ToolMsg): ToolView {
   };
 }
 
-const diffView = (ctx: Ctx, x: DiffMsg, cardId: number | null): DiffView => ({
+const diffView = (ctx: Ctx, x: DiffMsg, cardId: CardKey | null): DiffView => ({
   summary: `Changed ${x.files} files`,
   add: `+${x.add}`,
   del: `−${x.del}`,
@@ -157,9 +158,10 @@ function planStatus(x: PlanMsg) {
   };
 }
 
-function planView(ctx: Ctx, x: PlanMsg, cardId: number | null): PlanView {
+function planView(ctx: Ctx, x: PlanMsg, cardId: CardKey | null): PlanView {
   const waiting = x.st === "waiting";
-  const id = cardId ?? Number.NaN;
+  // A project chat has no card behind it; its actions then find no card and do nothing.
+  const id = cardId ?? "";
   return {
     steps: x.steps.map((t, i) => ({ n: `${i + 1}.`, t })),
     files: x.files,
@@ -182,7 +184,7 @@ function planView(ctx: Ctx, x: PlanMsg, cardId: number | null): PlanView {
   };
 }
 
-function approvalKeys(ctx: Ctx, id: number, waiting: boolean) {
+function approvalKeys(ctx: Ctx, id: CardKey, waiting: boolean) {
   return (e: KeyboardEvent): void => {
     if (!waiting) return;
     if (e.key === "Enter" && e.target === e.currentTarget) {
@@ -197,8 +199,8 @@ function approvalKeys(ctx: Ctx, id: number, waiting: boolean) {
   };
 }
 
-function approvalView(ctx: Ctx, x: ApprovalMsg, cardId: number | null): ApprovalView {
-  const id = x.cardId || cardId || Number.NaN;
+function approvalView(ctx: Ctx, x: ApprovalMsg, cardId: CardKey | null): ApprovalView {
+  const id = x.cardId || cardId || "";
   const waiting = x.st === "waiting";
   const ok = x.st === "approved";
   const ref = x.cardId ? card(ctx, x.cardId) : undefined;
@@ -211,7 +213,7 @@ function approvalView(ctx: Ctx, x: ApprovalMsg, cardId: number | null): Approval
     resultIcon: ok ? "check" : "x",
     resultColor: ok ? tone("working", "text") : tone("danger", "text"),
     hasCard: !!x.cardId,
-    cardLabel: x.cardId ? `#${x.cardId} ${ref?.title}` : "",
+    cardLabel: ref ? `${cardLabel(ref)} ${ref.title}` : "",
     openCard: () => openCard(ctx, id),
     approve: () => approve(ctx, id),
     deny: () => deny(ctx, id),
@@ -237,7 +239,7 @@ function baseView(x: Msg): MsgBase {
   };
 }
 
-function msgView(ctx: Ctx, x: Msg, cardId: number | null): MsgView {
+function msgView(ctx: Ctx, x: Msg, cardId: CardKey | null): MsgView {
   const base = baseView(x);
   switch (x.k) {
     case "tool":
@@ -266,5 +268,5 @@ function msgView(ctx: Ctx, x: Msg, cardId: number | null): MsgView {
 }
 
 /** View models for a chat. `cardId` is the card whose chat this is, or null for project chats. */
-export const decoMsgs = (ctx: Ctx, list: readonly Msg[], cardId: number | null): MsgView[] =>
+export const decoMsgs = (ctx: Ctx, list: readonly Msg[], cardId: CardKey | null): MsgView[] =>
   list.map((x) => msgView(ctx, x, cardId));

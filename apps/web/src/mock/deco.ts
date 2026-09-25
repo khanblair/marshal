@@ -1,5 +1,7 @@
 import { openCard } from "./actions/navigation";
-import { CI, colOf, isAwake, STATUS, thinkSupported, tone } from "./constants";
+import { thinkSupported } from "./agents";
+import { type CardKey, cardLabel } from "./card-key";
+import { CI, colOf, isAwake, STATUS, tone } from "./constants";
 import type { Ctx } from "./context";
 import { dragStart } from "./dom/drag";
 import { full, money } from "./format";
@@ -16,7 +18,7 @@ interface Avatar {
 
 /** View model of a card, the prototype's `deco(c)`. */
 export interface CardView {
-  id: number;
+  id: CardKey;
   key: string;
   num: string;
   title: string;
@@ -120,8 +122,8 @@ function statusBits(c: Card) {
   };
 }
 
-function agentBits(c: Card) {
-  const think = c.think && thinkSupported(c.model) ? c.think : "";
+function agentBits(ctx: Ctx, c: Card) {
+  const think = c.think && thinkSupported(ctx, c.model) ? c.think : "";
   const awakeLabel = c.asleep ? "Asleep" : isAwake(c) ? "Awake" : "No session";
   return {
     role: c.role,
@@ -214,7 +216,7 @@ function countBits(ctx: Ctx, c: Card) {
 }
 
 function ariaOf(c: Card): string {
-  const parts = [`#${c.id} ${c.title}. ${STATUS[c.state].label}`];
+  const parts = [`${cardLabel(c)} ${c.title}. ${STATUS[c.state].label}`];
   if (c.state === "needs") parts.push(`: ${c.reason}`);
   if (c.asleep) parts.push(". Asleep");
   if (c.pinned) parts.push(". Pinned");
@@ -237,13 +239,16 @@ function selectionBits(ctx: Ctx, c: Card) {
 export function deco(ctx: Ctx, c: Card): CardView {
   return {
     id: c.id,
-    key: `c${c.id}`,
-    num: `#${c.id}`,
+    // The card's key (`api#41`), so two cards numbered 12 in two projects have different keys.
+    // The prototype used `c<number>`, which collided across projects; `mock/testing/proto-shape.ts`
+    // translates this back to that shape for the differential tests.
+    key: c.id,
+    num: cardLabel(c),
     title: c.title,
     p: c.p,
     projectName: proj(ctx, c.p)?.name ?? "",
     ...statusBits(c),
-    ...agentBits(c),
+    ...agentBits(ctx, c),
     ...ciBits(c),
     ...countBits(ctx, c),
     aria: ariaOf(c),
