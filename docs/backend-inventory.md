@@ -135,7 +135,7 @@ The prototype exposes 116 members on `M`. Each one appears in exactly one row.
 |---|---|---|---|---|
 | `diffFor`, `filesFor` | Daemon | `gitx`; worktree | `GET /v1/cards/{id}/diff` for the file list and counts, and New per-file hunks loaded on demand for large files (N15); `card.updated` | 2.9 |
 | `runChecks` | Daemon | `projects`, `quality`; `card_checks` | New `POST /v1/cards/{id}/checks/run` and `GET /v1/cards/{id}/checks`; `quality.checked` (N9) | 10.4 |
-| `simulateCiFailure` | Daemon (dev options) | `ci`, `session` | New `POST /v1/cards/{id}/ci/simulate-failure`. Built as a real feature that runs the normal CI failure path with a synthetic run (N28). | 6.3 |
+| `simulateCiFailure` | Daemon (dev options) | `ci`, `session` | New `POST /v1/cards/{id}/ci/simulate-failure` with a synthetic mode (a fake failed run through the normal CI path) and a real mode (a failing run on the card's branch on GitHub). Both audited and shown only in dev mode or with Developer options on. (N28) | 6.3 |
 
 Check: the tables above list every one of the 116 members exactly once.
 
@@ -192,7 +192,7 @@ This part lists the fields of each object the screens draw, so none of them is f
 
 | Field group | Where it lives | Notes |
 |---|---|---|
-| Identity and text: number, project, title | `cards` | The number is the small whole number shown as "#41". It stays a small integer, unique across projects. See N26. |
+| Identity and text: number, project, title | `cards` | The number is the small whole number shown as "#41". Each project counts its own cards, so a card is known by its project and number, and lists that mix projects show the project name next to the number. See N26. |
 | State and reason: state, why it needs you | `cards` | The state list matches `architecture.md` section 6 plus "merging" as an indicator inside Ready to merge. The reason (plan ready, approval needed, stuck, limit, CI failed, conflict) is New (N1). |
 | Agent settings: role, agent, model, thinking, permission mode, bypass | `cards`, `sessions` | Already modeled. |
 | Session flags: asleep, waking, pinned, paused | `sessions`, `cards` | `paused` is New (N4). `waking` follows `session.state_changed`. |
@@ -283,9 +283,9 @@ Each entry is built by the phase named in the last column, and includes updating
 | N23 | Search covers sessions and notes only | Extend search to projects, cards, and chats for the command palette. | 2 |
 | N24 | The sample project and dev reset | Ship a small sample repository. Let `POST /v1/projects` create a project from it. Add a dev-only reset of first-launch progress. | 2 |
 | N25 | Times in the mock are relative or made up | Send absolute timestamps and the daemon's current time. The client shows "4 min ago" and countdowns from them. Charts read `daily_stats`. | 1 |
-| N26 | IDs | Cards use small whole numbers unique across projects, projects use short readable ids, and chats and other objects use opaque ids. Decide and write it in `architecture.md`. | 1 |
+| N26 | IDs | Each project numbers its own cards, so the number alone is not unique. The client key for a card becomes the project plus the number, and any list that mixes projects (Home, notices, search, the palette, the Agents view, chats) shows the project name with the number. Projects use short readable ids, and chats and other objects use opaque ids. Write it in `architecture.md`. | 1 |
 | N27 | People and the avatar | Add a users list call for member pickers and an avatar upload call. | 2 |
-| N28 | "Simulate CI failure" | Build it as a real feature (see the checklist). | 6 |
+| N28 | "Simulate CI failure" | Build it as a real feature with two modes: a synthetic failed run through the CI monitor, and a real failing run on GitHub. See the checklist, item B6.4. | 6 |
 | N29 | The screens the mock never needed | Loading, empty, error, offline, reconnect, and sign-in or pairing states. | 1 to 2 |
 | N30 | Where screen preferences are saved | Confirm the split in open decision D2. | 2 |
 
