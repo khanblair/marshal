@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div data-card="{{ c.id }}" tabindex="0" role="button" aria-label="{{ c.aria }}" onClick="{{ c.open }}" onPointerDown="{{ c.down }}" onKeyDown="{{ c.key2 }}" style="position:relative; display:flex; flex-direction:column; gap:8px; padding:12px; background:var(--color-surface); border:1px solid var(--color-border); border-left:3px solid {{ c.edge }}; border-radius:7px; box-shadow:{{ c.ring }}; opacity:{{ c.opacity }}; cursor:pointer; user-select:none; -webkit-user-select:none; transition:border-color 140ms cubic-bezier(0.2,0,0,1), opacity 200ms cubic-bezier(0.2,0,0,1)" style-hover="border-top-color:var(--color-border-strong); border-right-color:var(--color-border-strong); border-bottom-color:var(--color-border-strong)">
+  <sc-if value="{{ c.bypass }}">
+    <span style="align-self:flex-start; display:inline-flex; align-items:center; gap:4px; height:20px; padding:0 6px; border-radius:3px; background:var(--color-bypass-bg); color:var(--color-bypass-text); font-size:12px; line-height:16px; font-weight:600"><m-icon name="shield-alert" size="12"></m-icon>Bypass</span>
+  </sc-if>
+  <div style="display:flex; gap:8px; align-items:flex-start">
+    <span style="flex:1; min-width:0; font-weight:600; color:{{ c.titleColor }}; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; text-wrap:pretty">{{ c.title }}</span>
+    <span style="flex:none; font-size:12px; line-height:20px; color:var(--color-text-muted)">{{ c.num }}</span>
+  </div>
+  <div style="display:flex; flex-wrap:wrap; align-items:center; gap:4px 10px; font-size:13px; line-height:18px; color:var(--color-text-secondary)">
+    <span style="display:inline-flex; align-items:center; gap:4px; color:{{ c.stColor }}; font-weight:600"><span style="display:inline-flex; color:{{ c.iconColor }}"><m-icon name="{{ c.icon }}" size="14"></m-icon></span>{{ c.stateLabel }}</span>
+    <sc-if value="{{ c.asleep }}"><span style="display:inline-flex; align-items:center; gap:3px"><m-icon name="moon" size="14"></m-icon>{{ c.sleepLabel }}</span></sc-if>
+    <span>{{ c.role }}</span>
+    <sc-if value="{{ c.hasModel }}"><span>{{ c.model }}</span></sc-if>
+    <sc-if value="{{ c.hasThink }}"><span>{{ c.think }}</span></sc-if>
+  </div>
+  <sc-if value="{{ c.showDoing }}">
+    <div style="display:flex; align-items:center; gap:8px; font-size:13px; line-height:18px; color:var(--color-text-primary)">
+      <m-dot state="{{ c.state }}"></m-dot>
+      <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ c.doing }}</span>
+    </div>
+  </sc-if>
+  <sc-if value="{{ c.paused }}"><div style="display:flex; align-items:center; gap:6px; font-size:13px; line-height:18px; color:var(--color-text-secondary)"><m-icon name="pause" size="14"></m-icon>Paused by you</div></sc-if>
+  <sc-if value="{{ c.showReason }}">
+    <div style="font-size:13px; line-height:18px; color:var(--color-status-needs-you-text); font-weight:500; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden">{{ c.reason }}</div>
+  </sc-if>
+  <sc-if value="{{ c.merging }}">
+    <div role="progressbar" aria-label="Merge progress" aria-valuenow="{{ c.mergeNum }}" aria-valuemin="0" aria-valuemax="100" style="height:4px; border-radius:9999px; background:var(--color-status-ready-subtle); overflow:hidden"><div style="height:100%; width:{{ c.mergePct }}; background:var(--color-status-ready-solid); transition:width 200ms cubic-bezier(0.2,0,0,1)"></div></div>
+  </sc-if>
+  <sc-if value="{{ c.hasPkg }}">
+    <span style="align-self:flex-start; display:inline-flex; align-items:center; gap:4px; height:20px; padding:0 6px; border-radius:3px; border:1px solid var(--color-border); font-family:var(--font-mono); font-size:12px; line-height:16px; color:var(--color-text-secondary)"><m-icon name="package" size="12"></m-icon>{{ c.pkg }}</span>
+  </sc-if>
+  <sc-if value="{{ c.hasFooter }}">
+    <div style="display:flex; flex-direction:column; gap:6px">
+      <sc-if value="{{ c.hasBranch }}">
+        <span style="display:flex; align-items:center; gap:6px; min-width:0; color:var(--color-text-secondary)"><m-icon name="git-branch" size="14"></m-icon><span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:var(--font-mono); font-size:12px; line-height:16px">{{ c.branch }}</span></span>
+      </sc-if>
+      <div style="display:flex; flex-wrap:wrap; align-items:center; gap:4px 12px; font-size:12px; line-height:16px; color:var(--color-text-secondary)">
+        <sc-if value="{{ c.hasCi }}"><span title="{{ c.ciTip }}" style="display:inline-flex; align-items:center; gap:4px; color:{{ c.ciColor }}; font-weight:600"><m-icon name="{{ c.ciIcon }}" size="14"></m-icon>{{ c.ciLabel }}</span></sc-if>
+        <sc-if value="{{ c.hasCost }}"><span title="Cost of this card" style="display:inline-flex; align-items:center; gap:3px"><m-icon name="circle-dollar-sign" size="14"></m-icon>{{ c.cost }}</span></sc-if>
+        <sc-if value="{{ c.hasCl }}"><span title="{{ c.clTip }}" style="display:inline-flex; align-items:center; gap:3px"><m-icon name="square-check" size="14"></m-icon>{{ c.clLabel }}</span></sc-if>
+        <sc-if value="{{ c.hasComments }}"><span title="{{ c.commentsTip }}" style="display:inline-flex; align-items:center; gap:3px"><m-icon name="message-square" size="14"></m-icon>{{ c.commentsN }}</span></sc-if>
+        <sc-if value="{{ c.hasAttach }}"><span title="{{ c.attachTip }}" style="display:inline-flex; align-items:center; gap:3px"><m-icon name="paperclip" size="14"></m-icon>{{ c.attachN }}</span></sc-if>
+        <sc-if value="{{ c.pinned }}"><span title="Pinned: this card never sleeps" style="display:inline-flex; align-items:center; gap:3px"><m-icon name="pin" size="14"></m-icon>Pinned</span></sc-if>
+        <sc-if value="{{ c.hasAvatars }}"><span aria-label="Members" style="margin-left:auto; display:flex">
+          <sc-for list="{{ c.avatars }}" as="a">
+            <sc-if value="{{ a.isPerson }}"><span title="{{ a.title }}" style="width:22px; height:22px; margin-left:-4px; border-radius:9999px; border:2px solid var(--color-surface); background:var(--color-surface-selected); display:inline-flex; align-items:center; justify-content:center; font-size:10px; line-height:10px; font-weight:700; color:var(--color-text-primary)">{{ a.initials }}</span></sc-if>
+            <sc-if value="{{ a.isAgent }}"><span title="{{ a.title }}" style="width:22px; height:22px; margin-left:-4px; border-radius:6px; border:2px solid var(--color-surface); background:var(--color-surface-sunken); outline:1px solid var(--color-border-strong); outline-offset:-2px; display:inline-flex; align-items:center; justify-content:center; color:var(--color-text-secondary)"><m-icon name="bot" size="12"></m-icon></span></sc-if>
+          </sc-for>
+        </span></sc-if>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:288,&quot;height&quot;:200},&quot;c&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;object&quot;}}"></script>
+</body>
+</html>

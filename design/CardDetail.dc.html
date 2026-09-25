@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div data-no-nav="1" style="position:absolute; inset:0; display:flex; flex-direction:column; background:var(--color-surface); min-width:0">
+  <sc-if value="{{ bypass }}">
+    <div role="alert" style="flex:none; position:relative; z-index:50; display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; padding:10px 16px; background-color:var(--color-bypass-bg); background-image:repeating-linear-gradient(135deg, var(--color-bypass-stripe) 0 10px, transparent 10px 20px); color:var(--color-bypass-text)">
+      <m-icon name="shield-alert" size="20"></m-icon>
+      <span style="flex:1 1 240px; font-weight:600; text-shadow:0 1px 0 rgb(0 0 0 / 0.25)">Bypass permissions is on. The agent can run any command in this worktree without asking.</span>
+      <button onClick="{{ bypassOff }}" style="height:28px; padding:0 10px; border-radius:5px; border:1px solid #FFFFFF; background:var(--color-bypass-bg); color:#FFFFFF; font-size:13px; font-weight:600">Turn off bypass</button>
+    </div>
+  </sc-if>
+
+  <div style="flex:none; padding:12px 16px 0; display:flex; flex-direction:column; gap:10px; border-bottom:1px solid var(--color-border)">
+    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap">
+      <sc-if value="{{ isMobile }}"><button onClick="{{ close }}" aria-label="Back" style="width:44px; height:44px; margin-left:-12px; display:inline-flex; align-items:center; justify-content:center; border:none; background:transparent"><m-icon name="chevron-left" size="20"></m-icon></button></sc-if>
+      <span style="font-size:13px; color:var(--color-text-muted)">{{ c.num }}</span>
+      <span style="display:inline-flex; align-items:center; gap:4px; height:22px; padding:0 8px; border-radius:3px; background:{{ c.subtle }}; color:{{ c.stColor }}; font-size:12px; font-weight:600"><span style="display:inline-flex; color:{{ c.iconColor }}"><m-icon name="{{ c.icon }}" size="12"></m-icon></span>{{ c.stateLabel }}</span>
+      <span style="display:inline-flex; align-items:center; gap:4px; font-size:12px; color:var(--color-text-secondary)"><m-icon name="{{ sessIcon }}" size="12"></m-icon>{{ c.awakeLabel }}</span>
+      <sc-if value="{{ c.pinned }}"><span style="display:inline-flex; align-items:center; gap:3px; font-size:12px; color:var(--color-text-secondary)"><m-icon name="pin" size="12"></m-icon>Pinned</span></sc-if>
+      <span style="flex:1"></span>
+      <sc-if value="{{ notMobile }}">
+        <button onClick="{{ toggleExpand }}" aria-label="{{ expandLabel }}" title="{{ expandLabel }}" style="width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; border:none; border-radius:5px; background:transparent; color:var(--color-text-secondary)" style-hover="background:var(--color-surface-hover)"><m-icon name="{{ expandIcon }}" size="16"></m-icon></button>
+        <button onClick="{{ close }}" aria-label="Close card" title="Close (Esc)" style="width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; border:none; border-radius:5px; background:transparent; color:var(--color-text-secondary)" style-hover="background:var(--color-surface-hover)"><m-icon name="x" size="16"></m-icon></button>
+      </sc-if>
+    </div>
+    <sc-if value="{{ editingTitle }}">
+      <input ref="{{ titleRef }}" defaultValue="{{ c.title }}" onKeyDown="{{ titleKey }}" onBlur="{{ titleBlur }}" aria-label="Card title" style="font-size:18px; line-height:24px; font-weight:600; padding:2px 6px; margin:0 -7px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface)"></input>
+    </sc-if>
+    <sc-if value="{{ notEditingTitle }}">
+      <button onClick="{{ editTitle }}" title="Edit title" style="align-self:flex-start; max-width:100%; padding:2px 6px; margin:0 -6px; border:1px solid transparent; border-radius:5px; background:transparent; text-align:left; font-size:18px; line-height:24px; font-weight:600; text-wrap:pretty" style-hover="border-color:var(--color-border)">{{ c.title }}</button>
+    </sc-if>
+    <div style="display:flex; flex-wrap:wrap; align-items:center; gap:6px 14px; font-size:13px; line-height:18px; color:var(--color-text-secondary)">
+      <sc-if value="{{ c.hasBranch }}"><span style="display:inline-flex; align-items:center; gap:4px; min-width:0"><m-icon name="git-branch" size="14"></m-icon><span style="font-family:var(--font-mono); font-size:12px">{{ c.branch }}</span></span></sc-if>
+      <sc-if value="{{ c.hasPkg }}"><span style="display:inline-flex; align-items:center; gap:4px"><m-icon name="package" size="14"></m-icon><span style="font-family:var(--font-mono); font-size:12px">{{ c.pkg }}</span></span></sc-if>
+      <sc-if value="{{ hasPr }}"><span style="display:inline-flex; align-items:center; gap:4px"><m-icon name="git-pull-request" size="14"></m-icon>{{ prLabel }}</span></sc-if>
+      <sc-if value="{{ c.hasCi }}"><span style="display:inline-flex; align-items:center; gap:4px; color:{{ c.ciColor }}; font-weight:600"><m-icon name="{{ c.ciIcon }}" size="14"></m-icon>CI {{ ciLower }}</span></sc-if>
+      <span style="display:inline-flex; align-items:center; gap:4px"><m-icon name="circle-dollar-sign" size="14"></m-icon>{{ c.cost }}</span>
+      <span title="{{ ctxTip }}" style="display:inline-flex; align-items:center; gap:6px">
+        <span>Context</span>
+        <span role="meter" aria-label="Context window used" aria-valuenow="{{ ctxNum }}" aria-valuemin="0" aria-valuemax="100" style="width:56px; height:6px; border-radius:9999px; background:var(--color-surface-sunken); overflow:hidden; border:1px solid var(--color-border)"><span style="display:block; height:100%; width:{{ ctxPct }}; background:{{ ctxFill }}"></span></span>
+        <span style="color:{{ ctxColor }}; font-weight:{{ ctxWeight }}">{{ ctxPct }}</span>
+      </span>
+    </div>
+    <div style="display:flex; flex-wrap:wrap; align-items:center; gap:6px; position:relative">
+      <span style="font-size:13px; color:var(--color-text-secondary); margin-right:4px">Members</span>
+      <sc-for list="{{ memberChips }}" as="m">
+        <sc-if value="{{ m.isPerson }}"><span title="{{ m.title }}" style="display:inline-flex; align-items:center; gap:6px; height:28px; padding:0 8px 0 2px; border-radius:9999px; border:1px solid var(--color-border); font-size:13px"><span style="width:22px; height:22px; border-radius:9999px; background:var(--color-surface-selected); display:inline-flex; align-items:center; justify-content:center; font-size:10px; font-weight:700">{{ m.initials }}</span>{{ m.short }}</span></sc-if>
+        <sc-if value="{{ m.isAgent }}"><span title="{{ m.title }}" style="display:inline-flex; align-items:center; gap:6px; height:28px; padding:0 8px 0 2px; border-radius:7px; border:1px solid var(--color-border); font-size:13px"><span style="width:22px; height:22px; border-radius:5px; background:var(--color-surface-sunken); display:inline-flex; align-items:center; justify-content:center; color:var(--color-text-secondary)"><m-icon name="bot" size="12"></m-icon></span>{{ m.short }}</span></sc-if>
+      </sc-for>
+      <button onClick="{{ toggleMembers }}" aria-label="Add or remove members" aria-expanded="{{ membersOpen }}" title="Add or remove members" style="width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; border-radius:9999px; border:1px dashed var(--color-border-strong); background:transparent; color:var(--color-text-secondary)" style-hover="background:var(--color-surface-hover)"><m-icon name="plus" size="14"></m-icon></button>
+      <sc-if value="{{ membersOpen }}">
+        <div role="menu" style="position:absolute; left:0; top:calc(100% + 4px); width:260px; padding:6px; border-radius:10px; border:1px solid var(--color-border); background:var(--color-surface-raised); box-shadow:var(--elevation-1); z-index:100">
+          <div style="padding:6px 8px 4px; font-size:12px; font-weight:600; color:var(--color-text-secondary)">People</div>
+          <sc-for list="{{ peopleOpts }}" as="p"><button role="menuitemcheckbox" aria-checked="{{ p.on }}" onClick="{{ p.toggle }}" style="width:100%; display:flex; align-items:center; gap:8px; height:34px; padding:0 8px; border:none; border-radius:5px; background:transparent; text-align:left; font-size:13px" style-hover="background:var(--color-surface-hover)"><span style="width:22px; height:22px; border-radius:9999px; background:var(--color-surface-selected); display:inline-flex; align-items:center; justify-content:center; font-size:10px; font-weight:700">{{ p.initials }}</span><span style="flex:1">{{ p.name }}</span><sc-if value="{{ p.on }}"><m-icon name="check" size="14"></m-icon></sc-if></button></sc-for>
+          <div style="padding:8px 8px 4px; font-size:12px; font-weight:600; color:var(--color-text-secondary)">Agent</div>
+          <div style="display:flex; align-items:center; gap:8px; padding:4px 8px 6px; font-size:13px; color:var(--color-text-secondary)"><m-icon name="bot" size="14"></m-icon>{{ agentNote }}</div>
+        </div>
+      </sc-if>
+    </div>
+    <div style="display:flex; flex-wrap:wrap; gap:6px; position:relative">
+      <sc-for list="{{ actions }}" as="a">
+        <button onClick="{{ a.run }}" disabled="{{ a.disabled }}" title="{{ a.tip }}" style="display:inline-flex; align-items:center; gap:6px; height:{{ ctl }}; padding:0 10px; border-radius:5px; border:1px solid {{ a.border }}; background:{{ a.bg }}; color:{{ a.color }}; font-size:13px; font-weight:{{ a.weight }}; opacity:{{ a.opacity }}" style-hover="filter:brightness(0.97)"><m-icon name="{{ a.icon }}" size="14"></m-icon>{{ a.label }}<sc-if value="{{ a.hasKbd }}"><kbd style="font-family:var(--font-sans); font-size:11px; line-height:14px; padding:0 3px; border:1px solid currentColor; border-radius:3px; opacity:.6">{{ a.kbd }}</kbd></sc-if></button>
+      </sc-for>
+      <div style="position:relative">
+        <button onClick="{{ toggleMore }}" aria-label="More actions" aria-expanded="{{ moreOpen }}" style="width:{{ ctl }}; height:{{ ctl }}; display:inline-flex; align-items:center; justify-content:center; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface)" style-hover="background:var(--color-surface-hover)"><m-icon name="ellipsis" size="16"></m-icon></button>
+        <sc-if value="{{ moreOpen }}">
+          <div role="menu" style="position:absolute; top:calc(100% + 4px); right:0; width:240px; max-height:360px; overflow:auto; padding:6px; border-radius:10px; border:1px solid var(--color-border); background:var(--color-surface-raised); box-shadow:var(--elevation-1); z-index:100">
+            <sc-for list="{{ moreItems }}" as="mi">
+              <button role="menuitem" onClick="{{ mi.run }}" style="width:100%; display:flex; align-items:center; gap:8px; height:32px; padding:0 8px; border:none; border-radius:5px; background:transparent; text-align:left; font-size:13px; color:{{ mi.color }}" style-hover="background:var(--color-surface-hover)"><m-icon name="{{ mi.icon }}" size="14"></m-icon>{{ mi.label }}</button>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(118px, 1fr)); gap:8px">
+      <sc-for list="{{ settings }}" as="s">
+        <label style="display:flex; flex-direction:column; gap:4px; min-width:0">
+          <span style="font-size:12px; line-height:16px; color:var(--color-text-secondary); font-weight:500">{{ s.label }}</span>
+          <select onChange="{{ s.change }}" style="height:{{ ctlSel }}; min-width:0; padding:0 6px; border-radius:5px; border:1px solid {{ s.border }}; background:var(--color-surface); color:{{ s.color }}; font-size:13px; font-weight:{{ s.weight }}">
+            <sc-for list="{{ s.opts }}" as="o"><option value="{{ o.v }}" selected="{{ o.sel }}">{{ o.v }}</option></sc-for>
+          </select>
+        </label>
+      </sc-for>
+    </div>
+    <span style="font-size:12px; line-height:16px; color:var(--color-text-secondary); margin-top:-4px">Changes take effect on the next turn.</span>
+    <div role="tablist" aria-label="Card sections" onKeyDown="{{ tabKeys }}" style="display:flex; gap:2px; margin:0 -4px; overflow-x:auto">
+      <sc-for list="{{ tabs }}" as="t">
+        <button role="tab" id="{{ t.tid }}" aria-selected="{{ t.sel }}" tabindex="{{ t.tabindex }}" onClick="{{ t.go }}" style="flex:none; display:inline-flex; align-items:center; gap:6px; height:{{ tabH }}; padding:0 10px; border:none; border-bottom:2px solid {{ t.line }}; background:transparent; font-weight:{{ t.weight }}; color:{{ t.color }}" style-hover="color:var(--color-text-primary)">{{ t.label }}<sc-if value="{{ t.hasCount }}"><span style="min-width:18px; height:18px; padding:0 5px; border-radius:3px; background:{{ t.countBg }}; color:{{ t.countColor }}; font-size:12px; line-height:18px; font-weight:600">{{ t.count }}</span></sc-if></button>
+      </sc-for>
+    </div>
+  </div>
+
+  <div role="tabpanel" aria-labelledby="{{ panelFor }}" style="flex:1; min-height:0; display:flex; flex-direction:column; position:relative">
+    <sc-if value="{{ tChat }}">
+      <div style="flex:none; display:flex; align-items:center; gap:8px; padding:8px 16px; border-bottom:1px solid var(--color-border)">
+        <sc-if value="{{ c.showDoing }}"><span style="flex:1; min-width:0; display:flex; align-items:center; gap:8px; font-size:13px"><m-dot state="working"></m-dot><span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap">Doing now: {{ c.doing }}</span></span></sc-if>
+        <sc-if value="{{ noDoing }}"><span style="flex:1; font-size:13px; color:var(--color-text-secondary)">{{ idleText }}</span></sc-if>
+        <sc-if value="{{ showSwitching }}"><span role="status" style="display:inline-flex; align-items:center; gap:6px; font-size:13px; color:var(--color-text-secondary)"><m-icon name="spinner" size="14"></m-icon>{{ switchingText }}</span></sc-if>
+        <sc-if value="{{ always }}">
+          <div role="radiogroup" aria-label="Chat or terminal" style="display:flex; gap:2px; padding:2px; border-radius:7px; background:var(--color-surface-sunken); border:1px solid var(--color-border)">
+            <sc-for list="{{ modes }}" as="m">
+              <button role="radio" aria-checked="{{ m.sel }}" onClick="{{ m.go }}" disabled="{{ m.disabled }}" style="display:inline-flex; align-items:center; gap:6px; height:24px; padding:0 10px; border-radius:5px; border:1px solid {{ m.border }}; background:{{ m.bg }}; font-size:13px; font-weight:500; color:{{ m.color }}"><m-icon name="{{ m.icon }}" size="14"></m-icon>{{ m.label }}</button>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+      <sc-if value="{{ showChat }}">
+        <div ref="{{ scrollRef }}" onScroll="{{ onScroll }}" style="flex:1; min-height:0; overflow:auto; padding:16px">
+          <sc-if value="{{ chatEmpty }}"><div style="padding:32px 8px; text-align:center; color:var(--color-text-secondary)">This card hasn't started. Start the card, or send a message to start its session.</div></sc-if>
+          <dc-import name="ChatThread" items="{{ items }}" hint-size="100%,300px"></dc-import>
+        </div>
+        <sc-if value="{{ showJump }}">
+          <div style="position:relative; height:0"><button onClick="{{ jump }}" style="position:absolute; left:50%; bottom:10px; transform:translateX(-50%); display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 12px; border-radius:9999px; border:1px solid var(--color-border-strong); background:var(--color-surface-raised); box-shadow:var(--elevation-1); font-weight:500"><m-icon name="arrow-down" size="14"></m-icon>Jump to latest</button></div>
+        </sc-if>
+        <div style="flex:none; padding:10px 16px 14px; border-top:1px solid var(--color-border)">
+          <div style="display:flex; align-items:flex-end; gap:8px; padding:6px 6px 6px 12px; border-radius:10px; border:1px solid var(--color-border-strong); background:var(--color-surface)">
+            <textarea value="{{ draft }}" onInput="{{ onDraft }}" onKeyDown="{{ onDraftKey }}" rows="1" placeholder="{{ composerPh }}" aria-label="Message the agent" style="flex:1; min-height:28px; max-height:140px; padding:4px 0; border:none; outline:none; background:transparent; resize:none"></textarea>
+            <button onClick="{{ send }}" disabled="{{ sendDisabled }}" aria-label="Send message" style="width:{{ ctl }}; height:{{ ctl }}; flex:none; display:inline-flex; align-items:center; justify-content:center; border-radius:5px; border:1px solid var(--color-ink); background:var(--color-ink); color:var(--color-on-ink); opacity:{{ sendOpacity }}"><m-icon name="send-horizontal" size="16"></m-icon></button>
+          </div>
+          <span style="display:block; margin-top:6px; font-size:12px; line-height:16px; color:var(--color-text-muted)">Enter sends. Shift and Enter adds a new line.</span>
+        </div>
+      </sc-if>
+      <sc-if value="{{ showTerminal }}">
+        <div ref="{{ termRef }}" onClick="{{ focusTerm }}" style="flex:1; min-height:0; overflow:auto; padding:12px 16px; background:var(--color-surface-sunken); font-family:var(--font-mono); font-size:13px; line-height:20px; white-space:pre-wrap; word-break:break-word">
+          <sc-for list="{{ termLines }}" as="l"><div style="color:{{ l.color }}; font-weight:{{ l.weight }}">{{ l.t }}</div></sc-for>
+          <form onSubmit="{{ termSubmit }}" style="display:flex; gap:8px; margin-top:4px">
+            <span style="color:var(--color-status-working-text)">&gt;</span>
+            <input ref="{{ termInputRef }}" name="cmd" enterkeyhint="send" autocomplete="off" aria-label="Terminal input" style="flex:1; border:none; outline:none; background:transparent; font-family:var(--font-mono); font-size:13px; line-height:20px; padding:0"></input>
+          </form>
+        </div>
+        <sc-if value="{{ isMobile }}">
+          <div role="toolbar" aria-label="Terminal keys" style="flex:none; display:flex; gap:6px; overflow-x:auto; padding:8px 12px calc(8px + env(safe-area-inset-bottom)); border-top:1px solid var(--color-border); background:var(--color-surface)">
+            <sc-for list="{{ termKeys }}" as="k"><button onClick="{{ k.run }}" aria-label="{{ k.aria }}" style="flex:none; min-width:52px; height:44px; padding:0 12px; display:inline-flex; align-items:center; justify-content:center; border-radius:5px; border:1px solid var(--color-border-strong); background:{{ k.bg }}; color:{{ k.color }}; font-family:var(--font-mono); font-size:13px; font-weight:600"><sc-if value="{{ k.isText }}">{{ k.label }}</sc-if><sc-if value="{{ k.isIcon }}"><m-icon name="{{ k.label }}" size="16"></m-icon></sc-if></button></sc-for>
+          </div>
+        </sc-if>
+      </sc-if>
+      <sc-if value="{{ showSwitchBody }}">
+        <div style="flex:1; display:flex; flex-direction:column; gap:12px; padding:16px; background:{{ switchBg }}">
+          <sc-for list="{{ skel }}" as="k"><div style="height:14px; width:{{ k }}; border-radius:3px; background:var(--color-surface-selected)"></div></sc-for>
+        </div>
+      </sc-if>
+    </sc-if>
+
+    <sc-if value="{{ tComments }}">
+      <div style="flex:1; min-height:0; overflow:auto; padding:12px 16px; display:flex; flex-direction:column; gap:14px">
+        <form onSubmit="{{ postComment }}" style="display:flex; flex-direction:column; gap:8px; padding:10px; border-radius:10px; border:1px solid var(--color-border-strong); background:var(--color-surface)">
+          <textarea name="body" value="{{ cDraft }}" onInput="{{ onCDraft }}" onKeyDown="{{ cKey }}" rows="3" placeholder="Write a comment. Mention @agent to ask the card's agent." aria-label="Write a comment" style="border:none; outline:none; background:transparent; resize:vertical; padding:2px"></textarea>
+          <sc-if value="{{ hasPending }}"><div style="display:flex; flex-wrap:wrap; gap:6px"><sc-for list="{{ pending }}" as="a"><span style="display:inline-flex; align-items:center; gap:6px; height:28px; padding:0 4px 0 8px; border-radius:5px; border:1px solid var(--color-border); background:var(--color-surface-sunken); font-size:13px"><m-icon name="{{ a.icon }}" size="14"></m-icon><span style="max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ a.name }}</span><button type="button" onClick="{{ a.remove }}" aria-label="{{ a.removeLabel }}" style="width:22px; height:22px; display:inline-flex; align-items:center; justify-content:center; border:none; border-radius:3px; background:transparent"><m-icon name="x" size="12"></m-icon></button></span></sc-for></div></sc-if>
+          <sc-if value="{{ linkOpen }}"><div style="display:flex; gap:6px"><input ref="{{ linkRef }}" placeholder="Paste a link" aria-label="Link" onKeyDown="{{ linkKey }}" style="flex:1; min-width:0; height:32px; padding:0 10px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-family:var(--font-mono); font-size:13px"></input><button type="button" onClick="{{ addLink }}" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-size:13px; font-weight:500">Add link</button></div></sc-if>
+          <div style="display:flex; flex-wrap:wrap; align-items:center; gap:4px">
+            <label title="Attach a file" style="display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 8px; border-radius:5px; color:var(--color-text-secondary); font-size:13px; cursor:pointer" style-hover="background:var(--color-surface-hover)"><m-icon name="paperclip" size="14"></m-icon>Attach file<input type="file" multiple="{{ true }}" onChange="{{ onFiles }}" style="position:absolute; width:1px; height:1px; opacity:0"></input></label>
+            <label title="Add an image" style="display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 8px; border-radius:5px; color:var(--color-text-secondary); font-size:13px; cursor:pointer" style-hover="background:var(--color-surface-hover)"><m-icon name="image" size="14"></m-icon>Add image<input type="file" accept="image/*" multiple="{{ true }}" onChange="{{ onFiles }}" style="position:absolute; width:1px; height:1px; opacity:0"></input></label>
+            <button type="button" onClick="{{ toggleLink }}" style="display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 8px; border:none; border-radius:5px; background:transparent; color:var(--color-text-secondary); font-size:13px" style-hover="background:var(--color-surface-hover)"><m-icon name="link" size="14"></m-icon>Add link</button>
+            <span style="flex:1"></span>
+            <button type="submit" disabled="{{ cDisabled }}" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-ink); background:var(--color-ink); color:var(--color-on-ink); font-weight:600; opacity:{{ cOpacity }}">Post comment</button>
+          </div>
+        </form>
+        <sc-if value="{{ noComments }}"><p style="margin:0; color:var(--color-text-secondary)">No comments yet. People and the card's agent can discuss the card here. The agent reads new comments at the start of its next turn.</p></sc-if>
+        <sc-for list="{{ comments }}" as="c">
+          <article style="display:flex; gap:10px">
+            <sc-if value="{{ c.isPerson }}"><span aria-hidden="true" style="width:28px; height:28px; flex:none; border-radius:9999px; background:var(--color-surface-selected); display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-weight:700">{{ c.initials }}</span></sc-if>
+            <sc-if value="{{ c.isAgent }}"><span aria-hidden="true" style="width:28px; height:28px; flex:none; border-radius:7px; background:var(--color-surface-sunken); border:1px solid var(--color-border-strong); display:inline-flex; align-items:center; justify-content:center; color:var(--color-text-secondary)"><m-icon name="bot" size="14"></m-icon></span></sc-if>
+            <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:6px">
+              <div style="display:flex; flex-wrap:wrap; align-items:baseline; gap:0 10px"><span style="font-weight:600">{{ c.name }}</span><span title="{{ c.full }}" style="font-size:12px; color:var(--color-text-muted)">{{ c.when }}</span><sc-if value="{{ c.readShow }}"><span style="display:inline-flex; align-items:center; gap:3px; font-size:12px; color:var(--color-text-secondary)"><m-icon name="check-check" size="12"></m-icon>Agent read this</span></sc-if></div>
+              <sc-if value="{{ c.hasText }}"><div style="max-width:72ch; padding:8px 10px; border-radius:7px; border:1px solid var(--color-border); background:{{ c.bg }}; white-space:pre-wrap; overflow-wrap:anywhere">{{ c.text }}</div></sc-if>
+              <sc-if value="{{ c.hasImages }}"><div style="display:flex; flex-wrap:wrap; gap:8px"><sc-for list="{{ c.images }}" as="im"><figure style="margin:0; width:180px; border:1px solid var(--color-border); border-radius:7px; overflow:hidden"><sc-if value="{{ im.hasSrc }}"><img src="{{ im.src }}" alt="{{ im.name }}" style="display:block; width:100%; height:110px; object-fit:cover"></img></sc-if><sc-if value="{{ im.noSrc }}"><div style="height:110px; display:flex; align-items:center; justify-content:center; background:var(--color-surface-sunken); color:var(--color-text-muted)"><m-icon name="image" size="20"></m-icon></div></sc-if><figcaption style="padding:4px 8px; font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ im.name }}</figcaption></figure></sc-for></div></sc-if>
+              <sc-if value="{{ c.hasFiles }}"><div style="display:flex; flex-wrap:wrap; gap:6px"><sc-for list="{{ c.files }}" as="f"><a href="{{ f.href }}" target="_blank" rel="noopener" onClick="{{ f.click }}" style="display:inline-flex; align-items:center; gap:6px; min-height:30px; padding:0 10px; border-radius:5px; border:1px solid var(--color-border); background:var(--color-surface); font-size:13px; text-decoration:none; color:var(--color-text-primary)"><m-icon name="{{ f.icon }}" size="14"></m-icon><span style="font-family:{{ f.font }}; font-size:{{ f.size }}">{{ f.name }}</span><sc-if value="{{ f.hasMeta }}"><span style="font-size:12px; color:var(--color-text-muted)">{{ f.meta }}</span></sc-if></a></sc-for></div></sc-if>
+              <sc-if value="{{ c.mine }}"><button onClick="{{ c.del }}" style="align-self:flex-start; height:24px; padding:0 6px; border:none; border-radius:3px; background:transparent; color:var(--color-text-secondary); font-size:12px" style-hover="background:var(--color-surface-hover)">Delete</button></sc-if>
+            </div>
+          </article>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ tActivity }}">
+      <div style="flex:1; min-height:0; overflow:auto">
+        <sc-if value="{{ c.showDoing }}"><div style="display:flex; align-items:center; gap:8px; padding:10px 16px; border-bottom:1px solid var(--color-border); font-size:13px"><m-dot state="working"></m-dot><span style="font-weight:600">Doing now</span><span style="color:var(--color-text-secondary)">{{ c.doing }}</span></div></sc-if>
+        <sc-if value="{{ actEmpty }}"><div style="padding:32px 16px; text-align:center; color:var(--color-text-secondary)">No activity yet. Actions show here as the agent works.</div></sc-if>
+        <ol aria-live="polite" style="margin:0; padding:0; list-style:none">
+          <sc-for list="{{ activity }}" as="a">
+            <li style="display:flex; align-items:flex-start; gap:10px; padding:8px 16px; border-bottom:1px solid var(--color-border); background:{{ a.bg }}; transition:background-color 280ms cubic-bezier(0.2,0,0,1)">
+              <span style="display:inline-flex; margin-top:2px; color:var(--color-text-secondary)"><m-icon name="{{ a.icon }}" size="14"></m-icon></span>
+              <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:1px">
+                <span style="font-family:{{ a.font }}; font-size:{{ a.size }}; overflow-wrap:anywhere">{{ a.text }}</span>
+                <sc-if value="{{ a.hasResult }}"><span style="display:inline-flex; align-items:center; gap:4px; font-size:12px; line-height:16px; color:{{ a.resColor }}; font-weight:600"><m-icon name="{{ a.stIcon }}" size="12"></m-icon>{{ a.result }}</span></sc-if>
+              </span>
+              <span title="{{ a.full }}" style="flex:none; font-size:12px; line-height:20px; color:var(--color-text-muted)">{{ a.when }}</span>
+            </li>
+          </sc-for>
+        </ol>
+        <section aria-labelledby="h-cp" style="padding:16px">
+          <h3 id="h-cp" style="margin:0 0 8px; font-size:16px; line-height:22px; font-weight:600">Checkpoints</h3>
+          <sc-for list="{{ checkpoints }}" as="k">
+            <div style="display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--color-border)">
+              <m-icon name="history" size="14"></m-icon>
+              <span style="flex:1; min-width:0; display:flex; flex-direction:column"><span>{{ k.label }}</span><span style="font-family:var(--font-mono); font-size:12px; color:var(--color-text-secondary)">{{ k.ref }}</span></span>
+              <span style="font-size:12px; color:var(--color-text-muted)">{{ k.when }}</span>
+              <button onClick="{{ k.restore }}" style="height:28px; padding:0 10px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-size:13px; font-weight:500" style-hover="background:var(--color-surface-hover)">Restore</button>
+            </div>
+          </sc-for>
+        </section>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ tDiff }}">
+      <div style="flex:1; min-height:0; overflow:auto; padding:12px 16px; display:flex; flex-direction:column; gap:10px">
+        <sc-if value="{{ diffEmpty }}"><div style="padding:32px 8px; text-align:center; color:var(--color-text-secondary)">No changes yet. The diff fills in as the agent edits files.</div></sc-if>
+        <sc-if value="{{ diffHas }}">
+          <div style="display:flex; align-items:center; gap:10px; font-size:13px">
+            <span style="font-weight:600">{{ diffSummary }}</span>
+            <span style="font-family:var(--font-mono); font-size:12px; color:var(--color-diff-added-text)">{{ diffAdd }}</span>
+            <span style="font-family:var(--font-mono); font-size:12px; color:var(--color-diff-removed-text)">{{ diffDel }}</span>
+            <span style="flex:1"></span>
+            <button onClick="{{ expandAll }}" style="height:28px; padding:0 8px; border:none; border-radius:5px; background:transparent; color:var(--color-text-secondary); font-size:13px" style-hover="background:var(--color-surface-hover)">{{ expandAllLabel }}</button>
+          </div>
+        </sc-if>
+        <sc-for list="{{ files }}" as="f">
+          <div style="border:1px solid var(--color-border); border-radius:7px; overflow:hidden">
+            <button onClick="{{ f.toggle }}" aria-expanded="{{ f.open }}" style="width:100%; display:flex; align-items:center; gap:8px; min-height:36px; padding:0 10px; border:none; background:var(--color-surface-sunken); text-align:left" style-hover="background:var(--color-surface-hover)">
+              <m-icon name="{{ f.chev }}" size="14"></m-icon>
+              <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:var(--font-mono); font-size:13px">{{ f.path }}</span>
+              <span style="font-family:var(--font-mono); font-size:12px; color:var(--color-diff-added-text)">{{ f.add }}</span>
+              <span style="font-family:var(--font-mono); font-size:12px; color:var(--color-diff-removed-text)">{{ f.del }}</span>
+            </button>
+            <sc-if value="{{ f.showLarge }}">
+              <div style="display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:12px; border-top:1px solid var(--color-border); font-size:13px; color:var(--color-text-secondary)">
+                <m-icon name="file-warning" size="14"></m-icon><span style="flex:1">Large file: {{ f.addNum }} changed lines. It stays collapsed to keep the panel fast.</span>
+                <button onClick="{{ f.load }}" style="height:28px; padding:0 10px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-size:13px; font-weight:500">Load diff</button>
+              </div>
+            </sc-if>
+            <sc-if value="{{ f.showLines }}">
+              <div style="overflow-x:auto; border-top:1px solid var(--color-border)">
+                <sc-for list="{{ f.hunks }}" as="h">
+                  <div style="padding:2px 10px; background:var(--color-surface-sunken); color:var(--color-text-secondary); font-family:var(--font-mono); font-size:12px; line-height:20px; white-space:pre">{{ h.h }}</div>
+                  <sc-for list="{{ h.lines }}" as="l">
+                    <div style="display:flex; min-width:max-content; background:{{ l.bg }}; font-family:var(--font-mono); font-size:13px; line-height:20px">
+                      <span style="flex:none; width:44px; padding-right:8px; text-align:right; color:var(--color-text-muted); background:{{ l.gutter }}; user-select:none">{{ l.n }}</span>
+                      <span style="flex:none; width:18px; text-align:center; color:{{ l.color }}; user-select:none">{{ l.sign }}</span>
+                      <span style="white-space:pre; padding-right:12px; color:{{ l.color }}">{{ l.s }}</span>
+                    </div>
+                  </sc-for>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ tChecks }}">
+      <div style="flex:1; min-height:0; overflow:auto; padding:12px 16px; display:flex; flex-direction:column; gap:10px">
+        <sc-for list="{{ checklists }}" as="l">
+          <section style="display:flex; flex-direction:column; gap:6px; padding-bottom:12px; border-bottom:1px solid var(--color-border)">
+            <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px">
+              <m-icon name="square-check" size="16"></m-icon>
+              <h3 style="margin:0; flex:1; font-size:16px; line-height:22px; font-weight:600">{{ l.title }}</h3>
+              <sc-if value="{{ l.canHide }}"><button onClick="{{ l.toggleHide }}" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-size:13px; font-weight:500">{{ l.hideLabel }}</button></sc-if>
+              <button onClick="{{ l.del }}" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-size:13px; font-weight:500">Delete</button>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px"><span style="width:36px; font-size:12px; color:var(--color-text-secondary); font-variant-numeric:tabular-nums">{{ l.pct }}</span><div role="progressbar" aria-label="{{ l.aria }}" aria-valuenow="{{ l.pctNum }}" aria-valuemin="0" aria-valuemax="100" style="flex:1; height:6px; border-radius:9999px; background:var(--color-surface-sunken); overflow:hidden"><div style="height:100%; width:{{ l.pct }}; background:{{ l.fill }}; transition:width 200ms cubic-bezier(0.2,0,0,1)"></div></div></div>
+            <sc-if value="{{ l.hiddenNote }}"><span style="font-size:13px; color:var(--color-text-secondary)">{{ l.hiddenText }}</span></sc-if>
+            <ul style="margin:0; padding:0; list-style:none; display:flex; flex-direction:column">
+              <sc-for list="{{ l.items }}" as="it">
+                <li style="display:flex; align-items:flex-start; gap:10px; padding:6px 4px; border-radius:5px" style-hover="background:var(--color-surface-hover)">
+                  <input type="checkbox" checked="{{ it.done }}" onChange="{{ it.toggle }}" aria-label="{{ it.text }}" style="width:18px; height:18px; margin:1px 0 0; flex:none; accent-color:var(--color-ink)"></input>
+                  <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:1px"><span style="text-decoration:{{ it.deco }}; color:{{ it.color }}">{{ it.text }}</span><sc-if value="{{ it.hasBy }}"><span style="display:inline-flex; align-items:center; gap:4px; font-size:12px; line-height:16px; color:var(--color-text-secondary)"><m-icon name="{{ it.byIcon }}" size="12"></m-icon>{{ it.byText }}</span></sc-if></span>
+                  <button onClick="{{ it.remove }}" aria-label="{{ it.removeLabel }}" style="width:28px; height:28px; flex:none; display:inline-flex; align-items:center; justify-content:center; border:none; border-radius:5px; background:transparent; color:var(--color-text-muted)" style-hover="background:var(--color-surface-selected)"><m-icon name="x" size="14"></m-icon></button>
+                </li>
+              </sc-for>
+            </ul>
+            <sc-if value="{{ l.adding }}">
+              <form onSubmit="{{ l.submit }}" style="display:flex; flex-wrap:wrap; gap:6px"><input name="item" ref="{{ l.addRef }}" onKeyDown="{{ l.addKey }}" placeholder="Add an item" aria-label="New checklist item" style="flex:1 1 200px; height:32px; padding:0 10px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface)"></input><button type="submit" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-ink); background:var(--color-ink); color:var(--color-on-ink); font-weight:600">Add item</button><button type="button" onClick="{{ l.cancel }}" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-size:13px; font-weight:500">Cancel</button></form>
+            </sc-if>
+            <sc-if value="{{ l.notAdding }}"><button onClick="{{ l.startAdd }}" style="align-self:flex-start; height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-size:13px; font-weight:500">Add an item</button></sc-if>
+          </section>
+        </sc-for>
+        <sc-if value="{{ newClOpen }}">
+          <form onSubmit="{{ submitCl }}" style="display:flex; flex-wrap:wrap; gap:6px"><input name="title" ref="{{ clRef }}" placeholder="Checklist name, for example Definition of done" aria-label="Checklist name" style="flex:1 1 220px; height:32px; padding:0 10px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface)"></input><button type="submit" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-ink); background:var(--color-ink); color:var(--color-on-ink); font-weight:600">Add checklist</button><button type="button" onClick="{{ closeNewCl }}" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-size:13px; font-weight:500">Cancel</button></form>
+        </sc-if>
+        <sc-if value="{{ newClClosed }}"><button onClick="{{ openNewCl }}" style="align-self:flex-start; display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-size:13px; font-weight:500"><m-icon name="plus" size="14"></m-icon>Add checklist</button></sc-if>
+        <h3 style="margin:8px 0 0; font-size:16px; line-height:22px; font-weight:600">Acceptance checks</h3>
+        <div style="display:flex; align-items:center; gap:10px">
+          <span style="flex:1; font-size:13px; color:var(--color-text-secondary)">Marshal runs these by itself. The agent can't finish this card until every check passes.</span>
+          <button onClick="{{ runChecks }}" style="display:inline-flex; align-items:center; gap:6px; height:28px; padding:0 10px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-size:13px; font-weight:500"><m-icon name="play" size="14"></m-icon>Run checks</button>
+        </div>
+        <ul style="margin:0; padding:0; list-style:none; border:1px solid var(--color-border); border-radius:7px; overflow:hidden">
+          <sc-for list="{{ checks }}" as="k">
+            <li style="display:flex; align-items:center; gap:10px; padding:10px 12px; border-bottom:1px solid var(--color-border)">
+              <span style="display:inline-flex; color:{{ k.color }}"><m-icon name="{{ k.icon }}" size="16"></m-icon></span>
+              <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:1px"><span style="font-weight:600">{{ k.name }}</span><sc-if value="{{ k.hasCmd }}"><code style="font-family:var(--font-mono); font-size:12px; color:var(--color-text-secondary)">{{ k.cmd }}</code></sc-if></span>
+              <span style="font-size:13px; font-weight:600; color:{{ k.color }}">{{ k.label }}</span>
+            </li>
+          </sc-for>
+        </ul>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ tPreview }}">
+      <div style="flex:1; min-height:0; overflow:auto; padding:12px 16px; display:flex; flex-direction:column; gap:12px">
+        <sc-if value="{{ noPreview }}">
+          <div style="padding:24px 8px; display:flex; flex-direction:column; align-items:center; gap:12px; text-align:center">
+            <p style="margin:0; max-width:44ch; color:var(--color-text-secondary)">api-gateway has no dev command that serves a web page, so there is nothing to preview. Add a dev command in the project settings to preview it here.</p>
+            <button onClick="{{ setDevCmd }}" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-weight:500">Add dev command</button>
+          </div>
+        </sc-if>
+        <sc-if value="{{ hasPreview }}">
+          <div style="display:flex; align-items:center; gap:8px">
+            <div style="flex:1; min-width:0; display:flex; align-items:center; gap:8px; height:32px; padding:0 10px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface-sunken)">
+              <sc-if value="{{ pvStarting }}"><m-icon name="spinner" size="14"></m-icon></sc-if>
+              <sc-if value="{{ pvRunning }}"><span style="display:inline-flex; color:var(--color-status-working-solid)"><m-icon name="circle-check" size="14"></m-icon></span></sc-if>
+              <span style="font-family:var(--font-mono); font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ pvUrl }}</span>
+            </div>
+            <button onClick="{{ pvToggle }}" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid {{ pvBtnBorder }}; background:{{ pvBtnBg }}; color:{{ pvBtnColor }}; font-weight:600">{{ pvBtn }}</button>
+          </div>
+          <span style="font-size:13px; color:var(--color-text-secondary)">{{ pvStatus }}</span>
+          <sc-if value="{{ pvRunning }}">
+            <div style="border:1px solid var(--color-border); border-radius:7px; overflow:hidden; background:var(--color-surface)">
+              <div style="display:flex; min-height:300px">
+                <div style="width:30%; padding:16px; display:flex; flex-direction:column; gap:10px; border-right:1px solid var(--color-border); background:{{ pvSide }}">
+                  <div style="height:12px; width:70%; border-radius:3px; background:{{ pvBlock }}"></div><div style="height:12px; width:55%; border-radius:3px; background:{{ pvBlock }}"></div><div style="height:12px; width:62%; border-radius:3px; background:{{ pvBlock }}"></div>
+                </div>
+                <div style="flex:1; padding:16px; display:flex; flex-direction:column; gap:12px; background:{{ pvMain }}">
+                  <div style="height:18px; width:40%; border-radius:3px; background:{{ pvBlock }}"></div>
+                  <div style="height:64px; border-radius:5px; border:1px solid {{ pvBlock }}"></div>
+                  <div style="height:64px; border-radius:5px; border:1px solid {{ pvBlock }}"></div>
+                </div>
+              </div>
+              <div style="padding:6px 10px; border-top:1px solid var(--color-border); font-size:12px; color:var(--color-text-secondary)">Live preview from this card's worktree, in its own browser profile</div>
+            </div>
+            <h3 style="margin:4px 0 0; font-size:16px; line-height:22px; font-weight:600">Screenshots</h3>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:10px">
+              <sc-for list="{{ shots }}" as="s">
+                <figure style="margin:0; border:1px solid var(--color-border); border-radius:7px; overflow:hidden">
+                  <div style="height:120px; background:{{ s.bg }}; display:flex; flex-direction:column; gap:8px; padding:12px"><div style="height:10px; width:50%; border-radius:3px; background:{{ s.fg }}"></div><div style="height:40px; border-radius:3px; border:1px solid {{ s.fg }}"></div></div>
+                  <figcaption style="padding:6px 10px; font-size:12px; border-top:1px solid var(--color-border)">{{ s.label }}</figcaption>
+                </figure>
+              </sc-for>
+            </div>
+          </sc-if>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ tNotes }}">
+      <div style="flex:1; min-height:0; overflow:auto; padding:12px 16px; display:flex; flex-direction:column; gap:10px">
+        <div style="display:flex; align-items:center; gap:8px">
+          <m-icon name="book-open" size="14"></m-icon>
+          <span style="flex:1; min-width:0; font-family:var(--font-mono); font-size:12px; color:var(--color-text-secondary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ notePath }}</span>
+          <sc-if value="{{ notEditingNote }}"><button onClick="{{ editNote }}" style="height:28px; padding:0 10px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-size:13px; font-weight:500">Edit note</button></sc-if>
+        </div>
+        <sc-if value="{{ notEditingNote }}"><div style="max-width:72ch; white-space:pre-wrap; text-wrap:pretty">{{ note }}</div></sc-if>
+        <sc-if value="{{ editingNote }}">
+          <textarea value="{{ noteDraft }}" onInput="{{ onNote }}" rows="12" aria-label="Card note" style="padding:10px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-family:var(--font-mono); font-size:13px; line-height:20px; resize:vertical"></textarea>
+          <span style="font-size:13px; color:var(--color-text-secondary)">Saved to the Obsidian vault. Agents read this note at the start of each turn.</span>
+          <div style="display:flex; gap:8px">
+            <button onClick="{{ saveNote }}" disabled="{{ noteUnchanged }}" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-ink); background:var(--color-ink); color:var(--color-on-ink); font-weight:600; opacity:{{ noteOpacity }}">Save note</button>
+            <button onClick="{{ cancelNote }}" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-weight:500">Cancel</button>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { cDraft: '', pending: [], linkOpen: false, membersOpen: false, addingIn: null, newCl: false, editingTitle: false, draft: '', away: false, unseen: false, more: false, openFiles: null, loaded: {}, noteEdit: false, noteDraft: '' };
+  scrollRef = React.createRef(); linkRef = React.createRef(); titleRef = React.createRef(); termRef = React.createRef(); termInputRef = React.createRef();
+  componentDidMount() { this.u = M.on(() => this.forceUpdate()); setTimeout(() => this.toBottom(), 60); }
+  componentWillUnmount() { this.u && this.u(); }
+  componentDidUpdate() {
+    const S = M.S; const id = S.openId;
+    if (id !== this._id) { this._id = id; this._sig = null; this.setState({ cDraft: '', pending: [], linkOpen: false, membersOpen: false, addingIn: null, newCl: false, editingTitle: false, draft: '', away: false, unseen: false, more: false, openFiles: null, loaded: {}, noteEdit: false }); }
+    const list = S.chat[id] || [];
+    const sig = id + ':' + S.tab + ':' + S.mode + ':' + list.length + ':' + (list.length ? (list[list.length - 1].text || '').length + (list[list.length - 1].st || '') : '');
+    if (sig !== this._sig) {
+      const first = !this._sig || this._sig.split(':').slice(0, 3).join(':') !== sig.split(':').slice(0, 3).join(':');
+      this._sig = sig;
+      if (first || !this.state.away) setTimeout(() => this.toBottom(), 0);
+      else if (!this.state.unseen) this.setState({ unseen: true });
+    }
+    if (this.state.editingTitle && this.titleRef.current && document.activeElement !== this.titleRef.current && !this._tf) { this._tf = true; this.titleRef.current.focus(); this.titleRef.current.select(); }
+    if (!this.state.editingTitle) this._tf = false;
+  }
+  toBottom() { const el = this.scrollRef.current || this.termRef.current; if (el) el.scrollTop = el.scrollHeight; }
+  note(c) {
+    const S = M.S; S.notes = S.notes || {};
+    if (S.notes[c.id] == null) S.notes[c.id] = '# ' + c.title + '\n\nGoal: ' + c.title.toLowerCase() + '.\n\nDecisions\n- Keep the change inside ' + (c.pkg || M.filesFor(c)[0].split('/').slice(0, 2).join('/')) + '\n- Add tests before pushing\n\nLinks\n[[' + M.proj(c.p).name + ']]  [[lessons/ci-flaky-tests]]';
+    return S.notes[c.id];
+  }
+  renderVals() {
+    const S = M.S; const raw = M.card(S.openId);
+    if (!raw) return { c: {}, items: [] };
+    const c = M.deco(raw); const id = raw.id; const tone = M.tone;
+    const isMobile = S.vw < 640; const ctl = isMobile ? '44px' : '28px';
+    const tab = S.tab; const mode = S.mode;
+    const pend = M.pendingApproval(id);
+
+    const A = (label, icon, run, o) => Object.assign({ label, icon, run, bg: 'var(--color-surface)', color: 'var(--color-text-primary)', border: 'var(--color-border-strong)', weight: '500', disabled: false, opacity: '1', hasKbd: false, tip: label }, o || {});
+    const primary = { bg: 'var(--color-ink)', color: 'var(--color-on-ink)', border: 'var(--color-ink)', weight: '600' };
+    const actions = [];
+    if (pend && pend.k === 'approval') actions.push(A('Approve', 'check', () => M.approve(id), Object.assign({ hasKbd: true, kbd: 'A' }, primary)));
+    else if (pend && pend.k === 'plan') actions.push(A('Approve plan', 'check', () => M.approvePlan(id), Object.assign({ hasKbd: true, kbd: 'A' }, primary)));
+    if (raw.state === 'backlog') actions.push(A('Start card', 'play', () => M.start(id), pend ? {} : primary));
+    else if (raw.asleep) actions.push(A(raw.waking ? 'Waking' : 'Resume session', 'play', () => M.wake(id), Object.assign({}, pend ? {} : primary, { disabled: raw.waking })));
+    else if (raw.paused) actions.push(A('Resume card', 'play', () => M.start(id), pend ? {} : primary));
+    else if (raw.state === 'working') actions.push(A('Pause', 'pause', () => M.pause(id)));
+    if (raw.state !== 'backlog' && raw.state !== 'done' && !raw.asleep) actions.push(A('Sleep', 'moon', () => M.sleep(id), { hasKbd: !isMobile, kbd: 'S' }));
+    if (raw.state !== 'done') actions.push(A(raw.pinned ? 'Unpin' : 'Pin', raw.pinned ? 'pin-off' : 'pin', () => M.pin(id), { hasKbd: !isMobile, kbd: 'P' }));
+    actions.push(A('Fork', 'git-fork', () => M.fork(id)));
+    if (raw.state === 'ready') actions.push(A('Merge', 'git-merge', () => { raw.state = 'merging'; raw.mergePct = 10; raw.doing = 'Dry-run merge with git merge-tree'; M.emit(); M.toast('Added to merge queue'); }));
+
+    const moveItems = M.COLUMNS.filter(col => col !== M.colOf(raw.state)).map(col => ({ label: 'Move to ' + M.STATUS[col].label.charAt(0).toLowerCase() + M.STATUS[col].label.slice(1), icon: M.STATUS[col].icon, run: () => { this.setState({ more: false }); M.moveCard(id, col, true); } }));
+    const moreItems = moveItems.concat([
+      { label: 'Restore a checkpoint', icon: 'history', run: () => { this.setState({ more: false }); M.setTab('activity'); } },
+      { label: 'Simulate CI failure', icon: 'circle-x', run: () => { this.setState({ more: false }); M.simulateCiFailure(id); } },
+      { label: 'Copy branch name', icon: 'copy', run: () => { this.setState({ more: false }); try { navigator.clipboard.writeText(raw.branch || ''); } catch (e) {} M.toast('Branch name copied'); } },
+      { label: 'Delete card', icon: 'trash-2', color: tone('danger', 'text'), run: () => { this.setState({ more: false }); M.deleteCard(id); } }
+    ]).map(x => Object.assign({ color: 'var(--color-text-primary)' }, x));
+
+    const agentModels = M.AGENTS[raw.agent].models;
+    const settings = [
+      { key: 'agent', label: 'Agent', value: raw.agent, options: Object.keys(M.AGENTS) },
+      { key: 'role', label: 'Role', value: raw.role, options: M.ROLE_NAMES },
+      { key: 'model', label: 'Model', value: raw.model, options: agentModels.includes(raw.model) ? agentModels : [raw.model].concat(agentModels) }
+    ];
+    if (M.thinkSupported(raw.model)) settings.push({ key: 'think', label: 'Thinking mode', value: raw.think || 'Medium', options: M.THINK });
+    settings.push({ key: 'perm', label: 'Permission mode', value: raw.perm, options: M.PERMS });
+    settings.forEach(s => Object.assign(s, { opts: s.options.map(v => ({ v, sel: v === s.value })), change: e => M.setSetting(id, s.key, e.target.value), border: s.key === 'perm' && raw.bypass ? tone('danger', 'solid') : 'var(--color-border-strong)', color: s.key === 'perm' && raw.bypass ? tone('danger', 'text') : 'var(--color-text-primary)', weight: s.key === 'perm' && raw.bypass ? '600' : '400' }));
+
+    const chatList = S.chat[id] || [];
+    const acts = S.act[id] || [];
+    const diff = M.diffFor(raw);
+    const checks = S.checks[id] || [];
+    const passed = checks.filter(k => k.st === 'passed').length;
+    const failed = checks.some(k => k.st === 'failed');
+    const clDone = raw.checklists.reduce((a, l) => a + l.items.filter(i => i.done).length, 0), clTotal = raw.checklists.reduce((a, l) => a + l.items.length, 0);
+    const TABS = [['chat', 'Chat'], ['comments', 'Comments', raw.comments.length], ['activity', 'Activity', acts.length], ['diff', 'Diff', diff.length], ['checks', 'Checklists', (clTotal + checks.length) ? (clDone + passed) + '/' + (clTotal + checks.length) : ''], ['preview', 'Preview'], ['notes', 'Notes']];
+    const tabs = TABS.map(([k, l, n]) => ({ label: l, tid: 'tab-' + k, sel: tab === k, tabindex: tab === k ? '0' : '-1', line: tab === k ? 'var(--color-ink)' : 'transparent', weight: tab === k ? '600' : '500', color: tab === k ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+      hasCount: n !== undefined && n !== '' && n !== 0, count: n, countBg: k === 'checks' && failed ? tone('danger', 'subtle') : 'var(--color-surface-selected)', countColor: k === 'checks' && failed ? tone('danger', 'text') : 'var(--color-text-secondary)', go: () => M.setTab(k) }));
+
+    // terminal
+    const ag = M.AGENTS[raw.agent];
+    const termLines = [{ t: raw.agent + ' ' + ag.version + '   session ' + (id * 7919).toString(16) + 'a2f', color: 'var(--color-text-secondary)', weight: '400' }, { t: 'Resumed in ' + (raw.branch ? '~/.marshal/worktrees/' + M.proj(raw.p).name + '/' + raw.branch.replace('marshal/', '') : M.proj(raw.p).path), color: 'var(--color-text-secondary)', weight: '400' }, { t: ' ', color: 'inherit', weight: '400' }];
+    (this.state.keyLog || []).length && 0; chatList.forEach(x => {
+      if (x.k === 'user') termLines.push({ t: '> ' + x.text, color: 'var(--color-text-primary)', weight: '600' });
+      else if (x.k === 'agent') termLines.push({ t: x.text, color: 'var(--color-text-primary)', weight: '400' });
+      else if (x.k === 'tool') { termLines.push({ t: '  ' + x.action, color: 'var(--color-text-primary)', weight: '400' }); termLines.push({ t: '    ' + x.result, color: x.st === 'fail' ? tone('danger', 'text') : 'var(--color-text-secondary)', weight: '400' }); }
+      else if (x.k === 'system') termLines.push({ t: '# ' + x.text, color: 'var(--color-text-muted)', weight: '400' });
+      else if (x.k === 'approval') termLines.push({ t: '? Allow: ' + x.cmd + (x.st === 'waiting' ? '  [y/n]' : '  ' + x.st), color: tone('needs-you', 'text'), weight: '600' });
+      else if (x.k === 'plan') termLines.push({ t: '? Plan with ' + x.steps.length + ' steps  ' + x.st, color: tone('needs-you', 'text'), weight: '600' });
+    });
+
+    (this.state.keyLog || []).forEach(k => termLines.push({ t: '[' + k + ']', color: 'var(--color-text-muted)', weight: '400' }));
+    // activity
+    const KI = { file: 'file-pen', command: 'terminal', test: 'flask-conical', tool: 'wrench', approval: 'st-needs' };
+    const activity = acts.slice(0, 120).map(a => {
+      const mono = a.kind === 'command' || /^Ran |^Edited |^Read |^Created /.test(a.text);
+      const fresh = Date.now() - a.ts < 1500;
+      return { icon: KI[a.kind] || 'dot', text: a.text, font: mono ? 'var(--font-mono)' : 'var(--font-sans)', size: mono ? '12px' : '13px', hasResult: !!a.result, result: a.result,
+        stIcon: a.st === 'running' || a.st === 'waiting' ? (a.st === 'running' ? 'spinner' : 'st-needs') : a.st === 'fail' ? 'x' : 'check',
+        resColor: a.st === 'fail' ? tone('danger', 'text') : a.st === 'waiting' ? tone('needs-you', 'text') : a.st === 'running' ? 'var(--color-text-secondary)' : tone('working', 'text'),
+        when: M.rel(a.ts), full: M.full(a.ts), bg: fresh ? 'var(--color-surface-selected)' : 'transparent' };
+    });
+    const checkpoints = raw.state === 'backlog' ? [] : [['Before turn 6', 12], ['Before editing ' + M.filesFor(raw)[0].split('/').pop(), 38], ['Session start', 95]].map(([l, m], i) => ({ label: l, ref: 'refs/marshal/cp/' + id + '/' + (3 - i), when: m + ' min ago',
+      restore: () => M.confirm({ title: 'Restore checkpoint', message: 'This resets the worktree to "' + l + '". Newer changes are kept on a backup ref, so you can undo this.', action: 'Restore checkpoint', run: () => { M.toast('Checkpoint restored'); } }) }));
+
+    // diff
+    const openSet = this.state.openFiles || new Set(diff.filter(f => !f.large).slice(0, 2).map(f => f.path));
+    const files = diff.map(f => {
+      const open = openSet.has(f.path); const loaded = !!this.state.loaded[f.path];
+      return { path: f.path, add: '+' + f.add, addNum: f.add.toLocaleString(), del: '\u2212' + f.del, open, chev: open ? 'chevron-down' : 'chevron-right', showLarge: open && f.large && !loaded, showLines: open && (!f.large || loaded),
+        toggle: () => { const s = new Set(openSet); s.has(f.path) ? s.delete(f.path) : s.add(f.path); this.setState({ openFiles: s }); },
+        load: () => this.setState({ loaded: Object.assign({}, this.state.loaded, { [f.path]: true }) }),
+        hunks: (f.large && loaded ? [{ h: '@@ -0,0 +1,1240 @@', lines: [['+', 1, 'cloud.google.com/go v0.115.0 h1:CnFSK6Xo3lDYRoBKEcAtia6VSC837/ZkJuRduSFnr14='], ['+', 2, 'google.golang.org/grpc v1.66.0 h1:DibZuoBznOxbDQxRINckZcUvnCEvrW9pcWIE2yF9r1c='], ['+', 3, '...']] }] : f.hunks).map(h => ({ h: h.h, lines: h.lines.map(([t, n, s]) => ({ n, s, sign: t === ' ' ? '' : t === '-' ? '\u2212' : '+', bg: t === '+' ? 'var(--color-diff-added-bg)' : t === '-' ? 'var(--color-diff-removed-bg)' : 'transparent', gutter: t === '+' ? 'var(--color-diff-added-line)' : t === '-' ? 'var(--color-diff-removed-line)' : 'transparent', color: t === '+' ? 'var(--color-diff-added-text)' : t === '-' ? 'var(--color-diff-removed-text)' : 'var(--color-text-primary)' })) })) };
+    });
+    const tAdd = diff.reduce((a, f) => a + f.add, 0), tDel = diff.reduce((a, f) => a + f.del, 0);
+
+    // checks
+    const CK = { passed: ['check', tone('working', 'text'), 'Passed'], failed: ['x', tone('danger', 'text'), 'Failed'], running: ['spinner', 'var(--color-text-secondary)', 'Running'], pending: ['circle-dashed', 'var(--color-text-muted)', 'Pending'] };
+    const checkRows = checks.map(k => ({ name: k.name, cmd: k.cmd, hasCmd: !!k.cmd, icon: CK[k.st][0], color: CK[k.st][1], label: CK[k.st][2] }));
+
+    // preview
+    S.preview = S.preview || {};
+    const pv = S.preview[id] || 'stopped';
+    const port = 5100 + (id % 90);
+    const dark = S.resolvedTheme === 'dark';
+    const pvUrl = raw.p === 'mobile' ? 'http://localhost:' + (8000 + id % 90) + '/login' : 'http://localhost:' + port + (id === 118 ? '/settings' : '/reports');
+
+    const ctx = Math.round(raw.ctx * 100);
+    const ctxNear = raw.ctx >= 0.8;
+    const noteText = this.note(raw);
+    const self = this;
+    const PE = M.S.people; const pShort = n => n.split(' ')[0];
+    const memberChips = raw.members.map(pid => { const p = M.person(pid); return p ? { isPerson: true, isAgent: false, initials: p.name.split(' ').map(x => x[0]).join('').slice(0, 2), short: pShort(p.name), title: p.name } : null; }).filter(Boolean)
+      .concat(raw.state === 'backlog' ? [] : [{ isPerson: false, isAgent: true, short: raw.agent, title: raw.agent + ' agent, ' + raw.role + ' role' }]);
+    const addLink = () => { const el = this.linkRef.current; const v = el && el.value.trim(); if (!v) return; const url = /^https?:/.test(v) ? v : 'https://' + v; this.setState({ pending: this.state.pending.concat([{ kind: 'link', name: url.replace(/^https?:\/\//, ''), url }]), linkOpen: false }); };
+    const post = () => { M.addComment(id, this.state.cDraft, this.state.pending); this.setState({ cDraft: '', pending: [], linkOpen: false }); };
+    const comments = raw.comments.slice().reverse().map(cm => {
+      const isAgent = cm.author === 'agent'; const p = isAgent ? null : M.person(cm.author);
+      const imgs = cm.att.filter(a => a.kind === 'image'); const files = cm.att.filter(a => a.kind !== 'image');
+      return { isAgent, isPerson: !isAgent, name: isAgent ? raw.agent + ' agent' : p ? p.name : 'Someone', initials: p ? p.name.split(' ').map(x => x[0]).join('').slice(0, 2) : '', when: M.rel(cm.ts), full: M.full(cm.ts),
+        readShow: !isAgent && cm.read && raw.state !== 'backlog', text: cm.text, hasText: !!cm.text, bg: isAgent ? 'var(--color-surface)' : 'var(--color-surface-sunken)',
+        images: imgs.map(im => ({ name: im.name, src: im.src || '', hasSrc: !!im.src, noSrc: !im.src })), hasImages: imgs.length > 0,
+        files: files.map(f => ({ name: f.name, icon: f.kind === 'link' ? 'link' : 'file-text', meta: f.size || '', hasMeta: !!f.size, href: f.url || f.src || '#', font: f.kind === 'link' ? 'var(--font-mono)' : 'var(--font-sans)', size: f.kind === 'link' ? '12px' : '13px', click: e => { if (!f.url && !f.src) { e.preventDefault(); M.toast('Opening ' + f.name); } } })), hasFiles: files.length > 0,
+        mine: cm.author === 'ada', del: () => M.deleteComment(id, cm.id) };
+    });
+    const checklists = raw.checklists.map(l => {
+      const done = l.items.filter(i => i.done).length; const pct = l.items.length ? Math.round(done / l.items.length * 100) : 0; const shown = l.hideDone ? l.items.filter(i => !i.done) : l.items; const adding = this.state.addingIn === l.id;
+      return { title: l.title, pct: pct + '%', pctNum: pct, aria: l.title + ' progress', fill: pct === 100 ? tone('working', 'solid') : 'var(--color-text-secondary)',
+        canHide: done > 0, hideLabel: l.hideDone ? 'Show checked items' : 'Hide checked items', toggleHide: () => M.toggleHideDone(id, l.id), del: () => M.deleteChecklist(id, l.id),
+        hiddenNote: l.hideDone && done > 0, hiddenText: done + (done === 1 ? ' checked item hidden' : ' checked items hidden'),
+        items: shown.map(it => { const byAgent = it.by === 'agent'; const bp = it.by && !byAgent ? M.person(it.by) : null; return { text: it.text, done: it.done, deco: it.done ? 'line-through' : 'none', color: it.done ? 'var(--color-text-secondary)' : 'var(--color-text-primary)',
+          hasBy: it.done && !!it.by, byIcon: byAgent ? 'bot' : 'user-round', byText: (byAgent ? raw.agent : bp ? bp.name : 'You') + ' completed this ' + M.rel(it.doneAt || Date.now()).toLowerCase(),
+          toggle: () => M.toggleItem(id, l.id, it.id), remove: () => M.removeItem(id, l.id, it.id), removeLabel: 'Remove ' + it.text }; }),
+        adding, notAdding: !adding, startAdd: () => this.setState({ addingIn: l.id }), cancel: () => this.setState({ addingIn: null }),
+        addRef: el => { if (el && !el._f) { el._f = 1; setTimeout(() => el.focus(), 0); } },
+        addKey: e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); this.setState({ addingIn: null }); } },
+        submit: e => { e.preventDefault(); M.addItem(id, l.id, e.target.item.value); e.target.item.value = ''; e.target.item.focus(); } };
+    });
+    return {
+      memberChips, membersOpen: this.state.membersOpen, toggleMembers: () => this.setState({ membersOpen: !this.state.membersOpen }),
+      peopleOpts: PE.map(p => ({ name: p.name, initials: p.name.split(' ').map(x => x[0]).join('').slice(0, 2), on: raw.members.includes(p.id), toggle: () => M.toggleMember(id, p.id) })),
+      agentNote: raw.state === 'backlog' ? 'The agent joins when the card starts' : raw.agent + ' is on this card. Change it in Agent below.',
+      tComments: tab === 'comments', comments, noComments: comments.length === 0,
+      cDraft: this.state.cDraft, onCDraft: e => this.setState({ cDraft: e.target.value }), cKey: e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); post(); } },
+      postComment: e => { e.preventDefault(); post(); }, cDisabled: !this.state.cDraft.trim() && !this.state.pending.length, cOpacity: !this.state.cDraft.trim() && !this.state.pending.length ? '0.5' : '1',
+      pending: this.state.pending.map((a, i) => ({ name: a.name, icon: a.kind === 'image' ? 'image' : a.kind === 'link' ? 'link' : 'file-text', removeLabel: 'Remove ' + a.name, remove: () => this.setState({ pending: this.state.pending.filter((_, j) => j !== i) }) })), hasPending: this.state.pending.length > 0,
+      onFiles: e => { const fs = Array.from(e.target.files || []).map(f => ({ kind: /^image\//.test(f.type) ? 'image' : 'file', name: f.name, size: f.size > 1e6 ? (f.size / 1e6).toFixed(1) + ' MB' : Math.max(1, Math.round(f.size / 1e3)) + ' KB', src: URL.createObjectURL(f) })); this.setState({ pending: this.state.pending.concat(fs) }); e.target.value = ''; },
+      linkOpen: this.state.linkOpen, toggleLink: () => { this.setState({ linkOpen: !this.state.linkOpen }); setTimeout(() => this.linkRef.current && this.linkRef.current.focus(), 30); }, linkRef: this.linkRef, addLink,
+      linkKey: e => { if (e.key === 'Enter') { e.preventDefault(); addLink(); } if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); this.setState({ linkOpen: false }); } },
+      checklists, newClOpen: this.state.newCl, newClClosed: !this.state.newCl, openNewCl: () => this.setState({ newCl: true }), closeNewCl: () => this.setState({ newCl: false }),
+      clRef: el => { if (el && !el._f) { el._f = 1; setTimeout(() => el.focus(), 0); } }, submitCl: e => { e.preventDefault(); M.addChecklist(id, e.target.title.value); this.setState({ newCl: false }); },
+      c, isMobile, notMobile: !isMobile, ctl, ctlSel: isMobile ? '44px' : '28px', tabH: isMobile ? '44px' : '36px',
+      bypass: raw.bypass, bypassOff: () => M.turnOffBypass(id),
+      close: () => M.closeCard(), toggleExpand: () => M.set({ detailExpanded: !S.detailExpanded }), expandLabel: S.detailExpanded ? 'Show board beside card' : 'Expand card to full view', expandIcon: S.detailExpanded ? 'minimize-2' : 'maximize-2',
+      sessIcon: raw.asleep ? 'moon' : M.isAwake(raw) ? 'sun' : 'circle-dashed',
+      editingTitle: this.state.editingTitle, notEditingTitle: !this.state.editingTitle, titleRef: this.titleRef,
+      editTitle: () => this.setState({ editingTitle: true }),
+      titleKey: e => { if (e.key === 'Enter') { M.rename(id, e.target.value); this.setState({ editingTitle: false }); } if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); this.setState({ editingTitle: false }); } },
+      titleBlur: e => { if (this.state.editingTitle) { M.rename(id, e.target.value); this.setState({ editingTitle: false }); } },
+      hasPr: !!raw.pr, prLabel: 'Pull request #' + raw.pr, ciLower: (c.ciLabel || '').toLowerCase(),
+      ctxPct: ctx + '%', ctxNum: ctx, ctxFill: ctxNear ? tone('needs-you', 'solid') : 'var(--color-text-secondary)', ctxColor: ctxNear ? tone('needs-you', 'text') : 'var(--color-text-secondary)', ctxWeight: ctxNear ? '600' : '400',
+      ctxTip: ctxNear ? 'Context is near full. Auto-compaction starts at 90%. Add card notes to keep key facts.' : 'Context window used. Auto-compaction starts at 90%.',
+      actions, moreOpen: this.state.more, toggleMore: () => this.setState({ more: !this.state.more }), moreItems,
+      settings, tabs, panelFor: 'tab-' + tab,
+      tabKeys: e => { if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return; e.preventDefault(); e.stopPropagation(); const i = TABS.findIndex(t => t[0] === tab); const n = TABS[(i + (e.key === 'ArrowRight' ? 1 : TABS.length - 1)) % TABS.length][0]; M.setTab(n); setTimeout(() => { const b = document.getElementById('tab-' + n); b && b.focus(); }, 0); },
+      tChat: tab === 'chat', tActivity: tab === 'activity', tDiff: tab === 'diff', tChecks: tab === 'checks', tPreview: tab === 'preview', tNotes: tab === 'notes',
+      noDoing: !c.showDoing, idleText: raw.state === 'needs' ? raw.reason : raw.asleep ? 'Asleep. Sending a message wakes the session.' : raw.paused ? 'Paused by you' : raw.state === 'backlog' ? 'Not started' : raw.state === 'done' ? 'Merged' : 'Idle',
+      modes: [['chat', 'Chat', 'message-square'], ['terminal', 'Terminal', 'square-terminal']].map(([k, l, ic]) => ({ label: l, icon: ic, sel: mode === k, disabled: !!S.switching, bg: mode === k ? 'var(--color-surface)' : 'transparent', border: mode === k ? 'var(--color-border-strong)' : 'transparent', color: mode === k ? 'var(--color-text-primary)' : 'var(--color-text-secondary)', go: () => M.setMode(k) })),
+      showSwitching: !!S.switching, switchingText: S.switching === 'terminal' ? 'Switching to terminal' : 'Switching to chat',
+      showChat: mode === 'chat' && !S.switching, showTerminal: mode === 'terminal' && !S.switching, always: true,
+      termKeys: [['Esc', 'Escape key'], ['Tab', 'Tab key'], ['Ctrl', 'Control key'], ['arrow-left', 'Left arrow'], ['arrow-up', 'Up arrow'], ['arrow-down', 'Down arrow'], ['arrow-right', 'Right arrow']].map(([k, a]) => ({ isIcon: /^arrow/.test(k), isText: !/^arrow/.test(k), label: k, aria: a, bg: k === 'Ctrl' && this.state.ctrl ? 'var(--color-ink)' : 'var(--color-surface-sunken)', color: k === 'Ctrl' && this.state.ctrl ? 'var(--color-on-ink)' : 'var(--color-text-primary)', run: () => { if (k === 'Ctrl') return this.setState({ ctrl: !this.state.ctrl }); this.setState({ ctrl: false, keyLog: (this.state.keyLog || []).concat([(this.state.ctrl ? 'Ctrl+' : '') + a]) }); this.termInputRef.current && this.termInputRef.current.focus(); } })), showSwitchBody: !!S.switching, switchBg: S.switching === 'terminal' ? 'var(--color-surface-sunken)' : 'var(--color-surface)', skel: ['60%', '85%', '40%', '72%'],
+      items: M.decoMsgs(chatList, id), chatEmpty: chatList.length === 0, scrollRef: this.scrollRef,
+      onScroll: e => { const el = e.currentTarget; const away = el.scrollHeight - el.scrollTop - el.clientHeight > 80; if (away !== this.state.away) this.setState({ away, unseen: away ? this.state.unseen : false }); },
+      showJump: this.state.away && this.state.unseen, jump: () => { this.setState({ away: false, unseen: false }); this.toBottom(); },
+      draft: this.state.draft, onDraft: e => this.setState({ draft: e.target.value }),
+      onDraftKey: e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (self.state.draft.trim()) { M.send(id, self.state.draft); self.setState({ draft: '', away: false }); } } },
+      send: () => { if (this.state.draft.trim()) { M.send(id, this.state.draft); this.setState({ draft: '', away: false }); } }, sendDisabled: !this.state.draft.trim(), sendOpacity: this.state.draft.trim() ? '1' : '0.4',
+      composerPh: raw.asleep ? 'Message ' + c.num + '. This wakes the session.' : 'Message the ' + raw.agent + ' session on ' + c.num,
+      termLines, termRef: this.termRef, termInputRef: this.termInputRef, focusTerm: () => this.termInputRef.current && this.termInputRef.current.focus(),
+      termSubmit: e => { e.preventDefault(); const v = e.target.cmd.value; if (v.trim()) { M.send(id, v); e.target.cmd.value = ''; } },
+      activity, actEmpty: activity.length === 0, checkpoints,
+      files, diffEmpty: diff.length === 0, diffHas: diff.length > 0, diffSummary: diff.length + (diff.length === 1 ? ' file changed' : ' files changed'), diffAdd: '+' + tAdd.toLocaleString(), diffDel: '\u2212' + tDel,
+      expandAllLabel: openSet.size === diff.length ? 'Collapse all' : 'Expand all', expandAll: () => this.setState({ openFiles: openSet.size === diff.length ? new Set() : new Set(diff.map(f => f.path)) }),
+      checks: checkRows, runChecks: () => M.runChecks(id),
+      noPreview: raw.p === 'api', hasPreview: raw.p !== 'api', setDevCmd: () => M.toast('Open project settings to add a dev command'),
+      pvStarting: pv === 'starting', pvRunning: pv === 'running', pvUrl,
+      pvStatus: pv === 'running' ? 'Running from ' + (raw.branch || 'main') + ' on port ' + (raw.p === 'mobile' ? 8000 + id % 90 : port) : pv === 'starting' ? 'Starting the dev server with ' + (raw.p === 'mobile' ? 'pnpm --filter apps/ios web' : 'pnpm dev') : 'Stopped. Start the preview to run the app from this card\'s worktree.',
+      pvBtn: pv === 'stopped' ? 'Start preview' : 'Stop preview', pvBtnBg: pv === 'stopped' ? 'var(--color-ink)' : 'var(--color-surface)', pvBtnColor: pv === 'stopped' ? 'var(--color-on-ink)' : 'var(--color-text-primary)', pvBtnBorder: pv === 'stopped' ? 'var(--color-ink)' : 'var(--color-border-strong)',
+      pvToggle: () => { if (pv === 'stopped') { S.preview[id] = 'starting'; M.emit(); setTimeout(() => { S.preview[id] = 'running'; M.emit(); }, 1800); } else { S.preview[id] = 'stopped'; M.emit(); M.toast('Preview stopped'); } },
+      pvSide: id === 118 ? '#1B1F24' : 'var(--color-surface-sunken)', pvMain: id === 118 ? '#22272D' : 'var(--color-surface)', pvBlock: id === 118 ? '#3A424B' : 'var(--color-border-strong)',
+      shots: [{ label: 'Before', bg: id === 118 ? '#FFFFFF' : 'var(--color-surface-sunken)', fg: '#C9CED4' }, { label: 'After', bg: id === 118 ? '#1B1F24' : 'var(--color-surface-sunken)', fg: '#3A424B' }],
+      notePath: 'vault/cards/' + id + '-' + raw.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-$/, '') + '.md', note: noteText,
+      editingNote: this.state.noteEdit, notEditingNote: !this.state.noteEdit, noteDraft: this.state.noteDraft,
+      editNote: () => this.setState({ noteEdit: true, noteDraft: noteText }), onNote: e => this.setState({ noteDraft: e.target.value }),
+      noteUnchanged: this.state.noteDraft === noteText, noteOpacity: this.state.noteDraft === noteText ? '0.5' : '1',
+      saveNote: () => { S.notes[id] = this.state.noteDraft; this.setState({ noteEdit: false }); M.toast('Note saved'); }, cancelNote: () => this.setState({ noteEdit: false })
+    };
+  }
+}
+</script>
+</body>
+</html>

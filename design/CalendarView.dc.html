@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="position:absolute; inset:0; display:flex; flex-direction:column; background:var(--color-surface)">
+  <div style="flex:none; display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; padding:8px 16px; border-bottom:1px solid var(--color-border)">
+    <sc-if value="{{ notPhone }}"><div role="tablist" aria-label="Calendar layout" style="display:flex; gap:2px; padding:2px; border-radius:7px; background:var(--color-surface-sunken); border:1px solid var(--color-border)">
+      <sc-for list="{{ modes }}" as="m">
+        <button role="tab" aria-selected="{{ m.sel }}" onClick="{{ m.go }}" style="height:26px; padding:0 10px; border-radius:5px; border:1px solid {{ m.border }}; background:{{ m.bg }}; font-size:13px; font-weight:500; color:{{ m.color }}">{{ m.label }}</button>
+      </sc-for>
+    </div></sc-if>
+    <div style="display:flex; gap:2px">
+      <button onClick="{{ prev }}" aria-label="{{ prevLabel }}" style="width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface)"><m-icon name="chevron-left" size="16"></m-icon></button>
+      <button onClick="{{ next }}" aria-label="{{ nextLabel }}" style="width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface)"><m-icon name="chevron-right" size="16"></m-icon></button>
+    </div>
+    <button onClick="{{ today }}" style="height:28px; padding:0 10px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-size:13px; font-weight:500">Today</button>
+    <h2 style="margin:0; font-size:16px; line-height:22px; font-weight:600">{{ label }}</h2>
+    <div style="flex:1"></div>
+    <div style="display:flex; flex-wrap:wrap; gap:4px 14px; font-size:12px; line-height:16px; color:var(--color-text-secondary)">
+      <sc-for list="{{ legend }}" as="l"><span style="display:inline-flex; align-items:center; gap:4px"><m-icon name="{{ l.icon }}" size="12"></m-icon>{{ l.label }}</span></sc-for>
+    </div>
+  </div>
+  <sc-if value="{{ phone }}">
+    <div style="flex:1; min-height:0; overflow:auto; padding:8px 16px 32px">
+      <sc-if value="{{ noAgenda }}"><p style="color:var(--color-text-secondary)">Nothing is scheduled this month.</p></sc-if>
+      <sc-for list="{{ agenda }}" as="d">
+        <section style="margin-bottom:8px">
+          <h3 style="margin:0; padding:10px 0 6px; font-size:14px; line-height:20px; font-weight:600; color:{{ d.color }}; border-bottom:1px solid var(--color-border)">{{ d.label }}</h3>
+          <sc-for list="{{ d.items }}" as="it">
+            <button onClick="{{ it.open }}" style="width:100%; display:flex; align-items:center; gap:10px; min-height:44px; padding:0; border:none; border-bottom:1px solid var(--color-border); background:transparent; text-align:left">
+              <span style="width:48px; flex:none; font-size:13px; color:var(--color-text-secondary); font-variant-numeric:tabular-nums">{{ it.timeLabel }}</span>
+              <span style="display:inline-flex; color:{{ it.iconColor }}"><m-icon name="{{ it.icon }}" size="16"></m-icon></span>
+              <span style="flex:1; min-width:0">{{ it.label }}</span>
+            </button>
+          </sc-for>
+        </section>
+      </sc-for>
+    </div>
+  </sc-if>
+  <sc-if value="{{ notPhone }}">
+  <div style="flex:1; min-height:0; overflow:auto; padding:12px 16px 16px">
+    <div style="display:grid; grid-template-columns:repeat(7, minmax(0, 1fr)); border-left:1px solid var(--color-border); border-top:1px solid var(--color-border); min-width:{{ minW }}">
+      <sc-for list="{{ wdays }}" as="w"><div style="padding:6px 8px; border-right:1px solid var(--color-border); border-bottom:1px solid var(--color-border); background:var(--color-surface-sunken); font-size:12px; line-height:16px; font-weight:600; color:var(--color-text-secondary)">{{ w }}</div></sc-for>
+      <sc-for list="{{ cells }}" as="d">
+        <div style="min-height:{{ cellH }}; padding:6px; border-right:1px solid var(--color-border); border-bottom:1px solid var(--color-border); background:{{ d.bg }}; display:flex; flex-direction:column; gap:3px; min-width:0">
+          <span title="{{ d.full }}" style="align-self:flex-start; min-width:22px; height:22px; padding:0 5px; border-radius:9999px; font-size:12px; line-height:22px; text-align:center; font-weight:{{ d.weight }}; background:{{ d.numBg }}; color:{{ d.numColor }}">{{ d.n }}</span>
+          <sc-for list="{{ d.items }}" as="it">
+            <button onClick="{{ it.open }}" title="{{ it.tip }}" style="display:flex; align-items:center; gap:4px; min-height:22px; padding:1px 4px; border:none; border-radius:3px; background:{{ it.bg }}; text-align:left; font-size:12px; line-height:16px; color:{{ it.color }}; min-width:0" style-hover="background:var(--color-surface-selected)">
+              <span style="display:inline-flex; color:{{ it.iconColor }}"><m-icon name="{{ it.icon }}" size="12"></m-icon></span>
+              <sc-if value="{{ it.hasTime }}"><span style="flex:none; color:var(--color-text-secondary); font-variant-numeric:tabular-nums">{{ it.time }}</span></sc-if>
+              <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ it.label }}</span>
+            </button>
+          </sc-for>
+          <sc-if value="{{ d.hasMore }}"><button onClick="{{ d.more }}" style="align-self:flex-start; height:20px; padding:0 4px; border:none; border-radius:3px; background:transparent; font-size:12px; color:var(--color-text-secondary)" style-hover="background:var(--color-surface-hover)">{{ d.moreLabel }}</button></sc-if>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  componentDidMount() { this.u = M.on(() => this.forceUpdate()); }
+  componentWillUnmount() { this.u && this.u(); }
+  itemsFor(t, pid) {
+    const S = M.S; const dow = new Date(t).getDay(); const off = Math.round((t - M.T0) / M.D);
+    const pname = M.proj(pid).name; const out = [];
+    S.schedules.forEach(s => {
+      if (!s.enabled || (s.project !== 'All projects' && s.project !== pname)) return;
+      const hit = s.trigger === 'Interval' ? off >= 0 && off < 3 : s.days.includes(dow);
+      if (!hit) return;
+      out.push({ kind: s.kind, icon: s.icon, time: s.time, label: s.trigger === 'Interval' ? s.name + ', every 30 min' : s.name, tip: s.name + '. ' + s.when + '. ' + s.action,
+        open: () => M.confirm({ title: s.name, message: s.when + '. ' + s.action + '. Missed runs: ' + s.missed.toLowerCase() + '.', action: 'Edit schedule', run: () => { S.settingsSection = 'schedules'; S.schedEdit = s.id; M.go('settings'); } }) });
+    });
+    S.calEvents.forEach(e => {
+      if ((e.days && e.days.includes(dow)) || e.dayOffset === off) out.push({ kind: 'event', icon: 'calendar', time: e.time, label: e.title, tip: e.title + ' at ' + e.time + ', from Google Calendar',
+        open: () => M.confirm({ title: e.title, message: e.time + ' on ' + new Date(t).toLocaleDateString(undefined, { dateStyle: 'full' }) + '. Synced from Google Calendar. Briefs use it for smart timing.', action: 'Close', run: () => {} }) });
+    });
+    M.cardsOf(pid).forEach(c => { if (c.due === off) out.push({ kind: 'due', icon: 'calendar-check', time: '', label: '#' + c.id + ' ' + c.title, tip: '#' + c.id + ' ' + c.title + ' is due', open: () => M.openCard(c.id), card: c }); });
+    return out.sort((a, b) => (a.time || '99').localeCompare(b.time || '99')).map(it => Object.assign(it, { hasTime: !!it.time, bg: it.kind === 'due' ? 'var(--color-surface-sunken)' : 'transparent', color: 'var(--color-text-primary)', iconColor: it.kind === 'due' ? M.tone(M.STATUS[it.card.state].tone, 'solid') : 'var(--color-text-secondary)' }));
+  }
+  renderVals() {
+    const S = M.S; const pid = S.route.pid; const mode = S.calMode; const cur = new Date(S.calCursor);
+    const monday = t => { const d = new Date(t); const k = (d.getDay() + 6) % 7; d.setDate(d.getDate() - k); d.setHours(0, 0, 0, 0); return d.getTime(); };
+    let start, n;
+    if (mode === 'month') { const f = new Date(cur.getFullYear(), cur.getMonth(), 1).getTime(); start = monday(f); n = 42; }
+    else { start = monday(S.calCursor); n = 7; }
+    const cells = [];
+    for (let i = 0; i < n; i++) {
+      const d = new Date(start); d.setDate(d.getDate() + i); const t = d.getTime();
+      const items = this.itemsFor(t, pid);
+      const isToday = t === M.T0; const inMonth = mode === 'week' || d.getMonth() === cur.getMonth();
+      const key = String(t); const expanded = S.calExpand === key;
+      const lim = mode === 'month' && !expanded ? 4 : 99;
+      cells.push({ n: d.getDate(), full: d.toLocaleDateString(undefined, { dateStyle: 'full' }), bg: inMonth ? 'var(--color-surface)' : 'var(--color-surface-sunken)',
+        weight: isToday ? '700' : '400', numBg: isToday ? 'var(--color-ink)' : 'transparent', numColor: isToday ? 'var(--color-on-ink)' : inMonth ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
+        items: items.slice(0, lim), hasMore: items.length > lim, moreLabel: (items.length - lim) + ' more', more: () => M.set({ calExpand: key }) });
+    }
+    const wdays = []; for (let i = 0; i < 7; i++) { const d = new Date(start); d.setDate(d.getDate() + i); wdays.push(d.toLocaleDateString(undefined, { weekday: S.vw < 640 ? 'narrow' : 'short' }) + (mode === 'week' ? ' ' + d.getDate() : '')); }
+    const shift = dir => { const d = new Date(S.calCursor); if (mode === 'month') d.setMonth(d.getMonth() + dir); else d.setDate(d.getDate() + 7 * dir); M.set({ calCursor: d.getTime(), calExpand: null }); };
+    const modes = [['month', 'Month'], ['week', 'Week']].map(([k, l]) => ({ label: l, sel: mode === k, bg: mode === k ? 'var(--color-surface)' : 'transparent', border: mode === k ? 'var(--color-border-strong)' : 'transparent', color: mode === k ? 'var(--color-text-primary)' : 'var(--color-text-secondary)', go: () => M.set({ calMode: k }) }));
+    const label = mode === 'month' ? cur.toLocaleDateString(undefined, { month: 'long', year: 'numeric' }) : 'Week of ' + new Date(start).toLocaleDateString(undefined, { month: 'long', day: 'numeric' });
+    const phone = S.vw < 640; const agenda = [];
+    if (phone) { const f = new Date(cur.getFullYear(), cur.getMonth(), 1); const nd = new Date(cur.getFullYear(), cur.getMonth() + 1, 0).getDate();
+      for (let i = 0; i < nd; i++) { const d = new Date(f); d.setDate(i + 1); const t = d.getTime(); const items = this.itemsFor(t, pid).map(x => Object.assign(x, { timeLabel: x.time || 'Due' })); if (items.length) agenda.push({ label: (t === M.T0 ? 'Today, ' : '') + d.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' }), color: t === M.T0 ? 'var(--color-text-primary)' : 'var(--color-text-secondary)', items }); } }
+    return { phone, notPhone: !phone, agenda, noAgenda: phone && agenda.length === 0, modes, cells, wdays, label: phone ? cur.toLocaleDateString(undefined, { month: 'long', year: 'numeric' }) : label, cellH: mode === 'month' ? '112px' : '420px', minW: S.vw < 640 ? '560px' : '0',
+      prev: () => shift(-1), next: () => shift(1), prevLabel: mode === 'month' ? 'Previous month' : 'Previous week', nextLabel: mode === 'month' ? 'Next month' : 'Next week',
+      today: () => M.set({ calCursor: M.T0 }),
+      legend: [{ icon: 'clock', label: 'Scheduled job' }, { icon: 'sunrise', label: 'Brief' }, { icon: 'calendar-check', label: 'Due card' }, { icon: 'calendar', label: 'Calendar event' }] };
+  }
+}
+</script>
+</body>
+</html>

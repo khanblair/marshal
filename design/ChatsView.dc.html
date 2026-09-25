@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div data-no-nav="1" style="position:absolute; inset:0; display:flex; background:var(--color-surface)">
+  <sc-if value="{{ showList }}">
+    <aside aria-label="Chats" style="width:{{ listW }}; flex:none; display:flex; flex-direction:column; border-right:1px solid var(--color-border); background:var(--color-canvas); min-width:0">
+      <div style="flex:none; display:flex; flex-direction:column; gap:8px; padding:12px">
+        <div style="display:flex; gap:8px; position:relative">
+          <label style="position:relative; flex:1; min-width:0; display:flex; align-items:center">
+            <span style="position:absolute; left:8px; display:inline-flex; color:var(--color-text-muted)"><m-icon name="search" size="14"></m-icon></span>
+            <input value="{{ q }}" onInput="{{ onQ }}" placeholder="Search chats" aria-label="Search chats" style="width:100%; height:32px; padding:0 8px 0 28px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-size:13px"></input>
+          </label>
+          <button onClick="{{ toggleNew }}" aria-expanded="{{ newOpen }}" style="flex:none; display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 10px; border-radius:5px; border:1px solid var(--color-ink); background:var(--color-ink); color:var(--color-on-ink); font-size:13px; font-weight:600"><m-icon name="plus" size="14"></m-icon>New chat</button>
+          <sc-if value="{{ newOpen }}">
+            <form onSubmit="{{ startChat }}" style="{{ newPop }}">
+              <label style="display:flex; flex-direction:column; gap:6px"><span style="font-weight:600">Who do you want to talk to?</span>
+                <select name="target" style="height:32px; padding:0 8px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface)"><sc-for list="{{ targets }}" as="t"><option value="{{ t.v }}" selected="{{ t.sel }}">{{ t.l }}</option></sc-for></select>
+                <span style="font-size:13px; line-height:18px; color:var(--color-text-secondary)">The Orchestrator plans work and creates cards on this project's board.</span></label>
+              <div style="display:flex; gap:8px"><button type="submit" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-ink); background:var(--color-ink); color:var(--color-on-ink); font-weight:600">Start chat</button><button type="button" onClick="{{ toggleNew }}" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-weight:500">Cancel</button></div>
+            </form>
+          </sc-if>
+        </div>
+      </div>
+      <div role="list" style="flex:1; min-height:0; overflow:auto; padding:0 8px 12px">
+        <sc-if value="{{ noChats }}"><p style="margin:8px; font-size:13px; color:var(--color-text-secondary)">{{ noChatsText }}</p></sc-if>
+        <sc-for list="{{ chats }}" as="c">
+          <div role="listitem" style="position:relative; display:flex; align-items:center; border-radius:7px; background:{{ c.bg }}">
+            <sc-if value="{{ c.renaming }}"><input ref="{{ c.renameRef }}" defaultValue="{{ c.title }}" onKeyDown="{{ c.renameKey }}" onBlur="{{ c.renameBlur }}" aria-label="Chat name" style="flex:1; min-width:0; height:36px; margin:4px; padding:0 8px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-weight:600"></input></sc-if>
+            <sc-if value="{{ c.notRenaming }}">
+              <button onClick="{{ c.open }}" aria-current="{{ c.current }}" style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; padding:8px 4px 8px 10px; border:none; border-radius:7px; background:transparent; text-align:left" style-hover="background:var(--color-surface-hover)">
+                <span style="font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ c.title }}</span>
+                <span style="display:flex; gap:0 10px; flex-wrap:wrap; font-size:12px; line-height:16px; color:var(--color-text-secondary)"><span style="display:inline-flex; align-items:center; gap:4px"><m-icon name="{{ c.icon }}" size="12"></m-icon>{{ c.target }}</span><span title="{{ c.full }}">{{ c.when }}</span></span>
+              </button>
+              <button onClick="{{ c.toggleMenu }}" aria-label="{{ c.menuLabel }}" aria-expanded="{{ c.menuOpen }}" style="width:28px; height:28px; flex:none; margin-right:4px; display:inline-flex; align-items:center; justify-content:center; border:none; border-radius:5px; background:transparent; color:var(--color-text-muted)" style-hover="background:var(--color-surface-selected); color:var(--color-text-primary)"><m-icon name="ellipsis-vertical" size="14"></m-icon></button>
+            </sc-if>
+            <sc-if value="{{ c.menuOpen }}">
+              <div role="menu" style="position:absolute; right:4px; top:calc(100% - 4px); width:180px; padding:6px; border-radius:10px; border:1px solid var(--color-border); background:var(--color-surface-raised); box-shadow:var(--elevation-1); z-index:50">
+                <sc-for list="{{ c.items }}" as="i"><button role="menuitem" onClick="{{ i.run }}" style="width:100%; display:flex; align-items:center; gap:8px; height:32px; padding:0 8px; border:none; border-radius:5px; background:transparent; font-size:13px; text-align:left; color:{{ i.color }}" style-hover="background:var(--color-surface-hover)"><m-icon name="{{ i.icon }}" size="14"></m-icon>{{ i.label }}</button></sc-for>
+              </div>
+            </sc-if>
+          </div>
+        </sc-for>
+        <button onClick="{{ toggleArch }}" aria-expanded="{{ archOpen }}" style="width:100%; display:flex; align-items:center; gap:6px; height:32px; margin-top:8px; padding:0 8px; border:none; border-top:1px solid var(--color-border); background:transparent; color:var(--color-text-secondary); font-size:13px; font-weight:500; text-align:left"><m-icon name="{{ archChev }}" size="14"></m-icon>Archived<span style="font-weight:400">{{ archCount }}</span></button>
+        <sc-if value="{{ archOpen }}">
+          <sc-if value="{{ noArch }}"><p style="margin:4px 10px; font-size:13px; color:var(--color-text-muted)">No archived chats.</p></sc-if>
+          <sc-for list="{{ archived }}" as="c">
+            <div style="position:relative; display:flex; align-items:center; border-radius:7px">
+              <button onClick="{{ c.open }}" style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; padding:8px 4px 8px 10px; border:none; border-radius:7px; background:transparent; text-align:left; color:var(--color-text-secondary)" style-hover="background:var(--color-surface-hover)"><span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ c.title }}</span><span style="font-size:12px; line-height:16px">{{ c.when }}</span></button>
+              <button onClick="{{ c.toggleMenu }}" aria-label="{{ c.menuLabel }}" aria-expanded="{{ c.menuOpen }}" style="width:28px; height:28px; flex:none; margin-right:4px; display:inline-flex; align-items:center; justify-content:center; border:none; border-radius:5px; background:transparent; color:var(--color-text-muted)"><m-icon name="ellipsis-vertical" size="14"></m-icon></button>
+              <sc-if value="{{ c.menuOpen }}">
+                <div role="menu" style="position:absolute; right:4px; top:calc(100% - 4px); width:180px; padding:6px; border-radius:10px; border:1px solid var(--color-border); background:var(--color-surface-raised); box-shadow:var(--elevation-1); z-index:50">
+                  <sc-for list="{{ c.items }}" as="i"><button role="menuitem" onClick="{{ i.run }}" style="width:100%; display:flex; align-items:center; gap:8px; height:32px; padding:0 8px; border:none; border-radius:5px; background:transparent; font-size:13px; text-align:left; color:{{ i.color }}" style-hover="background:var(--color-surface-hover)"><m-icon name="{{ i.icon }}" size="14"></m-icon>{{ i.label }}</button></sc-for>
+                </div>
+              </sc-if>
+            </div>
+          </sc-for>
+        </sc-if>
+      </div>
+    </aside>
+  </sc-if>
+
+  <sc-if value="{{ showChat }}">
+    <section aria-label="{{ chTitle }}" style="flex:1; min-width:0; display:flex; flex-direction:column">
+      <sc-if value="{{ hasChat }}">
+        <div style="flex:none; display:flex; align-items:center; gap:8px; min-height:48px; padding:4px 16px; border-bottom:1px solid var(--color-border)">
+          <sc-if value="{{ phone }}"><button onClick="{{ back }}" aria-label="Back to chats" style="width:44px; height:44px; margin-left:-12px; display:inline-flex; align-items:center; justify-content:center; border:none; background:transparent"><m-icon name="chevron-left" size="20"></m-icon></button></sc-if>
+          <div style="flex:1; min-width:0; display:flex; flex-direction:column">
+            <span style="font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ chTitle }}</span>
+            <span style="display:flex; flex-wrap:wrap; gap:0 12px; font-size:12px; line-height:16px; color:var(--color-text-secondary)"><sc-for list="{{ targetBits }}" as="b"><span>{{ b }}</span></sc-for></span>
+          </div>
+          <sc-if value="{{ chArchived }}"><button onClick="{{ restore }}" style="height:32px; padding:0 10px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-size:13px; font-weight:500">Restore</button></sc-if>
+        </div>
+        <div ref="{{ scrollRef }}" onScroll="{{ onScroll }}" style="flex:1; min-height:0; overflow:auto">
+          <div style="max-width:calc(72ch + 48px); margin:0 auto; padding:24px {{ gutter }} 32px">
+            <sc-if value="{{ empty }}"><p style="margin:0 0 16px; color:var(--color-text-secondary)">{{ emptyText }}</p></sc-if>
+            <dc-import name="ChatThread" items="{{ items }}" hint-size="100%,300px"></dc-import>
+          </div>
+        </div>
+        <sc-if value="{{ showJump }}">
+          <div style="position:relative; height:0"><button onClick="{{ jump }}" style="position:absolute; left:50%; bottom:12px; transform:translateX(-50%); display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 12px; border-radius:9999px; border:1px solid var(--color-border-strong); background:var(--color-surface-raised); box-shadow:var(--elevation-1); font-weight:500"><m-icon name="arrow-down" size="14"></m-icon>Jump to latest</button></div>
+        </sc-if>
+        <div style="flex:none; border-top:1px solid var(--color-border); padding:12px {{ gutter }} 14px">
+          <div style="max-width:calc(72ch + 16px); margin:0 auto; display:flex; flex-direction:column; gap:8px">
+            <div style="display:flex; gap:6px; overflow-x:auto">
+              <sc-for list="{{ suggestions }}" as="s"><button onClick="{{ s.run }}" style="flex:none; height:28px; padding:0 10px; border-radius:9999px; border:1px solid var(--color-border); background:var(--color-surface); color:var(--color-text-secondary); font-size:13px" style-hover="background:var(--color-surface-hover); color:var(--color-text-primary)">{{ s.label }}</button></sc-for>
+            </div>
+            <div style="display:flex; align-items:flex-end; gap:8px; padding:6px 6px 6px 12px; border-radius:10px; border:1px solid var(--color-border-strong); background:var(--color-surface)">
+              <textarea ref="{{ inputRef }}" value="{{ draft }}" onInput="{{ onDraft }}" onKeyDown="{{ onKey }}" rows="1" placeholder="{{ placeholder }}" aria-label="Message" style="flex:1; min-height:28px; max-height:160px; padding:4px 0; border:none; outline:none; background:transparent; resize:none"></textarea>
+              <button onClick="{{ send }}" disabled="{{ sendDisabled }}" aria-label="Send message" style="width:32px; height:32px; flex:none; display:inline-flex; align-items:center; justify-content:center; border-radius:5px; border:1px solid var(--color-ink); background:var(--color-ink); color:var(--color-on-ink); opacity:{{ sendOpacity }}"><m-icon name="send-horizontal" size="16"></m-icon></button>
+            </div>
+            <sc-if value="{{ notPhone }}"><span style="font-size:12px; line-height:16px; color:var(--color-text-muted)">Enter sends. Shift and Enter adds a new line. Cards created here appear on the {{ projName }} board.</span></sc-if>
+          </div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ noChat }}">
+        <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; padding:24px; text-align:center">
+          <m-icon name="messages-square" size="20"></m-icon>
+          <p style="margin:0; max-width:40ch; color:var(--color-text-secondary)">Pick a chat, or start a new one with the Orchestrator, a role, or a card's agent.</p>
+          <button onClick="{{ quickNew }}" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-ink); background:var(--color-ink); color:var(--color-on-ink); font-weight:600">New chat</button>
+        </div>
+      </sc-if>
+    </section>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { draft: '', away: false, unseen: false, menu: null, renaming: null, phoneChat: false };
+  scrollRef = React.createRef(); inputRef = React.createRef();
+  componentDidMount() { this.u = M.on(() => this.forceUpdate()); setTimeout(() => this.toBottom(), 50); }
+  componentWillUnmount() { this.u && this.u(); }
+  componentDidUpdate() {
+    const S = M.S; const pid = S.route.pid; const ch = M.chatById(pid, S.chatOpen[pid]); const list = ch ? ch.msgs : [];
+    const sig = (ch ? ch.id : '') + ':' + list.length + ':' + (list.length ? (list[list.length - 1].text || '').length : 0);
+    if (sig !== this._sig) { const changed = !this._sig || this._sig.split(':')[0] !== sig.split(':')[0]; this._sig = sig; if (changed || !this.state.away) setTimeout(() => this.toBottom(), 0); else if (!this.state.unseen) this.setState({ unseen: true }); }
+  }
+  toBottom() { const el = this.scrollRef.current; if (el) el.scrollTop = el.scrollHeight; }
+  send(text) {
+    const S = M.S; const pid = S.route.pid; const cid = S.chatOpen[pid]; const t = text != null ? text : this.state.draft;
+    if (!t.trim() || !cid) return; M.chatSend(pid, cid, t); this.setState({ draft: '', away: false, unseen: false }); setTimeout(() => this.toBottom(), 0);
+  }
+  renderVals() {
+    const S = M.S; const pid = S.route.pid; const vw = S.vw; const phone = vw < 640; const tone = M.tone;
+    if (S.chatOpen[pid] === undefined) { const first = M.chatsOf(pid).find(c => !c.archived); S.chatOpen[pid] = phone ? null : first ? first.id : null; }
+    const cid = S.chatOpen[pid]; const ch = M.chatById(pid, cid);
+    const q = (S.chatQuery[pid] || '').toLowerCase();
+    const tgtLabel = t => /^#/.test(t) ? (M.card(t.slice(1)) ? t + ' ' + M.card(t.slice(1)).agent : t) : t === 'Orchestrator' ? 'Orchestrator' : t + ' role';
+    const tgtIcon = t => /^#/.test(t) ? 'bot' : t === 'Orchestrator' ? 'route' : 'user-cog';
+    const mk = c => {
+      const open = this.state.menu === c.id; const self = this;
+      const done = v => { if (self.state.renaming !== c.id) return; self.setState({ renaming: null }); if (v != null && v !== c.title) M.renameChat(pid, c.id, v); };
+      const items = [{ label: 'Rename', icon: 'pencil', run: () => this.setState({ menu: null, renaming: c.id }) },
+        c.archived ? { label: 'Restore', icon: 'archive-restore', run: () => { this.setState({ menu: null }); M.archiveChat(pid, c.id, false); } } : { label: 'Archive', icon: 'archive', run: () => { this.setState({ menu: null }); M.archiveChat(pid, c.id, true); } },
+        { label: 'Delete', icon: 'trash-2', color: tone('danger', 'text'), run: () => { this.setState({ menu: null }); M.deleteChat(pid, c.id); } }].map(i => Object.assign({ color: 'var(--color-text-primary)' }, i));
+      return { id: c.id, title: c.title, target: tgtLabel(c.target), icon: tgtIcon(c.target), when: M.rel(c.last), full: M.full(c.last), current: c.id === cid ? 'page' : undefined, bg: c.id === cid ? 'var(--color-surface-selected)' : 'transparent',
+        open: () => { M.openChat(pid, c.id); this.setState({ menu: null, away: false }); }, menuOpen: open, menuLabel: 'More actions for ' + c.title, toggleMenu: e => { e.stopPropagation(); this.setState({ menu: open ? null : c.id }); }, items,
+        renaming: this.state.renaming === c.id, notRenaming: this.state.renaming !== c.id,
+        renameRef: el => { if (el && !el._f) { el._f = 1; setTimeout(() => { el.focus(); el.select(); }, 0); } },
+        renameKey: e => { if (e.key === 'Enter') { e.preventDefault(); done(e.target.value); } if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); done(null); } },
+        renameBlur: e => done(e.target.value) };
+    };
+    const all = M.chatsOf(pid).filter(c => !q || c.title.toLowerCase().includes(q) || c.msgs.some(m => (m.text || '').toLowerCase().includes(q)));
+    const active = all.filter(c => !c.archived).map(mk); const archived = all.filter(c => c.archived).map(mk);
+    const archOpen = !!S.archOpen[pid] || (!!q && archived.length > 0);
+    const aw = M.cardsOf(pid).filter(M.isAwake);
+    const targets = [{ v: 'Orchestrator', l: 'Orchestrator' }].concat(M.ROLE_NAMES.filter(r => r !== 'Orchestrator').map(r => ({ v: r, l: r + ' role' }))).concat(aw.map(c => ({ v: '#' + c.id, l: '#' + c.id + ' ' + c.title }))).map(t => Object.assign(t, { sel: t.v === 'Orchestrator' }));
+    const tc = ch && /^#/.test(ch.target) ? M.card(ch.target.slice(1)) : null;
+    const showList = !phone || !cid; const showChat = !phone || !!cid;
+    const newOpen = !!S.newChatOpen;
+    return {
+      phone, notPhone: !phone, showList, showChat, listW: phone ? '100%' : '280px', gutter: phone ? '16px' : '24px', projName: M.proj(pid).name,
+      q: S.chatQuery[pid] || '', onQ: e => { S.chatQuery[pid] = e.target.value; M.emit(); },
+      newOpen, toggleNew: () => M.set({ newChatOpen: !S.newChatOpen }),
+      newPop: phone ? 'position:fixed; left:0; right:0; bottom:0; z-index:300; display:flex; flex-direction:column; gap:12px; padding:20px 16px calc(20px + env(safe-area-inset-bottom)); border-radius:14px 14px 0 0; background:var(--color-surface-raised); box-shadow:var(--elevation-2)' : 'position:absolute; top:38px; left:0; right:0; z-index:60; display:flex; flex-direction:column; gap:12px; padding:14px; border-radius:10px; border:1px solid var(--color-border); background:var(--color-surface-raised); box-shadow:var(--elevation-1)',
+      targets, startChat: e => { e.preventDefault(); M.newChat(pid, e.target.target.value); M.set({ newChatOpen: false }); setTimeout(() => this.inputRef.current && this.inputRef.current.focus(), 50); },
+      quickNew: () => M.set({ newChatOpen: true }),
+      chats: active, noChats: active.length === 0, noChatsText: q ? 'No chats match "' + S.chatQuery[pid] + '".' : 'No chats yet. Start one to plan work with the Orchestrator.',
+      archived, archCount: archived.length, archOpen, noArch: archived.length === 0, archChev: archOpen ? 'chevron-down' : 'chevron-right', toggleArch: () => { S.archOpen[pid] = !S.archOpen[pid]; M.emit(); },
+      hasChat: !!ch, noChat: !ch, chTitle: ch ? ch.title : 'Chat', chArchived: !!(ch && ch.archived), restore: () => M.archiveChat(pid, cid, false),
+      targetBits: !ch ? [] : tc ? [tc.agent, tc.model, tc.asleep ? 'Asleep' : 'Awake'] : ch.target === 'Orchestrator' ? ['Orchestrator', 'claude-opus-4-1', 'High thinking'] : [ch.target + ' role', 'Uses the role template'],
+      back: () => M.openChat(pid, null),
+      items: ch ? M.decoMsgs(ch.msgs, null) : [], empty: !!ch && ch.msgs.length === 0, emptyText: 'Say what you want in plain words. The first message names this chat.',
+      scrollRef: this.scrollRef, inputRef: this.inputRef,
+      onScroll: e => { const el = e.currentTarget; const away = el.scrollHeight - el.scrollTop - el.clientHeight > 80; if (away !== this.state.away) this.setState({ away, unseen: away ? this.state.unseen : false }); },
+      showJump: this.state.away && this.state.unseen, jump: () => { this.setState({ away: false, unseen: false }); this.toBottom(); },
+      suggestions: ['What is blocked?', 'Make cards for the export work', 'Merge the next ready card'].map(l => ({ label: l, run: () => this.send(l) })),
+      draft: this.state.draft, onDraft: e => this.setState({ draft: e.target.value }), onKey: e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.send(); } },
+      send: () => this.send(), sendDisabled: !this.state.draft.trim(), sendOpacity: this.state.draft.trim() ? '1' : '0.4',
+      placeholder: ch ? 'Message ' + (tc ? '#' + tc.id : ch.target === 'Orchestrator' ? 'the Orchestrator' : 'the ' + ch.target) : 'Message'
+    };
+  }
+}
+</script>
+</body>
+</html>

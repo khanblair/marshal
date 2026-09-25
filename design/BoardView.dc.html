@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="position:absolute; inset:0; display:flex; flex-direction:column; background:var(--color-canvas)">
+  <sc-if value="{{ isMobile }}">
+    <div role="tablist" aria-label="Columns" style="flex:none; display:flex; gap:6px; overflow-x:auto; padding:8px 12px; border-bottom:1px solid var(--color-border); background:var(--color-surface)">
+      <sc-for list="{{ tabs }}" as="t">
+        <button role="tab" aria-selected="{{ t.selected }}" onClick="{{ t.go }}" style="flex:none; display:inline-flex; align-items:center; gap:6px; height:44px; padding:0 12px; border-radius:5px; border:1px solid {{ t.border }}; background:{{ t.bg }}; font-size:13px; font-weight:600; color:var(--color-text-primary)">
+          <span style="display:inline-flex; color:{{ t.iconColor }}"><m-icon name="{{ t.icon }}" size="14"></m-icon></span>{{ t.label }}<span style="color:var(--color-text-secondary); font-weight:400">{{ t.count }}</span>
+        </button>
+      </sc-for>
+    </div>
+  </sc-if>
+  <sc-if value="{{ isEmpty }}">
+    <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; padding:24px; text-align:center">
+      <m-icon name="square-kanban" size="20"></m-icon>
+      <p style="margin:0; color:var(--color-text-secondary)">This board has no cards yet.</p>
+      <button onClick="{{ newCard }}" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-ink); background:var(--color-ink); color:var(--color-on-ink); font-weight:600">New card</button>
+    </div>
+  </sc-if>
+  <sc-if value="{{ noMatch }}">
+    <div style="flex:none; display:flex; align-items:center; gap:12px; margin:12px 16px 0; padding:10px 12px; border-radius:7px; border:1px solid var(--color-border); background:var(--color-surface)">
+      <m-icon name="search-x" size="16"></m-icon><span style="flex:1">{{ noMatchText }}</span>
+      <button onClick="{{ clear }}" style="height:28px; padding:0 10px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-size:13px; font-weight:500">Clear search</button>
+    </div>
+  </sc-if>
+  <sc-if value="{{ hasCards }}">
+    <div ref="{{ scrollRef }}" onTouchStart="{{ ts }}" onTouchEnd="{{ te }}" style="flex:1; min-height:0; overflow:auto; padding:{{ pad }}">
+      <div style="display:inline-flex; flex-direction:column; min-width:{{ minW }}; gap:0">
+        <sc-if value="{{ desktop }}">
+          <div style="position:sticky; top:0; z-index:10; display:flex; gap:12px; padding:12px 0 8px; background:var(--color-canvas)">
+            <sc-for list="{{ headers }}" as="h" hint-placeholder-count="7">
+              <div style="width:288px; flex:none; display:flex; align-items:center; gap:8px; padding:0 8px; height:28px">
+                <span style="display:inline-flex; color:{{ h.iconColor }}"><m-icon name="{{ h.icon }}" size="16"></m-icon></span>
+                <h2 style="margin:0; font-size:14px; line-height:20px; font-weight:600">{{ h.label }}</h2>
+                <span aria-label="{{ h.countLabel }}" style="min-width:20px; height:20px; padding:0 6px; border-radius:3px; background:var(--color-surface-selected); font-size:12px; line-height:20px; font-weight:600; text-align:center; color:var(--color-text-secondary)">{{ h.count }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+        <sc-for list="{{ lanes }}" as="lane">
+          <sc-if value="{{ lane.hasHeader }}">
+            <button onClick="{{ lane.toggle }}" aria-expanded="{{ lane.expanded }}" style="position:sticky; left:0; align-self:flex-start; display:inline-flex; align-items:center; gap:8px; height:32px; margin:12px 0 6px; padding:0 8px; border:none; border-radius:5px; background:transparent; font-weight:600" style-hover="background:var(--color-surface-hover)">
+              <m-icon name="{{ lane.chev }}" size="16"></m-icon>
+              <span style="{{ lane.labelStyle }}">{{ lane.label }}</span>
+              <span style="font-weight:400; font-size:13px; color:var(--color-text-secondary)">{{ lane.countLabel }}</span>
+            </button>
+          </sc-if>
+          <sc-if value="{{ lane.expanded }}">
+            <div style="display:flex; gap:12px; align-items:stretch">
+              <sc-for list="{{ lane.cols }}" as="col">
+                <section data-col="{{ col.col }}" aria-label="{{ col.aria }}" style="width:{{ colW }}; flex:none; min-height:{{ col.minH }}; display:flex; flex-direction:column; gap:8px; padding:8px; border-radius:10px; background:var(--color-surface-sunken); border:1px solid {{ col.dropBorder }}; transition:border-color 140ms cubic-bezier(0.2,0,0,1)">
+                  <sc-for list="{{ col.cards }}" as="c">
+                    <dc-import name="CardItem" c="{{ c }}" hint-size="100%,120px"></dc-import>
+                  </sc-for>
+                  <sc-if value="{{ col.adding }}">
+                    <form onSubmit="{{ col.submit }}" style="display:flex; flex-direction:column; gap:6px">
+                      <textarea name="title" rows="2" ref="{{ col.addRef }}" onKeyDown="{{ col.addKey }}" placeholder="Enter a title for this card" aria-label="Card title" style="padding:8px 10px; border-radius:7px; border:1px solid var(--color-border-strong); background:var(--color-surface); resize:none"></textarea>
+                      <span style="font-size:12px; line-height:16px; color:var(--color-text-secondary)">{{ col.addHint }}</span>
+                      <div style="display:flex; align-items:center; gap:6px"><button type="submit" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-ink); background:var(--color-ink); color:var(--color-on-ink); font-weight:600">{{ col.addLabel }}</button>
+                        <button type="button" onClick="{{ col.cancelAdd }}" aria-label="Cancel" style="width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center; border:none; border-radius:5px; background:transparent" style-hover="background:var(--color-surface-hover)"><m-icon name="x" size="16"></m-icon></button>
+                        <span style="flex:1"></span>
+                        <button type="button" onClick="{{ col.fromTemplate }}" title="Create from a template" aria-label="Create from a template" style="width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center; border:none; border-radius:5px; background:transparent; color:var(--color-text-secondary)" style-hover="background:var(--color-surface-hover)"><m-icon name="copy-plus" size="16"></m-icon></button></div>
+                    </form>
+                  </sc-if>
+                  <sc-if value="{{ col.showAdd }}">
+                    <div style="display:flex; align-items:center; gap:2px">
+                      <button onClick="{{ col.startAdd }}" style="flex:1; display:flex; align-items:center; gap:6px; height:32px; padding:0 8px; border:none; border-radius:5px; background:transparent; color:var(--color-text-secondary); font-weight:500; text-align:left" style-hover="background:var(--color-surface-hover); color:var(--color-text-primary)"><m-icon name="plus" size="16"></m-icon>Add a card</button>
+                      <button onClick="{{ col.fromTemplate }}" title="Create from a template" aria-label="Create from a template" style="width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center; border:none; border-radius:5px; background:transparent; color:var(--color-text-secondary)" style-hover="background:var(--color-surface-hover)"><m-icon name="copy-plus" size="16"></m-icon></button>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ col.showAll }}"><button onClick="{{ showAllDone }}" style="height:28px; border:none; border-radius:5px; background:transparent; color:var(--color-text-secondary); font-size:13px; font-weight:500" style-hover="background:var(--color-surface-hover)">{{ col.showAllLabel }}</button></sc-if>
+                  <sc-if value="{{ col.empty }}"><div style="padding:12px 8px; font-size:13px; line-height:18px; color:var(--color-text-muted); text-align:center">{{ col.emptyText }}</div></sc-if>
+                </section>
+              </sc-for>
+            </div>
+          </sc-if>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  scrollRef = React.createRef();
+  componentDidMount() { this.u = M.on(() => this.forceUpdate()); }
+  componentWillUnmount() { this.u && this.u(); if (M.nav && M.nav.owner === 'board') M.nav = null; }
+  renderVals() {
+    const S = M.S; const pid = S.route.pid; const tone = M.tone;
+    const isMobile = S.vw < 640;
+    const all = M.cardsOf(pid); const list = M.filtered(pid);
+    const swim = isMobile ? 'none' : S.swim[pid];
+    const keyOf = c => swim === 'role' ? c.role : swim === 'agent' ? c.agent : swim === 'package' ? (c.pkg || 'No package') : swim === 'label' ? (c.labels[0] || 'No label') : 'all';
+    let keys = Array.from(new Set(list.map(keyOf))).sort((a, b) => (a.startsWith('No ') - b.startsWith('No ')) || a.localeCompare(b));
+    if (swim === 'package') { const pk = (M.proj(pid).packages || []).concat(['No package']); keys = pk.filter(k => keys.includes(k)); }
+    if (!keys.length) keys = ['all'];
+    const mobileCol = S.mobileCol || 'working';
+    const cols = isMobile ? [mobileCol] : M.COLUMNS;
+    const grid = cols.map(() => []);
+    const lanes = keys.map(k => {
+      const lc = list.filter(c => keyOf(c) === k);
+      const collapsed = !!S.laneCollapsed[pid + ':' + swim + ':' + k];
+      return {
+        key: k, label: k, hasHeader: swim !== 'none', expanded: !collapsed, chev: collapsed ? 'chevron-right' : 'chevron-down',
+        labelStyle: swim === 'package' || swim === 'label' ? 'font-family:var(--font-mono); font-size:13px' : '',
+        countLabel: lc.length + (lc.length === 1 ? ' card' : ' cards'),
+        toggle: () => { S.laneCollapsed[pid + ':' + swim + ':' + k] = !collapsed; M.emit(); },
+        cols: cols.map((col, ci) => {
+          let cs = M.colCards(lc, col); const total = cs.length;
+          const lim = col === 'done' && !S.showAllDone[pid];
+          if (lim) cs = cs.slice(0, 20);
+          if (!collapsed) grid[ci].push(...cs.map(c => c.id));
+          const addKey = k + ':' + col; const canAdd = ['backlog', 'planning', 'working'].includes(col) && !collapsed; const adding = canAdd && S.quickAddAt === addKey;
+          const laneExtra = swim === 'role' && k !== 'all' ? { role: k } : swim === 'agent' ? { agent: k } : swim === 'package' && k !== 'No package' ? { pkg: k } : {};
+          const submitTitle = v => { if (!v.trim()) return; M.quickAdd(pid, col, v); const nc = S.cards[S.cards.length - 1]; Object.assign(nc, laneExtra); if (laneExtra.agent) nc.model = M.AGENTS[laneExtra.agent].models[0]; M.emit(); };
+          return { adding, showAdd: canAdd && !adding, addHint: col === 'backlog' ? 'The card waits in Backlog until you start it.' : col === 'planning' ? 'The agent starts in plan first mode and posts a plan for you.' : 'The agent starts working on this card right away.',
+            addLabel: col === 'backlog' ? 'Add card' : 'Add and start',
+            startAdd: () => M.set({ quickAddAt: addKey }), cancelAdd: () => M.set({ quickAddAt: null }),
+            addRef: el => { if (el && !el._f) { el._f = 1; setTimeout(() => el.focus(), 0); } },
+            addKey: e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitTitle(e.target.value); e.target.value = ''; } if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); M.set({ quickAddAt: null }); } },
+            submit: e => { e.preventDefault(); submitTitle(e.target.title.value); e.target.title.value = ''; e.target.title.focus(); },
+            fromTemplate: () => M.newCard(Object.assign({ template: 'Bug fix', start: col !== 'backlog' }, laneExtra.role ? { role: laneExtra.role } : {}, laneExtra.agent ? { agent: laneExtra.agent } : {})),
+            col, aria: M.STATUS[col].label + ', ' + total + ' cards', cards: cs.map(M.deco), dropBorder: S.dropCol === col ? 'var(--color-border-strong)' : 'transparent',
+            showAll: lim && total > 20, showAllLabel: 'Show all ' + total, empty: total === 0, emptyText: S.dragId ? 'Drop here' : (swim === 'none' ? 'No cards' : ''), minH: swim === 'none' ? (isMobile ? '240px' : '440px') : '72px' };
+        })
+      };
+    });
+    M.nav = { owner: 'board', grid };
+    const headers = M.COLUMNS.map(col => { const st = M.STATUS[col]; const n = list.filter(c => M.colOf(c.state) === col).length; return { label: st.label, icon: st.icon, iconColor: tone(st.tone, 'solid'), count: n, countLabel: n + ' cards' }; });
+    const tabs = M.COLUMNS.map(col => { const st = M.STATUS[col]; const sel = col === mobileCol; return { label: st.label, icon: st.icon, iconColor: tone(st.tone, 'solid'), count: list.filter(c => M.colOf(c.state) === col).length, selected: sel, bg: sel ? 'var(--color-surface-selected)' : 'var(--color-surface)', border: sel ? 'var(--color-ink)' : 'var(--color-border)', go: () => M.set({ mobileCol: col }) }; });
+    const q = S.query[pid];
+    const swipe = d => { const i = M.COLUMNS.indexOf(mobileCol); const n = M.COLUMNS[Math.max(0, Math.min(6, i + d))]; M.set({ mobileCol: n }); };
+    return {
+      isMobile, desktop: !isMobile, tabs, headers, lanes, colW: isMobile ? '100%' : '288px', minW: isMobile ? '100%' : 'auto', pad: isMobile ? '12px' : '0 16px 16px',
+      isEmpty: all.length === 0, hasCards: all.length > 0, newCard: () => M.newCard(),
+      noMatch: all.length > 0 && list.length === 0, noMatchText: q ? 'No cards match "' + q + '".' : 'No cards match these filters.', clear: () => M.clearFilters(),
+      showAllDone: () => { S.showAllDone[pid] = true; M.emit(); },
+      scrollRef: this.scrollRef,
+      ts: e => { this._tx = e.touches[0].clientX; this._ty = e.touches[0].clientY; },
+      te: e => { if (!isMobile || this._tx == null) return; const dx = e.changedTouches[0].clientX - this._tx; const dy = e.changedTouches[0].clientY - this._ty; if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.5) swipe(dx < 0 ? 1 : -1); this._tx = null; }
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="position:absolute; inset:0; overflow:auto; background:var(--color-surface)">
+  <sc-if value="{{ empty }}">
+    <div style="padding:48px 24px; text-align:center; color:var(--color-text-secondary)">No sessions yet. Start a card to give it an agent session.</div>
+  </sc-if>
+  <sc-if value="{{ phone }}">
+    <ul style="margin:0; padding:0 16px 24px; list-style:none">
+      <sc-for list="{{ rows }}" as="r">
+        <li style="display:flex; flex-direction:column; gap:6px; padding:12px 0; border-bottom:1px solid var(--color-border)">
+          <button onClick="{{ r.open }}" style="display:flex; flex-direction:column; gap:4px; border:none; background:transparent; padding:0; text-align:left">
+            <span style="display:flex; gap:8px; align-items:baseline"><span style="font-weight:600">{{ r.title }}</span><span style="font-size:13px; color:var(--color-text-muted)">{{ r.num }}</span></span>
+            <span style="display:flex; flex-wrap:wrap; gap:2px 12px; font-size:13px; line-height:18px; color:var(--color-text-secondary)"><span style="display:inline-flex; align-items:center; gap:4px; color:{{ r.stColor }}; font-weight:600"><span style="display:inline-flex; color:{{ r.iconColor }}"><m-icon name="{{ r.icon }}" size="14"></m-icon></span>{{ r.stateLabel }}</span><span style="display:inline-flex; align-items:center; gap:4px"><m-icon name="{{ r.sessIcon }}" size="14"></m-icon>{{ r.sess }}</span><span>{{ r.role }}</span><span>{{ r.agent }}</span><span>{{ r.model }}</span><span>{{ r.cost }}</span></span>
+            <span style="display:flex; flex-wrap:wrap; gap:2px 12px; font-size:13px; line-height:18px; color:{{ r.permColor }}"><span>{{ r.perm }}</span><span style="color:var(--color-text-secondary)">{{ r.think }}</span></span>
+            <span style="display:flex; align-items:center; gap:6px; font-size:13px; line-height:18px; color:{{ r.actColor }}"><sc-if value="{{ r.pulse }}"><m-dot state="working"></m-dot></sc-if>{{ r.activity }}</span>
+          </button>
+          <div style="display:flex; flex-wrap:wrap; gap:6px">
+            <sc-for list="{{ r.actions }}" as="x"><button onClick="{{ x.run }}" aria-label="{{ x.aria }}" data-compact="1" style="min-height:44px; padding:0 12px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-size:13px; display:inline-flex; align-items:center; gap:6px"><m-icon name="{{ x.icon }}" size="14"></m-icon>{{ x.label }}</button></sc-for>
+          </div>
+        </li>
+      </sc-for>
+    </ul>
+  </sc-if>
+  <sc-if value="{{ notPhone }}">
+  <table style="width:100%; min-width:{{ minW }}; border-collapse:separate; border-spacing:0; font-size:13px; line-height:18px">
+    <thead>
+      <tr>
+        <sc-for list="{{ cols }}" as="h">
+          <th scope="col" aria-sort="{{ h.ariaSort }}" style="position:sticky; top:0; z-index:10; height:36px; padding:0; border-bottom:1px solid var(--color-border); background:var(--color-surface-sunken); text-align:left; font-weight:600; white-space:nowrap; width:{{ h.w }}">
+            <sc-if value="{{ h.sortable }}">
+              <button onClick="{{ h.sort }}" style="width:100%; height:36px; display:flex; align-items:center; gap:4px; padding:0 12px; border:none; background:transparent; font-weight:600; color:var(--color-text-secondary); text-align:left" style-hover="color:var(--color-text-primary)">{{ h.label }}<sc-if value="{{ h.active }}"><m-icon name="{{ h.icon }}" size="12"></m-icon></sc-if></button>
+            </sc-if>
+            <sc-if value="{{ h.plain }}"><span style="display:block; padding:0 12px; color:var(--color-text-secondary)">{{ h.label }}</span></sc-if>
+          </th>
+        </sc-for>
+      </tr>
+    </thead>
+    <tbody>
+      <sc-for list="{{ rows }}" as="r">
+        <tr data-card="{{ r.dataCard }}" tabindex="0" onClick="{{ r.open }}" onKeyDown="{{ r.key }}" aria-label="{{ r.aria }}" style="cursor:pointer; background:{{ r.bg }}" style-hover="background:var(--color-surface-hover)">
+          <td style="padding:8px 12px; border-bottom:1px solid var(--color-border); max-width:320px">
+            <div style="display:flex; gap:8px; align-items:baseline; min-width:0"><span style="flex:none; color:var(--color-text-muted); font-size:12px">{{ r.num }}</span><span style="font-size:14px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ r.title }}</span></div>
+            <sc-if value="{{ r.bypass }}"><span style="display:inline-flex; align-items:center; gap:4px; margin-top:4px; height:18px; padding:0 6px; border-radius:3px; background:var(--color-bypass-bg); color:var(--color-bypass-text); font-size:12px; font-weight:600"><m-icon name="shield-alert" size="12"></m-icon>Bypass</span></sc-if>
+          </td>
+          <td style="padding:8px 12px; border-bottom:1px solid var(--color-border); white-space:nowrap">{{ r.role }}</td>
+          <td style="padding:8px 12px; border-bottom:1px solid var(--color-border); white-space:nowrap">{{ r.agent }}</td>
+          <td style="padding:8px 12px; border-bottom:1px solid var(--color-border); white-space:nowrap">{{ r.model }}</td>
+          <sc-if value="{{ wide }}"><td style="padding:8px 12px; border-bottom:1px solid var(--color-border); white-space:nowrap; color:var(--color-text-secondary)">{{ r.think }}</td></sc-if>
+          <sc-if value="{{ wide }}"><td style="padding:8px 12px; border-bottom:1px solid var(--color-border); white-space:nowrap; color:{{ r.permColor }}; font-weight:{{ r.permWeight }}">{{ r.perm }}</td></sc-if>
+          <td style="padding:8px 12px; border-bottom:1px solid var(--color-border); white-space:nowrap"><span style="display:inline-flex; align-items:center; gap:4px; color:{{ r.stColor }}; font-weight:600"><span style="display:inline-flex; color:{{ r.iconColor }}"><m-icon name="{{ r.icon }}" size="14"></m-icon></span>{{ r.stateLabel }}</span></td>
+          <sc-if value="{{ wide }}"><td style="padding:8px 12px; border-bottom:1px solid var(--color-border); white-space:nowrap"><span style="display:inline-flex; align-items:center; gap:4px; color:var(--color-text-secondary)"><m-icon name="{{ r.sessIcon }}" size="14"></m-icon>{{ r.sess }}</span><sc-if value="{{ r.pinned }}"><span style="display:inline-flex; align-items:center; gap:3px; margin-left:8px; color:var(--color-text-secondary)"><m-icon name="pin" size="12"></m-icon>Pinned</span></sc-if></td></sc-if>
+          <td style="padding:8px 12px; border-bottom:1px solid var(--color-border); max-width:280px">
+            <div style="display:flex; align-items:center; gap:6px; min-width:0"><sc-if value="{{ r.pulse }}"><m-dot state="working"></m-dot></sc-if><span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:{{ r.actColor }}">{{ r.activity }}</span></div>
+          </td>
+          <td style="padding:8px 12px; border-bottom:1px solid var(--color-border); white-space:nowrap; text-align:right; font-variant-numeric:tabular-nums">{{ r.cost }}</td>
+          <td style="padding:4px 8px; border-bottom:1px solid var(--color-border); white-space:nowrap">
+            <div style="display:flex; gap:2px">
+              <sc-for list="{{ r.actions }}" as="a">
+                <button onClick="{{ a.run }}" title="{{ a.label }}" aria-label="{{ a.aria }}" style="height:28px; padding:0 8px; border:none; border-radius:5px; background:transparent; color:var(--color-text-secondary); font-size:13px; display:inline-flex; align-items:center; gap:4px" style-hover="background:var(--color-surface-selected); color:var(--color-text-primary)"><m-icon name="{{ a.icon }}" size="14"></m-icon>{{ a.label }}</button>
+              </sc-for>
+            </div>
+          </td>
+        </tr>
+      </sc-for>
+    </tbody>
+  </table>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  componentDidMount() { this.u = M.on(() => this.forceUpdate()); }
+  componentWillUnmount() { this.u && this.u(); if (M.nav && M.nav.owner === 'agents') M.nav = null; }
+  renderVals() {
+    const S = M.S; const pid = S.route.pid; const tone = M.tone;
+    const sort = S.sort.agents;
+    const order = ['working', 'needs', 'planning', 'merging', 'review', 'ready', 'done', 'backlog'];
+    const sessLabel = c => c.waking ? 'Waking' : c.asleep ? 'Asleep' : c.state === 'done' ? 'Stopped' : 'Awake';
+    let cards = M.cardsOf(pid).filter(c => c.state !== 'backlog');
+    const val = (c, k) => ({ card: c.id, role: c.role, agent: c.agent, model: c.model, think: THINKN(c), perm: c.perm, state: order.indexOf(c.state), sess: sessLabel(c), activity: c.doing || c.reason || '', cost: c.cost })[k];
+    const THINKN = c => ['Low', 'Medium', 'High', 'Extra high'].indexOf(c.think);
+    cards.sort((a, b) => { const x = val(a, sort.k), y = val(b, sort.k); return (x > y ? 1 : x < y ? -1 : b.id - a.id) * sort.dir; });
+    const defs = [['card', 'Card', '320px'], ['role', 'Role'], ['agent', 'Agent'], ['model', 'Model'], ['think', 'Thinking'], ['perm', 'Permission mode'], ['state', 'State'], ['sess', 'Session'], ['activity', 'Current activity'], ['cost', 'Cost'], ['', 'Actions']];
+    const wide = S.vw >= 1200; const phone = S.vw < 640;
+    const cols = defs.filter(d => wide || !['think', 'perm', 'sess'].includes(d[0])).map(([k, l, w]) => ({ label: l, w: w || 'auto', sortable: !!k, plain: !k, active: sort.k === k, icon: sort.dir > 0 ? 'arrow-up' : 'arrow-down', ariaSort: sort.k === k ? (sort.dir > 0 ? 'ascending' : 'descending') : 'none',
+      sort: () => { S.sort.agents = { k, dir: sort.k === k ? -sort.dir : 1 }; M.emit(); } }));
+    const stop = f => e => { e.stopPropagation(); f(); };
+    const orch = { dataCard: '', num: '', title: 'Orchestrator for ' + M.proj(pid).name, role: 'Orchestrator', agent: 'Claude Code', model: 'claude-opus-4-1', think: 'High', perm: 'Plan only', permColor: 'var(--color-text-primary)', permWeight: '400',
+      stateLabel: 'Awake', icon: 'st-planning', iconColor: tone('planning', 'solid'), stColor: tone('planning', 'text'), sess: 'Awake', sessIcon: 'sun', activity: 'Watching the board', actColor: 'var(--color-text-secondary)', cost: M.money(0.42), bg: 'transparent',
+      open: () => M.setView('chat'), key: e => { if (e.key === 'Enter') M.setView('chat'); }, aria: 'Orchestrator session', actions: [{ label: 'Open chat', icon: 'message-square', aria: 'Open project chat', run: stop(() => M.setView('chat')) }] };
+    const rows = [orch].concat(cards.map(c => {
+      const d = M.deco(c);
+      const actions = [{ label: 'Open', icon: 'panel-right-open', aria: 'Open #' + c.id, run: stop(() => M.openCard(c.id)) }];
+      if (c.state !== 'done') {
+        if (c.asleep) actions.push({ label: 'Wake', icon: 'sun', aria: 'Wake #' + c.id, run: stop(() => M.wake(c.id)) });
+        else actions.push({ label: 'Sleep', icon: 'moon', aria: 'Sleep #' + c.id, run: stop(() => M.sleep(c.id)) });
+        actions.push({ label: c.pinned ? 'Unpin' : 'Pin', icon: c.pinned ? 'pin-off' : 'pin', aria: (c.pinned ? 'Unpin #' : 'Pin #') + c.id, run: stop(() => M.pin(c.id)) });
+        if (!c.asleep) actions.push({ label: 'Stop', icon: 'square', aria: 'Stop session on #' + c.id, run: stop(() => M.confirm({ title: 'Stop session', message: 'This stops the agent process for #' + c.id + '. The session is kept, and you can resume it later.', action: 'Stop session', run: () => { c.paused = c.state === 'working'; c.asleep = true; c.doing = ''; M.emit(); M.toast('Session stopped'); } })) });
+      }
+      return { dataCard: c.id, num: d.num, title: c.title, bypass: c.bypass, role: c.role, agent: c.agent, model: c.model, think: d.think || 'Not supported', perm: c.perm,
+        permColor: c.bypass ? tone('danger', 'text') : 'var(--color-text-primary)', permWeight: c.bypass ? '600' : '400',
+        stateLabel: d.stateLabel, icon: d.icon, iconColor: d.iconColor, stColor: d.stColor, sess: sessLabel(c), sessIcon: c.asleep ? 'moon' : c.state === 'done' ? 'circle-stop' : 'sun', pinned: c.pinned,
+        pulse: d.showDoing && c.state === 'working', activity: c.state === 'needs' ? c.reason : c.paused ? 'Paused by you' : (c.doing || (c.state === 'done' ? 'Merged' : 'Idle')), actColor: c.state === 'needs' ? tone('needs-you', 'text') : 'var(--color-text-primary)',
+        cost: d.cost, bg: S.focusId === c.id ? 'var(--color-surface-selected)' : 'transparent', aria: d.aria,
+        open: () => M.openCard(c.id), key: e => { if (e.key === 'Enter' && e.target === e.currentTarget) M.openCard(c.id); }, actions };
+    }));
+    M.nav = { owner: 'agents', rows: cards.map(c => c.id) };
+    return { cols, rows, empty: cards.length === 0, wide, phone, notPhone: !phone, minW: wide ? '1180px' : '820px' };
+  }
+}
+</script>
+</body>
+</html>

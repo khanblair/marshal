@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="position:absolute; inset:0; overflow-y:auto; overflow-x:hidden">
+  <div style="max-width:880px; margin:0 auto; padding:{{ pad }}; display:flex; flex-direction:column; gap:16px">
+    <div style="display:flex; flex-wrap:wrap; align-items:center; gap:12px">
+      <button onClick="{{ back }}" style="display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 10px 0 6px; border:none; border-radius:5px; background:transparent; color:var(--color-text-secondary); font-weight:500" style-hover="background:var(--color-surface-hover); color:var(--color-text-primary)"><m-icon name="chevron-left" size="16"></m-icon>Back to Home</button>
+      <span style="flex:1"></span>
+      <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:var(--color-text-secondary)"><span>Project</span>
+        <select onChange="{{ onProj }}" style="height:32px; padding:0 8px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); color:var(--color-text-primary)"><sc-for list="{{ projOpts }}" as="o"><option value="{{ o.v }}" selected="{{ o.sel }}">{{ o.l }}</option></sc-for></select></label>
+    </div>
+    <h2 style="margin:0; font-size:22px; line-height:28px; font-weight:700">{{ heading }}</h2>
+
+    <sc-if value="{{ isActivity }}">
+      <div role="group" aria-label="Kinds of activity" style="display:flex; flex-wrap:wrap; gap:6px">
+        <sc-for list="{{ kinds }}" as="k"><button onClick="{{ k.go }}" aria-pressed="{{ k.sel }}" style="height:32px; padding:0 12px; border-radius:9999px; border:1px solid {{ k.border }}; background:{{ k.bg }}; color:{{ k.color }}; font-size:13px; font-weight:500">{{ k.label }}</button></sc-for>
+      </div>
+      <sc-if value="{{ noFeed }}"><p style="margin:0; color:var(--color-text-secondary)">No activity matches these filters.</p></sc-if>
+      <ol aria-live="polite" style="margin:0; padding:0; list-style:none">
+        <sc-for list="{{ feed }}" as="f">
+          <li style="border-top:1px solid var(--color-border)">
+            <button onClick="{{ f.open }}" style="width:100%; display:flex; align-items:flex-start; gap:10px; padding:10px 0; border:none; background:transparent; text-align:left" style-hover="background:var(--color-surface-hover)">
+              <span style="display:inline-flex; margin-top:2px; color:{{ f.iconColor }}"><m-icon name="{{ f.icon }}" size="16"></m-icon></span>
+              <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:1px"><span style="overflow-wrap:anywhere">{{ f.text }}</span><sc-if value="{{ f.hasProject }}"><span style="font-size:12px; line-height:16px; color:var(--color-text-secondary)">{{ f.project }}</span></sc-if></span>
+              <span title="{{ f.full }}" style="flex:none; font-size:12px; line-height:20px; color:var(--color-text-muted)">{{ f.when }}</span>
+            </button>
+          </li>
+        </sc-for>
+      </ol>
+    </sc-if>
+
+    <sc-if value="{{ isCi }}">
+      <sc-for list="{{ ci }}" as="p">
+        <section style="display:flex; flex-direction:column; padding-bottom:8px">
+          <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:10px 0; border-bottom:1px solid var(--color-border)">
+            <h3 style="margin:0; flex:1; font-size:16px; line-height:22px; font-weight:600">{{ p.name }}</h3>
+            <span style="display:inline-flex; align-items:center; gap:4px; font-size:13px; font-weight:600; color:{{ p.color }}"><m-icon name="{{ p.icon }}" size="14"></m-icon>Main {{ p.label }}</span>
+            <button onClick="{{ p.go }}" style="height:32px; padding:0 10px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-size:13px; font-weight:500">Open board</button>
+          </div>
+          <sc-for list="{{ p.runs }}" as="r">
+            <button onClick="{{ r.open }}" style="display:flex; align-items:center; gap:10px; min-height:40px; padding:6px 0; border:none; border-bottom:1px solid var(--color-border); background:transparent; text-align:left" style-hover="background:var(--color-surface-hover)">
+              <span style="display:inline-flex; color:{{ r.color }}"><m-icon name="{{ r.icon }}" size="14"></m-icon></span>
+              <span style="flex:1; min-width:0; display:flex; flex-direction:column"><span style="font-family:var(--font-mono); font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ r.name }}</span><span style="font-size:12px; line-height:16px; color:var(--color-text-secondary)">{{ r.where }}</span></span>
+              <span style="font-size:13px; font-weight:600; color:{{ r.color }}">{{ r.label }}</span>
+              <span style="width:84px; text-align:right; font-size:12px; color:var(--color-text-muted)">{{ r.ago }}</span>
+            </button>
+          </sc-for>
+        </section>
+      </sc-for>
+    </sc-if>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { kind: 'all', pid: 'all' };
+  componentDidMount() { this.u = M.on(() => this.forceUpdate()); }
+  componentWillUnmount() { this.u && this.u(); }
+  renderVals() {
+    const S = M.S; const tone = M.tone; const phone = S.vw < 640; const isCi = S.allKind === 'ci'; const pf = this.state.pid;
+    const projOpts = [{ v: 'all', l: 'All projects' }].concat(S.projects.map(p => ({ v: p.id, l: p.name }))).map(o => Object.assign(o, { sel: o.v === pf }));
+    const FI = { merge: ['git-merge', tone('ready', 'solid')], approval: ['st-needs', tone('needs-you', 'solid')], plan: ['list-checks', 'var(--color-text-secondary)'], schedule: ['clock', 'var(--color-text-secondary)'], brief: ['sunrise', 'var(--color-text-secondary)'], tool: ['info', 'var(--color-text-secondary)'] };
+    const K = [['all', 'All'], ['merge', 'Merges'], ['ci', 'CI results'], ['approval', 'Approvals'], ['plan', 'Plans'], ['schedule', 'Schedule runs'], ['brief', 'Briefs']];
+    const kinds = K.map(([k, l]) => { const sel = this.state.kind === k; return { label: l, sel, bg: sel ? 'var(--color-ink)' : 'var(--color-surface)', color: sel ? 'var(--color-on-ink)' : 'var(--color-text-primary)', border: sel ? 'var(--color-ink)' : 'var(--color-border-strong)', go: () => this.setState({ kind: k }) }; });
+    const feed = S.feed.filter(f => (this.state.kind === 'all' || f.kind === this.state.kind) && (pf === 'all' || f.pid === pf)).map(f => {
+      let ic = FI[f.kind] || FI.tool; if (f.kind === 'ci') ic = /failed/i.test(f.text) ? ['circle-x', tone('danger', 'solid')] : ['circle-check', tone('working', 'solid')];
+      return { icon: ic[0], iconColor: ic[1], text: f.text, project: f.pid && M.proj(f.pid) ? M.proj(f.pid).name : '', hasProject: !!(f.pid && M.proj(f.pid)), when: M.rel(f.ts), full: M.full(f.ts),
+        open: () => { if (f.cardId && M.card(f.cardId)) M.openCard(f.cardId); else if (f.job) { S.settingsSection = 'schedules'; S.schedEdit = f.job; M.go('settings'); } else if (f.pid && M.proj(f.pid)) M.go('project', f.pid); } };
+    });
+    const ago = m => m < 60 ? m + ' min ago' : m < 1440 ? Math.round(m / 60) + ' h ago' : Math.round(m / 1440) + ' days ago';
+    const ci = S.projects.filter(p => pf === 'all' || p.id === pf).map(p => {
+      const c = M.CI[p.ci] || M.CI.queued;
+      const runs = p.runs.map(r => ({ name: r.wf + (r.pkg ? ' ' + r.pkg : ''), where: 'main', st: r.st, ago: r.ago, open: () => M.go('project', p.id, 'board') }))
+        .concat(M.cardsOf(p.id).filter(k => k.ci).map(k => ({ name: k.branch, where: '#' + k.id + ' ' + k.title, st: k.ci, ago: Math.max(1, Math.round((Date.now() - k.upd) / 6e4)), open: () => M.openCard(k.id) })))
+        .sort((a, b) => a.ago - b.ago)
+        .map(r => { const rc = M.CI[r.st]; return Object.assign(r, { icon: rc.icon, color: rc.color, label: rc.label, ago: ago(r.ago) }); });
+      return { name: p.name, icon: c.icon, color: c.color, label: c.label.toLowerCase(), runs, go: () => M.go('project', p.id, 'board') };
+    });
+    return { pad: phone ? '16px 16px 32px' : '24px 24px 48px', back: () => M.go('home'), projOpts, onProj: e => this.setState({ pid: e.target.value }),
+      heading: isCi ? 'CI health' : 'Recent activity', isCi, isActivity: !isCi, kinds, feed, noFeed: feed.length === 0, ci };
+  }
+}
+</script>
+</body>
+</html>

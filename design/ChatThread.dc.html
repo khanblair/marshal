@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="display:flex; flex-direction:column; gap:12px; width:100%">
+  <sc-for list="{{ items }}" as="m">
+    <sc-if value="{{ m.isUser }}">
+      <div style="align-self:flex-end; max-width:min(72ch, 88%); padding:8px 12px; border-radius:10px; border:1px solid var(--color-border); background:var(--color-surface-sunken); white-space:pre-wrap; text-wrap:pretty">{{ m.text }}</div>
+    </sc-if>
+    <sc-if value="{{ m.isAgent }}">
+      <div aria-busy="{{ m.streaming }}" style="max-width:72ch; white-space:pre-wrap; text-wrap:pretty; color:var(--color-text-primary)">{{ m.text }}</div>
+    </sc-if>
+    <sc-if value="{{ m.isSystem }}">
+      <div style="display:flex; align-items:flex-start; gap:8px; max-width:72ch; font-size:13px; line-height:18px; color:var(--color-text-secondary)"><span style="display:inline-flex; margin-top:2px"><m-icon name="info" size="14"></m-icon></span><span>{{ m.text }}</span></div>
+    </sc-if>
+    <sc-if value="{{ m.isTool }}">
+      <div style="max-width:72ch; border:1px solid var(--color-border); border-radius:5px; background:var(--color-surface); overflow:hidden">
+        <button onClick="{{ m.toggle }}" aria-expanded="{{ m.open }}" style="width:100%; display:flex; align-items:center; gap:8px; min-height:32px; padding:4px 10px; border:none; background:transparent; text-align:left" style-hover="background:var(--color-surface-hover)">
+          <span style="display:inline-flex; color:var(--color-text-muted)"><m-icon name="{{ m.chev }}" size="14"></m-icon></span>
+          <span style="display:inline-flex; color:var(--color-text-secondary)"><m-icon name="{{ m.icon }}" size="14"></m-icon></span>
+          <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap"><span style="font-weight:500">{{ m.verb }}</span> <span style="font-family:{{ m.targetFont }}; font-size:{{ m.targetSize }}; color:var(--color-text-secondary)">{{ m.target }}</span></span>
+          <span style="flex:none; display:inline-flex; align-items:center; gap:4px; font-size:13px; line-height:18px; color:{{ m.resColor }}"><m-icon name="{{ m.stIcon }}" size="14"></m-icon>{{ m.result }}</span>
+        </button>
+        <sc-if value="{{ m.open }}">
+          <div style="border-top:1px solid var(--color-border); background:var(--color-surface-sunken); padding:8px 12px">
+            <sc-if value="{{ m.hasDetail }}"><pre style="margin:0; white-space:pre-wrap; font-family:var(--font-mono); font-size:13px; line-height:20px">{{ m.detail }}</pre></sc-if>
+            <sc-if value="{{ m.noDetail }}"><span style="font-size:13px; color:var(--color-text-secondary)">{{ m.verb }} {{ m.target }}. Result: {{ m.result }}.</span></sc-if>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+    <sc-if value="{{ m.isDiff }}">
+      <div style="max-width:72ch; display:flex; align-items:center; gap:10px; min-height:36px; padding:4px 6px 4px 10px; border:1px solid var(--color-border); border-radius:5px">
+        <m-icon name="file-diff" size="14"></m-icon>
+        <span style="flex:1; font-weight:500">{{ m.summary }}</span>
+        <span style="font-family:var(--font-mono); font-size:12px; color:var(--color-diff-added-text)">{{ m.add }}</span>
+        <span style="font-family:var(--font-mono); font-size:12px; color:var(--color-diff-removed-text)">{{ m.del }}</span>
+        <button onClick="{{ m.openDiff }}" style="height:28px; padding:0 10px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-size:13px; font-weight:500" style-hover="background:var(--color-surface-hover)">Open diff</button>
+      </div>
+    </sc-if>
+    <sc-if value="{{ m.isPlan }}">
+      <section aria-label="Plan" style="max-width:72ch; border:1px solid var(--color-border-strong); border-radius:10px; background:var(--color-surface); overflow:hidden">
+        <div style="display:flex; align-items:center; gap:8px; padding:10px 14px; border-bottom:1px solid var(--color-border)">
+          <m-icon name="list-checks" size="16"></m-icon>
+          <h3 style="margin:0; flex:1; font-size:16px; line-height:22px; font-weight:600">Plan</h3>
+          <span style="display:inline-flex; align-items:center; gap:4px; height:22px; padding:0 8px; border-radius:3px; background:{{ m.statusBg }}; color:{{ m.statusColor }}; font-size:12px; font-weight:600"><m-icon name="{{ m.statusIcon }}" size="12"></m-icon>{{ m.statusLabel }}</span>
+        </div>
+        <sc-if value="{{ m.editing }}">
+          <form onSubmit="{{ m.save }}" style="display:flex; flex-direction:column; gap:8px; padding:14px">
+            <label style="display:flex; flex-direction:column; gap:6px"><span style="font-weight:500">Steps</span>
+              <textarea name="steps" rows="7" defaultValue="{{ m.editText }}" style="padding:8px 10px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); resize:vertical"></textarea>
+              <span style="font-size:13px; line-height:18px; color:var(--color-text-secondary)">One step per line. The agent follows the plan as you save it.</span>
+            </label>
+            <div style="display:flex; gap:8px">
+              <button type="submit" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-ink); background:var(--color-ink); color:var(--color-on-ink); font-weight:600">Save plan</button>
+              <button type="button" onClick="{{ m.cancel }}" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-weight:500">Cancel</button>
+            </div>
+          </form>
+        </sc-if>
+        <sc-if value="{{ m.notEditing }}">
+          <div style="display:grid; gap:14px; padding:14px">
+            <div>
+              <h4 style="margin:0 0 6px; font-size:14px; font-weight:600">Steps</h4>
+              <ol style="margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:4px">
+                <sc-for list="{{ m.steps }}" as="s"><li style="display:flex; gap:8px"><span style="flex:none; width:20px; color:var(--color-text-secondary)">{{ s.n }}</span><span>{{ s.t }}</span></li></sc-for>
+              </ol>
+            </div>
+            <div>
+              <h4 style="margin:0 0 6px; font-size:14px; font-weight:600">Files to touch</h4>
+              <ul style="margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:2px">
+                <sc-for list="{{ m.files }}" as="f"><li style="font-family:var(--font-mono); font-size:13px; line-height:20px; color:var(--color-text-secondary)">{{ f }}</li></sc-for>
+              </ul>
+            </div>
+            <div>
+              <h4 style="margin:0 0 6px; font-size:14px; font-weight:600">Risks</h4>
+              <ul style="margin:0; padding-left:18px; display:flex; flex-direction:column; gap:2px; color:var(--color-text-secondary)">
+                <sc-for list="{{ m.risks }}" as="r"><li>{{ r }}</li></sc-for>
+              </ul>
+            </div>
+            <div>
+              <h4 style="margin:0 0 6px; font-size:14px; font-weight:600">Checks</h4>
+              <div style="display:flex; flex-wrap:wrap; gap:6px">
+                <sc-for list="{{ m.checks }}" as="k"><code style="padding:1px 6px; border-radius:3px; background:var(--color-surface-sunken); font-family:var(--font-mono); font-size:12px; line-height:18px">{{ k }}</code></sc-for>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ m.waiting }}">
+          <div style="display:flex; flex-wrap:wrap; gap:8px; padding:10px 14px; border-top:1px solid var(--color-border); background:var(--color-surface-sunken)">
+            <button onClick="{{ m.approve }}" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-ink); background:var(--color-ink); color:var(--color-on-ink); font-weight:600" style-hover="background:var(--color-ink-hover)">Approve plan</button>
+            <button onClick="{{ m.edit }}" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-weight:500" style-hover="background:var(--color-surface-hover)">Edit plan</button>
+            <button onClick="{{ m.reject }}" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid transparent; background:transparent; color:var(--color-status-danger-text); font-weight:500" style-hover="background:var(--color-status-danger-subtle)">Reject</button>
+            <span style="flex:1"></span>
+            <span style="align-self:center; font-size:12px; color:var(--color-text-muted)">Press A to approve</span>
+          </div>
+        </sc-if>
+      </section>
+    </sc-if>
+    <sc-if value="{{ m.isApproval }}">
+      <div tabindex="0" onKeyDown="{{ m.keys }}" role="group" aria-label="Approval request" style="max-width:72ch; border:1px solid var(--color-border-strong); border-radius:7px; background:var(--color-surface); overflow:hidden">
+        <div style="display:flex; align-items:center; gap:8px; padding:8px 12px; background:var(--color-status-needs-you-subtle); color:var(--color-status-needs-you-text); font-weight:600">
+          <m-icon name="st-needs" size="16"></m-icon><span style="flex:1">Approval needed</span>
+          <sc-if value="{{ m.hasCard }}"><button onClick="{{ m.openCard }}" style="border:none; background:transparent; padding:0; color:inherit; font-size:13px; text-decoration:underline">{{ m.cardLabel }}</button></sc-if>
+        </div>
+        <div style="padding:10px 12px; display:flex; flex-direction:column; gap:8px">
+          <pre style="margin:0; padding:8px 10px; border-radius:5px; background:var(--color-surface-sunken); font-family:var(--font-mono); font-size:13px; line-height:20px; white-space:pre-wrap; word-break:break-all">{{ m.cmd }}</pre>
+          <span style="font-size:13px; line-height:18px; color:var(--color-text-secondary)">{{ m.why }}</span>
+        </div>
+        <sc-if value="{{ m.waiting }}">
+          <div style="display:flex; align-items:center; flex-wrap:wrap; gap:8px; padding:0 12px 12px">
+            <button onClick="{{ m.approve }}" style="display:inline-flex; align-items:center; gap:8px; height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-ink); background:var(--color-ink); color:var(--color-on-ink); font-weight:600" style-hover="background:var(--color-ink-hover)">Approve<kbd style="font-family:var(--font-sans); font-size:12px; line-height:16px; padding:0 4px; border:1px solid currentColor; border-radius:3px; opacity:.7">Enter</kbd></button>
+            <button onClick="{{ m.deny }}" style="display:inline-flex; align-items:center; gap:8px; height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-weight:500" style-hover="background:var(--color-surface-hover)">Deny<kbd style="font-family:var(--font-sans); font-size:12px; line-height:16px; padding:0 4px; border:1px solid var(--color-border-strong); border-radius:3px; color:var(--color-text-secondary)">Esc</kbd></button>
+          </div>
+        </sc-if>
+        <sc-if value="{{ m.done }}">
+          <div style="display:flex; align-items:center; gap:6px; padding:0 12px 12px; font-size:13px; font-weight:600; color:{{ m.resultColor }}"><m-icon name="{{ m.resultIcon }}" size="14"></m-icon>{{ m.resultLabel }}</div>
+        </sc-if>
+      </div>
+    </sc-if>
+    <sc-if value="{{ m.isCard }}">
+      <button onClick="{{ m.c.open }}" aria-label="{{ m.c.aria }}" style="max-width:420px; display:flex; flex-direction:column; gap:6px; padding:10px 12px; border:1px solid var(--color-border); border-left:3px solid {{ m.c.edge }}; border-radius:7px; background:var(--color-surface); text-align:left" style-hover="border-top-color:var(--color-border-strong); border-right-color:var(--color-border-strong); border-bottom-color:var(--color-border-strong)">
+        <span style="display:flex; gap:8px; width:100%"><span style="flex:1; font-weight:600; color:{{ m.c.titleColor }}">{{ m.c.title }}</span><span style="font-size:12px; color:var(--color-text-muted)">{{ m.c.num }}</span></span>
+        <span style="display:flex; flex-wrap:wrap; gap:4px 10px; font-size:13px; line-height:18px; color:var(--color-text-secondary)">
+          <span style="display:inline-flex; align-items:center; gap:4px; color:{{ m.c.stColor }}; font-weight:600"><span style="display:inline-flex; color:{{ m.c.iconColor }}"><m-icon name="{{ m.c.icon }}" size="14"></m-icon></span>{{ m.c.stateLabel }}</span>
+          <span>{{ m.c.role }}</span><span>{{ m.c.agent }}</span>
+        </span>
+        <sc-if value="{{ m.c.showReason }}"><span style="font-size:13px; line-height:18px; color:var(--color-status-needs-you-text); font-weight:500">{{ m.c.reason }}</span></sc-if>
+      </button>
+    </sc-if>
+    <sc-if value="{{ m.isLinks }}">
+      <div style="display:flex; flex-direction:column; gap:8px; max-width:72ch">
+        <div style="white-space:pre-wrap; text-wrap:pretty">{{ m.text }}</div>
+        <div style="display:flex; flex-direction:column; gap:4px">
+          <sc-for list="{{ m.cards }}" as="c">
+            <button onClick="{{ c.open }}" style="align-self:flex-start; display:inline-flex; align-items:center; gap:6px; min-height:28px; padding:2px 8px; border-radius:5px; border:1px solid var(--color-border); background:var(--color-surface); text-align:left" style-hover="background:var(--color-surface-hover)">
+              <span style="display:inline-flex; color:{{ c.iconColor }}"><m-icon name="{{ c.icon }}" size="14"></m-icon></span>
+              <span style="font-weight:600">{{ c.num }}</span><span>{{ c.title }}</span>
+              <span style="font-size:13px; color:{{ c.stColor }}">{{ c.stateLabel }}</span>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+  </sc-for>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:640,&quot;height&quot;:600},&quot;items&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;object[]&quot;}}"></script>
+</body>
+</html>

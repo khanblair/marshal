@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div ref="{{ rootRef }}" style="position:absolute; inset:0; overflow-y:auto; overflow-x:hidden">
+  <div style="max-width:1240px; margin:0 auto; padding:{{ pad }}; display:flex; flex-direction:column; gap:32px">
+    <section data-tour="tiles" aria-label="Summary" style="display:flex; flex-direction:column; gap:24px">
+        <div style="display:grid; grid-template-columns:{{ tileCols }}; gap:12px">
+          <sc-for list="{{ tiles }}" as="t">
+            <button onClick="{{ t.go }}" title="{{ t.tip }}" style="display:flex; flex-direction:column; align-items:flex-start; gap:2px; padding:14px 16px; border-radius:10px; border:1px solid var(--color-border); background:var(--color-surface); text-align:left" style-hover="border-color:var(--color-border-strong)">
+              <span style="font-size:28px; line-height:34px; font-weight:700; color:{{ t.color }}; font-variant-numeric:tabular-nums">{{ t.value }}</span>
+              <span style="font-size:13px; line-height:18px; color:var(--color-text-secondary)">{{ t.label }}</span>
+            </button>
+          </sc-for>
+        </div>
+        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">
+          <h2 style="margin:0; flex:1; font-size:16px; line-height:22px; font-weight:600">How it's going</h2>
+          <div role="radiogroup" aria-label="Chart range" style="display:flex; gap:2px; padding:2px; border-radius:7px; background:var(--color-surface-sunken); border:1px solid var(--color-border)">
+            <sc-for list="{{ ranges }}" as="r"><button role="radio" data-compact="1" aria-checked="{{ r.sel }}" onClick="{{ r.go }}" style="height:{{ segH }}; padding:0 10px; border-radius:5px; border:1px solid {{ r.border }}; background:{{ r.bg }}; font-size:13px; font-weight:500; color:{{ r.color }}">{{ r.label }}</button></sc-for>
+          </div>
+        </div>
+        <div ref="{{ chartRef }}" style="display:grid; grid-template-columns:{{ chartCols }}; gap:24px">
+          <figure style="margin:0; display:flex; flex-direction:column; gap:6px; min-width:0">
+            <figcaption style="display:flex; flex-direction:column"><span style="font-weight:600">Cards finished per day</span><span style="font-size:13px; color:var(--color-text-secondary)">{{ barSummary }}</span></figcaption>
+            <svg role="img" aria-label="{{ barSummary }}" width="{{ cw }}" height="180" style="display:block; overflow:visible">
+              <sc-for list="{{ yGridB }}" as="y"><line x1="32" x2="{{ cw }}" y1="{{ y.y }}" y2="{{ y.y }}" stroke="var(--chart-grid)" stroke-width="1"></line><text x="26" y="{{ y.ty }}" text-anchor="end" font-size="12" fill="var(--chart-axis)" font-family="var(--font-sans)">{{ y.l }}</text></sc-for>
+              <sc-for list="{{ bars }}" as="b"><path d="{{ b.d }}" fill="var(--chart-1)"><title>{{ b.tip }}</title></path></sc-for>
+              <sc-for list="{{ xLabelsB }}" as="x"><text x="{{ x.x }}" y="176" text-anchor="middle" font-size="12" fill="var(--chart-axis)" font-family="var(--font-sans)">{{ x.l }}</text></sc-for>
+            </svg>
+          </figure>
+          <figure style="margin:0; display:flex; flex-direction:column; gap:6px; min-width:0">
+            <figcaption style="display:flex; flex-direction:column"><span style="font-weight:600">Cost per project per day</span><span style="font-size:13px; color:var(--color-text-secondary)">{{ lineSummary }}</span></figcaption>
+            <svg role="img" aria-label="{{ lineSummary }}" width="{{ cw }}" height="180" style="display:block; overflow:visible">
+              <sc-for list="{{ yGridL }}" as="y"><line x1="40" x2="{{ plotR }}" y1="{{ y.y }}" y2="{{ y.y }}" stroke="var(--chart-grid)" stroke-width="1"></line><text x="34" y="{{ y.ty }}" text-anchor="end" font-size="12" fill="var(--chart-axis)" font-family="var(--font-sans)">{{ y.l }}</text></sc-for>
+              <line x1="40" x2="{{ plotR }}" y1="{{ limitY }}" y2="{{ limitY }}" stroke="var(--chart-limit)" stroke-width="1.5" stroke-dasharray="5 4"></line>
+              <text x="{{ plotR4 }}" y="{{ limitTY }}" font-size="12" fill="var(--color-status-danger-text)" font-family="var(--font-sans)">{{ limitLabel }}</text>
+              <sc-for list="{{ lines }}" as="l"><path d="{{ l.d }}" fill="none" stroke="{{ l.color }}" stroke-width="{{ l.w }}" stroke-dasharray="{{ l.dash }}" stroke-linejoin="round" stroke-linecap="round"></path><text x="{{ plotR4 }}" y="{{ l.ly }}" font-size="12" fill="var(--chart-axis)" font-family="var(--font-sans)">{{ l.name }}</text></sc-for>
+              <sc-for list="{{ xLabelsL }}" as="x"><text x="{{ x.x }}" y="176" text-anchor="middle" font-size="12" fill="var(--chart-axis)" font-family="var(--font-sans)">{{ x.l }}</text></sc-for>
+            </svg>
+            <div style="display:flex; flex-wrap:wrap; gap:4px 14px; font-size:12px; line-height:16px; color:var(--color-text-secondary)">
+              <sc-for list="{{ lines }}" as="l"><span style="display:inline-flex; align-items:center; gap:6px"><svg width="22" height="8" aria-hidden="true"><line x1="1" x2="21" y1="4" y2="4" stroke="{{ l.color }}" stroke-width="{{ l.w }}" stroke-dasharray="{{ l.dash }}" stroke-linecap="round"></line></svg>{{ l.name }}</span></sc-for>
+              <span style="display:inline-flex; align-items:center; gap:6px"><svg width="22" height="8" aria-hidden="true"><line x1="1" x2="21" y1="4" y2="4" stroke="var(--chart-limit)" stroke-width="1.5" stroke-dasharray="5 4"></line></svg>Daily limit</span>
+            </div>
+          </figure>
+        </div>
+      </section>
+    <section data-tour="needs" aria-labelledby="h-needs" style="display:flex; flex-direction:column; gap:4px">
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px">
+          <span style="display:inline-flex; color:var(--color-status-needs-you-solid)"><m-icon name="st-needs" size="20"></m-icon></span>
+          <h2 id="h-needs" style="margin:0; font-size:22px; line-height:28px; font-weight:700">Needs you</h2>
+          <sc-if value="{{ hasNeeds }}"><span style="min-width:24px; height:24px; padding:0 8px; border-radius:3px; background:var(--color-status-needs-you-subtle); color:var(--color-status-needs-you-text); font-weight:700; line-height:24px; text-align:center">{{ needsCount }}</span></sc-if>
+        </div>
+        <sc-if value="{{ noNeeds }}"><p style="margin:0; color:var(--color-text-secondary)">{{ emptyText }}</p></sc-if>
+        <sc-for list="{{ groups }}" as="g">
+          <div style="display:flex; flex-direction:column">
+            <button onClick="{{ g.go }}" style="align-self:flex-start; display:flex; align-items:center; gap:8px; padding:8px 0 6px; border:none; background:transparent; font-weight:600; color:var(--color-text-secondary)" style-hover="color:var(--color-text-primary)"><m-icon name="folder-git-2" size="14"></m-icon>{{ g.name }}<span style="font-weight:400">{{ g.countLabel }}</span></button>
+            <sc-for list="{{ g.items }}" as="c">
+              <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px 16px; padding:10px 0; border-top:1px solid var(--color-border)">
+                <button onClick="{{ c.open }}" style="flex:1 1 260px; min-width:0; display:flex; gap:10px; align-items:flex-start; border:none; background:transparent; padding:0; text-align:left">
+                  <span style="display:inline-flex; margin-top:2px; color:var(--color-status-needs-you-solid)"><m-icon name="{{ c.reasonIcon }}" size="16"></m-icon></span>
+                  <span style="display:flex; flex-direction:column; gap:2px; min-width:0">
+                    <span style="color:var(--color-status-needs-you-text); font-weight:600">{{ c.reason }}</span>
+                    <span style="display:flex; flex-wrap:wrap; gap:0 8px"><span>{{ c.title }}</span><span style="color:var(--color-text-muted)">{{ c.num }}</span></span>
+                    <span style="display:flex; flex-wrap:wrap; gap:0 12px; font-size:12px; line-height:16px; color:var(--color-text-secondary)"><span>{{ c.projectName }}</span><span>{{ c.agent }}</span><span title="{{ c.updFull }}">Waiting since {{ c.since }}</span></span>
+                  </span>
+                </button>
+                <div style="display:flex; gap:6px">
+                  <sc-if value="{{ c.canApprove }}"><button onClick="{{ c.approve }}" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-ink); background:var(--color-ink); color:var(--color-on-ink); font-weight:600">Approve</button></sc-if>
+                  <button onClick="{{ c.open }}" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-weight:500" style-hover="background:var(--color-surface-hover)">{{ c.cta }}</button>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-for>
+      </section>
+    <div style="display:grid; grid-template-columns:{{ pairCols }}; gap:32px 40px; align-items:start">
+      <section data-tour="activity" aria-labelledby="h-act" style="display:flex; flex-direction:column">
+        <h2 id="h-act" style="margin:0 0 8px; font-size:16px; line-height:22px; font-weight:600">Recent activity</h2>
+        <ol aria-live="polite" style="margin:0; padding:0; list-style:none">
+          <sc-for list="{{ feed }}" as="f">
+            <li style="border-top:1px solid var(--color-border)">
+              <button onClick="{{ f.open }}" style="width:100%; display:flex; align-items:flex-start; gap:10px; padding:10px 0; border:none; background:transparent; text-align:left" style-hover="background:var(--color-surface-hover)">
+                <span style="display:inline-flex; margin-top:2px; color:{{ f.iconColor }}"><m-icon name="{{ f.icon }}" size="16"></m-icon></span>
+                <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:1px"><span style="overflow-wrap:anywhere">{{ f.text }}</span><sc-if value="{{ f.hasProject }}"><span style="font-size:12px; line-height:16px; color:var(--color-text-secondary)">{{ f.project }}</span></sc-if></span>
+                <span title="{{ f.full }}" style="flex:none; font-size:12px; line-height:20px; color:var(--color-text-muted)">{{ f.when }}</span>
+              </button>
+            </li>
+          </sc-for>
+        </ol>
+      <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:8px">
+          <sc-if value="{{ actF.canToggle }}"><button onClick="{{ actF.toggle }}" aria-expanded="{{ actF.expanded }}" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-size:13px; font-weight:500" style-hover="background:var(--color-surface-hover)">{{ actF.toggleLabel }}</button></sc-if>
+          <button onClick="{{ actF.viewAll }}" style="height:32px; padding:0 12px; border:none; border-radius:5px; background:transparent; color:var(--color-text-secondary); font-size:13px; font-weight:500" style-hover="background:var(--color-surface-hover); color:var(--color-text-primary)">{{ actF.viewAllLabel }}</button>
+        </div>
+      </section>
+      <section aria-labelledby="h-today" style="display:flex; flex-direction:column">
+        <h2 id="h-today" style="margin:0 0 8px; font-size:16px; line-height:22px; font-weight:600">Coming up today</h2>
+        <sc-if value="{{ noToday }}"><p style="margin:0; color:var(--color-text-secondary)">Nothing else is scheduled today.</p></sc-if>
+        <sc-for list="{{ today }}" as="t">
+          <button onClick="{{ t.open }}" style="display:flex; align-items:center; gap:10px; padding:8px 0; border:none; border-top:1px solid var(--color-border); background:transparent; text-align:left" style-hover="background:var(--color-surface-hover)">
+            <span style="width:44px; flex:none; font-variant-numeric:tabular-nums; color:var(--color-text-secondary)">{{ t.time }}</span>
+            <span style="display:inline-flex; color:{{ t.iconColor }}"><m-icon name="{{ t.icon }}" size="14"></m-icon></span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ t.label }}</span>
+            <span style="font-size:12px; color:var(--color-text-muted)">{{ t.kind }}</span>
+          </button>
+        </sc-for>
+      <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:8px">
+          <sc-if value="{{ todayF.canToggle }}"><button onClick="{{ todayF.toggle }}" aria-expanded="{{ todayF.expanded }}" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-size:13px; font-weight:500" style-hover="background:var(--color-surface-hover)">{{ todayF.toggleLabel }}</button></sc-if>
+          <button onClick="{{ todayF.viewAll }}" style="height:32px; padding:0 12px; border:none; border-radius:5px; background:transparent; color:var(--color-text-secondary); font-size:13px; font-weight:500" style-hover="background:var(--color-surface-hover); color:var(--color-text-primary)">{{ todayF.viewAllLabel }}</button>
+        </div>
+      </section>
+    </div>
+    <div style="display:grid; grid-template-columns:{{ pairCols }}; gap:32px 40px; align-items:start">
+      <section aria-labelledby="h-awake" style="display:flex; flex-direction:column">
+        <div style="display:flex; align-items:baseline; gap:8px; margin-bottom:8px">
+          <h2 id="h-awake" style="margin:0; flex:1; font-size:16px; line-height:22px; font-weight:600">Agents awake</h2>
+          <span style="font-size:13px; color:{{ awakeColor }}; font-weight:600">{{ awakeLabel }}</span>
+        </div>
+        <sc-for list="{{ awake }}" as="a">
+          <div style="display:flex; align-items:center; gap:8px; padding:8px 0; border-top:1px solid var(--color-border)">
+            <button onClick="{{ a.open }}" style="flex:1; min-width:0; display:flex; flex-direction:column; gap:1px; border:none; background:transparent; padding:0; text-align:left">
+              <span style="display:flex; gap:6px; min-width:0"><span style="display:inline-flex; color:{{ a.iconColor }}"><m-icon name="{{ a.icon }}" size="14"></m-icon></span><span style="font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ a.title }}</span></span>
+              <span style="display:flex; flex-wrap:wrap; gap:0 10px; font-size:12px; line-height:16px; color:var(--color-text-secondary)"><span style="color:{{ a.stColor }}; font-weight:600">{{ a.stateLabel }}</span><span>{{ a.projectName }}</span><span>{{ a.agent }}</span></span>
+            </button>
+            <button onClick="{{ a.sleep }}" aria-label="{{ a.sleepLabel }}" title="{{ a.sleepLabel }}" style="height:28px; padding:0 8px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-size:13px; display:inline-flex; align-items:center; gap:4px" style-hover="background:var(--color-surface-hover)"><m-icon name="moon" size="14"></m-icon>Sleep</button>
+          </div>
+        </sc-for>
+      <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:8px">
+          <sc-if value="{{ awakeF.canToggle }}"><button onClick="{{ awakeF.toggle }}" aria-expanded="{{ awakeF.expanded }}" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-size:13px; font-weight:500" style-hover="background:var(--color-surface-hover)">{{ awakeF.toggleLabel }}</button></sc-if>
+          <button onClick="{{ awakeF.viewAll }}" style="height:32px; padding:0 12px; border:none; border-radius:5px; background:transparent; color:var(--color-text-secondary); font-size:13px; font-weight:500" style-hover="background:var(--color-surface-hover); color:var(--color-text-primary)">{{ awakeF.viewAllLabel }}</button>
+        </div>
+      </section>
+      <section aria-labelledby="h-ci" style="display:flex; flex-direction:column">
+        <h2 id="h-ci" style="margin:0 0 8px; font-size:16px; line-height:22px; font-weight:600">CI health</h2>
+        <sc-for list="{{ ci }}" as="p">
+          <button onClick="{{ p.go }}" style="display:flex; align-items:center; gap:8px; padding:8px 0; border:none; border-top:1px solid var(--color-border); background:transparent; text-align:left" style-hover="background:var(--color-surface-hover)">
+            <span style="flex:1; font-weight:600">{{ p.name }}</span>
+            <span style="display:inline-flex; align-items:center; gap:4px; font-size:13px; font-weight:600; color:{{ p.color }}"><m-icon name="{{ p.icon }}" size="14"></m-icon>Main {{ p.label }}</span>
+            <span style="font-size:12px; color:var(--color-text-muted)">{{ p.ago }}</span>
+          </button>
+        </sc-for>
+      <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:8px">
+          <sc-if value="{{ ciF.canToggle }}"><button onClick="{{ ciF.toggle }}" aria-expanded="{{ ciF.expanded }}" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-size:13px; font-weight:500" style-hover="background:var(--color-surface-hover)">{{ ciF.toggleLabel }}</button></sc-if>
+          <button onClick="{{ ciF.viewAll }}" style="height:32px; padding:0 12px; border:none; border-radius:5px; background:transparent; color:var(--color-text-secondary); font-size:13px; font-weight:500" style-hover="background:var(--color-surface-hover); color:var(--color-text-primary)">{{ ciF.viewAllLabel }}</button>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { cw: 520, open: {} };
+  chartRef = React.createRef(); rootRef = React.createRef();
+  componentDidMount() {
+    this.u = M.on(() => this.forceUpdate());
+    const measure = () => { const el = this.chartRef.current; if (!el) return; const first = el.firstElementChild; const w = Math.floor((first || el).getBoundingClientRect().width / (M._scale || 1)); if (w > 0 && Math.abs(w - this.state.cw) > 2) this.setState({ cw: w }); };
+    this.ro = new ResizeObserver(measure); setTimeout(() => { if (this.chartRef.current) this.ro.observe(this.chartRef.current); measure(); }, 30);
+  }
+  componentWillUnmount() { this.u && this.u(); this.ro && this.ro.disconnect(); }
+  renderVals() {
+    const S = M.S; const tone = M.tone; const vw = S.vw; const phone = vw < 640;
+    const needs = M.needs();
+    const groups = S.projects.map(p => {
+      const items = needs.filter(c => c.p === p.id).map(c => {
+        const r = c.reason || ''; const pa = M.pendingApproval(c.id);
+        return { num: '#' + c.id, title: c.title, reason: r, agent: c.agent, projectName: p.name, since: M.rel(c.upd).toLowerCase(), updFull: M.full(c.upd),
+          reasonIcon: /^Plan/.test(r) ? 'list-checks' : /^Approval/.test(r) ? 'terminal' : /^CI/.test(r) ? 'circle-x' : /conflict/i.test(r) ? 'git-merge' : /^Stuck/.test(r) ? 'repeat' : 'st-needs',
+          cta: /^Plan/.test(r) ? 'Review plan' : /^Approval/.test(r) ? 'Review command' : /conflict/i.test(r) ? 'Resolve conflict' : /^CI/.test(r) ? 'See failure' : 'Reply',
+          canApprove: !!pa && pa.k === 'approval', approve: () => M.approve(c.id), open: () => M.openCard(c.id) };
+      });
+      return { name: p.name, countLabel: items.length + (items.length === 1 ? ' card' : ' cards'), items, go: () => M.go('project', p.id) };
+    }).filter(g => g.items.length);
+    const working = M.working(); const cost = M.costs();
+    const mergedToday = S.feed.filter(f => f.kind === 'merge' && f.ts >= M.T0).length + S.cards.filter(c => c.state === 'done' && c.upd >= M.T0 && !S.feed.some(f => f.kind === 'merge' && f.cardId === c.id && f.ts >= M.T0)).length;
+    const toList = st => () => { const best = S.projects.slice().sort((a, b) => S.cards.filter(c => c.p === b.id && M.colOf(c.state) === st).length - S.cards.filter(c => c.p === a.id && M.colOf(c.state) === st).length)[0]; if (!best) return; S.filters[best.id] = [{ k: 'status', v: st }]; S.savedView[best.id] = null; M.go('project', best.id, 'list'); };
+    const ct = M.costTone(cost.today, cost.day);
+    const tiles = [
+      { value: needs.length, label: 'Need you', tip: 'Open the cards that need you', go: toList('needs'), color: needs.length ? tone('needs-you', 'text') : 'var(--color-text-primary)' },
+      { value: working.length, label: 'Working now', tip: 'Open working cards', go: toList('working'), color: 'var(--color-text-primary)' },
+      { value: mergedToday, label: 'Merged today', tip: 'Open done cards', go: toList('done'), color: 'var(--color-text-primary)' },
+      { value: M.money(cost.today), label: 'Cost today of ' + M.money(cost.day), tip: 'Open cost limits', go: () => { S.settingsSection = 'limits'; M.go('settings'); }, color: ct === 'over' ? tone('danger', 'text') : ct === 'near' ? tone('needs-you', 'text') : 'var(--color-text-primary)' }
+    ];
+    // charts
+    const N = S.dashRange; const cw = Math.max(240, this.state.cw); const H = 180, top = 8, bot = 150;
+    const rnd = i => { const x = Math.sin(i * 12.9898 + 78.233) * 43758.5453; return x - Math.floor(x); };
+    const dayIdx = i => Math.floor(M.T0 / M.D) - (N - 1 - i);
+    const fin = Array.from({ length: N }, (_, i) => i === N - 1 ? mergedToday : Math.round(1 + rnd(dayIdx(i)) * 5 + (new Date((dayIdx(i)) * M.D).getDay() % 6 === 0 ? -1 : 1)));
+    const maxB = Math.max(4, ...fin); const x0 = 32; const bw = (cw - x0) / N;
+    const yB = v => bot - (v / maxB) * (bot - top);
+    const barW = Math.max(2, bw * 0.64); const r = Math.min(3, barW / 2);
+    const bars = fin.map((v, i) => { const x = x0 + i * bw + (bw - barW) / 2; const y = yB(v); const h = bot - y; const rr = Math.min(r, h);
+      return { d: h <= 0 ? '' : 'M' + x + ' ' + bot + ' V' + (y + rr) + ' Q' + x + ' ' + y + ' ' + (x + rr) + ' ' + y + ' H' + (x + barW - rr) + ' Q' + (x + barW) + ' ' + y + ' ' + (x + barW) + ' ' + (y + rr) + ' V' + bot + ' Z', tip: new Date(dayIdx(i) * M.D).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ': ' + v + ' cards' }; });
+    const fmtD = i => new Date(M.T0 - (N - 1 - i) * M.D).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    const tickIdx = N === 7 ? [0, 3, 6] : N === 30 ? [0, 10, 20, 29] : [0, 30, 60, 89];
+    const xLabelsB = tickIdx.map(i => ({ x: x0 + i * bw + bw / 2, l: fmtD(i) }));
+    const yGridB = [0, Math.round(maxB / 2), maxB].map(v => ({ y: yB(v), ty: yB(v) + 4, l: v }));
+    const sumF = fin.reduce((a, b) => a + b, 0);
+    // lines
+    const xl0 = 40; const plotR = cw - 96; const lw = (plotR - xl0) / Math.max(1, N - 1);
+    const base = { api: 3.6, web: 2.8, mobile: 5.4 };
+    const projs = S.projects.slice(0, 3);
+    const series = projs.map(p => Array.from({ length: N }, (_, i) => i === N - 1 ? M.costs(p.id).today : Math.max(0.2, (base[p.id] || 2) * (0.55 + rnd(dayIdx(i) * 3 + p.id.length) * 0.9))));
+    const total = Array.from({ length: N }, (_, i) => series.reduce((a, s) => a + s[i], 0));
+    const limit = cost.day; const maxL = Math.max(limit * 1.1, ...total);
+    const yL = v => bot - (v / maxL) * (bot - top);
+    const path = arr => arr.map((v, i) => (i ? 'L' : 'M') + (xl0 + i * lw).toFixed(1) + ' ' + yL(v).toFixed(1)).join(' ');
+    const styles = [['var(--chart-1)', 2, '0'], ['var(--chart-2)', 1.5, '0'], ['var(--chart-3)', 1.5, '6 3'], ['var(--chart-4)', 2, '1 4']];
+    const all = [{ name: 'All projects', arr: total }].concat(projs.map((p, i) => ({ name: p.name, arr: series[i] })));
+    let lys = all.map(s => yL(s.arr[N - 1]) + 4); const order = lys.map((y, i) => [y, i]).sort((a, b) => a[0] - b[0]);
+    for (let k = 1; k < order.length; k++) if (order[k][0] - order[k - 1][0] < 14) order[k][0] = order[k - 1][0] + 14;
+    order.forEach(([y, i]) => { lys[i] = y; });
+    const lines = all.map((s, i) => ({ name: s.name, d: path(s.arr), color: styles[i][0], w: styles[i][1], dash: styles[i][2], ly: lys[i] }));
+    const xLabelsL = tickIdx.map(i => ({ x: xl0 + i * lw, l: fmtD(i) }));
+    const yGridL = [0, maxL / 2, maxL].map(v => ({ y: yL(v), ty: yL(v) + 4, l: '$' + Math.round(v) }));
+    const ranges = [7, 30, 90].map(n => ({ label: n + ' days', sel: N === n, bg: N === n ? 'var(--color-surface)' : 'transparent', border: N === n ? 'var(--color-border-strong)' : 'transparent', color: N === n ? 'var(--color-text-primary)' : 'var(--color-text-secondary)', go: () => M.set({ dashRange: n }) }));
+    // feed
+    const FI = { merge: ['git-merge', tone('ready', 'solid')], ci: ['activity', 'var(--color-text-secondary)'], approval: ['st-needs', tone('needs-you', 'solid')], plan: ['list-checks', 'var(--color-text-secondary)'], schedule: ['clock', 'var(--color-text-secondary)'], brief: ['sunrise', 'var(--color-text-secondary)'], tool: ['info', 'var(--color-text-secondary)'] };
+    const feedAll = S.feed.map(f => {
+      let ic = FI[f.kind] || FI.tool; if (f.kind === 'ci') ic = /failed/i.test(f.text) ? ['circle-x', tone('danger', 'solid')] : ['circle-check', tone('working', 'solid')];
+      return { icon: ic[0], iconColor: ic[1], text: f.text, project: f.pid && M.proj(f.pid) ? M.proj(f.pid).name : '', hasProject: !!(f.pid && M.proj(f.pid)), when: M.rel(f.ts), full: M.full(f.ts),
+        open: () => { if (f.cardId && M.card(f.cardId)) M.openCard(f.cardId); else if (f.job) { S.settingsSection = 'schedules'; S.schedEdit = f.job; M.go('settings'); } else if (f.pid && M.proj(f.pid)) M.go('project', f.pid); } };
+    });
+    // today
+    const dow = new Date().getDay(); const nowHM = new Date().toTimeString().slice(0, 5); const today = [];
+    S.schedules.filter(s => s.enabled && s.days.includes(dow) && s.time).forEach(s => today.push({ time: s.time, icon: s.icon, label: s.name, kind: s.kind === 'brief' ? 'Brief' : 'Job', iconColor: 'var(--color-text-secondary)', open: () => { S.settingsSection = 'schedules'; S.schedEdit = s.id; M.go('settings'); } }));
+    S.calEvents.filter(e => (e.days && e.days.includes(dow)) || e.dayOffset === 0).forEach(e => today.push({ time: e.time, icon: 'calendar', label: e.title, kind: 'Event', iconColor: 'var(--color-text-secondary)', open: () => M.toast(e.title + ' is from Google Calendar') }));
+    S.cards.filter(c => c.due === 0 && c.state !== 'done').forEach(c => today.push({ time: 'Today', icon: 'calendar-check', label: '#' + c.id + ' ' + c.title + ' is due', kind: 'Due', iconColor: tone(M.STATUS[c.state].tone, 'solid'), open: () => M.openCard(c.id) }));
+    today.sort((a, b) => a.time.localeCompare(b.time)); const upcoming = today;
+    const aw = M.awake().sort((a, b) => ['working', 'needs', 'planning', 'merging', 'review', 'ready'].indexOf(a.state) - ['working', 'needs', 'planning', 'merging', 'review', 'ready'].indexOf(b.state));
+    const awL = S.limits.global.awake;
+    const ci = S.projects.map(p => { const c = M.CI[p.ci] || M.CI.queued; return { name: p.name, icon: c.icon, color: c.color, label: c.label.toLowerCase(), ago: p.ciAgo ? (p.ciAgo < 60 ? p.ciAgo + ' min ago' : Math.round(p.ciAgo / 60) + ' h ago') : '', go: () => M.go('project', p.id) }; });
+    const two = vw >= 900;
+    const awAll = aw.map(c => Object.assign(M.deco(c), { sleep: () => M.sleep(c.id), sleepLabel: 'Sleep #' + c.id }));
+    const sec = (k, list, label, go) => { const ex = !!this.state.open[k]; return { list: ex ? list : list.slice(0, 5), f: { canToggle: list.length > 5, expanded: ex, toggleLabel: ex ? 'Show less' : 'Show all ' + list.length, toggle: () => this.setState({ open: Object.assign({}, this.state.open, { [k]: !ex }) }), viewAll: go, viewAllLabel: label } }; };
+    const topPid = (S.projects.slice().sort((a, b) => M.awake(b.id).length - M.awake(a.id).length)[0] || {}).id;
+    const sA = sec('act', feedAll, 'View all activity', () => M.set({ allKind: 'activity' }) || M.go('all'));
+    const sT = sec('today', upcoming, 'Open calendar', () => M.go('project', S.route.pid && M.proj(S.route.pid) ? S.route.pid : topPid, 'calendar'));
+    const sW = sec('awake', awAll, 'Open agents', () => M.go('project', topPid, 'agents'));
+    const sC = sec('ci', ci, 'View all CI runs', () => M.set({ allKind: 'ci' }) || M.go('all'));
+    return {
+      rootRef: this.rootRef, chartRef: this.chartRef, pad: phone ? '16px 16px 32px' : '24px 24px 48px', pairCols: two ? 'minmax(0, 1.6fr) minmax(0, 1fr)' : 'minmax(0, 1fr)', cols: two ? 'minmax(0, 1fr) minmax(280px, 340px)' : 'minmax(0, 1fr)',
+      hasNeeds: needs.length > 0, noNeeds: needs.length === 0, needsCount: needs.length, groups, emptyText: 'Nothing needs you right now. ' + working.length + (working.length === 1 ? ' agent is working.' : ' agents are working.'),
+      tiles, tileCols: phone ? 'repeat(2, minmax(0, 1fr))' : 'repeat(4, minmax(0, 1fr))', ranges, segH: vw < 1200 ? '40px' : '26px',
+      chartCols: vw >= 1000 ? 'repeat(2, minmax(0, 1fr))' : 'minmax(0, 1fr)', cw, bars, xLabelsB, yGridB, barSummary: sumF + ' cards finished in the last ' + N + ' days',
+      lines, plotR, plotR4: plotR + 6, xLabelsL, yGridL, limitY: yL(limit), limitTY: yL(limit) - 6, limitLabel: 'Limit ' + M.money(limit), lineSummary: 'All projects today ' + M.money(cost.today) + ' of the ' + M.money(limit) + ' daily limit',
+      feed: sA.list, actF: sA.f, todayF: sT.f, awakeF: sW.f, ciF: sC.f,
+      today: sT.list, noToday: upcoming.length === 0,
+      awake: sW.list, awakeLabel: aw.length + ' of ' + awL, awakeColor: aw.length >= awL ? tone('needs-you', 'text') : 'var(--color-text-secondary)', ci: sC.list
+    };
+  }
+}
+</script>
+</body>
+</html>
