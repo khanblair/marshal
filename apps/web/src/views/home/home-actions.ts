@@ -35,6 +35,12 @@ export function openCostLimits(): void {
   M.go("settings");
 }
 
+/** Opens Settings on the integrations list, where GitHub is connected. */
+export function openIntegrations(): void {
+  M.S.settingsSection = "integrations";
+  M.go("settings");
+}
+
 export function viewAllActivity(): void {
   M.set({ allKind: "activity" });
   M.go("all");

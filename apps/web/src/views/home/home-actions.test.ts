@@ -30,8 +30,8 @@ describe("mergedTodayCount", () => {
     M.S.feed = [];
     expect(mergedTodayCount()).toBe(0);
     M.S.feed.push(
-      { id: "a", kind: "merge", text: "#1 merged", pid: "api", cardId: 1, ts: M.T0 + 1 },
-      { id: "b", kind: "merge", text: "#2 merged", pid: "api", cardId: 2, ts: M.T0 - 1 },
+      { id: "a", kind: "merge", text: "#1 merged", pid: "api", cardId: "api#1", ts: M.T0 + 1 },
+      { id: "b", kind: "merge", text: "#2 merged", pid: "api", cardId: "api#2", ts: M.T0 - 1 },
       { id: "c", kind: "ci", text: "CI passed", pid: "api", ts: M.T0 + 5 },
     );
     expect(mergedTodayCount()).toBe(1);

@@ -64,13 +64,13 @@ describe("feedProjectName", () => {
 
 describe("openFeedItem", () => {
   it("opens the card first", () => {
-    openFeedItem(entry({ cardId: 43, pid: "api", job: "s1" }));
-    expect(M.S.openId).toBe(43);
+    openFeedItem(entry({ cardId: "api#43", pid: "api", job: "s1" }));
+    expect(M.S.openId).toBe("api#43");
     expect(M.S.route.page).toBe("home");
   });
 
   it("opens the schedule when the card is gone", () => {
-    openFeedItem(entry({ cardId: 99999, job: "s3", pid: "web" }));
+    openFeedItem(entry({ cardId: "api#99999", job: "s3", pid: "web" }));
     expect(M.S.route.page).toBe("settings");
     expect(M.S.settingsSection).toBe("schedules");
     expect(M.S.schedEdit).toBe("s3");

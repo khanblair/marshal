@@ -6,9 +6,10 @@ vi.hoisted(() => {
   window.location.hash = "#nosim";
 });
 
-const base = M.card(41) as Card;
+const base = M.card("api#41") as Card;
 const card = (patch: Partial<Card>): Card => ({ ...base, ...patch });
-const ids = (cards: readonly Card[]): number[] => cards.map((c) => c.id);
+/** The numbers of the cards, which is what the sort orders show as `#41`. */
+const ids = (cards: readonly Card[]): number[] => cards.map((c) => c.n);
 const DEFAULT_COLS = { ...M.S.listCols };
 const DESKTOP_PX = 1440;
 const TABLET_PX = 820;
@@ -75,10 +76,29 @@ describe("visibleColumns", () => {
 
 describe("sortListCards", () => {
   const list = [
-    card({ id: 1, title: "beta", state: "review", cost: 2, ci: "passed", pkg: "b", think: "Low" }),
-    card({ id: 2, title: "Alpha", state: "working", cost: 1, ci: null, pkg: null, think: null }),
     card({
-      id: 3,
+      id: "api#1",
+      n: 1,
+      title: "beta",
+      state: "review",
+      cost: 2,
+      ci: "passed",
+      pkg: "b",
+      think: "Low",
+    }),
+    card({
+      id: "api#2",
+      n: 2,
+      title: "Alpha",
+      state: "working",
+      cost: 1,
+      ci: null,
+      pkg: null,
+      think: null,
+    }),
+    card({
+      id: "api#3",
+      n: 3,
       title: "gamma",
       state: "merging",
       cost: 3,
@@ -87,7 +107,8 @@ describe("sortListCards", () => {
       think: "High",
     }),
     card({
-      id: 4,
+      id: "api#4",
+      n: 4,
       title: "delta",
       state: "backlog",
       cost: 1,

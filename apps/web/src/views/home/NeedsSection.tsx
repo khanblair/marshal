@@ -1,6 +1,7 @@
 import { Button, Icon } from "@marshal/ui";
 import { createMemo, For, Show } from "solid-js";
 import { type Card, M, type Project } from "~/mock";
+import { cardLabel } from "~/mock/card-key";
 import { canApproveHere, countLabel, nothingNeedsYouText, reasonButton, reasonIcon } from "./needs";
 
 function NeedsRow(props: { card: Card; project: Project }) {
@@ -17,7 +18,7 @@ function NeedsRow(props: { card: Card; project: Project }) {
           <span class="text-status-needs-you-text font-semibold">{reason()}</span>
           <span class="flex flex-wrap gap-x-2">
             <span>{props.card.title}</span>
-            <span class="text-muted">#{props.card.id}</span>
+            <span class="text-muted">{cardLabel(props.card)}</span>
           </span>
           <span class="flex flex-wrap gap-x-3 text-caption leading-4 text-secondary">
             <span>{props.project.name}</span>

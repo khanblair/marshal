@@ -57,7 +57,7 @@ export function visibleColumns(listCols: Record<string, boolean>, vw: number): L
 type SortValue = string | number;
 
 const SORT_VALUES: Record<ListKey, (card: Card) => SortValue> = {
-  id: (card) => card.id,
+  id: (card) => card.n,
   title: (card) => card.title.toLowerCase(),
   state: (card) => M.COLUMNS.indexOf(M.colOf(card.state)),
   role: (card) => card.role,

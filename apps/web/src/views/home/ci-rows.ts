@@ -1,4 +1,5 @@
 import { type Card, type CiState, M, type Project } from "~/mock";
+import { cardLabel } from "~/mock/card-key";
 
 /* CI rows of the Home card and of the CI health page. */
 
@@ -7,7 +8,7 @@ const MINUTES_PER_DAY = 1440;
 const MS_PER_MINUTE = 60_000;
 
 /** The `ago` of a project's main branch as Home words it: minutes under an hour, else hours. Empty when unknown. */
-export function homeCiAgo(minutes: number): string {
+export function homeCiAgo(minutes: number | undefined): string {
   if (!minutes) return "";
   return minutes < MINUTES_PER_HOUR
     ? `${minutes} min ago`
@@ -34,8 +35,14 @@ export interface CiRun {
   open: () => void;
 }
 
+/** A project that has CI data. */
+export type ProjectWithCi = Project & { ci: CiState };
+
+/** True when the project has CI data. A project from the daemon has none until GitHub is connected. */
+export const hasCi = (project: Project): project is ProjectWithCi => project.ci !== undefined;
+
 function workflowRuns(project: Project): CiRun[] {
-  return project.runs.map((run) => ({
+  return (project.runs ?? []).map((run) => ({
     name: run.wf + (run.pkg ? ` ${run.pkg}` : ""),
     where: "main",
     state: run.st,
@@ -47,7 +54,7 @@ function workflowRuns(project: Project): CiRun[] {
 function cardRun(card: Card, state: CiState): CiRun {
   return {
     name: card.branch ?? "",
-    where: `#${card.id} ${card.title}`,
+    where: `${cardLabel(card)} ${card.title}`,
     state,
     minutesAgo: Math.max(1, Math.round((M.now() - card.upd) / MS_PER_MINUTE)),
     open: () => M.openCard(card.id),

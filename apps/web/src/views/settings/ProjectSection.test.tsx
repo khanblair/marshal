@@ -12,6 +12,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
   vi.clearAllTimers();
   vi.useRealTimers();
 });
@@ -63,25 +64,52 @@ describe("Project settings section", () => {
     expect(projectPicker()).toHaveValue("api");
   });
 
-  it("saves edits to the project and toasts", () => {
-    showSettings("project");
+  // The daemon call itself is tested with a daemon in memory (`sync/project-actions.test.ts`). Here the
+  // action stands in for it: it applies the fields at once, as its optimistic step does, and toasts.
+  const stubSave = (accept: boolean) =>
+    vi.spyOn(M, "saveProject").mockImplementation(async (id, next) => {
+      if (!accept) return false;
+      const project = M.proj(id);
+      if (project) Object.assign(project, { ...next, dev: next.dev });
+      M.toast("Project saved");
+      return true;
+    });
+
+  const editEverything = () => {
     fireEvent.input(nameField(), { target: { value: " gateway " } });
     fireEvent.input(screen.getByLabelText("Default branch"), { target: { value: "develop" } });
     fireEvent.input(screen.getByLabelText("Dev command", { exact: false }), {
       target: { value: "go run ." },
     });
     fireEvent.click(screen.getByLabelText("Lock bypass permissions", { exact: false }));
+  };
+
+  it("saves edits to the project and toasts", async () => {
+    const save = stubSave(true);
+    showSettings("project");
+    editEverything();
     expect(saveButton()).toBeEnabled();
     fireEvent.click(saveButton());
-    expect(M.proj("api")).toMatchObject({
+    expect(save).toHaveBeenCalledWith("api", {
       name: "gateway",
       branch: "develop",
       dev: "go run .",
       lockBypass: true,
     });
+    await vi.waitFor(() => expect(saveButton()).toBeDisabled());
     expect(lastToast()).toBe("Project saved");
-    expect(saveButton()).toBeDisabled();
     expect(projectPicker().querySelector("option")?.textContent).toBe("gateway");
+  });
+
+  it("keeps the person's edits when the daemon does not accept them", async () => {
+    const save = stubSave(false);
+    showSettings("project");
+    editEverything();
+    fireEvent.click(saveButton());
+    await vi.waitFor(() => expect(save).toHaveBeenCalledOnce());
+    expect(nameField()).toHaveValue(" gateway ");
+    expect(saveButton()).toBeEnabled();
+    expect(M.proj("api")?.name).toBe("api-gateway");
   });
 
   it("keeps the old name and the edits when the new name is empty", () => {

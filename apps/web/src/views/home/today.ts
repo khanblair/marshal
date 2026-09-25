@@ -51,7 +51,7 @@ function dueItems(): TodayItem[] {
       time: "Today",
       icon: "calendar-check",
       iconColor: M.tone(M.STATUS[c.state].tone, "solid"),
-      label: `#${c.id} ${c.title} is due`,
+      label: `${M.cardLabelOf(c)} ${c.title} is due`,
       kind: "Due",
       open: () => M.openCard(c.id),
     }));

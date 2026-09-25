@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { M } from "~/mock";
-import { ciInfo, homeCiAgo, runAgo, runsOf } from "./ci-rows";
+import { cardLabel } from "~/mock/card-key";
+import { ciInfo, hasCi, homeCiAgo, runAgo, runsOf } from "./ci-rows";
 import { type HomeSnapshot, homeSnapshot, resetHome } from "./test-support";
 
 vi.hoisted(() => {
@@ -69,7 +70,7 @@ describe("runsOf", () => {
     const card = M.cardsOf("api").find((c) => c.ci);
     if (!project || !card) throw new Error("seed has no api card with CI");
     card.upd = M.now();
-    const own = runsOf(project).find((r) => r.where.startsWith(`#${card.id} `));
+    const own = runsOf(project).find((r) => r.where.startsWith(`${cardLabel(card)} `));
     expect(own?.minutesAgo).toBe(1);
   });
 
@@ -81,6 +82,17 @@ describe("runsOf", () => {
     expect(M.S.route).toMatchObject({ page: "project", pid: "api", view: "board" });
     const own = runs.find((r) => r.where !== "main");
     own?.open();
-    expect(M.S.openId).toBe(Number(own?.where.match(/^#(\d+)/)?.[1]));
+    const owner = M.cardsOf("api").find((c) => own?.where.startsWith(`${cardLabel(c)} `));
+    expect(M.S.openId).toBe(owner?.id);
+  });
+});
+
+describe("a project with no CI data", () => {
+  it("is told apart by its missing state, and has no runs of its own", () => {
+    const bare = { id: "billing", name: "billing", lang: "Go", path: "~/code/billing" };
+    expect(hasCi(bare)).toBe(false);
+    expect(hasCi({ ...bare, ci: "passed" })).toBe(true);
+    expect(runsOf(bare)).toEqual([]);
+    expect(homeCiAgo(undefined)).toBe("");
   });
 });

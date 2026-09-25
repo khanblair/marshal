@@ -66,7 +66,7 @@ describe("todayItems", () => {
       time: "Today",
       icon: "calendar-check",
       kind: "Due",
-      label: `#${working.id} ${working.title} is due`,
+      label: `${M.cardLabelOf(working)} ${working.title} is due`,
       iconColor: "var(--color-status-working-solid)",
     });
   });

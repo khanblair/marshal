@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { M } from "~/mock";
+import { type CardKey, cardNumber } from "~/mock/card-key";
 import { ListView } from "./ListView";
 
 vi.hoisted(() => {
@@ -25,19 +26,19 @@ function showProject(pid: string, width = DESKTOP_PX): void {
   M.go("project", pid, "list");
 }
 
-const dataCards = (): number[] =>
+const dataCards = (): string[] =>
   screen
     .getAllByRole("row")
     .slice(1)
-    .map((row) => Number(row.getAttribute("data-card")));
-const rowOf = (id: number): HTMLElement => {
+    .map((row) => row.getAttribute("data-card") ?? "");
+const rowOf = (id: CardKey): HTMLElement => {
   const row = document.querySelector<HTMLElement>(`tr[data-card="${id}"]`);
   if (!row) throw new Error(`no row for #${id}`);
   return row;
 };
 const headerNames = (): string[] =>
   screen.getAllByRole("columnheader").map((h) => h.textContent ?? "");
-const cellsOf = (id: number): string[] =>
+const cellsOf = (id: CardKey): string[] =>
   [...rowOf(id).querySelectorAll("td")].map((td) => td.textContent ?? "");
 
 beforeEach(() => showProject("api"));
@@ -70,15 +71,19 @@ describe("ListView table", () => {
       "none",
     );
     const ids = dataCards();
-    expect(ids).toEqual([...ids].sort((a, b) => b - a));
-    expect(ids).toContain(45);
+    const numbers = ids.map(cardNumber);
+    expect(numbers).toEqual([...numbers].sort((a, b) => b - a));
+    expect(ids).toContain("api#45");
     expect(screen.getByRole("table")).toHaveStyle({ "min-width": "1100px" });
   });
 
   it("describes a card in its cells and its accessible name", () => {
     render(() => <ListView />);
-    expect(rowOf(41)).toHaveAttribute("aria-label", "#41 Fix token refresh on login. Working");
-    expect(cellsOf(41).slice(0, 8)).toEqual([
+    expect(rowOf("api#41")).toHaveAttribute(
+      "aria-label",
+      "#41 Fix token refresh on login. Working",
+    );
+    expect(cellsOf("api#41").slice(0, 8)).toEqual([
       "#41",
       "Fix token refresh on login",
       "Working",
@@ -88,19 +93,19 @@ describe("ListView table", () => {
       "marshal/41-fix-token-refresh",
       "Running",
     ]);
-    expect(cellsOf(41)[8]).toBe("$0.84");
+    expect(cellsOf("api#41")[8]).toBe("$0.84");
   });
 
   it("leaves the CI, cost, and branch cells empty when a card has none", () => {
     render(() => <ListView />);
-    const [, , , , , , branch, ci, cost] = cellsOf(45);
+    const [, , , , , , branch, ci, cost] = cellsOf("api#45");
     expect([branch, ci, cost]).toEqual(["", "", ""]);
-    expect(within(rowOf(45)).getByText("Backlog")).toBeVisible();
+    expect(within(rowOf("api#45")).getByText("Backlog")).toBeVisible();
   });
 
   it("right-aligns Cost, and sets the branch in the mono font", () => {
     render(() => <ListView />);
-    const cells = rowOf(41).querySelectorAll("td");
+    const cells = rowOf("api#41").querySelectorAll("td");
     expect(cells[8]).toHaveClass("text-right");
     expect(cells[6]).toHaveClass("font-mono", "text-caption", "text-secondary", "max-w-[260px]");
     expect(cells[1]).toHaveClass("font-semibold", "max-w-[360px]");
@@ -116,10 +121,10 @@ describe("ListView table", () => {
     expect(headerNames()).toContain("Thinking");
     expect(headerNames()).toContain("Package");
     expect(screen.getByRole("table")).toHaveStyle({ "min-width": "1320px" });
-    const cells = cellsOf(209);
+    const cells = cellsOf("mobile#209");
     expect(cells[headerNames().indexOf("Package")]).toBe("apps/android");
     expect(cells[headerNames().indexOf("Thinking")]).toBe("High");
-    const pkg = rowOf(209).querySelectorAll("td")[headerNames().indexOf("Package")];
+    const pkg = rowOf("mobile#209").querySelectorAll("td")[headerNames().indexOf("Package")];
     expect(pkg).toHaveClass("font-mono", "text-caption");
     M.S.listCols.pkg = false;
     expect(headerNames()).not.toContain("Package");
@@ -128,7 +133,7 @@ describe("ListView table", () => {
   it("says Not supported for a model without thinking", () => {
     M.S.listCols.think = true;
     render(() => <ListView />);
-    expect(cellsOf(45)[headerNames().indexOf("Thinking")]).toBe("Not supported");
+    expect(cellsOf("api#45")[headerNames().indexOf("Thinking")]).toBe("Not supported");
   });
 
   it("hides Model, Thinking, Package, and Updated below 1200 px", () => {
@@ -152,29 +157,29 @@ describe("ListView table", () => {
   it("marks bypass, asleep, and pinned cards with an icon before the title", () => {
     showProject("mobile");
     render(() => <ListView />);
-    const titleCell = (id: number) => rowOf(id).querySelectorAll("td")[1] as HTMLElement;
-    expect(titleCell(209).querySelector(".lucide-shield-alert")).not.toBeNull();
-    expect(titleCell(209).querySelector("span[aria-hidden]")).toHaveClass(
+    const titleCell = (id: CardKey) => rowOf(id).querySelectorAll("td")[1] as HTMLElement;
+    expect(titleCell("mobile#209").querySelector(".lucide-shield-alert")).not.toBeNull();
+    expect(titleCell("mobile#209").querySelector("span[aria-hidden]")).toHaveClass(
       "text-status-danger-solid",
     );
-    expect(titleCell(208).querySelector(".lucide-moon")).not.toBeNull();
-    expect(titleCell(207).querySelector(".lucide-pin")).not.toBeNull();
-    expect(titleCell(210).querySelector("svg")).toBeNull();
-    expect(titleCell(208)).toHaveStyle({ color: "var(--color-text-secondary)" });
-    expect(titleCell(210)).toHaveStyle({ color: "var(--color-text-primary)" });
+    expect(titleCell("mobile#208").querySelector(".lucide-moon")).not.toBeNull();
+    expect(titleCell("mobile#207").querySelector(".lucide-pin")).not.toBeNull();
+    expect(titleCell("mobile#210").querySelector("svg")).toBeNull();
+    expect(titleCell("mobile#208")).toHaveStyle({ color: "var(--color-text-secondary)" });
+    expect(titleCell("mobile#210")).toHaveStyle({ color: "var(--color-text-primary)" });
   });
 
   it("marks the focused card's row and opens a card on click or Enter", () => {
     render(() => <ListView />);
-    M.set({ focusId: 43 });
-    expect(rowOf(43)).toHaveClass("bg-surface-selected");
-    expect(rowOf(41)).not.toHaveClass("bg-surface-selected");
-    fireEvent.click(rowOf(44));
-    expect(M.S.openId).toBe(44);
+    M.set({ focusId: "api#43" });
+    expect(rowOf("api#43")).toHaveClass("bg-surface-selected");
+    expect(rowOf("api#41")).not.toHaveClass("bg-surface-selected");
+    fireEvent.click(rowOf("api#44"));
+    expect(M.S.openId).toBe("api#44");
     M.set({ openId: null });
-    fireEvent.keyDown(rowOf(41), { key: "Enter" });
-    expect(M.S.openId).toBe(41);
-    expect(rowOf(41)).toHaveAttribute("tabindex", "0");
+    fireEvent.keyDown(rowOf("api#41"), { key: "Enter" });
+    expect(M.S.openId).toBe("api#41");
+    expect(rowOf("api#41")).toHaveAttribute("tabindex", "0");
   });
 });
 
@@ -202,9 +207,9 @@ describe("ListView sorting", () => {
 
   it("keeps a row element when the order changes", () => {
     render(() => <ListView />);
-    const before = rowOf(41);
+    const before = rowOf("api#41");
     fireEvent.click(screen.getByRole("button", { name: "Cost" }));
-    expect(rowOf(41)).toBe(before);
+    expect(rowOf("api#41")).toBe(before);
   });
 });
 
@@ -212,7 +217,7 @@ describe("ListView filters", () => {
   it("shows only the cards that match a filter", () => {
     M.addFilter("role", "Tester");
     render(() => <ListView />);
-    expect(dataCards()).toEqual([42]);
+    expect(dataCards()).toEqual(["api#42"]);
     expect(screen.queryByText(/No cards match/)).toBeNull();
   });
 
@@ -253,15 +258,17 @@ describe("ListView phone list", () => {
 
   it("shows CI and cost only when the card has them, and colors the edge from the state", () => {
     render(() => <ListView />);
-    const button = (id: number) =>
+    const button = (id: CardKey) =>
       document.querySelector<HTMLElement>(`button[data-card="${id}"]`) as HTMLElement;
-    expect(button(41)).toHaveTextContent("Running");
-    expect(button(41)).toHaveTextContent("$0.84");
-    expect(button(41)).toHaveStyle({ "border-left-color": "var(--color-status-working-solid)" });
-    expect(button(45)).not.toHaveTextContent("$");
-    expect(button(45)).toHaveStyle({ "border-left-color": "var(--color-border)" });
-    fireEvent.click(button(41));
-    expect(M.S.openId).toBe(41);
+    expect(button("api#41")).toHaveTextContent("Running");
+    expect(button("api#41")).toHaveTextContent("$0.84");
+    expect(button("api#41")).toHaveStyle({
+      "border-left-color": "var(--color-status-working-solid)",
+    });
+    expect(button("api#45")).not.toHaveTextContent("$");
+    expect(button("api#45")).toHaveStyle({ "border-left-color": "var(--color-border)" });
+    fireEvent.click(button("api#41"));
+    expect(M.S.openId).toBe("api#41");
   });
 
   it("shows the notice when nothing matches", () => {
@@ -292,9 +299,9 @@ describe("ListView keyboard navigation", () => {
 
   it("leaves another view's navigation alone on unmount", () => {
     const { unmount } = render(() => <ListView />);
-    M.nav = { owner: "agents", rows: [1] };
+    M.nav = { owner: "agents", rows: ["api#1"] };
     unmount();
-    expect(M.nav).toEqual({ owner: "agents", rows: [1] });
+    expect(M.nav).toEqual({ owner: "agents", rows: ["api#1"] });
     M.nav = null;
   });
 });
