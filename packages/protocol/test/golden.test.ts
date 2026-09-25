@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type {
+  Card,
   CardKey,
   ErrorFrame,
   ErrorResponse,
@@ -119,6 +120,31 @@ describe("golden files from the daemon", () => {
     expect(describeFrame(golden("resync") as ServerFrame)).toBe("epoch-changed");
     expect(describeFrame(golden("error-frame") as ServerFrame)).toBe("invalid_argument");
     expect(describeFrame(golden("event-batch") as ServerFrame)).toBe("2 events");
+  });
+
+  it("has a card whose thinking setting is always present, and null when the card has none", () => {
+    // `thinking` is required and nullable, not optional: the Go field is a pointer without
+    // `omitempty`, so it is always in the JSON, as null when there is no setting
+    // (`protocol/card.go`). Both shapes below must compile; the golden card has a setting.
+    const withSetting: Card = {
+      id: "01M3C107JB041061050R3GG28A",
+      projectId: "web-dashboard",
+      number: 12,
+      key: "web-dashboard#12",
+      title: "Add a health check endpoint",
+      body: "Serve GET /health with the version.",
+      state: "backlog",
+      agent: "claude",
+      model: "claude-sonnet-4-5",
+      thinking: "high",
+      permissionMode: "auto-edits",
+      branch: "",
+      createdAt: "2026-09-25T10:15:30.123Z",
+      updatedAt: "2026-09-25T10:16:30.123Z",
+    };
+    expect(golden("card")).toEqual(withSetting);
+    const withoutSetting: Card = { ...withSetting, thinking: null };
+    expect(withoutSetting.thinking).toBeNull();
   });
 
   it("has the answer to whoami", () => {

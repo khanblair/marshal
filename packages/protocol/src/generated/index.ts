@@ -169,8 +169,13 @@ export interface Card {
   agent: AgentKind;
   /** Model is the model the agent uses. Empty means the agent's own default. */
   model: string;
-  /** Thinking is how much the agent thinks. It is null when the card has no thinking setting. */
-  thinking?: ThinkingMode;
+  /**
+   * Thinking is how much the agent thinks. It is null when the card has no thinking setting.
+   * The tstype tag makes the generated TypeScript `ThinkingMode | null` and required, because
+   * this field is always sent, as null when there is no setting: a pointer without `omitempty`
+   * encodes nothing away, so the type must not make it optional.
+   */
+  thinking?: ThinkingMode | null;
   /** PermissionMode is how much the agent may do without asking. */
   permissionMode: PermissionMode;
   /** Branch is the Git branch of the card's work. Empty until the card starts. */
@@ -208,6 +213,26 @@ export interface CreateCardRequest {
   thinking?: ThinkingMode;
   /** PermissionMode is how much the agent may do without asking. Empty means auto-accept edits. */
   permissionMode?: PermissionMode;
+}
+
+//////////
+// source: card_actions.go
+
+/**
+ * MaxMessageChars is the most characters one message to an agent may have. The daemon refuses a
+ * longer one with a plain sentence that names this limit, so the composer can show the same number.
+ */
+export const MaxMessageChars = 100000;
+/**
+ * SendMessageRequest is the body of POST /v1/cards/{id}/messages: one message from the person to
+ * the agent that works on the card. The answer arrives on the event stream, not in the reply.
+ */
+export interface SendMessageRequest {
+  /**
+   * Text is the message. It cannot be empty or only spaces, and it can have at most
+   * MaxMessageChars characters. Its spaces and line breaks are sent as they are.
+   */
+  text: string;
 }
 
 //////////
@@ -1008,6 +1033,94 @@ export interface CardMovedEventData {
   card: Card;
   /** From is the state the card was in before. */
   from: CardState;
+}
+
+//////////
+// source: session_events.go
+
+/**
+ * SessionOutputEventData is the payload of session.output: a piece of the agent's answer, a piece
+ * of its reasoning, or a full replacement of its plan.
+ */
+export interface SessionOutputEventData {
+  /** CardID is the card whose session produced this output. */
+  cardId: string;
+  /** Kind is "message", "thought", or "plan". */
+  kind: string;
+  /**
+   * Text is the chunk of text, for "message" and "thought". It is cut with agents.Truncate the
+   * same way tool output already is, so one event never carries more than agents.MaxContentBytes:
+   * the full text belongs in the session log (docs/architecture.md section 4.1). Empty for "plan".
+   */
+  text?: string;
+  /** Plan is the agent's whole plan, for "plan". Nil for every other kind. */
+  plan?: PlanStep[];
+}
+/** PlanStep is one line of an agent's plan, on the wire. */
+export interface PlanStep {
+  text: string;
+  /** Status is "pending", "in_progress", or "completed" (agents.PlanStep's own Status constants). */
+  status: string;
+}
+/**
+ * SessionToolCallEventData is the payload of session.tool_call: a tool call starting, or an
+ * update to one that is already running.
+ */
+export interface SessionToolCallEventData {
+  /** CardID is the card whose session made this tool call. */
+  cardId: string;
+  /** Kind is "tool_call" or "tool_call_update". */
+  kind: string;
+  toolCall: AgentToolCall;
+}
+/**
+ * AgentToolCall is a tool call, or an update to one, on the wire. A field that an update did not
+ * change is empty (see agents.ToolCallUpdate); Title, ToolKind, Path, and Command are only ever
+ * set by the call that starts the tool, so an update leaves them out.
+ */
+export interface AgentToolCall {
+  /** ID names the call inside the session. An update shares the ID of the call it updates. */
+  id: string;
+  title?: string;
+  /**
+   * ToolKind is the agent's word for the kind of tool: read, edit, delete, move, search,
+   * execute, think, fetch, switch_mode, or other. Only set when the call starts.
+   */
+  toolKind?: string;
+  /**
+   * Status is "pending", "in_progress", "completed", or "failed" (agents.StatusPending and its
+   * siblings).
+   */
+  status?: string;
+  /** Path is the file the call is about, when it has one. Only set when the call starts. */
+  path?: string;
+  /** Command is the command line of an execute call. Only set when the call starts. */
+  command?: string;
+  /** Content is the text the tool has produced so far, cut to agents.MaxContentBytes. */
+  content?: string;
+  diffs?: FileDiff[];
+  /** Truncated says that Content or Diffs were cut short. The full text belongs in the session log. */
+  truncated?: boolean;
+}
+/** FileDiff is a change a tool made to a file, on the wire. OldText is empty for a new file. */
+export interface FileDiff {
+  path: string;
+  oldText?: string;
+  newText?: string;
+}
+/** SessionStateChangedEventData is the payload of session.state_changed. */
+export interface SessionStateChangedEventData {
+  /** CardID is the card the session belongs to. */
+  cardId: string;
+  /** SessionID is the session's own opaque id (not the agent's session id). */
+  sessionId: string;
+  /** State is the state the session moved to. */
+  state: SessionState;
+  /**
+   * Reason is a plain sentence, set when the move needs an explanation (for example, a resume
+   * that failed). Empty for an ordinary move such as a turn ending.
+   */
+  reason?: string;
 }
 
 //////////
