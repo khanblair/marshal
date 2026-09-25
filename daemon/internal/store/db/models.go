@@ -57,6 +57,20 @@ type Project struct {
 	UpdatedAt      int64
 }
 
+type Session struct {
+	ID             string
+	CardID         string
+	AgentKind      string
+	AgentSessionID string
+	State          string
+	Model          string
+	Thinking       string
+	PermissionMode string
+	LastActiveAt   int64
+	CreatedAt      int64
+	UpdatedAt      int64
+}
+
 type Setting struct {
 	Key       string
 	ValueJSON string
