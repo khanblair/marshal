@@ -1,0 +1,86 @@
+/*
+ * Marshal base styles. Tailwind's preflight is left out on purpose: the design
+ * was drawn against a minimal reset and the browser defaults, so we keep that
+ * exact behavior and add the design's own base rules below.
+ */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "@marshal/tokens/fonts.css";
+@import "@marshal/tokens/tailwind-theme.css";
+@import "@marshal/tokens/tokens.css";
+@import "tailwindcss/utilities.css" layer(utilities);
+@source "../../../../packages/ui/src";
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+  html,
+  body {
+    margin: 0;
+    height: 100%;
+    background: var(--color-canvas);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 20px;
+    -webkit-font-smoothing: antialiased;
+  }
+  button,
+  input,
+  select,
+  textarea {
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+    color: inherit;
+  }
+  button {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+  a {
+    color: var(--color-text-primary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  a:hover {
+    color: var(--color-text-secondary);
+  }
+  :focus {
+    outline: none;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
+  }
+  ::placeholder {
+    color: var(--color-text-muted);
+  }
+  [data-size="phone"] .text-badge,
+  [data-size="phone"] .text-caption {
+    font-size: 13px !important;
+    line-height: 18px !important;
+  }
+  [data-touch="1"] button:not([data-compact]),
+  [data-touch="1"] select,
+  [data-touch="1"] input:not([type="checkbox"]),
+  [data-touch="1"] [role="tab"] {
+    min-height: 44px;
+  }
+  [data-touch="1"] button[aria-label]:not([data-compact]) {
+    min-width: 44px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation: none !important;
+      transition: none !important;
+    }
+  }
+}
