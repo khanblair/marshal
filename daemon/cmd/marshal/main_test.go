@@ -142,7 +142,7 @@ func TestDevResetRefusesWhileTheDaemonRuns(t *testing.T) {
 		t.Fatal(err)
 	}
 	settings := config.Settings{Mode: platform.ModeDev}
-	server := api.New(settings, slog.New(slog.NewTextHandler(io.Discard, nil)), time.Now)
+	server := api.New(settings, slog.New(slog.NewTextHandler(io.Discard, nil)), time.Now, api.Deps{})
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() { done <- server.Serve(ctx, listener) }()
@@ -158,5 +158,67 @@ func TestDevResetRefusesWhileTheDaemonRuns(t *testing.T) {
 	}
 	if _, err := os.Stat(dir); err != nil {
 		t.Errorf("data was deleted while the daemon ran: %v", err)
+	}
+}
+
+// tokenMachine is a fake machine with a token file in the normal or the dev data folder.
+func tokenMachine(t *testing.T, dev bool, token string) (env platform.Env, path string) {
+	t.Helper()
+	home := t.TempDir()
+	env = platform.Env{GOOS: "linux", Home: home, Getenv: func(string) string { return "" }}
+	folder, file := "marshal", platform.OwnerTokenFile
+	if dev {
+		folder, file = "marshal-dev", platform.DevTokenFile
+	}
+	dir := filepath.Join(home, ".local", "share", folder)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	path = filepath.Join(dir, file)
+	if token != "" {
+		if err := os.WriteFile(path, []byte(token+"\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return env, path
+}
+
+func TestTokenPrintsThePathAndNotTheToken(t *testing.T) {
+	for _, dev := range []bool{false, true} {
+		env, path := tokenMachine(t, dev, "secret-token-value")
+		args := []string{"token"}
+		if dev {
+			args = append(args, "--dev")
+		}
+		code, out, errOut := runDevWith(env, "", args...)
+		if code != exitOK || strings.TrimSpace(out) != path {
+			t.Errorf("dev=%v: token = %d %q %q, want the path %q", dev, code, out, errOut, path)
+		}
+		if strings.Contains(out+errOut, "secret-token-value") {
+			t.Errorf("dev=%v: the token was printed without --show", dev)
+		}
+	}
+}
+
+func TestTokenShowPrintsOnlyTheToken(t *testing.T) {
+	env, _ := tokenMachine(t, false, "secret-token-value")
+	code, out, errOut := runDevWith(env, "", "token", "--show")
+	if code != exitOK || out != "secret-token-value\n" || errOut != "" {
+		t.Errorf("token --show = %d %q %q", code, out, errOut)
+	}
+}
+
+func TestTokenWhenThereIsNoFile(t *testing.T) {
+	env, path := tokenMachine(t, false, "")
+	code, out, errOut := runDevWith(env, "", "token", "--show")
+	if code != exitFailed || out != "" || !strings.Contains(errOut, path) || !strings.Contains(errOut, "Start the daemon") {
+		t.Errorf("token without a file = %d %q %q", code, out, errOut)
+	}
+}
+
+func TestTokenRejectsAnUnknownFlag(t *testing.T) {
+	env, _ := tokenMachine(t, false, "x")
+	if code, _, _ := runDevWith(env, "", "token", "--reveal"); code != exitBadInput {
+		t.Errorf("token --reveal = %d, want %d", code, exitBadInput)
 	}
 }

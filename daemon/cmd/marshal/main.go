@@ -18,6 +18,7 @@ const usage = `Usage: marshal <command>
 
 Commands:
   status [--dev] [--port N]   Show whether the daemon is running
+  token [--dev] [--show]      Show where the token file is, or the token itself with --show
   dev reset [--yes]           Delete the dev daemon's data (dev mode only)
   version                     Print the version`
 
@@ -44,6 +45,8 @@ func runWith(env platform.Env, args []string, term terminal) int {
 		return exitOK
 	case "status":
 		return runStatus(args[1:], term)
+	case "token":
+		return runToken(env, args[1:], term)
 	case "dev":
 		return runDev(env, args[1:], term)
 	case "help", "-h", "--help":
