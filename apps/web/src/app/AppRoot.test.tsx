@@ -101,3 +101,123 @@ describe("AppRoot layers", () => {
     expect(screen.getByRole("dialog", { name: "Go to" })).toBeInTheDocument();
   });
 });
+
+const DETAIL = "unreachable (no answer): Marshal can't reach the daemon. Check that it is running.";
+const connectTo = (
+  state: NonNullable<typeof M.S.connection>["state"],
+  more: Partial<NonNullable<typeof M.S.connection>> = {},
+) => {
+  M.S.connection = { state, retryAt: null, detail: "", rejection: "", busy: false, ...more };
+};
+
+describe("AppRoot and the daemon", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+    M.S.connection = undefined;
+    M.S.loadError = undefined;
+    M.S.ready = true;
+  });
+
+  it("draws the app, and no connection screen, while online or with no daemon at all", () => {
+    render(() => <AppRoot />);
+    expect(appRoot()).toHaveAttribute("data-connection", "online");
+    expect(screen.getByRole("banner")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Can't reach the daemon" })).toBeNull();
+    connectTo("online");
+    expect(appRoot()).toHaveAttribute("data-connection", "online");
+    expect(screen.queryByText(/You're offline/)).toBeNull();
+  });
+
+  it("shows a skeleton of the app, in its own layout, while the first data loads", () => {
+    M.S.ready = false;
+    connectTo("starting");
+    render(() => <AppRoot />);
+    expect(screen.getByRole("status")).toHaveTextContent("Loading Marshal");
+    expect(screen.getByRole("status")).toHaveAttribute("aria-busy", "true");
+    expect(screen.queryByRole("banner")).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Can't reach the daemon" })).toBeNull();
+    M.S.ready = true;
+    connectTo("online");
+    expect(screen.getByRole("banner")).toBeInTheDocument();
+    expect(screen.queryByText("Loading Marshal")).toBeNull();
+  });
+
+  it("shows Can't reach the daemon, with its technical detail only inside Details, and retries on demand", () => {
+    vi.useFakeTimers();
+    const retry = vi.spyOn(M, "reconnect").mockImplementation(() => {});
+    connectTo("unreachable", { retryAt: Date.now() + 4000, detail: DETAIL });
+    M.S.ready = true;
+    render(() => <AppRoot />);
+    expect(screen.getByRole("heading", { name: "Can't reach the daemon" })).toBeInTheDocument();
+    expect(appRoot()).toHaveAttribute("data-connection", "unreachable");
+    expect(screen.queryByRole("banner")).toBeNull();
+    expect(screen.getByText("Trying again in 4 s")).toBeInTheDocument();
+    vi.advanceTimersByTime(1000);
+    expect(screen.getByText("Trying again in 3 s")).toBeInTheDocument();
+    const detail = screen.getByText(DETAIL);
+    expect(detail.closest("details")).not.toBeNull();
+    expect(document.body.textContent?.split(DETAIL)).toHaveLength(2);
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(retry).toHaveBeenCalledOnce();
+  });
+
+  it("goes back to the app by itself when the connection returns", () => {
+    connectTo("unreachable", { detail: DETAIL });
+    render(() => <AppRoot />);
+    expect(screen.getByRole("heading", { name: "Can't reach the daemon" })).toBeInTheDocument();
+    connectTo("online");
+    expect(screen.queryByRole("heading", { name: "Can't reach the daemon" })).toBeNull();
+    expect(screen.getByRole("banner")).toBeInTheDocument();
+  });
+
+  it("shows the app with the offline bar on top while it reconnects", () => {
+    connectTo("reconnecting");
+    render(() => <AppRoot />);
+    const bar = screen.getByText(/You're offline/);
+    expect(bar.closest("[role=status]")).not.toBeNull();
+    expect(screen.getByRole("banner")).toBeInTheDocument();
+    expect(appRoot()).toHaveAttribute("data-connection", "reconnecting");
+    connectTo("online");
+    expect(screen.queryByText(/You're offline/)).toBeNull();
+  });
+
+  it("shows sign-in for a device the daemon does not know, and hands over the trimmed token", () => {
+    const signIn = vi.spyOn(M, "signIn").mockImplementation(() => {});
+    connectTo("unauthorized");
+    render(() => <AppRoot />);
+    expect(screen.getByRole("heading", { name: "Sign in to Marshal" })).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
+    fireEvent.input(screen.getByLabelText("Access token"), { target: { value: "  abc123  " } });
+    fireEvent.submit(
+      screen.getByRole("button", { name: "Sign in" }).closest("form") as HTMLElement,
+    );
+    expect(signIn).toHaveBeenCalledWith("abc123");
+  });
+
+  it("says why a token was refused, in the daemon's words, under the field", () => {
+    const sentence = "Sign in again. This device's token is missing or no longer valid.";
+    connectTo("unauthorized", { rejection: sentence });
+    render(() => <AppRoot />);
+    expect(screen.getByRole("alert")).toHaveTextContent(sentence);
+    expect(screen.getByLabelText("Access token")).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("shows a busy sign-in while the token is checked", () => {
+    connectTo("unauthorized", { busy: true });
+    render(() => <AppRoot />);
+    expect(screen.getByRole("button", { name: "Sign in" })).toBeDisabled();
+  });
+
+  it("shows a load error, with Try again, when the first data could not be loaded", () => {
+    const retry = vi.spyOn(M, "reconnect").mockImplementation(() => {});
+    M.S.ready = false;
+    M.S.loadError = "Marshal ran into a problem. Try again.";
+    connectTo("online");
+    render(() => <AppRoot />);
+    expect(screen.getByText("Marshal ran into a problem. Try again.")).toBeInTheDocument();
+    expect(screen.queryByRole("banner")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(retry).toHaveBeenCalledOnce();
+  });
+});

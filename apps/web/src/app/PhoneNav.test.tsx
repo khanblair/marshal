@@ -84,7 +84,7 @@ describe("PhoneNav", () => {
 
   it("goes to the tab's page and closes the card and notices", () => {
     M.go("project", "web", "board");
-    M.openCard(41);
+    M.openCard("api#41");
     M.set({ noticesOpen: true });
     const pid = M.S.route.pid;
     render(() => <PhoneNav />);

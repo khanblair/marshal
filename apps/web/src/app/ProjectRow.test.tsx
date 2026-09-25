@@ -27,6 +27,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
   vi.useRealTimers();
 });
 
@@ -64,6 +65,16 @@ describe("ProjectRow menu", () => {
 });
 
 describe("ProjectRow rename", () => {
+  // The daemon call is tested with a daemon in memory (`sync/project-actions.test.ts`). Here the
+  // action stands in for its optimistic step: the name changes on the screen at once.
+  beforeEach(() => {
+    vi.spyOn(M, "renameProject").mockImplementation(async (id, name) => {
+      const project = M.proj(id);
+      if (project) project.name = name.trim();
+      return true;
+    });
+  });
+
   const startRename = () => {
     M.set({ menu: "proj:api" });
     renderRow();
@@ -87,6 +98,7 @@ describe("ProjectRow rename", () => {
     fireEvent.input(field, { target: { value: "billing" } });
     fireEvent.keyDown(field, { key: "Enter" });
     expect(M.S.renaming).toBeNull();
+    expect(M.renameProject).toHaveBeenCalledWith("api", "billing");
     expect(api().name).toBe("billing");
     expect(screen.getByRole("button", { name: /^billing: / })).toBeInTheDocument();
   });
@@ -112,6 +124,7 @@ describe("ProjectRow rename", () => {
 
   it("keeps the old name and says so when the new one is empty", () => {
     const field = startRename();
+    vi.mocked(M.renameProject).mockRestore();
     fireEvent.input(field, { target: { value: "   " } });
     fireEvent.keyDown(field, { key: "Enter" });
     expect(api().name).toBe("api-gateway");
@@ -131,6 +144,7 @@ describe("ProjectRow rename", () => {
     fireEvent.keyDown(field, { key: "Enter" });
     fireEvent.input(field, { target: { value: "two" } });
     fireEvent.blur(field);
+    expect(M.renameProject).toHaveBeenCalledOnce();
     expect(api().name).toBe("one");
   });
 });
@@ -142,6 +156,24 @@ describe("ProjectRow content", () => {
     expect(button).toHaveTextContent("A");
     expect(button).toHaveTextContent(String(M.needs("api").length));
     expect(button).toHaveTextContent(String(M.awake("api").length));
+  });
+
+  it("draws no CI state, and says nothing of one, for a project the daemon has no CI data for", () => {
+    const { unmount } = render(() => (
+      <ul>
+        <ProjectRow
+          project={{ id: "billing", name: "billing", lang: "Go", path: "~/code/billing" }}
+        />
+      </ul>
+    ));
+    const button = screen.getByRole("button", { name: "billing: 0 need you, 0 awake agents" });
+    expect(button).toHaveAttribute("title", "billing: 0 need you, 0 awake agents");
+    expect(button.textContent).not.toMatch(/queued|CI/i);
+    unmount();
+    renderRow();
+    expect(
+      screen.getByRole("button", { name: /^api-gateway: .*main CI passed/ }),
+    ).toBeInTheDocument();
   });
 
   it("uses a question mark for a nameless project", () => {

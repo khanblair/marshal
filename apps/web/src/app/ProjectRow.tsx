@@ -16,12 +16,16 @@ export function ProjectRow(props: ProjectRowProps) {
   const id = () => props.project.id;
   const needs = createMemo(() => M.needs(id()).length);
   const awake = createMemo(() => M.awake(id()).length);
-  const ci = () => M.CI[props.project.ci] || M.CI.queued;
+  /** The main branch's CI, or null for a project the daemon has no CI data for. Nothing is invented for it. */
+  const ci = () => (props.project.ci ? (M.CI[props.project.ci] ?? M.CI.queued) : null);
   const selected = () => isProject() && M.S.route.pid === id();
   const menuName = () => `proj:${id()}`;
   const menuOpen = () => M.S.menu === menuName();
-  const tip = () =>
-    `${props.project.name}: ${needs()} need you, main CI ${ci().label.toLowerCase()}, ${awake()} awake agents`;
+  const tip = () => {
+    const state = ci();
+    const ciText = state ? `, main CI ${state.label.toLowerCase()}` : "";
+    return `${props.project.name}: ${needs()} need you${ciText}, ${awake()} awake agents`;
+  };
 
   return (
     // biome-ignore lint/a11y/useSemanticElements: the design's row is a div with a listitem role, so it keeps the exact layout
@@ -60,7 +64,7 @@ export function ProjectRow(props: ProjectRowProps) {
               <Show when={needs() > 0}>
                 <NeedsBadge count={needs()} class="px-1.25!" />
               </Show>
-              <CiStatus status={props.project.ci} />
+              <Show when={props.project.ci}>{(status) => <CiStatus status={status()} />}</Show>
               <span class="inline-flex items-center gap-0.5 text-caption text-secondary">
                 <Icon name="zap" size={12} />
                 {awake()}

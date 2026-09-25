@@ -19,7 +19,8 @@ export function ProjectRenameInput(props: ProjectRenameInputProps) {
     if (M.S.renaming !== props.project.id) return;
     batch(() => {
       M.S.renaming = null;
-      if (save !== null && save !== props.project.name) M.renameProject(props.project.id, save);
+      if (save !== null && save !== props.project.name)
+        void M.renameProject(props.project.id, save);
     });
   };
 

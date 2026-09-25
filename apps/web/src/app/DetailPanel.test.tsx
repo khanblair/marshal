@@ -24,7 +24,7 @@ function openCard(width = DESKTOP_PX): void {
   M.setViewport(width, 900);
   M.set({ openId: null, detailExpanded: false, detailW: DEFAULT_WIDTH_PX, menu: null });
   M.go("project", "api", "board");
-  M.openCard(41);
+  M.openCard("api#41");
 }
 
 const handle = (): HTMLElement => screen.getByRole("separator", { name: "Resize card panel" });

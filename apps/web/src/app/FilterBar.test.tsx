@@ -47,12 +47,12 @@ describe("FilterBar visibility", () => {
 
   it("gives way to an open card on phones only", () => {
     showProject("board", PHONE_PX);
-    M.set({ openId: 41 });
+    M.set({ openId: "api#41" });
     render(() => <FilterBar />);
     expect(screen.queryByRole("textbox", { name: "Filter cards" })).toBeNull();
     cleanup();
     showProject("board", TABLET_PX);
-    M.set({ openId: 41 });
+    M.set({ openId: "api#41" });
     render(() => <FilterBar />);
     expect(search()).toBeInTheDocument();
   });
