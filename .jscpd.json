@@ -1,0 +1,21 @@
+{
+  "threshold": 0,
+  "minLines": 30,
+  "minTokens": 120,
+  "reporters": ["console"],
+  "gitignore": false,
+  "absolute": false,
+  "ignore": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/coverage/**",
+    "**/.parity/**",
+    "design/**",
+    "pnpm-lock.yaml",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "packages/tokens/src/themes.ts",
+    "apps/web/src/mock/seed/**"
+  ],
+  "format": ["typescript", "tsx", "javascript", "css"]
+}

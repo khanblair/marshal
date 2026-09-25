@@ -1,0 +1,87 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.14/schema.json",
+  "vcs": { "enabled": false },
+  "files": {
+    "includes": [
+      "**",
+      "!**/node_modules",
+      "!**/dist",
+      "!**/.parity",
+      "!**/coverage",
+      "!**/.vitest",
+      "!design",
+      "!pnpm-lock.yaml",
+      "!packages/tokens/dist",
+      "!apps/web/test-results",
+      "!apps/web/playwright-report"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100,
+    "lineEnding": "lf"
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "double",
+      "semicolons": "always",
+      "trailingCommas": "all",
+      "arrowParentheses": "always"
+    }
+  },
+  "css": { "formatter": { "enabled": true, "quoteStyle": "double" }, "parser": { "tailwindDirectives": true } },
+  "assist": { "enabled": true, "actions": { "source": { "organizeImports": "on" } } },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "complexity": {
+        "noExcessiveCognitiveComplexity": { "level": "error", "options": { "maxAllowedComplexity": 25 } },
+        "noExcessiveLinesPerFunction": {
+          "level": "error",
+          "options": { "maxLines": 100, "skipBlankLines": true, "skipIifes": true }
+        },
+        "useMaxParams": { "level": "error", "options": { "max": 6 } }
+      },
+      "correctness": {
+        "noUnusedVariables": "error",
+        "noUnusedImports": "error",
+        "noUnusedFunctionParameters": "error",
+        "noUnusedPrivateClassMembers": "error"
+      },
+      "style": {
+        "noNonNullAssertion": "error",
+        "noParameterAssign": "error",
+        "useConst": "error",
+        "useTemplate": "warn",
+        "noMagicNumbers": "warn"
+      },
+      "suspicious": {
+        "noExplicitAny": "error",
+        "noConsole": { "level": "warn", "options": { "allow": ["error", "warn"] } }
+      },
+      "nursery": {}
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["**/*.test.ts", "**/*.test.tsx", "**/test-setup.ts"],
+      "linter": {
+        "rules": {
+          "complexity": { "noExcessiveLinesPerFunction": "off" },
+          "style": { "noMagicNumbers": "off", "noNonNullAssertion": "off" }
+        }
+      }
+    },
+    {
+      "includes": ["tools/**", "scripts/**", "packages/tokens/scripts/**"],
+      "linter": { "rules": { "suspicious": { "noConsole": "off" }, "style": { "noMagicNumbers": "off" } } }
+    },
+    {
+      "includes": ["packages/tokens/src/**"],
+      "linter": { "rules": { "style": { "noMagicNumbers": "off" } } }
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.14/schema.json",
+  "extends": ["./biome.json"],
+  "linter": {
+    "rules": {
+      "complexity": {
+        "noExcessiveCognitiveComplexity": { "level": "warn", "options": { "maxAllowedComplexity": 15 } },
+        "noExcessiveLinesPerFunction": {
+          "level": "warn",
+          "options": { "maxLines": 50, "skipBlankLines": true, "skipIifes": true }
+        },
+        "useMaxParams": { "level": "warn", "options": { "max": 4 } }
+      }
+    }
+  }
+}
