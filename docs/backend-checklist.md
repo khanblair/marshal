@@ -1,0 +1,494 @@
+# Backend checklist
+
+This is the checklist for building the daemon and connecting it to the app we already have, so the prototype's dummy data is replaced by real work. It says what to build, in which order, how each piece is finished, how it is tested, and which rules it is checked against. It contains no code.
+
+It works together with three other documents:
+
+- `build-plan.md` is the order of the work. This checklist follows it phase by phase, and uses its task IDs (shown as "Task 1.4").
+- `backend-inventory.md` lists everything the prototype does and shows, and where each piece lives in the backend. Everything in it that the docs did not cover yet is built here (entries N1 to N30).
+- `architecture.md`, `code-standards.md`, `development.md`, `library-docs.md`, `ui-rules.md`, and `design-port.md` are the rules. Section 7 maps each of them to the items below.
+
+Item IDs look like B2.4 (phase 2, item 4). Tick an item only when its "Done when" is true and the definition of done in section 4 is met.
+
+---
+
+## 1. Decisions from the owner
+
+Made on 2026-09-25. They are logged in `progress-tracker.md`.
+
+- The backend follows the prototype. Anything the prototype does that the docs do not describe is built, and the docs are updated to match. The full list is in `backend-inventory.md` section 5.
+- Everything is real, and built in build plan order. No integration is left as a stand-in. Trello, Gmail, Google Calendar, Telegram, Discord, Tailscale, GitHub, and the model providers are each connected for real when their phase comes.
+- The mock is replaced section by section. A section stops using mock data only after it has been verified working with the daemon. A section that is not integrated yet keeps its mock data. When every section is integrated, the mock is deleted.
+- Go is installed (version 1.27.1, on 2026-09-25). The pinned Go tools are set up in item B0.1.
+- "Simulate CI failure" is built as a real feature that runs through the daemon's CI monitor (N28).
+- Parity checking against the prototype stays retired. Approved deviations stay in `design-port.md`.
+- Commits touch at most 10 files, and pushes to GitHub are batched, because every push to `main` runs the three-platform CI.
+
+---
+
+## 2. How the daemon replaces the mock
+
+### 2.1 The seam
+
+The screens keep calling the same store they call today, `M`, with the same actions and the same state shape. What changes is what is behind it:
+
+- **An API client.** One client for every call, as `code-standards.md` section 4.2 requires. No screen calls `fetch` on its own.
+- **An event stream.** One WebSocket connection that applies daemon events to the state, reconnects when it drops, and re-syncs from a snapshot when it has missed events.
+- **A mapper.** A small tested layer that turns the generated protocol types into the shapes the screens already use, including turning absolute timestamps into "4 min ago" and countdowns.
+- **Optimistic updates.** An action changes the screen at once, then the daemon's answer confirms it or rolls it back with a plain message.
+
+The daemon owns all state. The client mirrors it. This keeps the daemon the single source of truth, as `architecture.md` section 1 says.
+
+### 2.2 Sections and the cutover register
+
+A section is one part of the screens that can switch from mock data to the daemon on its own. Its status is Mock until its cutover gate (2.4) passes, then Daemon. Update the status in the same commit that switches it.
+
+| Section | Screens | Build plan tasks | Status |
+|---|---|---|---|
+| S1 Connection and sign-in | Boot, token or pairing, "Can't reach the daemon", reconnect | 1.12, 1.13 | Mock |
+| S2 Profile and devices | Avatar menu, Profile settings, paired devices | 2.15, 9.2 | Mock |
+| S3 Projects | Sidebar list and badges, create, rename, remove, project settings | 1.4, 2.14 | Mock |
+| S4 Agents and models | Agent, model, and thinking pickers everywhere | 1.8, N19 | Mock |
+| S5 Cards | Board, List, Timeline, Agents view, new card, quick add, move, rename, delete, fork | 2.4, 2.10, 12.1, 12.2 | Mock |
+| S6 Filters and saved views | Filter bar, swimlanes, saved views | 2.5 | Mock |
+| S7 Card control | Card header, settings, start, pause, sleep, wake, pin, bypass | 1.9, 3.1, 3.2, 5.10 | Mock |
+| S8 Card chat | Messages, tool calls, plans, approvals, composer | 2.6, 3.5, 5.2 | Mock |
+| S9 Terminal | Terminal view and the chat and terminal switch | 2.7 | Mock |
+| S10 Card activity | Activity tab | 2.8 | Mock |
+| S11 Card diff | Diff tab | 2.9 | Mock |
+| S12 Card checks | Checks tab | 10.4 | Mock |
+| S13 Card preview | Preview tab | 6.6, 6.7 | Mock |
+| S14 Card notes | Notes tab | 7.6, 7.7 | Mock |
+| S15 Checklists | Checklists on a card | 10.10, 10.11 | Mock |
+| S16 Comments and members | Comments tab, members row | 10.12, 10.13 | Mock |
+| S17 Project chats | Chats view | 2.11 | Mock |
+| S18 Home: needs you and tiles | Needs you list, summary tiles, awake agents | 2.3 | Mock |
+| S19 Home: charts | Cards finished per day, cost per project | 2.3, 4.7, 4.8 | Mock |
+| S20 Home: activity | Recent activity and its view-all page | 2.3 | Mock |
+| S21 Home: CI health | CI health list and its view-all page | 6.2, 6.4 | Mock |
+| S22 Home: coming up | Events, jobs, briefs, due cards | 8.1, 8.5 | Mock |
+| S23 Notices | Bell, sleep reminders, cost, plan, and CI notices | 5.10 | Mock |
+| S24 Search and palette | Command palette, top bar search | 2.12, 7.10 | Mock |
+| S25 Calendar | Calendar view | 8.5, 12.3 | Mock |
+| S26 Settings: General and Limits | Sleep settings, theme, cost and awake limits | 4.8, 5.10 | Mock |
+| S27 Settings: Roles | Role list and editor | 5.1 | Mock |
+| S28 Settings: Providers | Provider keys and tests | 4.1, 4.9 | Mock |
+| S29 Settings: Integrations | Each of the seven integrations, one row per integration | 6.1, 8.4 to 8.6, 9.1, 9.5, 9.6 | Mock |
+| S30 Settings: Schedules | Briefs and jobs | 8.1 | Mock |
+| S31 Onboarding and tour | Four onboarding screens, the Home tour | 2.16, 2.17 | Mock |
+
+Shortcuts and Help in Settings are static and have no backend. They are not sections.
+
+### 2.3 Rules while some sections are on the daemon and some are not
+
+1. **Sections that show the same objects move together.** If the Board shows real cards, the List, the Timeline, the Agents view, the card panel header, and the Home needs you list must show real cards too, or a card could appear in one place and not another. That is why S5 is one section, and why a card-based section never cuts over before S5 has.
+2. **A mock-backed section must tolerate real IDs.** When a real card, project, or chat opens a section that is still on the mock (for example Comments), that section shows its empty state for it. It never fails and never invents content for it. This is tested in both directions.
+3. **One switch per section, never half a section.** The register in 2.2 is the only place that says which sections are on the daemon.
+4. **A section that shows data from a service that is not connected yet stays on the mock** until the connection test for that service passes. Its screen may not be mixed, for example real cards with mock calendar events, unless it is one of the Home blocks, which are separate sections on purpose.
+5. **The mock's removal is part of the cutover.** When a section switches, its mock seed data, its simulation, and its mock-only tests are deleted or moved in the same change.
+
+### 2.4 Cutover gate
+
+A section may switch to the daemon only when all of this is true. Use it as the "Done when" of every cutover item.
+
+- [ ] Every row of the section in `backend-inventory.md` is built: storage, API, events, and generated types.
+- [ ] Daemon tests pass: unit, integration with the stub agent and fixture repos, and the contract test for each API call and event.
+- [ ] The mapper has tests built from golden files the daemon tests produce, so the two sides cannot drift.
+- [ ] The screens work against the dev daemon at phone, tablet, and desktop sizes, in both themes, with no console errors, no sideways scrolling, and no wrapped button labels.
+- [ ] The section has its loading, empty, error, and offline states, built from existing components and tokens (`ui-rules.md`, task 2.13).
+- [ ] The section's flows have end-to-end tests that run against the dev daemon with a fixture project.
+- [ ] Its mock data, simulation, and mock-only tests are removed or migrated, and `knip` reports no dead code.
+- [ ] The register in 2.2, `architecture.md`, `project-structure.md`, `progress-tracker.md`, and the file changes log are updated.
+- [ ] `pnpm check` passes, and the web budgets in `architecture.md` section 14 still hold.
+
+### 2.5 Retiring the mock
+
+When every section is on the daemon (item B13.1):
+
+- The mock folder, its seed data, its simulation, and the differential test harness that loads the design's `store.js` are deleted. The design files stay in `design/` as the reference.
+- The `M` store stays, because the screens use it, but it holds only mirrored daemon data and screen state.
+- Tests that used mock data now use typed fixture builders, made from the same golden files as the mapper tests, and the end-to-end tests use the dev daemon with a fixture project.
+
+### 2.6 Testing once the mock is gone
+
+| Layer | How |
+|---|---|
+| Daemon units | Table-driven Go tests with the race detector and `goleak` where goroutines start |
+| Daemon integration | The stub agent, fixture repos, and recorded webhooks. Never a real model API in CI. |
+| Contract | Golden files for every API response and event, checked on the Go side and used to test the client mapper |
+| Client units and components | Vitest with fixture builders. No network. |
+| End to end | Playwright against the dev daemon started in dev mode with a fixture project, at phone (390 by 844), tablet (820 by 1180), and desktop (1440 by 900), in both themes |
+| Real agents | Nightly smoke tests against pinned CLI versions. Claude Code and Gemini CLI are installed on the dev machine. Codex is not, which exercises the "missing" state. |
+| Budgets | RAM, CPU, size, and timing checks on every pull request |
+| Platforms | macOS, Linux, and Windows in CI |
+
+---
+
+## 3. What the owner does
+
+Some steps need an account, a key, or a decision that only the owner can make. These are never typed into chat or stored in files. Keys go into the keychain with the `marshal keys` command, and account setup is done by the owner in the provider's own screens.
+
+| When | What | Task |
+|---|---|---|
+| Now | Approve installing Go (done) | 0.3 |
+| Phase 3 or 4 | Add model provider keys with the keychain command | 4.1, 4.2 |
+| Phase 5 | Sign in to GitHub for pull requests | 5.6 |
+| Phase 6 | Create and install the GitHub App | 6.1 |
+| Phase 8 | Create the Trello key and token, and the Google Cloud OAuth client for Calendar and Gmail | 8.4 to 8.6 |
+| Phase 9 | Sign in to Tailscale, allow Funnel for `/hooks/*` in the tailnet policy, and create the Telegram and Discord bot tokens | 9.1 to 9.6 |
+| Release | Provide the macOS Developer ID and notarization access and the Windows signing certificate as CI secrets | 0.14 |
+| Optional | Install the Codex CLI to test an installed Codex agent | 1.8 |
+
+An integration whose account step is not done yet keeps its mock section (rule 4 in 2.3).
+
+---
+
+## 4. Definition of done for every item
+
+An item is done only when all of these are true. This is the code standards, the architecture rules, and the development guide as one list.
+
+- [ ] The "Done when" of the item is true, and its tests pass.
+- [ ] New code has tests. A bug fix has a test that failed before the fix.
+- [ ] Coverage stays at or above 70 percent for daemon modules and 60 percent for the UI, and 85 percent for `harness`, `security`, `integrator`, and `session`.
+- [ ] `pnpm check` passes: format, lint, code smells, tests, and budgets. No new smell. Blocking limits (function 100 lines, file 800 lines, 6 parameters, complexity 25) are not passed, and warnings are fixed or explained.
+- [ ] Go code is formatted with `gofmt` and `goimports`, passes `golangci-lint`, and its tests pass with `-race`. Packages that start goroutines pass `goleak`.
+- [ ] Every blocking call takes a context, every goroutine has an owner and a way to stop, and there is no global mutable state.
+- [ ] Errors are wrapped with context and never swallowed. Errors shown to users are plain sentences at the API layer, following the copy rules in `ui-rules.md`.
+- [ ] Logs use `log/slog` with `project_id`, `card_id`, or `session_id` where relevant, and never contain secrets, tokens, full prompts, or full file contents.
+- [ ] Schema changes are forward-only migrations. Queries are SQL turned into Go by sqlc. No transaction wraps a model or outside call.
+- [ ] Git is called only through `gitx`. Child processes are started only through the one helper. User or agent text is never put into a shell.
+- [ ] Modules talk through their interfaces and the event bus, never through each other's tables.
+- [ ] No polling loop unless `architecture.md` calls for one. High-rate events are batched every 16 to 50 milliseconds. Every buffer, queue, and cache has a documented bound. Large data goes to disk.
+- [ ] Untrusted input (agent output, webhook bodies, integration data, imported skills, vault content, attachments) is treated as data, webhook signatures are checked before the body is read, and permission checks happen in the harness, not only in the UI.
+- [ ] No secret is stored in code, config, tests, or logs. Credentials go through the keychain module.
+- [ ] A new library passes the seven checks in `library-docs.md` section 1 before it is added, is pure Go for the daemon, and gets an entry there.
+- [ ] Wire types are defined once in Go and generated for the UI. Generated files are never edited by hand.
+- [ ] UI code uses tokens and components from `@marshal/ui`, has no raw hex colors, pixel sizes, or font names, no all-caps text, and no inline style except a truly dynamic value.
+- [ ] Screens work at phone, tablet, and desktop sizes, with touch targets of at least 44 px on touch screens.
+- [ ] A budget-affecting change includes a before and after measurement in the commit message or pull request.
+- [ ] `architecture.md`, `project-structure.md`, `library-docs.md`, `development.md`, and `ui-registry.md` are updated where the change touches them, with a row in the file changes log and the doc changes log in `progress-tracker.md`.
+- [ ] Commits use Conventional Commits, mention the task ID in the body, touch at most 10 files, and are pushed in batches.
+
+---
+
+## 5. Phases
+
+Each phase lists its items, the sections it cuts over (from 2.2), the work from the inventory it delivers (N1 to N30), and a gate. Items marked "already done" were finished for the frontend and are listed so nothing is done twice.
+
+### Phase 0: Foundation (build plan Phase 0)
+
+**Goal:** the repo can build, test, and check Go, TypeScript, and the generated types before any feature code.
+
+Already done for the frontend:
+
+- [x] The pnpm workspace, root scripts, and Node and pnpm pins (Task 0.12, frontend part)
+- [x] The SolidJS app with Vite and Tailwind (Task 0.4)
+- [x] The tokens package with the contrast check (Task 0.6)
+- [x] Biome, `knip`, `jscpd`, and the smell script for TypeScript, and the CI for TypeScript (Tasks 0.8 and 0.15, frontend part)
+- [x] The web size budget (Task 0.9, frontend part)
+
+To do:
+
+- [ ] **B0.1 Go and tools.** Go 1.27.1 was installed with Homebrew on 2026-09-25 (approved by the owner). Then `pnpm setup:tools` installs `air`, `sqlc`, `tygo`, and `golangci-lint` into `.tools/`. Done when: the pinned versions are in `daemon/go.mod` and `library-docs.md`, CI uses the same versions, and `go version` and each tool run on this machine. (Task 0.3)
+- [ ] **B0.2 Daemon module.** Create `daemon/` with `cmd/marshald`, `cmd/marshal`, a scripts-only `package.json`, and `internal/` packages as they are needed (no empty packages). Done when: both binaries build on macOS, Linux, and Windows in CI. (Tasks 0.2, 0.3)
+- [ ] **B0.3 Root scripts.** Add `pnpm dev`, `dev:daemon`, `dev:web`, `gen`, `test:daemon`, and Go in `lint`, `smells`, `check`, and `build`, as in `development.md` section 4. The Vite dev server forwards API and WebSocket calls to the dev daemon so the browser talks to one address. Done when: each command works on all three platforms. (Task 0.12)
+- [ ] **B0.4 Go smell tooling.** Add the `golangci-lint` config that matches `code-standards.md` section 12.2, jscpd over Go, and the new-smells-only check with an empty baseline. Done when: CI fails on a test change that adds a blocking smell and passes when it is fixed. (Task 0.15)
+- [ ] **B0.5 Protocol package.** Create `packages/protocol` and generate TypeScript from Go with `tygo` inside `pnpm gen`. Done when: one sample type round-trips in a test, and the generated folder is marked as generated, ignored by hand edits, and covered by `knip`. (Task 0.7)
+- [ ] **B0.6 Go in CI.** Add format, lint, race tests, and builds for Go on the three platforms to the existing workflow. Done when: the pipeline runs on every pull request. (Task 0.8)
+- [ ] **B0.7 Daemon budgets.** Add the budget harness (`tools/budgets`) that measures daemon idle RAM and CPU, and connect it to `pnpm budgets` next to the web budgets. Done when: the report runs in CI and fails when over budget. (Task 0.9)
+- [ ] **B0.8 Fixture repos.** Create a small repo and a monorepo under `daemon/testdata/repos`. Tests copy them to a temp folder. Done when: both load in an integration test. (Task 0.10)
+- [ ] **B0.9 Stub agent.** Create `tools/stub-agent`, a fake agent that speaks ACP, supports resume, and is scripted: ask for approval, fail a test, get stuck in a loop, survive a restart, write code with known smells. Start its scripts from the mock's simulation (`mock/sim/scripts.ts` and `ci-failure.ts`), which already act these cases out. Done when: harness tests run without real models. (Task 0.11)
+- [ ] **B0.10 Dev mode.** Add the `--dev` flag with a separate data folder, port 47801, keychain entries, a dev token accepted on localhost only, the stub agent by default, the `MARSHAL_*` environment settings, `pnpm dev:reset` with confirmation, and `pnpm hooks:replay` with recorded webhooks in `daemon/testdata/hooks`. Done when: a dev daemon and a normal install run side by side without touching each other. (Task 0.13, `development.md` sections 3.4 to 3.9)
+- [ ] **B0.11 Desktop shell and release (deferred).** The Tauri shell and the signed release pipeline do not block replacing the mock. Schedule them after the Phase 2 milestone (open decision D7). Done when: the owner confirms the order. (Tasks 0.5, 0.14)
+
+**Gate:** `pnpm check` runs Go and TypeScript checks on three platforms, generated types are reproducible, and the stub agent and fixture repos are usable from tests.
+
+### Phase 1: First card (build plan Phase 1)
+
+**Goal:** one project, one card, one real agent, a lasting session, and a worktree, reachable from the screens.
+
+**Sections cut over:** S1, S3, S4. **Inventory delivered:** N16, N19, N25, N26, N29 (connection part).
+
+- [ ] **B1.0 Protocol conventions.** Write down and generate the rules every later item uses: absolute timestamps in UTC and the daemon's current time in each snapshot (N25), IDs (N26), one error shape with a stable code and a plain message, cursor paging, the fixed lists of enumerations (card states, permission modes, thinking modes, feed kinds, notice kinds, activity kinds), and the event envelope with a topic and a sequence number for re-sync. Done when: `architecture.md` section 11 describes them and a contract test covers each. (Task 1.12, N25, N26)
+- [ ] **B1.1 Store.** SQLite in WAL mode with one writer connection and a small reader pool, embedded migrations, generated queries, and the tables the phase needs. Done when: migrations run on start, are forward only, and tests pass with a temp database. (Task 1.1)
+- [ ] **B1.2 Event bus.** In-process publish and subscribe with per-subscriber buffers, and critical events never dropped. Done when: tests cover slow subscribers and a dropped buffer that re-syncs. (Task 1.2)
+- [ ] **B1.3 Service and lock.** Install the daemon as a per-user service on all three platforms with a single-instance lock. Done when: it starts at login and survives closing the app. (Task 1.3)
+- [ ] **B1.4 Projects module.** Create from a folder or a clone, rename, edit, remove, one board per project, columns, and the project fields the screens show: language, default branch, dev command, and bypass lock (N16). Remove follows the order in `architecture.md` section 16.1 with the keep-branches and keep-memory options and never touches the repo folder. Done when: every project action works through the API, and a test proves the repo folder is untouched. (Task 1.4, N16)
+- [ ] **B1.5 Git module.** Create and remove worktrees and branches through `gitx` only, and require Git 2.38 or newer. Done when: a worktree exists on card start and is gone on close. (Task 1.5)
+- [ ] **B1.6 Agent interface and ACP adapter.** Done when: the stub agent starts, sends events, and resumes. (Task 1.6)
+- [ ] **B1.7 PTY adapter.** Done when: a real CLI runs in a pseudo-terminal and its output is captured on all three platforms. (Task 1.7)
+- [ ] **B1.8 Claude Code, Gemini CLI, and Codex.** Support each through its best available mode, and detect which are installed and which version, marking each supported, untested, or missing. `GET /v1/agents` returns kind, version, status, models, and capabilities including thinking support, and the screens' fixed agent and model lists are replaced by it (N19). Done when: a real Claude Code session runs on a card, Gemini CLI is detected, and Codex shows as missing on this machine. (Task 1.8, N19)
+- [ ] **B1.9 Session manager.** Start, send, stop, and persist the session ID. Done when: messages go into the same process, with no new process per message. (Task 1.9)
+- [ ] **B1.10 Resume.** After a daemon restart or a reboot, in automatic and manual modes. Done when: a card continues with full context. (Task 1.10)
+- [ ] **B1.11 Session logs.** Full output to disk under `<data>/logs/sessions/`, rotated, with a small in-memory ring buffer. Done when: memory stays flat under heavy output. (Task 1.11)
+- [ ] **B1.12 API and event stream.** The `/v1` HTTP API and the `/v1/events` WebSocket with topics and batching every 16 to 50 milliseconds. Done when: card events reach a test client in batches and a client that missed events can re-sync. (Task 1.12)
+- [ ] **B1.13 Auth and binding.** Client tokens on every request, listening on localhost and the tailnet address only, and a dev token on localhost only in dev mode. Done when: a request without a valid token is rejected and a test proves the daemon does not listen on all interfaces. (Task 1.13)
+- [ ] **B1.14 Client data layer.** Build the API client, the event stream client with reconnect and re-sync, the mapper, the optimistic update helper, the connection state, and the per-section switch that the register in 2.2 controls. Add the screens the mock never needed: loading, empty, error, offline, reconnecting, and sign-in or pairing, from existing components (N29). Done when: each part has tests, the app shows "Can't reach the daemon" and recovers on its own when the daemon returns, and no screen calls `fetch` directly. (Task 2.13, N29)
+- [ ] **B1.15 Cut over S1, S3, S4.** Done when: the cutover gate in 2.4 passes for each, the projects list, badges, and create, rename, and remove dialogs work against the dev daemon, and the agent pickers list the real agents. (Tasks 1.4, 1.8, 2.14)
+
+**Gate (milestone: first card):** a card runs a real agent in its own worktree and survives a restart. Budgets: daemon idle RAM under 50 MB and idle CPU about 0 percent on the fixture project.
+
+### Phase 2: Core UI (build plan Phase 2)
+
+**Goal:** daily use from the screens we already have.
+
+**Sections cut over:** S2, S5, S6, S8 (base message kinds), S9, S10, S11, S17, S18, S19 (cards finished), S20, S24, S31. **Inventory delivered:** N1, N2, N3, N12 to N15, N17, N20, N23, N24, N27, N29.
+
+- [ ] **B2.1 Prototype seed fixture.** Add `MARSHAL_FIXTURE=prototype`, which loads projects, cards, chats, and scripted stub sessions that look like the prototype's seed, so the existing end-to-end specs and the screens look the same when run against the daemon. Done when: the 81 responsive specs pass against the dev daemon unchanged. (Task 0.10, `development.md` section 3.5)
+- [ ] **B2.2 Accounts module.** `GET` and `PATCH /v1/me`, devices, onboarding and tutorial progress, avatar upload, and a users list for member pickers (N27). Done when: edits save and devices list. Cut over S2. (Tasks 2.1, 2.15)
+- [ ] **B2.3 Dashboard module.** Pre-computed `daily_stats` updated from events, the activity stream written from events and trimmed after 90 days, the fixed feed and notice kinds (N17), and the Home calls with ranges of 7, 30, and 90 days and a paged, filterable view-all list. Done when: Home loads in under one second from stats, never scans all cards, and updates live. Cut over S18, S19 (cards finished per day), and S20. (Task 2.3)
+- [ ] **B2.4 Cards.** The card fields the screens show that the model lacks (N1), the allowed-move rules and refusal messages (N2), rename and delete (N3), create and quick add with a start state, the board call, and the events. Done when: cards move live from daemon events, a refused drag snaps back with the daemon's message, and each column's add action does what it says. Cut over S5, including List, Timeline, and Agents view. (Tasks 2.4, 2.10)
+- [ ] **B2.5 Filters and saved views.** Saved view calls (N20). Live filters and search stay on the screen and are remembered as preferences (N30). Done when: a saved view restores filters and swimlane. Cut over S6. (Task 2.5)
+- [ ] **B2.6 Card chat.** The typed message kinds, paged history for cards and chats, streaming text, and tool detail loaded on demand (N13). Plan and approval kinds are added in Phases 3 and 5. Done when: messages, tool call blocks, diff summaries, and system notes render from structured events. Cut over S8 for these kinds. (Task 2.6)
+- [ ] **B2.7 Terminal.** Input, resize, and the phone key bar keys on the event stream (N12), and the view switch that resumes the same session in the other mode. Done when: toggling resumes the same session in one to three seconds with no lost context. Cut over S9. (Task 2.7)
+- [ ] **B2.8 Card activity.** A paged activity list with the fixed kinds (N14). Done when: files changed, commands, tests, and "doing now" show live. Cut over S10. (Task 2.8)
+- [ ] **B2.9 Card diff.** The file list with counts, hunks loaded when a file opens, and large files collapsed until asked (N15). Done when: large diffs stay smooth, and the list is virtualized. Cut over S11. (Task 2.9)
+- [ ] **B2.10 Project chats.** The chats module and its calls. A new chat's title comes from its first words until a model provider exists (Phase 4). Done when: each chat keeps its own session, and cards it creates land on the project's one board. Cut over S17. (Task 2.11)
+- [ ] **B2.11 Search and palette.** Extend search to projects, cards, and chats (N23). Done when: actions and project switching work from the keyboard, and results come from the daemon. Cut over S24 (session and note search completes in Phase 7). (Task 2.12)
+- [ ] **B2.12 Project dialogs and the sample project.** Ship a small sample repository, let project creation use it, and add the dev-only first-launch reset (N24). Done when: create, rename inline, settings, and remove with confirmation work at every size. (Task 2.14)
+- [ ] **B2.13 Onboarding and tour.** Four screens with skip and resume, agent detection on the agents screen, the sample project on the project screen, and the tour with skip and replay, with progress saved per user. Done when: a new user reaches Home with an agent and a project, or skips safely. Cut over S31 (the Tailscale step completes in Phase 9). (Tasks 2.16, 2.17)
+- [ ] **B2.14 Responsive and end-to-end.** Run every cut-over view at three sizes and two themes against the dev daemon, and add the main flows: add a project, create and start a card, chat, move, and switch views. Done when: all pass in CI. (Task 2.1a)
+
+**Gate (milestone: usable board):** daily use is possible from the screens against the daemon. `pnpm check` and the end-to-end suite pass on all three platforms. Budgets: click to response under 100 ms, card start to agent ready under 3 seconds with the stub agent, and web size budgets.
+
+### Phase 3: Control and safety (build plan Phase 3)
+
+**Goal:** users can trust agents with their code.
+
+**Sections cut over:** S7 (settings and bypass), S8 (approval kind). **Inventory delivered:** N7, N8.
+
+- [ ] **B3.1 Permission modes.** Ask, auto-accept edits, plan only, and full auto, enforced in the harness. Done when: each mode is tested against file writes and commands. (Task 3.1)
+- [ ] **B3.2 Bypass mode.** The confirmation with a typed acknowledgement, the banner, the worktree-only rule, and the project lock, through the bypass calls (N8). Done when: bypass cannot touch the main branch or run outside the worktree, and both turning it on and off are audited. (Task 3.2)
+- [ ] **B3.3 Permission profiles and command blocklist.** Done when: denied actions are blocked in every mode except bypass, and blocked commands are stopped or sent for approval. (Tasks 3.3, 3.4)
+- [ ] **B3.4 Approvals.** One approval row shared by the card and any project chat that asked, with events to every place that shows it (N7), and the approve and deny calls. Done when: approve and deny work from the card, the chat view, and the Home needs you list, and every view updates together. Cut over the approval kind of S8. (Task 3.5)
+- [ ] **B3.5 Secret scanner and audit log.** Scan every agent commit, block a commit with a test key and move the card to Needs you, and record every action in a log that the screens cannot edit, with search and export. Done when: a test run's actions are all recorded and findable. (Tasks 3.6, 3.7)
+- [ ] **B3.6 Thinking modes and model switching.** Map thinking modes per provider and switch the model per card, per role, and mid-session, through card settings (N8). Done when: a setting change changes the provider request, writes the system message and the activity row, and applies on the next turn. Cut over S7. (Tasks 3.8, 3.9)
+- [ ] **B3.7 Deploy approval rule.** Done when: agents cannot run deploy workflows outside bypass. (Task 3.10)
+
+**Gate (milestone: safe to trust):** permission, secret, and audit tests pass, and the harness, security, and session modules are at 85 percent coverage. Two reviews are required for changes to `security` and `harness`.
+
+### Phase 4: Models (build plan Phase 4)
+
+**Goal:** the built-in agent and full provider support.
+
+**Sections cut over:** S28, S26 (limits), S19 (cost chart), and the cost parts of the tiles and cost notices. **Inventory delivered:** N18 (providers, limits).
+
+- [ ] **B4.1 Providers.** The provider interface, an OpenAI-compatible adapter (OpenRouter, DeepSeek), native Anthropic and Gemini adapters, and Ollama and LM Studio. Provider keys are saved to the keychain and the client only ever sees a masked value. Done when: each adapter passes its tests with thinking settings and tool use, and the built-in agent works offline with a local model. (Tasks 4.1 to 4.3)
+- [ ] **B4.2 Built-in agent.** The read, edit, run, and tools loop under the harness. Done when: it completes a fixture task. (Task 4.4)
+- [ ] **B4.3 Queue and fallback.** A per-provider queue with retry, and model fallback with a notice. Done when: ten parallel requests on one key do not fail on rate limits, and a simulated outage switches to the backup. (Tasks 4.5, 4.6)
+- [ ] **B4.4 Usage and cost.** Track tokens and cost per card, role, and model, and feed `daily_stats`. Done when: the cost meter matches provider usage. Cut over S19. (Task 4.7)
+- [ ] **B4.5 Limits.** Cost and awake limits per project and globally through the settings calls. Done when: hitting a limit pauses cards and creates a cost notice. Cut over S26 (limits). (Task 4.8)
+- [ ] **B4.6 Connection test framework and provider tests.** Done when: the Test button shows passed, partly working, or failed with fix hints, and the result is saved. Cut over S28. (Task 4.9)
+- [ ] **B4.7 Chat titles.** New chats get a short title from their first message, written by a cheap model. Done when: a chat is titled after its first message and can still be renamed. (`architecture.md` section 16.2)
+
+**Gate:** no real model API is called in CI, provider tests use recorded responses, and the cost numbers on Home match the usage table.
+
+### Phase 5: Quality loop (build plan Phase 5)
+
+**Goal:** idea to merged code, with approvals only.
+
+**Sections cut over:** S27, S23 (sleep notices), S26 (sleep settings), S7 (pause, sleep, wake, pin), S8 (plan kind). **Inventory delivered:** N4, N5, N6, N18 (roles).
+
+- [ ] **B5.1 Roles.** Starter roles, edit, duplicate, delete, reset, per-project overrides, export and import, and the weak-model warning on Reviewer and Integrator (N18). Done when: roles are fully editable through the API and the role editor. Cut over S27. (Task 5.1)
+- [ ] **B5.2 Plan first.** The plan calls: approve, reject, and edit (N6), with the plan's steps, files, risks, and checks. Done when: a card waits in Planning until the plan is approved. Cut over the plan kind of S8. (Task 5.2)
+- [ ] **B5.3 Limits, stuck detection, and checkpoints.** Time, cost, and round limits, the stuck detector, and checkpoints with restore. Done when: limits move the card to Needs you with a reason, repeated error and edit loops are caught, and restore returns the worktree and optionally the conversation. (Tasks 5.3 to 5.5)
+- [ ] **B5.4 Pull requests and review.** Create a pull request from a card, and run the Reviewer role on every one. Done when: a card opens a pull request on GitHub and review comments go back to the worker. The GitHub adapter starts here and is completed in Phase 6. (Tasks 5.6, 5.7)
+- [ ] **B5.5 Integrator.** The merge queue: dry run, backup branch, temporary worktree merge, tests, and abort, plus conflict resolution with the context of every card involved. Done when: clean and conflicting fixture merges behave as designed and the target branch only moves forward after tests pass. (Tasks 5.8, 5.9)
+- [ ] **B5.6 Sleep and wake.** Grouped reminders, the pause and resume calls (N4), pin, awake limits, and the notice actions for keep awake, sleep now, keep all, sleep all, and dismiss (N5), with the keep-awake time as a setting. Done when: idle cards sleep and wake with context, working cards never sleep, a working card sleeps only after it is paused, and a pinned card never sleeps. Cut over S23 and the session controls of S7, and the sleep settings of S26. (Task 5.10)
+- [ ] **B5.7 Cleanup.** Remove worktrees and expire backup branches after merge. Done when: nothing is left behind by a fixture card. (Task 5.11)
+- [ ] **B5.8 Quality module.** Project linters and built-in smell checks on card diffs, new-or-worse filtering, caching per commit, smell profiles, blocking findings sent back to the agent, warnings to the Reviewer, and findings with ask to fix and dismiss. Done when: fixture diffs produce the expected findings and old smells are not blamed on the card. The screens for findings need design first (`backend-inventory.md` section 6). (Tasks 5.12 to 5.15)
+
+**Gate (milestone: idea to merge):** a fixture card goes from plan to merged code with approvals only, using the stub agent, and once with a real agent. Integration tests cover the merge safety rules.
+
+### Phase 6: CI and preview (build plan Phase 6)
+
+**Goal:** the screens show real CI, and cards can be previewed.
+
+**Sections cut over:** S21, S13, S29 (GitHub). **Inventory delivered:** N10, N28.
+
+- [ ] **B6.1 GitHub App.** Complete the connection: install, receive events, and verify every webhook signature before reading the body. Done when: the app installs and receives events. The owner creates the App (section 3). Cut over the GitHub row of S29. (Task 6.1)
+- [ ] **B6.2 CI monitor.** Webhooks with a conditional polling backup. Done when: card CI badges and the Home CI health update live. Cut over S21. (Tasks 6.2, 6.4)
+- [ ] **B6.3 CI fix loop.** Rerun failed jobs once, then send the trimmed log of the failed step to the card's session, counted against the loop limits. Done when: a failing fixture test is fixed by the stub agent and the limits stop the loop. (Task 6.3)
+- [ ] **B6.4 Simulate CI failure.** Build the action as a real feature (N28): the daemon injects a synthetic failed run for a card and lets the CI monitor handle it through the normal path, including the rerun, the trimmed log, the loop limits, and the notice. It is audited, it never touches GitHub, and it is visible only in dev mode or when a "Developer options" setting is on (open decision D5). It replaces the mock's hidden menu item and shares its recorded webhook with `pnpm hooks:replay`. Done when: the action produces the same events as a real failure and the fix loop is testable from the screens. (Task 6.3, N28)
+- [ ] **B6.5 Local CI.** Run test and lint steps from workflow files locally, and mark unsupported steps. Done when: a fixture workflow's supported steps run and the rest are marked. (Task 6.5)
+- [ ] **B6.6 Preview and screenshots.** Preview per card on its own port with an isolated browser profile, the project's dev command, before and after screenshots, and state events for stopped, starting, and running (N10). Done when: two cards preview at once without shared state, and screenshots attach to the card and pull request. Cut over S13. (Tasks 6.6, 6.7)
+- [ ] **B6.7 GitHub connection test.** Check the app, repos, permissions, and a ping webhook. Done when: the test catches a missing permission and a blocked webhook, and a test runs automatically after the connection is added. (Task 6.8)
+
+**Gate:** CI behavior is covered by recorded webhooks, and no test needs a live GitHub account.
+
+### Phase 7: Orchestration and memory (build plan Phase 7)
+
+**Goal:** agents see the board and each other, and remember.
+
+**Sections cut over:** S14, S24 (session search). **Inventory delivered:** N11, and the context-used field of N1.
+
+- [ ] **B7.1 Internal MCP server.** All tools listed in `architecture.md` section 11.4, with permission checks. Done when: agents can call every tool and a refused call is explained. (Task 7.1)
+- [ ] **B7.2 Awareness and claims.** A board awareness summary per turn within its token budget, file claims, and early conflict warnings. Done when: overlapping claims warn both cards. (Tasks 7.2, 7.3)
+- [ ] **B7.3 Orchestrator and handoff.** Plan a goal into cards with dependencies, and continue a card on another agent from a clean summary. Done when: the Orchestrator creates approved cards from a goal. (Tasks 7.4, 7.5)
+- [ ] **B7.4 Memory and vault.** The knowledge base, card notes, lessons, an Obsidian-friendly vault with file watching, and the card Notes tab calls (N11). Done when: the vault opens in Obsidian with working links, edits made in Obsidian are picked up, and the Notes tab reads and writes the card's note. Cut over S14 and the Obsidian row of S29. (Tasks 7.6 to 7.8)
+- [ ] **B7.5 Codebase map, search, and context.** A light incremental codebase map, session search, the context meter, and pinned files. Done when: agents answer "where is X" without reading many files, search finds past work across cards, and the meter warns before compaction. (Tasks 7.9 to 7.11)
+
+**Gate:** memory and index updates are incremental, and idle RAM and CPU budgets still hold with the vault watcher running.
+
+### Phase 8: Automation (build plan Phase 8)
+
+**Goal:** scheduled work, and Trello, Calendar, and Gmail connected for real.
+
+**Sections cut over:** S22, S25, S30, S29 (Trello, Google Calendar, Gmail). **Inventory delivered:** N18 (schedules, integrations), N21.
+
+- [ ] **B8.1 Scheduler.** Cron, interval, one-time jobs, and the missed-run policy, with event triggers and loops with hard limits, through the schedule calls (N18). Done when: jobs run on time and after wake as configured, and loops stop on every limit type. Cut over S30. (Tasks 8.1 to 8.3)
+- [ ] **B8.2 Trello.** Two-way sync with one board per project, including checklists, comments, attachments, and member mapping, and the agent shown as a label. Done when: moves, checklists, comments, and attachments sync both ways, conflicts follow the latest change, and the connection test passes. Cut over the Trello row of S29. The owner creates the key and token (section 3). (Task 8.4)
+- [ ] **B8.3 Google Calendar and Gmail.** Events feed the briefs and the calendar, and labeled emails become cards. Done when: events appear, labeled email creates a card, and each connection test passes. Cut over their rows of S29. (Tasks 8.5, 8.6)
+- [ ] **B8.4 Calendar data.** One call for a date range returning events, jobs, briefs, and due cards (N21). Done when: the calendar and the Home coming up list read it. Cut over S22 and S25. (Tasks 12.3, N21)
+- [ ] **B8.5 Briefs.** Morning and evening briefs across all projects with only new changes, and brief times taken from Trello or Calendar. Done when: briefs deliver on time and changing the event changes the time. (Tasks 8.7, 8.8)
+
+**Gate:** every integration has a working connection test that passes without real user data in CI, using recorded responses.
+
+### Phase 9: Remote (build plan Phase 9)
+
+**Goal:** everything works from a phone.
+
+**Sections cut over:** S29 (Tailscale, Telegram, Discord), S2 (devices), S31 (pairing step).
+
+- [ ] **B9.1 Tailscale node and pairing.** The tsnet node inside the daemon, device pairing by scanning a code, and revoking a device. Done when: the daemon is reachable on the tailnet with no separate install, and a phone pairs. The owner signs in (section 3). (Tasks 9.1, 9.2)
+- [ ] **B9.2 Funnel and serving.** Expose only `/hooks/*` publicly with verified signatures, and serve the responsive UI over the tailnet. Done when: only the hook routes are public, and every view and action works on a real phone and tablet through Tailscale. (Tasks 9.3, 9.4)
+- [ ] **B9.3 Telegram and Discord.** Notices, approvals, actions, and voice notes, with their connection tests. Done when: approving and creating a card from each works. The owner creates the bot tokens (section 3). (Tasks 9.5, 9.6)
+- [ ] **B9.4 Notification routing.** Channels per event type and grouped notices. Done when: an event reaches a phone notice in under 5 seconds. (Task 9.7)
+- [ ] **B9.5 Remote machines.** A second daemon on the tailnet. Done when: a project runs on a remote machine from the laptop UI. (Task 9.8)
+
+**Gate (milestone: anywhere):** end-to-end tests run against a daemon reached over the tailnet, and the security rules in `architecture.md` section 13 are tested.
+
+### Phase 10: Advanced cards (build plan Phase 10)
+
+**Goal:** the card features the prototype already shows are real.
+
+**Sections cut over:** S12, S15, S16, and the template, dependency, and duplicate parts of S5. **Inventory delivered:** N9, N22.
+
+- [ ] **B10.1 Templates, dependencies, and sub-cards.** Done when: new cards start from templates, dependent cards start after merges, and a parent shows combined progress. (Tasks 10.1 to 10.3)
+- [ ] **B10.2 Acceptance checks.** The run and list calls (N9). Done when: a card cannot finish until its checks pass, and check results are usable as tick evidence. Cut over S12. (Task 10.4)
+- [ ] **B10.3 Card from anywhere and duplicates.** Cards from code comments and other sources, and duplicate detection while writing a card (N22). Done when: each source creates a card and similar cards are flagged before creation. (Tasks 10.5, 10.6)
+- [ ] **B10.4 Fork and race mode.** Fork from a checkpoint, and race mode with a side-by-side comparison. Done when: a fork runs on its own, and the winner is kept. (Tasks 10.7, 10.8)
+- [ ] **B10.5 Checklists.** Named checklists, items, hide checked, required to finish, and people only, and agent ticks with evidence that auto-untick when the evidence stops being true. Done when: required checklists block the merge queue and a failing test unticks the item it proved. Cut over S15. (Tasks 10.10, 10.11)
+- [ ] **B10.6 Comments and members.** Comments with files, images, links, and mentions, the "Agent read this" marker, immediate replies to @agent and questions, attachments stored on disk under the size limit, and member notices. Done when: @agent and questions get a reply and attachments reach the agent as data. Cut over S16. (Tasks 10.12, 10.13)
+- [ ] **B10.7 Scorecard.** Stats per agent, model, and role, including smells introduced. Done when: the numbers match the usage and findings tables. (Task 10.9)
+
+**Gate:** attachments are never run, and untrusted-content tests cover comments and attachments.
+
+### Phase 11: Ecosystem (build plan Phase 11)
+
+**Goal:** skills, MCP servers, and plugins.
+
+**Sections touched:** S27 (the skills and MCP fields of the role editor become real).
+
+- [ ] **B11.1 Skills.** The skills folder and attaching skills to roles, templates, and cards, and import with a content preview. Done when: skills load for the right agents and an import from a GitHub link shows what it will add. (Tasks 11.1, 11.2)
+- [ ] **B11.2 MCP manager.** Per-card MCP servers, a health check, and the connection test. Done when: each card gets only its listed servers and broken servers show as broken. (Tasks 11.3, 11.4)
+- [ ] **B11.3 Plugin API.** Done when: a sample plugin adds a new integration. (Task 11.5)
+
+**Gate:** imported skills and plugins are treated as untrusted input, and each new library passed the checks in `library-docs.md`.
+
+### Phase 12: Scale (build plan Phase 12)
+
+**Goal:** the remaining views and modes are backed by the daemon.
+
+**Sections touched:** S5 (monorepo package, split view, focus mode), S2 (team).
+
+- [ ] **B12.1 Monorepo mode.** Tool detection, the package graph, sparse worktrees, affected tests, and the package field on cards. Done when: the fixture monorepo works end to end and the board's package swimlane and filter use real packages. (Task 12.5)
+- [ ] **B12.2 Split view, focus mode, and resources.** Done when: up to four panes work with real data, focus shows Needs you only, and the resource panel shows RAM, CPU, and disk per card. (Tasks 12.4, 12.6)
+- [ ] **B12.3 Export, import, and backup.** Done when: a project moves to another machine and settings and memory sync between two devices with encryption. (Tasks 12.7, 12.8)
+- [ ] **B12.4 Team.** Shared boards, human handoff, user roles, and comments, with the people list and member pickers reading real users. Done when: two users work on one board. (Task 12.9)
+
+**Gate (milestone: v1 complete):** all in-scope features are shipped and tested on three platforms.
+
+### Phase 13: Retire the mock and accept
+
+**Goal:** the app runs only on the daemon.
+
+- [ ] **B13.1 Remove the mock.** Every section in 2.2 says Daemon. Delete the mock as described in 2.5, and update `project-structure.md`, `design-port.md`, and `ui-registry.md`. Done when: `knip` reports nothing left over, all tests use fixtures or the dev daemon, and the design files remain.
+- [ ] **B13.2 Full test pass.** Unit, integration, contract, end-to-end at three sizes and two themes, nightly real-agent smoke tests, budgets, and the three platforms, all green.
+- [ ] **B13.3 Real-device pass.** Every view and action on a real phone and tablet over Tailscale.
+- [ ] **B13.4 Docs and tracker.** Every doc matches what was built, every open decision below is closed or logged, and the tracker's task statuses, file changes log, and doc changes log are complete.
+- [ ] **B13.5 Final review.** A whole-project review against `code-standards.md` section 12.5, done by a model or reviewer that did not write the code, with two reviews for `security`, `harness`, and `integrator`.
+
+---
+
+## 6. Where each screen ends up
+
+When the last item of a phase is ticked, each section in 2.2 is switched in the same commit, so the register always shows the truth. The order in which the screens lose their mock data is the order of the phases:
+
+1. Phase 1: connection, projects, and the agent pickers.
+2. Phase 2: profile, cards and every card-based view, filters, chat, terminal, activity, diff, project chats, Home (needs you, tiles, activity, cards finished), search, and onboarding.
+3. Phase 3: approvals and card settings.
+4. Phase 4: providers, cost, and limits.
+5. Phase 5: roles, plans, sleep, and notices.
+6. Phase 6: CI health, preview, and the GitHub row of integrations.
+7. Phase 7: notes and session search.
+8. Phase 8: coming up, calendar, schedules, and Trello, Calendar, and Gmail.
+9. Phase 9: Tailscale, Telegram, Discord, devices, and pairing.
+10. Phase 10: checks, checklists, comments, and members.
+
+---
+
+## 7. Checked against our rules and guides
+
+Every rule document maps to at least one item or gate here. If a rule has no row, the checklist is missing something.
+
+| Document and section | Where it is checked |
+|---|---|
+| `code-standards.md` 1 Repository layout | B0.2, B0.5, and the module rules in section 4 |
+| `code-standards.md` 2 General rules | Section 4 |
+| `code-standards.md` 3 Go standards (tooling, style, errors, concurrency, logging, database, processes and Git) | B0.1, B0.4, B0.6, B1.1, B1.5, and section 4 |
+| `code-standards.md` 4 TypeScript and SolidJS (single API client, tokens, responsive, performance) | B1.14, section 2.4, section 4, and the Phase 2 gate |
+| `code-standards.md` 5 Rust | B0.11 (deferred until the shell is scheduled) |
+| `code-standards.md` 6 Testing | Section 2.6 and every phase gate |
+| `code-standards.md` 7 Security | Phase 3, B1.13, and section 4 |
+| `code-standards.md` 8 Performance | B0.7 and section 4 |
+| `code-standards.md` 9 Git workflow | Section 4 (Conventional Commits, task IDs, small commits) and section 1 |
+| `code-standards.md` 10 Writing and copy | Section 4 (plain errors, sentence case) |
+| `code-standards.md` 11 Rules for AI agents | Section 4 (tracker, structure, `pnpm check`) |
+| `code-standards.md` 12 Code smells | B0.4 and section 4 |
+| `architecture.md` 1 to 3 (layers, processes, modules) | B0.2, B1.3, and the module rule in section 4 |
+| `architecture.md` 4 Agents | B1.6 to B1.8, B4.2 |
+| `architecture.md` 5 Sessions | B1.9, B1.10, B5.6 |
+| `architecture.md` 6 to 9 (card life cycle, starting, merging, CI loop) | B2.4 (move rules), B5.5, B6.3 |
+| `architecture.md` 10 Data model | Migrations in every phase, inventory sections 3 to 5 |
+| `architecture.md` 11 API and events | B1.0, B1.12, the contract tests, and N1 to N30 |
+| `architecture.md` 12 Files on disk | B1.1, B1.11, B7.4 |
+| `architecture.md` 13 Security | B1.13, Phase 3, Phase 9 gate |
+| `architecture.md` 14 Budgets | B0.7 and every phase gate |
+| `architecture.md` 16 to 19 (projects, chats, quality, connection tests, checklists) | B1.4, B2.10, B5.8, each integration item, B10.5, B10.6 |
+| `development.md` (setup, dev mode, environment, real agents, webhooks, phones, reset, commands, builds) | B0.1, B0.3, B0.10, B6.4, B9.2, B0.11 |
+| `library-docs.md` 1 Adding a library | Section 4 and B0.1 |
+| `ui-rules.md` (states, copy, responsive, empty and error states) | B1.14, section 2.4, section 4 |
+| `ui-tokens.md` and `ui-registry.md` | Section 4 (tokens and components only) and B13.1 |
+| `design-port.md` (approved deviations, checking a view) | Section 1 and section 2.4 |
+| `project-structure.md` and `progress-tracker.md` | Section 4 and section 8 |
+| `build-plan.md` (phase order, done criteria, integration tests) | Section 5 follows it, each item cites its task |
+| `marshal-product-scope.md` | The item text, and `backend-inventory.md` for what the prototype adds |
+
+---
+
+## 8. Open decisions
+
+Each has a recommended answer. Confirm or change them before the phase that needs them.
+
+| ID | Decision | Recommended | Needed by |
+|---|---|---|---|
+| D1 | What the Timeline draws with the start, end, and due dates | Bars show the actual working span for started cards, and the planned span (start and due) for cards not started. Confirm against the prototype's seed. | B2.4 |
+| D2 | Where screen preferences are saved | Theme, list columns, sort, per-project last view, filters, and swimlane are saved with the user so they follow them between devices. Layout (side panel width, collapsed sidebar, split panes, calendar mode, dashboard range) stays on the device. | B2.5 |
+| D3 | The label model | A label is a short text tag per project, created on first use, mapped to a Trello label later. | B2.4 |
+| D4 | Keep awake time | 15 minutes as the prototype shows, as a setting. | B5.6 |
+| D5 | Who sees "Simulate CI failure" | Dev mode always. A normal install only when a "Developer options" setting is turned on, off by default. | B6.4 |
+| D6 | Card IDs | Small whole numbers, unique across projects, shown as "#41". | B1.0 |
+| D7 | When to build the Tauri shell and the signed release | After the Phase 2 milestone, so the desktop app ships with a working daemon. | B0.11 |
+| D8 | Windows and Linux testing | Only CI covers them, since the dev machine is a Mac. Real-device checks run on the Mac and phones. | B13.2 |
+| D9 | An integration whose owner account step is missing | It keeps its mock section until its connection test passes (rule 4 in 2.3). | Phases 6 to 9 |
+| D10 | People in the prototype seed (Ada and Blair) | They are seed data only. Solo use has one person until Phase 12.4. | B2.2 |
+
+---
+
+## 9. Tracking
+
+- Tick the item here and update its row in `progress-tracker.md` in the same change. Use the item ID (B2.4) and the build plan task IDs together.
+- Switch the section's status in 2.2 in the same commit that cuts it over.
+- Every doc this checklist touches gets a row in the doc changes log, and every file that is added, moved, or deleted gets a row in the file changes log.
+- At the end of each phase, record the gate results (test counts, coverage, budget numbers) in the session log.
