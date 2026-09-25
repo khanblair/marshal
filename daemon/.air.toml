@@ -3,9 +3,11 @@ root = "."
 tmp_dir = "tmp"
 
 [build]
-  cmd = "go build -o ./tmp/marshald ./cmd/marshald"
-  bin = "./tmp/marshald"
-  args_bin = ["--dev"]
+  # The dev daemon is built next to the stub agent (`pnpm dev` builds it into dist/bin first), because
+  # the daemon looks for the stub agent in its own folder.
+  cmd = "go build -o ../dist/bin/marshald ./cmd/marshald"
+  entrypoint = ["../dist/bin/marshald"]
+  args_bin = ["--dev", "--fixture", "prototype"]
   include_ext = ["go"]
   exclude_dir = ["tmp", "testdata"]
   exclude_regex = ["_test\\.go$"]

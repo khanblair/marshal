@@ -17,10 +17,11 @@ const (
 const usage = `Usage: marshal <command>
 
 Commands:
-  status [--dev] [--port N]   Show whether the daemon is running
-  token [--dev] [--show]      Show where the token file is, or the token itself with --show
-  dev reset [--yes]           Delete the dev daemon's data (dev mode only)
-  version                     Print the version`
+  status [--dev] [--port N]              Show whether the daemon is running
+  token [--dev] [--show]                 Show where the token file is, or the token itself with --show
+  service install|uninstall|status [--dev]   Install, remove, or check the daemon's login service
+  dev reset [--yes]                      Delete the dev daemon's data (dev mode only)
+  version                                Print the version`
 
 func main() {
 	os.Exit(run(os.Args[1:], terminal{stdin: os.Stdin, stdout: os.Stdout, stderr: os.Stderr}))
@@ -47,6 +48,8 @@ func runWith(env platform.Env, args []string, term terminal) int {
 		return runStatus(args[1:], term)
 	case "token":
 		return runToken(env, args[1:], term)
+	case "service":
+		return runService(args[1:], term, platform.NewServiceInstaller, os.Executable)
 	case "dev":
 		return runDev(env, args[1:], term)
 	case "help", "-h", "--help":
