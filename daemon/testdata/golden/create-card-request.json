@@ -1,0 +1,8 @@
+{
+  "title": "Add a health check endpoint",
+  "body": "Serve GET /health with the version.",
+  "agent": "gemini",
+  "model": "gemini-2.5-pro",
+  "thinking": "medium",
+  "permissionMode": "plan"
+}

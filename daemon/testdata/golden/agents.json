@@ -1,0 +1,79 @@
+{
+  "agents": [
+    {
+      "kind": "claude",
+      "name": "Claude Code",
+      "version": "2.1.282",
+      "status": "supported",
+      "warning": "",
+      "installHint": "",
+      "models": [
+        {
+          "id": "sonnet",
+          "name": "Sonnet (latest)",
+          "thinking": true
+        },
+        {
+          "id": "haiku",
+          "name": "Haiku (latest)",
+          "thinking": false
+        }
+      ],
+      "capabilities": {
+        "resume": true,
+        "structuredEvents": true,
+        "modelSwitching": true,
+        "thinking": true,
+        "mcp": true,
+        "approvals": false
+      }
+    },
+    {
+      "kind": "gemini",
+      "name": "Gemini CLI",
+      "version": "0.36.0",
+      "status": "untested",
+      "warning": "Marshal has not been tested with Gemini CLI 0.36.0. It usually works, but if something looks wrong, try version 0.35.1.",
+      "installHint": "",
+      "models": [
+        {
+          "id": "gemini-2.5-pro",
+          "name": "Gemini 2.5 Pro",
+          "thinking": true
+        }
+      ],
+      "capabilities": {
+        "resume": true,
+        "structuredEvents": true,
+        "modelSwitching": true,
+        "thinking": false,
+        "mcp": true,
+        "approvals": true
+      }
+    },
+    {
+      "kind": "codex",
+      "name": "Codex",
+      "version": "",
+      "status": "missing",
+      "warning": "",
+      "installHint": "Codex is not installed. Install it with: npm install -g @openai/codex",
+      "models": [
+        {
+          "id": "gpt-5-codex",
+          "name": "GPT-5 Codex",
+          "thinking": true
+        }
+      ],
+      "capabilities": {
+        "resume": false,
+        "structuredEvents": false,
+        "modelSwitching": false,
+        "thinking": false,
+        "mcp": false,
+        "approvals": false
+      }
+    }
+  ],
+  "serverTime": "2026-09-25T10:20:00.000Z"
+}

@@ -1,0 +1,136 @@
+{
+  "type": "events",
+  "epoch": "01M3C0ZZZZ000000000000000A",
+  "events": [
+    {
+      "seq": 1,
+      "topic": "home",
+      "type": "project.created",
+      "at": "2026-09-25T10:15:30.143Z",
+      "data": {
+        "project": {
+          "id": "web-dashboard",
+          "name": "web-dashboard",
+          "path": "/home/ada/code/web-dashboard",
+          "language": "TypeScript",
+          "defaultBranch": "main",
+          "devCommand": "pnpm dev",
+          "bypassLocked": true,
+          "isMonorepo": false,
+          "packages": [],
+          "createdAt": "2026-09-25T10:15:30.123Z",
+          "badges": {
+            "needs": 2,
+            "awake": 1
+          }
+        }
+      }
+    },
+    {
+      "seq": 2,
+      "topic": "home",
+      "type": "project.updated",
+      "at": "2026-09-25T10:15:30.163Z",
+      "data": {
+        "project": {
+          "id": "web-dashboard",
+          "name": "web-dashboard",
+          "path": "/home/ada/code/web-dashboard",
+          "language": "TypeScript",
+          "defaultBranch": "main",
+          "devCommand": "pnpm dev",
+          "bypassLocked": true,
+          "isMonorepo": false,
+          "packages": [],
+          "createdAt": "2026-09-25T10:15:30.123Z",
+          "badges": {
+            "needs": 2,
+            "awake": 1
+          }
+        }
+      }
+    },
+    {
+      "seq": 3,
+      "topic": "project:web-dashboard",
+      "type": "card.created",
+      "at": "2026-09-25T10:15:30.183Z",
+      "data": {
+        "card": {
+          "id": "01M3C107JB041061050R3GG28A",
+          "projectId": "web-dashboard",
+          "number": 12,
+          "key": "web-dashboard#12",
+          "title": "Add a health check endpoint",
+          "body": "Serve GET /health with the version.",
+          "state": "backlog",
+          "agent": "claude",
+          "model": "claude-sonnet-4-5",
+          "thinking": "high",
+          "permissionMode": "auto-edits",
+          "branch": "",
+          "createdAt": "2026-09-25T10:15:30.123Z",
+          "updatedAt": "2026-09-25T10:16:30.123Z"
+        }
+      }
+    },
+    {
+      "seq": 4,
+      "topic": "project:web-dashboard",
+      "type": "card.updated",
+      "at": "2026-09-25T10:15:30.203Z",
+      "data": {
+        "card": {
+          "id": "01M3C107JB041061050R3GG28A",
+          "projectId": "web-dashboard",
+          "number": 12,
+          "key": "web-dashboard#12",
+          "title": "Add a health check endpoint",
+          "body": "Serve GET /health with the version.",
+          "state": "backlog",
+          "agent": "claude",
+          "model": "claude-sonnet-4-5",
+          "thinking": "high",
+          "permissionMode": "auto-edits",
+          "branch": "",
+          "createdAt": "2026-09-25T10:15:30.123Z",
+          "updatedAt": "2026-09-25T10:16:30.123Z"
+        }
+      }
+    },
+    {
+      "seq": 5,
+      "topic": "project:web-dashboard",
+      "type": "card.moved",
+      "at": "2026-09-25T10:15:30.223Z",
+      "data": {
+        "card": {
+          "id": "01M3C107JB041061050R3GG28A",
+          "projectId": "web-dashboard",
+          "number": 12,
+          "key": "web-dashboard#12",
+          "title": "Add a health check endpoint",
+          "body": "Serve GET /health with the version.",
+          "state": "needs",
+          "agent": "claude",
+          "model": "claude-sonnet-4-5",
+          "thinking": "high",
+          "permissionMode": "auto-edits",
+          "branch": "",
+          "createdAt": "2026-09-25T10:15:30.123Z",
+          "updatedAt": "2026-09-25T10:16:30.123Z"
+        },
+        "from": "backlog"
+      }
+    },
+    {
+      "seq": 6,
+      "topic": "home",
+      "type": "project.removed",
+      "at": "2026-09-25T10:15:30.243Z",
+      "data": {
+        "projectId": "web-dashboard"
+      }
+    }
+  ]
+}
