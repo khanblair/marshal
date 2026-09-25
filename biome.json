@@ -30,14 +30,26 @@
       "arrowParentheses": "always"
     }
   },
-  "css": { "formatter": { "enabled": true, "quoteStyle": "double" }, "parser": { "tailwindDirectives": true } },
+  "css": {
+    "formatter": { "enabled": true, "quoteStyle": "double" },
+    "parser": { "tailwindDirectives": true }
+  },
   "assist": { "enabled": true, "actions": { "source": { "organizeImports": "on" } } },
   "linter": {
     "enabled": true,
     "rules": {
       "recommended": true,
+      "a11y": {
+        "noLabelWithoutControl": {
+          "level": "error",
+          "options": { "inputComponents": ["Input", "Select", "TextArea", "Checkbox", "Switch"] }
+        }
+      },
       "complexity": {
-        "noExcessiveCognitiveComplexity": { "level": "error", "options": { "maxAllowedComplexity": 25 } },
+        "noExcessiveCognitiveComplexity": {
+          "level": "error",
+          "options": { "maxAllowedComplexity": 25 }
+        },
         "noExcessiveLinesPerFunction": {
           "level": "error",
           "options": { "maxLines": 100, "skipBlankLines": true, "skipIifes": true }
@@ -76,7 +88,9 @@
     },
     {
       "includes": ["tools/**", "scripts/**", "packages/tokens/scripts/**"],
-      "linter": { "rules": { "suspicious": { "noConsole": "off" }, "style": { "noMagicNumbers": "off" } } }
+      "linter": {
+        "rules": { "suspicious": { "noConsole": "off" }, "style": { "noMagicNumbers": "off" } }
+      }
     },
     {
       "includes": ["packages/tokens/src/**"],

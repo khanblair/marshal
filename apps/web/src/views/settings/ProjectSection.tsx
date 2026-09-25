@@ -58,7 +58,6 @@ export function ProjectSection(props: { project: ProjectDraft }) {
           {kindText(props.project.project()?.lang, props.project.project()?.packages)}
         </span>
       </div>
-      {/* biome-ignore lint/a11y/noLabelWithoutControl: the checkbox is a component inside the label */}
       <label class="flex items-center gap-2.5 cursor-pointer">
         <Checkbox
           checked={fields().lockBypass}

@@ -51,7 +51,6 @@ function ScheduleItem(props: { schedule: Schedule; edit: EditState }) {
           detail={props.schedule.action}
         />
         <span class="text-small text-secondary">{props.schedule.project}</span>
-        {/* biome-ignore lint/a11y/noLabelWithoutControl: the switch is a button inside the label, which lets the On or Off text toggle it */}
         <label class="inline-flex items-center gap-2 cursor-pointer text-small">
           <Switch
             checked={props.schedule.enabled}

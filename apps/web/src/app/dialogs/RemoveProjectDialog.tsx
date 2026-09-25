@@ -21,7 +21,6 @@ function UnmergedWork(props: { draft: RemoveProjectDraft; model: RemoveModel }) 
         <Icon name="git-branch" size={ICON_PX} />
         {props.model.unmergedLabel}
       </span>
-      {/* biome-ignore lint/a11y/noLabelWithoutControl: the checkbox component renders the input inside this label */}
       <label class="flex items-center gap-2 cursor-pointer text-primary">
         <Checkbox
           checked={props.draft.keepBranches}
@@ -66,7 +65,6 @@ function RemoveForm(props: { draft: RemoveProjectDraft; model: RemoveModel }) {
       <Show when={props.model.unmerged > 0}>
         <UnmergedWork draft={props.draft} model={props.model} />
       </Show>
-      {/* biome-ignore lint/a11y/noLabelWithoutControl: the checkbox component renders the input inside this label */}
       <label class="flex items-start gap-2 cursor-pointer">
         <Checkbox
           align="start"

@@ -118,7 +118,6 @@ function NewCardForm(props: { draft: NewCardDraft }) {
         />
       </Field>
       <CardOptions draft={props.draft} />
-      {/* biome-ignore lint/a11y/noLabelWithoutControl: the checkbox component renders the input inside this label */}
       <label class="flex items-center gap-2 cursor-pointer">
         <Checkbox
           checked={props.draft.start}

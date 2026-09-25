@@ -15,7 +15,6 @@ export function ChatListHeader(props: ChatListHeaderProps) {
   return (
     <div class="flex flex-none flex-col gap-2 p-3">
       <div class="relative flex gap-2">
-        {/* biome-ignore lint/a11y/noLabelWithoutControl: the Input sits inside the label */}
         <label class="relative flex min-w-0 flex-1 items-center">
           <span class="absolute left-2 inline-flex text-muted">
             <Icon name="search" size={ICON_PX} />

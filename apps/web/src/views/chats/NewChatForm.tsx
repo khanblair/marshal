@@ -28,7 +28,6 @@ export function NewChatForm(props: NewChatFormProps) {
   };
   return (
     <form onSubmit={start} class={M.mobile ? PHONE_SHEET : DESKTOP_POPOVER}>
-      {/* biome-ignore lint/a11y/noLabelWithoutControl: the Select sits inside the label */}
       <label class="flex flex-col gap-1.5">
         <span class="font-semibold">Who do you want to talk to?</span>
         <Select name="target" value={ORCHESTRATOR} options={newChatTargets(pid())} />

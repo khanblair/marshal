@@ -34,7 +34,6 @@ export function ConfirmDialog() {
             </h2>
             <p class="m-0 text-secondary">{dialog().message}</p>
             <Show when={dialog().ack}>
-              {/* biome-ignore lint/a11y/noLabelWithoutControl: the checkbox component renders the input inside this label */}
               <label class="flex gap-2.5 items-start p-3 rounded-md border border-border-strong bg-status-danger-subtle text-status-danger-text font-medium cursor-pointer">
                 <Checkbox
                   tone="danger"

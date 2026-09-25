@@ -31,7 +31,6 @@ export function HomeAllView() {
             Back to Home
           </Button>
           <span class="flex-1" />
-          {/* biome-ignore lint/a11y/noLabelWithoutControl: the Select component renders the select inside this label */}
           <label class="flex items-center gap-2 text-small text-secondary">
             <span>Project</span>
             <Select
