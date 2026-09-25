@@ -34,7 +34,7 @@ At the end of every work session, whether by a person or an agent:
 
 | | |
 |---|---|
-| **Current phase** | Phase 0: Foundation |
+| **Current phase** | Phase 1: First card |
 | **Next milestone** | First card (end of Phase 1) |
 | **Last updated** | 2026-09-25 |
 
@@ -44,8 +44,8 @@ At the end of every work session, whether by a person or an agent:
 
 | Phase | Status | Notes |
 |---|---|---|
-| 0. Foundation | In progress | Done locally: Go tools, daemon module, protocol package, Go lint and smells, fixtures, stub agent, budgets, dev mode. Not verified: three-platform CI has not run. Deferred: keychain entries (library check first), desktop shell and release (after Phase 2). |
-| 1. First card | Not started | |
+| 0. Foundation | Done locally | Done locally: Go tools, daemon module, protocol package, Go lint and smells, fixtures, stub agent, budgets, dev mode. macOS CI green. Windows and Linux are not a blocker (macOS first, decision 4). Deferred: keychain entries (library check first), desktop shell and release (after Phase 2). |
+| 1. First card | In review | Built and tested on this Mac: the SQLite store with embedded migrations, the event bus with replay, the single-instance lock and the per-user service installers, projects and boards with cards, all Git access through `gitx`, the agent interface with the ACP, Claude Code, Gemini CLI, PTY, and Codex-detection adapters, the session manager with resume and bounded logs, the `/v1` API and the `/v1/events` stream with token auth, the client data layer, the project-plus-number card key, the prototype fixture, and the cutover of sections S1, S3, and S4. Two checks remain manual and need the owner: one real Claude Code session on a card (it spends the owner's credits) and installing the daemon as a login item. |
 | 2. Core UI | Not started | |
 | 3. Control and safety | Not started | |
 | 4. Models | Not started | |
@@ -65,20 +65,20 @@ At the end of every work session, whether by a person or an agent:
 | ID | Task | Status | Owner | Notes |
 |---|---|---|---|---|
 | 0.1 | Write the project docs | In review | | Twelve docs and the docs index drafted, waiting for sign off |
-| 0.2 | Monorepo layout | Not started | | |
-| 0.3 | Go module with `marshald` and `marshal` | Not started | | |
-| 0.4 | SolidJS app with Vite and Tailwind | Not started | | |
-| 0.5 | Tauri v2 shell | Not started | | |
-| 0.6 | Tokens package | Not started | | Values in `ui-tokens.md` |
-| 0.7 | Go to TypeScript type generation | Not started | | |
-| 0.8 | CI pipeline | Not started | | |
-| 0.9 | Budget harness | Not started | | |
-| 0.10 | Fixture repos | Not started | | Needs a small repo and a monorepo |
-| 0.11 | Stub agent | Not started | | |
-| 0.12 | pnpm workspace and root scripts | Not started | | See `development.md` |
-| 0.13 | Daemon dev mode | Not started | | |
-| 0.14 | Release pipeline with signing and updater | Not started | | Needs Apple and Windows signing certificates |
-| 0.15 | Code smell tooling for our own repo | Not started | | See `code-standards.md` section 12 |
+| 0.2 | Monorepo layout | In review | | `pnpm-workspace.yaml` lists `apps/*`, `daemon`, `packages/*`, and `tools/*` |
+| 0.3 | Go module with `marshald` and `marshal` | In review | | `daemon/` builds with `CGO_ENABLED=0`; `marshal` has `status`, `token`, `service`, `dev reset`, and `version` |
+| 0.4 | SolidJS app with Vite and Tailwind | In review | | `apps/web/`, ported from the prototype and cut over for S1, S3, and S4 |
+| 0.5 | Tauri v2 shell | Not started | | Deferred until after Phase 2 (decision 2026-09-25); `apps/desktop/` does not exist yet |
+| 0.6 | Tokens package | In review | | `packages/tokens`, generated and checked for contrast in CI |
+| 0.7 | Go to TypeScript type generation | In review | | tygo writes `packages/protocol/src/generated/index.ts`; `pnpm gen` is reproducible |
+| 0.8 | CI pipeline | In review | | `.github/workflows/ci.yml` runs the check; the Windows and Linux results are not a blocker, and the macOS run is reported green |
+| 0.9 | Budget harness | In review | | `tools/budgets` measures the daemon's idle RAM and CPU; `scripts/budgets.mjs` measures the web build |
+| 0.10 | Fixture repos | In review | | `daemon/testdata/repos/` has `small-repo` and `monorepo`, loaded as the prototype fixture in dev mode |
+| 0.11 | Stub agent | In review | | `tools/stub-agent`, a scripted ACP agent with resume and JSON scenarios |
+| 0.12 | pnpm workspace and root scripts | In review | | See `development.md` section 4 |
+| 0.13 | Daemon dev mode | In review | | `--dev` gives its own data folder, port 47801, dev token, and the fixture |
+| 0.14 | Release pipeline with signing and updater | Not started | | Needs Apple and Windows signing certificates (Q9) |
+| 0.15 | Code smell tooling for our own repo | In review | | `scripts/smells.mjs` (knip, jscpd, Go smell linters), see `code-standards.md` section 12 |
 
 Tasks for later phases are added here when their phase starts.
 
@@ -151,6 +151,15 @@ Tasks for later phases are added here when their phase starts.
 | 2026-09-24 | **Superseded 2026-09-25, see the decision below.** Added `color-border-control` for input, select, checkbox, and switch borders. `color-border-strong` stays for dividers only. | Control borders must reach 3 to 1 to be seen, and dividers should stay soft. `color-border-strong` measured about 1.6 to 1. |
 | 2026-09-24 | **Superseded 2026-09-25, see the decision below.** Changed light and dark values for muted text, the Planning, Needs you, Working, and Ready solids, and the chart series. Solid icons never sit on `subtle` backgrounds. | A check of every token pair found 23 pairs below the contrast rules in `ui-tokens.md` section 2.9. The pairs are now listed there and checked in CI. |
 | 2026-09-24 | Split view allows up to two panes from 900 px, three from 1200 px, and four from 1600 px | Gives `bp-md` a defined role, and removes the conflict between "tablet: two panes" and "desktop: four panes". Provisional until the Claude Design output is reconciled. |
+| 2026-09-25 | A card gets one session in Phase 1. A failed resume marks the session stopped and moves the card to Needs you; starting a fresh session for a card that already had one is not built yet. | One lasting session per card is already the rule (2026-09-23), and "resume or tell the person" is honest about what a lost context means. A fresh-session feature needs a decision about what happens to the old transcript, so it waits |
+| 2026-09-25 | The Built-in agent entry is appended by the app, after the daemon's agents, until the daemon lists it in Phase 4. It is the only agent the app makes up, and it is the first entry removed when the daemon reports one. | Mock cards and roles still name it, and the design's pickers show it, so it must exist; but nothing should look like the daemon reported something it did not (`sync/agents.ts`, `BUILT_IN_AGENT`) |
+| 2026-09-25 | The prototype fixture loads in dev mode only. `pnpm dev` passes `--fixture prototype`; a normal install ignores the setting. | The fixture makes real Git repositories in the data folder, which is a development convenience and must never appear in a person's install (`development.md` section 3.5) |
+| 2026-09-25 | WebSocket auth uses the subprotocols `marshal.v1` and `bearer.<token>`, never a token in a URL. A gap in event `seq` is normal and is not a reason to resync; only a different `epoch` or an unreplayable position is. | A token in a URL lands in logs, history, and proxies. And a gap is expected because ordinary events may be dropped under backpressure, so treating a gap as a loss would resync constantly (`architecture.md` 11.5) |
+| 2026-09-25 | The approved differences from the rendered prototype are only the rows in `design-port.md` "Known deviations from the rendered prototype". A visual change that is not on that list is stopped and reported instead of made. | The design is the source of truth and the port is finished, so an undocumented visual change is a regression against the owner's design, not a detail |
+| 2026-09-25 | Verification happens once at the end of a phase, on this Mac, through the full check, the end-to-end suite, and a hands-on browser pass. | One expensive, complete run is cheaper and more trustworthy than running the whole suite after every edit, and the browser pass is the only way to see the screens |
+| 2026-09-25 | The per-user service installers are our own code (`service_launchd.go`, `service_systemd.go`, `service_schtasks.go`). `kardianos/service` was considered and is not used: its zlib license is not on the allowed list in `library-docs.md` section 1. | Keeping all three platforms on one license-clean implementation beats a third-party library for two platforms plus custom code for the third |
+| 2026-09-25 | The Claude Code adapter drives `claude -p` in stream-json mode directly (Claude Code has no ACP). Per-tool approvals arrive in Phase 3, so every session runs with `--permission-prompts=none` and `Respond` returns "unknown request". Codex is detected but not startable until it has an adapter. | Stream-json is Claude Code's own supported mode, so no protocol library is needed. A permission request nobody can answer must be refused at once rather than left hanging (`architecture.md` 4.2) |
+| 2026-09-25 | macOS first. Windows and Linux jobs stay in CI, but their results are not a blocker. | The owner ships on macOS first, so a red Windows or Linux job must not stop Phase 1 work (decision 4, `backend-checklist.md` 1) |
 
 ---
 
@@ -158,26 +167,35 @@ Tasks for later phases are added here when their phase starts.
 
 | ID | Question | Needed by | Status |
 |---|---|---|---|
-| Q1 | Which ACP SDK for Go, or do we write the JSON-RPC layer ourselves? | Task 1.6 | Open |
-| Q2 | Best way to run Claude Code as a lasting session: ACP, streaming JSON mode, or PTY? | Task 1.8 | Open |
-| Q3 | Which CLI versions do we pin as supported for launch? | Task 1.8 | Open |
+| Q1 | Which ACP SDK for Go, or do we write the JSON-RPC layer ourselves? | Task 1.6 | Answered 2026-09-25: `github.com/coder/acp-go-sdk` v0.13.5, built early for the stub agent |
+| Q2 | Best way to run Claude Code as a lasting session: ACP, streaming JSON mode, or PTY? | Task 1.8 | Answered 2026-09-25: Claude Code's own streaming JSON mode (`claude -p`), driven directly, because Claude Code has no ACP (`architecture.md` 4.2) |
+| Q3 | Which CLI versions do we pin as supported for launch? | Task 1.8 | Open. The catalog reports supported, untested, or missing per version, but the supported set is not pinned yet |
 | Q4 | Codebase map approach: tree-sitter with cgo, ctags, or tree-sitter in WebAssembly? | Task 7.9 | Open |
-| Q5 | Is `modernc.org/sqlite` fast enough under real load, or do we need a cgo driver? | Task 1.1 | Open |
-| Q6 | Windows user service: scheduled task or a different approach? | Task 1.3 | Open |
-| Q7 | Are the first real projects monorepos? If yes, monorepo mode moves into Phase 1. | Task 1.5 | Open |
-| Q8 | How much does tsnet add to download size, and does it fit the budget? | Task 9.1 | Open |
-| Q9 | Who holds the Apple Developer and Windows code signing accounts? | Task 0.14 | Open |
-| Q10 | Should the onboarding sample project be a real small repo we ship, or generated on first use? | Task 2.16 | Open |
+| Q5 | Is `modernc.org/sqlite` fast enough under real load, or do we need a cgo driver? | Task 1.1 | Partly answered 2026-09-25: the store passes its tests with `-race` and the pragmas are set per connection, but there is no benchmark under a heavy write load yet, so the question stays open |
+| Q6 | Windows user service: scheduled task or a different approach? | Task 1.3 | Answered 2026-09-25: a scheduled task, in our own code (`internal/platform/service_schtasks.go`); only its generated arguments and its status parsing are tested, never installed |
+| Q7 | Are the first real projects monorepos? If yes, monorepo mode moves into Phase 1. | Task 1.5 | Answered 2026-09-25: detection finds packages and the board shows a swimlane per package, and a project with no packages works, so monorepo mode is in Phase 1 (`internal/projects` detection, the extra-package-lane deviation in `design-port.md`) |
+| Q8 | How much does tsnet add to download size, and does it fit the budget? | Task 9.1 | Open. Nothing uses tsnet yet |
+| Q9 | Who holds the Apple Developer and Windows code signing accounts? | Task 0.14 | Open. Blocks signing and the release pipeline |
+| Q10 | Should the onboarding sample project be a real small repo we ship, or generated on first use? | Task 2.16 | Deferred by the owner on 2026-09-25: the sample-project option is removed from onboarding until Phase 2 ships a sample repository (build plan task 2.25), and this question decides what that repository is |
 | Q11 | Which languages get built-in smell checks at launch? Suggested: Go, TypeScript and JavaScript, and Python. Depends on Q4. | Task 5.12 | Open |
 | Q12 | Default size limit per attachment? Suggested: 25 MB, editable in settings. | Task 10.12 | Open |
 | Q13 | Should people be able to review agent ticks, for example "Confirm agent ticks" on required checklists? | Task 10.11 | Open |
 | Q14 | Prototype: posting a comment, attaching a file, adding an item, and the phone layouts for these have not been clicked through yet. | Design review | Open |
+| Q15 | Who confirms the macOS CI run was green? The Phase 1 work session has no network access, so it cannot read the CI results; the tracker records "macOS CI green" on the strength of the controller's report. | Phase 1 review | Open until the controller confirms it |
+| Q16 | Which Claude Code version should be the tested one? The adapter drives `claude -p` stream-json without a real run in any automated test, so the "supported" version is untested in practice until the owner runs one card by hand. | Task 1.8, before Phase 4 | Open |
 
 ---
 
 ## Session log
 
 Newest entries first.
+
+### 2026-09-25
+
+- **Phase 1 (first card), backend:** the daemon now owns real state. `internal/store` (SQLite in WAL mode, goose migrations 0001 to 0003, sqlc queries), `internal/events` (bus with a replay ring; ordinary events drop oldest-first, critical events never drop and instead close the subscription for a resync), `internal/gitx` (all Git access: worktrees, branches, clone, sparse checkout, the Git 2.38 check), `internal/proc` (the one child-process helper, arguments as a list, filtered environment), `internal/projects` (projects, boards, cards, detection, removal in the `architecture.md` 16.1 order), `internal/session` (start, send with queueing, stop, resume in auto and manual mode, rotated logs with a bounded in-memory ring), and `internal/api` (the `/v1` routes, token auth, and the `/v1/events` stream with topics, batching, replay, and resync). Agent adapters: `acp`, `claude` (stream-json, no ACP), `gemini`, `pty`, and `codex` (detection only).
+- **Also done:** the client data layer (`apps/web/src/data`: API client, event stream with reconnect and resync, connection machine, token store, daemon clock, optimistic helper, section switch, mappers from the golden files), the mirror in `apps/web/src/sync` with one `Syncer` per section, the card-key change to `<project>#<number>`, the prototype fixture in dev mode, and the cutover of S1 (connection and sign-in), S3 (projects), and S4 (agents and models). `docs/progress-tracker.md` says "In review" for Phase 1; the controller sets "Done" after verification.
+- **Verified:** the full check (`node scripts/check.mjs`), the end-to-end suite against a built throwaway dev daemon on port 47811, the Go suite with `-race`, and a real-binary smoke test with two daemons on throwaway data folders. Numbers are in `deepseek-report.md`.
+- **Next:** the two manual checks that need the owner (one real Claude Code session on a card, and `marshal service install` / `status` / `uninstall`), then Phase 2.
 
 ### 2026-09-25
 
@@ -210,6 +228,16 @@ Every file added, moved, renamed, or deleted in the repo. Newest first. The plan
 
 | Date | File | Change | Task | Notes |
 |---|---|---|---|---|
+| 2026-09-25 | `daemon/internal/{store,events,proc,projects,session,api,fixture}`, `daemon/internal/store/{migrations,queries,db}`, `daemon/internal/agents/{acp,claude,gemini,pty,codex,catalog}`, `daemon/testdata/golden/*` | Added | 1.1 to 1.13 | The Phase 1 daemon: SQLite store with goose migrations and sqlc queries, event bus with a replay ring, the child-process helper, projects and boards with cards, the session manager with logs, the `/v1` API and `/v1/events`, the prototype fixture, the five agent adapters plus the catalog, and the golden wire files |
+| 2026-09-25 | `daemon/cmd/marshald`, `daemon/cmd/marshal` | Changed | 1.3, 1.9, 1.10, 1.12 | `marshald` wires the modules, restores sessions on start, stops a removed project's sessions, and loads the fixture; `marshal` gained `service install|uninstall|status` beside `status`, `token`, and `dev reset` |
+| 2026-09-25 | `apps/web/src/data/` and `apps/web/src/data/{mappers,testing}` | Added | 2.13 (N29) | The client data layer: API client with typed errors, event stream with reconnect and resync, connection machine, token store, daemon clock, optimistic helper, section switch, the mappers that read the golden files, and their test doubles |
+| 2026-09-25 | `apps/web/src/sync/` | Added | 1.14, 1.17 (S3, S4) | The mirror outside `mock/`: the `Syncer` interface, `startSync`, the projects syncer and its actions, the agents syncer and the Built-in agent entry, the reservoir that keeps mock records out of `S`, and the connection actions |
+| 2026-09-25 | `apps/web/src/testing/` | Added | 2.13, 1.17 | The test store, the fake daemon (API and event stream in memory), the golden-file builders for projects and agents, and the test-store installer |
+| 2026-09-25 | `apps/web/e2e/` and `apps/web/e2e/support/` | Added | 1.14, 1.16, 1.17 | Playwright specs for connection, projects, agents, lifecycle, and responsive sizes, with `scripts/e2e-daemon.mjs`, the throwaway daemon on port 47811, and the global setup guard |
+| 2026-09-25 | `apps/web/src/mock/`, `apps/web/src/app/`, `apps/web/src/views/`, `apps/web/src/onboarding/`, `apps/web/src/features/agents/` | Changed | 1.14, 1.15, 1.17 | The screens read the daemon: the pickers read the catalog, the card key became `<project>#<number>` everywhere, the connection, loading, empty, error, and offline states were added from existing components, and mock-only code for the cut-over sections was removed (`mock/actions/projects.ts` and `mock/seed/projects.ts` deleted, replaced by `sync/project-actions.ts` and the daemon) |
+| 2026-09-25 | `packages/protocol/src/generated/index.ts`, `packages/protocol/test/*` | Changed | 1.12, 1.13 | Generated from the Go wire types with tygo, plus the hand-maintained enum list test and the golden-file tests |
+| 2026-09-25 | `packages/ui/src/layout/` and `packages/ui/src/base/` | Changed | 1.12, 1.13, 2.13 | `ConnectionLost`, `OfflineBanner`, `SignIn`, and the skeletons for the connection screens, plus the button and icon-button work from the design deviations |
+| 2026-09-25 | `scripts/{check,smells,budgets,gen-protocol,go-tool,setup-tools,e2e-daemon}.mjs`, `.golangci.yml`, `.golangci.warn.yml`, `daemon/sqlc.yaml`, `daemon/tygo.yaml`, `daemon/.air.toml` | Added, Changed | 0.15, 1.1, 1.12 | The check pipeline, the smell checks, the budgets, protocol generation, the pinned-tool runner, the e2e daemon, and the Go lint limits |
 | 2026-09-25 | `daemon/` (`go.mod`, `package.json`, `.air.toml`, `tygo.yaml`, `cmd/marshald`, `cmd/marshal`, `internal/{api,buildinfo,config,gitx,platform,protocol,testutil}`, `testdata/{golden,hooks,repos}`) | Added | 0.2, 0.3, 0.8, 0.10 | Health endpoint on localhost, settings from flags and environment, dev token, guarded dev reset, gitx with the Git version check, fixture repos, golden files |
 | 2026-09-25 | `tools/stub-agent/` | Added | 0.11, 1.6 (built early) | Scripted ACP agent with resume, six JSON scenarios, 105 tests |
 | 2026-09-25 | `tools/hooks-replay/`, `tools/budgets/` | Added | 0.9, 0.13 | Webhook replay, and the daemon idle RAM and CPU budget |
@@ -226,6 +254,11 @@ Every change to a doc. Newest first.
 
 | Date | Doc | Change |
 |---|---|---|
+| 2026-09-25 | `progress-tracker.md` | Phase 1 moved to In review, current state and phase status updated, a Phase 1 session log entry, the Phase 1 decisions (card keys, Built-in agent, fixture, WebSocket auth, design deviations, verification, the service installers, the Claude Code adapter, macOS first), and the file and doc changes for all of Phase 1 |
+| 2026-09-25 | `architecture.md` | Section 4.2 now points at the Claude adapter's own source instead of a package report that does not exist; section 11.1 says which routes exist today and which are planned; section 11.2 says which event types are published today, names the 25 ms flush interval, and points at `event_types.go`; section 11.6 documents the client data layer, the mirror, the syncers, and the agents syncer with the Built-in agent entry |
+| 2026-09-25 | `development.md` | Every command and setting made true for today: the `pnpm dev` chain (the stub-agent build first), no `dev:desktop`, `dev:stub`, `test:agents`, `build:daemon*`, `build:desktop`, or `pnpm marshal` script yet, no `marshal keys` command yet, no `--tailnet` flag yet (so no real-device and no Funnel webhooks), the everyday-command and build tables brought in line with `package.json`, the workspace table gained `hooks-replay` and `budgets`, and the one real-agent check written out as a manual procedure |
+| 2026-09-25 | `library-docs.md` | `coder/websocket` (v1.8.15) and `golang.org/x/sync/errgroup` (v0.23.0) entries written out with version, use, and the seven checks; `go-cmp` marked considered and not used (it is in no `go.mod`); the Go testing version pinned; `kardianos/service` recorded as considered and not used (zlib license) |
+| 2026-09-25 | `design-port.md`, `backend-checklist.md`, `backend-inventory.md`, `project-structure.md` | S4 rows, the S4 register entries, and the Phase 1 file lists from the cutover of S1, S3, and S4 |
 | 2026-09-25 | `build-plan.md`, `backend-checklist.md`, `backend-inventory.md`, `progress-tracker.md` | Added 39 tasks marked (prototype) to the build plan, linked each inventory item to its task, and recorded the ten decisions |
 | 2026-09-25 | `backend-checklist.md`, `backend-inventory.md`, `README.md`, `project-structure.md`, `progress-tracker.md` | Added the backend checklist and the inventory of every prototype action and field, listed both in the index and the docs structure, and logged the backend decisions |
 | 2026-09-25 | `ui-tokens.md`, `ui-rules.md`, `design-port.md`, `architecture.md`, `progress-tracker.md` | Colors back to the design's exact values, `color-border-control` removed, section 2.9 rewritten around the exceptions list, chart values fixed, prototype toolbar and `z-prototype` removed, web build size budget added. |

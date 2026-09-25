@@ -284,12 +284,12 @@ Motion is used to show what changed after an action, and for a very small number
 | `ease-standard` | `cubic-bezier(0.2, 0, 0, 1)` | Most movement |
 | `ease-enter` | `cubic-bezier(0, 0, 0, 1)` | Things appearing |
 | `ease-exit` | `cubic-bezier(0.4, 0, 1, 1)` | Things leaving |
-| `pulse-working` | 1600 ms, opacity 0.45 to 1, ease in and out, repeating | The status dot of a working card only |
+| `pulse-working` | 1600 ms, opacity 0.45 to 1, ease in and out, repeating | The status dot of a working card, and the placeholder shapes of a skeleton while a part loads (`Skeleton` in `@marshal/ui`) |
 
 Rules:
 
 - With reduced motion turned on in the OS, all movement is replaced by instant changes, and the working pulse becomes a static dot.
-- Only one thing pulses on screen per card: the working dot.
+- Only one thing pulses on screen per card: the working dot. Skeleton shapes pulse only while their content loads, and never on a card that already has its content.
 
 ---
 

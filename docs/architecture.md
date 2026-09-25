@@ -82,13 +82,15 @@ flowchart TB
 
 ### Daemon as a user service
 
-The daemon is installed as a per-user service, so it keeps running when the desktop app is closed:
+The daemon is installed as a per-user service, so it keeps running when the desktop app is closed. `marshal service install` installs `marshald` (`marshal service uninstall` and `marshal service status` remove it and check it); `--dev` installs the dev daemon as its own separate service, so it can run beside a normal install:
 
-- macOS: a launchd agent
-- Linux: a systemd user unit
-- Windows: a per-user scheduled task that starts at login
+- **macOS:** a per-user launchd agent (`~/Library/LaunchAgents/com.marshal.daemon.plist`, `com.marshal.daemon-dev.plist` for `--dev`), installed with `launchctl bootstrap gui/$UID`, falling back to the older `launchctl load -w` when bootstrap is not a recognized subcommand. It restarts on a crash (`KeepAlive`/`SuccessfulExit: false`) but not after a clean exit, so `marshal dev reset` and a deliberate stop are not looped.
+- **Linux:** a systemd user unit (`~/.config/systemd/user/marshald.service`, `marshald-dev.service` for `--dev`), installed with `systemctl --user enable --now` after a `daemon-reload`, plus a best-effort `loginctl enable-linger` so it can start at boot without an active login session (a warning, not a failed install, if that one command lacks the privilege). `Restart=on-failure`.
+- **Windows:** a per-user scheduled task through `schtasks.exe` (`ONLOGON`, `/RL LIMITED`, no admin elevation), since Windows has no per-user systemd or launchd equivalent.
 
-The desktop app checks the daemon on start. If it is not running, it starts it. There is only ever one daemon per user, enforced with a lock file.
+Every external command these run goes through `internal/platform`'s own short admin-command runner (`os/exec`, bounded by a ten-second timeout, never a shell string) rather than `internal/proc`: these are one-shot management commands, not the long-lived, process-tree-managed children `internal/proc` is built for, and on Linux they need session variables (for example `DBUS_SESSION_BUS_ADDRESS`) that `internal/proc`'s environment allow-list does not pass through.
+
+The desktop app checks the daemon on start. If it is not running, it starts it. There is only ever one daemon per user, enforced with a real, OS-held advisory lock on a file at `<data>/marshald.lock` (`flock` on macOS and Linux, `LockFileEx` on Windows), not a PID-file staleness guess: the operating system releases the lock on its own if the process dies, including a hard kill. The daemon acquires the lock before it opens its database or a listener; when the lock is already held, it exits with a distinct code (`exitAlreadyRunning`) instead of starting a second copy.
 
 ---
 
@@ -164,7 +166,7 @@ type Agent interface {
 How the interface behaves (the same for every adapter):
 
 - **Lifetime.** The context of `Start` and `Resume` only bounds the start. The session lives until `Stop` or until its process ends, so a request that ends does not kill the agent.
-- **One turn at a time.** `Send` returns at once, and the turn ends with a `TurnEnded` event. A second `Send` while a turn runs returns `ErrBusy`, and the session manager queues the message. `Interrupt` stops the running turn and keeps the session, so the stop button in the UI does not lose the conversation. The turn then ends with `TurnEnded` and the reason `cancelled`.
+- **One turn at a time.** `Send` returns at once, and the turn ends with a `TurnEnded` event for an agent whose events are structured; a second `Send` while such a turn runs returns `ErrBusy`, and the session manager queues the message, but the PTY adapter (4.2) never sends `TurnEnded` and never returns `ErrBusy`, so the session manager never gates its `Send` on a turn ending. `Interrupt` stops the running turn and keeps the session, so the stop button in the UI does not lose the conversation. The turn then ends with `TurnEnded` and the reason `cancelled`.
 - **Events.** One channel per session, closed after the last event, `Exited`. The reader must keep reading until then. The events are `MessageChunk`, `ThoughtChunk`, `ToolCall`, `ToolCallUpdate`, `PlanUpdate`, `PermissionRequested`, `TurnEnded`, `Failed`, and `Exited`. A turn ends with `TurnEnded`, or with `Exited` if the process ends first. An agent that stops without being asked produces `Failed` and then `Exited`. Tool output in an event is cut to 16 KiB with a `Truncated` flag, and the full text belongs in the session logs.
 - **Permissions.** `PermissionRequested` blocks the turn until `Respond`, or until `Interrupt` or `Stop` answers "cancelled".
 - **Resume.** `Resume` starts a new process for an old session id. If the agent cannot do that, it returns `ErrCannotResume`, and the session manager follows section 5.3.
@@ -181,7 +183,7 @@ The ACP adapter (`agents/acp`) starts every process through `internal/proc`, the
 | **PTY** | Agents without ACP, and the terminal view | Runs the CLI in a virtual terminal. Uses the CLI's own streaming or JSON mode where it has one. |
 | **Built-in** | The built-in agent | A loop inside the daemon that calls model providers directly. No extra process. |
 
-The Claude Code adapter (`agents/claude`) starts `claude -p` itself, writes one stream-json line per message to its standard input, and parses its standard output line by line into the same closed set of `AgentEvent` values every adapter produces; the wire format is close enough to plain JSON that it needs no protocol library. **It has no permission-request channel yet**, so every session passes `--permission-prompts=none`: a tool call that would need approval is denied at once instead of waiting for an answer nobody can give, matching the catalog's `Approvals: false` for this agent, and `Respond` always returns `ErrUnknownRequest`. `Interrupt` tries up to three stages to end the turn in flight, each with its own grace period: a `control_request` control message first, then SIGINT (Claude Code's documented way to end a turn without leaving it "unfinished" for a `--resume` to replay, unlike SIGTERM; Windows has no portable equivalent and skips this stage), and only as a last resort stopping the process outright and starting a fresh one with `--resume` on the next `Send`, so the session id and the conversation survive even when the process itself is replaced. See the package's own report for the exact permission-mode mapping and what is and is not confirmed against Claude Code's documentation, including the real cost if the SIGINT stage does not behave as documented.
+The Claude Code adapter (`agents/claude`) starts `claude -p` itself, writes one stream-json line per message to its standard input, and parses its standard output line by line into the same closed set of `AgentEvent` values every adapter produces; the wire format is close enough to plain JSON that it needs no protocol library. **It has no permission-request channel yet**, so every session passes `--permission-prompts=none`: a tool call that would need approval is denied at once instead of waiting for an answer nobody can give, matching the catalog's `Approvals: false` for this agent, and `Respond` always returns `ErrUnknownRequest`. `Interrupt` tries up to three stages to end the turn in flight, each with its own grace period: a `control_request` control message first, then SIGINT (Claude Code's documented way to end a turn without leaving it "unfinished" for a `--resume` to replay, unlike SIGTERM; Windows has no portable equivalent and skips this stage), and only as a last resort stopping the process outright and starting a fresh one with `--resume` on the next `Send`, so the session id and the conversation survive even when the process itself is replaced. See `daemon/internal/agents/claude/args.go` (`permissionMode` and `defaultPermissionModes`) for the exact permission-mode mapping, and `daemon/internal/agents/claude/dispatch.go` for how a `Respond` is answered.
 
 The PTY adapter (`agents/pty`) runs the CLI in a pseudo-terminal through go-pty: a Unix pseudo-terminal on macOS and Linux, and ConPTY on Windows. It implements the same `Agent` interface, and its capabilities say `StructuredEvents: false`. What is different about it:
 
@@ -236,7 +238,11 @@ Rules:
 - A **pinned** card never sleeps.
 - The **awake limit** is checked per project and globally. When a new card must wake and the limit is full, the oldest idle awake card gets a sleep warning.
 
+**What Phase 1 builds (B1.9 to B1.11):** the session manager (`internal/session`) only ever moves a session between **Starting**, **Awake**, **Working**, and **Stopped**, and only ever moves a card between Backlog, Working, and Needs you (section 6). A card gets at most one session for its whole life: chats, which need many sessions per project, are a later phase. **WaitingApproval**, **SleepWarning**, **Asleep**, and **Waking**, section 5.2's sleep and wake, pause, pin, and the awake limit are Phase 3 and Phase 5 (B3.1, B3.4, B5.6); nothing writes those states or runs that flow yet.
+
 ### 5.2 Sleep and wake
+
+None of this runs yet: it is Phase 5 (B5.6). Phase 1 has no idle timer, no sleep warning, and no graceful stop except a person explicitly stopping a card's session.
 
 ```mermaid
 sequenceDiagram
@@ -258,7 +264,7 @@ sequenceDiagram
 
 ### 5.3 Restore after reboot
 
-On daemon start, the session manager reads all sessions that were awake or asleep. Depending on the user's setting, it either resumes the ones that were awake, or marks them asleep and shows a resume button. It never starts a fresh session in place of a lost one without telling the user. If resume fails, the card moves to Needs you with the option to start a new session from the card's handoff summary.
+On daemon start, the session manager reads every session row that is starting, awake, or working (not stopped, and not the Phase 3 and Phase 5 states section 5.1 marks as not built yet, since nothing writes them). Depending on the user's resume setting, it either resumes all of them right away (auto, the default), or leaves them exactly as they are and logs how many are waiting (manual); resuming one card at a time by hand is `Manager.Resume`, reachable as `POST /v1/cards/{id}/resume`. It never starts a fresh session in place of a lost one without telling the user. If resume fails, the card moves to Needs you and the session row is marked stopped, since nothing is left running for it; starting the card fresh from there is a feature Phase 1 does not build.
 
 ---
 
@@ -428,12 +434,15 @@ Migrations live in `daemon/internal/store/migrations` and run on daemon start. E
 
 ### 11.1 HTTP
 
-Versioned under `/v1`. JSON in and out. Examples:
+Versioned under `/v1`. JSON in and out. The table is the whole design; **the routes built today, at the end of Phase 1, are** `GET /v1/health`, `GET /v1/auth/whoami`, the project routes (`GET`, `POST /v1/projects`, `GET`, `PATCH`, `DELETE /v1/projects/{id}`, `GET /v1/projects/{id}/board`), the card routes (`POST /v1/projects/{id}/cards`, `GET /v1/cards/{id}`, `POST /v1/cards/{id}/start`, `/messages`, `/stop`, `/resume`), `GET /v1/agents`, `POST /v1/agents/refresh`, and the `GET /v1/events` stream. Every other row is planned. The single source of truth for what is registered is `daemon/internal/api/routes.go` (`domainRoutes`), and a test fails when a route is added there without joining the token check.
+
+Examples:
 
 | Method and path | Action |
 |---|---|
 | `GET /v1/projects` | List projects with badges |
 | `POST /v1/projects` | Create a project from a folder or a GitHub clone |
+| `GET /v1/projects/{id}` | Read one project |
 | `PATCH /v1/projects/{id}` | Rename or edit a project |
 | `DELETE /v1/projects/{id}` | Remove a project from Marshal. Never deletes the repo. |
 | `GET /v1/projects/{id}/chats?archived=` | List chats |
@@ -449,8 +458,11 @@ Versioned under `/v1`. JSON in and out. Examples:
 | `GET /v1/home/activity?cursor=` | Activity stream, paged |
 | `GET /v1/projects/{id}/board` | Board with cards |
 | `POST /v1/projects/{id}/cards` | Create a card |
+| `GET /v1/cards/{id}` | Read one card |
 | `POST /v1/cards/{id}/start` | Start a card |
-| `POST /v1/cards/{id}/messages` | Send a message into the card's session |
+| `POST /v1/cards/{id}/messages` | Send a message into the card's session. The answer comes on the event stream. |
+| `POST /v1/cards/{id}/stop` | Stop the card's agent. Its worktree and branch stay. |
+| `POST /v1/cards/{id}/resume` | Start the agent of a card again with the session it had, when a restart left that session waiting (section 5.3) |
 | `POST /v1/cards/{id}/view` | Switch between chat and terminal view |
 | `POST /v1/cards/{id}/sleep`, `/wake`, `/pin` | Session control |
 | `POST /v1/cards/{id}/checkpoints/{cp}/restore` | Restore a checkpoint |
@@ -462,17 +474,21 @@ Versioned under `/v1`. JSON in and out. Examples:
 | `PUT /v1/cards/{id}/members` | Set the people on a card |
 | `POST /v1/approvals/{id}` | Approve or deny |
 | `GET /v1/cards/{id}/diff` | Current diff |
+| `GET /v1/agents` | List the agents this machine can start, from the answer the daemon keeps |
+| `POST /v1/agents/refresh` | Look for the installed agents again |
 | `GET /v1/search?q=` | Search sessions and notes |
 | `POST /v1/integrations/{id}/test` | Test an integration: sign-in, permissions, and webhook delivery |
 | `POST /v1/providers/{id}/test` | Test a provider API key with a tiny request |
 | `POST /v1/mcp-servers/{id}/test` | Test an MCP server connection |
 | `POST /hooks/{provider}` | Webhooks (the only routes exposed through Funnel) |
 
+Starting a card and resuming one can take a minute or more, because the daemon makes a worktree and then starts the agent, which has its own start time limit. Those two routes get up to three minutes to answer, and a client should wait at least that long. If the client goes away first, the daemon undoes what it made, so no worktree is left behind.
+
 ### 11.2 WebSocket
 
-One stream at `/v1/events`. Clients subscribe to topics (a project, a card, the home view). Output is batched every 16 to 50 milliseconds.
+One stream at `/v1/events`. Clients subscribe to topics (a project, a card, the home view). Output is batched every 16 to 50 milliseconds (25 by default, `defaultFlushInterval` in `internal/api/limits.go`).
 
-Main event types: `project.created`, `project.updated`, `project.removed`, `chat.created`, `chat.updated`, `chat.archived`, `chat.deleted`, `activity.created`, `card.created`, `card.updated`, `card.moved`, `card.members_changed`, `checklist.updated`, `comment.created`, `comment.read_by_agent`, `session.state_changed`, `session.output`, `session.tool_call`, `approval.requested`, `approval.resolved`, `ci.updated`, `quality.checked`, `merge.progress`, `notice.created`, `usage.updated`, `budget.warning`.
+Main event types. **The ones the daemon publishes today are** `project.created`, `project.updated`, `project.removed`, `card.created`, `card.updated`, `card.moved`, `session.state_changed`, `session.output`, and `session.tool_call`. The rest are defined and reserved: `chat.created`, `chat.updated`, `chat.archived`, `chat.deleted`, `activity.created`, `card.members_changed`, `checklist.updated`, `comment.created`, `comment.read_by_agent`, `approval.requested`, `approval.resolved`, `ci.updated`, `quality.checked`, `merge.progress`, `notice.created`, `usage.updated`, `budget.warning`. The full list, with the type each one carries, is `daemon/internal/protocol/event_types.go`.
 
 Frames, topics, sequence numbers, and re-sync are in section 11.5.
 
@@ -606,6 +622,35 @@ The daemon keeps a ring of the most recent events, 2,000 of them (`ReplayBufferS
 2. If the epoch matches and `sinceSeq` is inside the ring, the daemon sends the missed events, in order, and then continues with new ones.
 3. Otherwise the daemon sends `Resync` and continues with new events from that point. `reason` says why: `epoch-changed` (a first connection, or the daemon restarted), `too-far-behind` (the client's position is older than the ring), or `unknown-position` (newer than anything sent in this epoch). `seq` is the newest number sent so far.
 4. On `Resync` the client keeps the new epoch, then reloads its snapshots. An event that arrives during the reload may repeat what the snapshot already shows. Events carry the new state of what changed, not a difference, so applying one twice does no harm.
+
+### 11.6 Client data layer
+
+The app talks to the daemon through the modules in `apps/web/src/data`. No screen calls `fetch` or opens a WebSocket on its own. `createData` builds them all from what it is given (the address, storage, `fetch`, `WebSocket`, and timers), so a test builds one with fakes, and no module keeps state of its own.
+
+| Module | What it is for |
+|---|---|
+| `api-client.ts`, `api-error.ts` | One typed method for each route in section 11.1. It sends the token in `Authorization`, no cookies, and no cache. A call times out after 30 seconds, and starting or resuming a card after 3 minutes. Every failure is an `ApiError` with a `code`, a `status`, `details`, and `retryable`. The codes are the daemon's, plus `unreachable` (no answer), `timeout`, `aborted`, and `bad_response`. The message is always a sentence a person can read. |
+| `event-stream.ts` | The one WebSocket. It offers the subprotocols `marshal.v1` and `bearer.<token>`, sends `Hello` with the epoch and the last `seq` it applied, and hands on only events it has not seen. A gap in `seq` is never a loss. A new epoch on an events frame is treated as a `Resync`. When the connection drops it tries again after 500 ms, doubling up to 10 seconds, each moved by up to 20 percent. |
+| `connection.ts`, `connection-machine.ts` | The state of the link: `starting`, `online`, `reconnecting`, `unreachable`, or `unauthorized`. It checks the daemon (`health`, then `whoami`), waits 1 second and then longer, up to 10, while the daemon does not answer, and stops retrying on a 401 until the token changes. It checks again when the page comes back to the front or the network returns, and tells its owner each time it comes back online so the snapshots are reloaded. |
+| `token.ts` | The token, kept in `localStorage` under `marshal-token`. In the dev build only, with no stored token, it asks the dev server for the dev daemon's token and keeps it in memory. |
+| `daemon-clock.ts` | The daemon's clock, from the fastest answer of the last minute, so "4 min ago" is right when the two clocks differ. |
+| `optimistic.ts` | Changes the screen at once, asks the daemon, and rolls back with one plain message when it says no. |
+| `sections.ts` | The switch for each section of the cutover register in `backend-checklist.md` section 2.2. A test fails when the code and the register differ. |
+| `mappers/` | Pure functions from the generated types to the shapes the screens use. Their tests read the golden files that the Go tests write. |
+
+**Card keys in the app.** The app names a card by its key, `<projectId>#<number>` (`api#41`), in every map, message, notice, feed item, route, and DOM attribute (`data-card`). `apps/web/src/mock/card-key.ts` holds the helpers and follows the daemon's rules for a key. The visible label stays `#41` (`cardLabel`). A list that can show cards of more than one project shows the project name beside the number (`cardLabelIn`, or two separate elements when the component can lay them out). A list that shows one project's cards, such as a board, the Agents view, the timeline, the calendar, and a project's chats, keeps the bare number. New cards are numbered per project, one more than the highest number there.
+
+**Switching a section and where the mirror lives.** `data/sections.ts` says which sections read the daemon (S1, S3, and S4 do; the register in `backend-checklist.md` 2.2 says the same). The mirror lives in `apps/web/src/sync/`, outside `mock/`, which is deleted in Phase 13. Each daemon-backed section is a small `Syncer` (`sync/syncer.ts`): what it loads, how it applies a snapshot, and which events it reads. `startSync` (`sync/index.ts`, started by `createMarshal` whenever the store has a `data` connection) starts the connection, copies its state into `S.connection`, and loads every active section's snapshot when the app first comes online, after each return to online, and after each `Resync`. It applies them together in one batch, so the app never draws half of them, and only the newest answer counts when two loads overlap. It subscribes to the `home` topic and hands each event to the sections. `S.ready` means the app frame can draw: the first snapshots are in, or the connection is in a state whose full screen (`ConnectionLost`, `SignIn`) has to draw instead. Every mirror function is idempotent and updates a project in place, so an answer and its event, or the same event twice, change nothing and redraw nothing. A section that arrives later is another `Syncer` in the list; it needs no other change, and S4 (agents and models) was added that way.
+
+The actions of a daemon-backed section (`sync/project-actions.ts`) change the screen through `optimistic`, ask the daemon, and put the screen back with the daemon's plain sentence when it says no. The remove request always carries both choices, because a request with no body means "keep nothing". Creating a project has no optimistic step, since nothing is known about it before the daemon has read the repository.
+
+**Agents and models (S4).** `sync/agents.ts` loads `GET /v1/agents` on connect and on every return and `Resync` (the daemon caches the catalog for five minutes, and there is no event for it), and `applyAgentCatalog` copies the agents into `S.agents` as the wire sends them, replacing the list only when it differs. Everything the screens need is read from that list in `mock/agents.ts`, through the mappers in `data/mappers/agents.ts`: `M.agentOptions()` for the pickers (every agent, a missing one marked), `M.AGENTS` (by name, with model ids, an icon, and a version, as the prototype's table was), `M.thinkSupported(model)` (the model has a thinking setting and its agent lets Marshal set it; a model no agent lists has none), `M.NO_THINK` (the listed models that cannot think), and the first model of an agent when a card or role switches to it. The one thing the app adds is the built-in agent (`BUILT_IN_AGENT` in `sync/agents.ts`), appended after the daemon's list, because the daemon does not list it until Phase 4 and mock cards and roles still name it. An agent that is not installed stays in every picker, disabled and marked "(not installed)", with the daemon's install sentence under the picker; an untested agent works and its warning shows while it is chosen. A card or role that names an agent or model the catalog does not know still draws: the picker shows what is set, the model list is empty, and thinking is off.
+
+**Mixed mode.** Cards, chats, notices, and feed items are still mock. `sync/reservoir.ts` keeps the mock records of any project the daemon does not have out of `M.S`, and brings them back only when a project with that id arrives, so nothing mock shows for a project that does not exist and a real project with no mock cards shows an empty board. A project that has no CI or cost data (everything from the daemon until Phase 6) shows no CI state and no made-up number: Home's CI health says GitHub is not connected. Per-project screen state (filters, saved views, limits) is made once for every project that arrives, from whichever device or the fixture made it.
+
+**Tests.** Unit tests build the store the way the app does (`testing/test-store.ts`) and fill it through the same functions the daemon's snapshots go through, with the prototype's three projects (`testing/projects.ts`, made from the golden project) and its three agents (`testing/agents.ts`, made from the golden agent, with the prototype's names, versions, and models). A test of the missing and untested states puts the golden catalog in with `useCatalog`. A test that needs a daemon uses `testing/fake-daemon.ts`, which answers the real client and event stream from memory. End-to-end tests run against the built dev daemon (`scripts/e2e-daemon.mjs`), with a fixture of the same three projects, on a port and data folder of their own.
+
+The dev server gives the dev token only to requests from this machine (`apps/web/vite/dev-token.ts`, see `development.md`). It is not part of a production build.
 
 ---
 

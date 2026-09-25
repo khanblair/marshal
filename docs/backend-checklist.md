@@ -51,12 +51,12 @@ A section is one part of the screens that can switch from mock data to the daemo
 
 | Section | Screens | Phase and build plan tasks | Status |
 |---|---|---|---|
-| S1 Connection and sign-in | Boot, token or pairing, "Can't reach the daemon", reconnect | 1: 1.12, 1.13 | Mock |
+| S1 Connection and sign-in | Boot, token or pairing, "Can't reach the daemon", reconnect | 1: 1.12, 1.13 | Daemon |
 | S2a Profile | Avatar menu, name, email, time zone, avatar | 2: 2.15 | Mock |
 | S2b Devices and Tailscale identity | Paired devices, tailnet name and node on the profile | 9: 9.1, 9.2 | Mock |
 | S2c Team and people | Member pickers and people beyond the owner | 12: 12.9 | Mock |
-| S3 Projects | Sidebar list and badges, create, rename, remove, project settings | 1: 1.4, 2.14 | Mock |
-| S4 Agents and models | Agent, model, and thinking pickers everywhere | 1: 1.8 | Mock |
+| S3 Projects | Sidebar list and badges, create, rename, remove, project settings | 1: 1.4, 2.14 | Daemon |
+| S4 Agents and models | Agent, model, and thinking pickers everywhere | 1: 1.8 | Daemon |
 | S5a Cards | Board, List, Timeline, Agents view, new card, quick add, move, rename, delete, basic fork | 2: 2.4, 2.10 | Mock |
 | S5b Templates, dependencies, duplicates | Template choice, dependency links, duplicate warning | 10: 10.1, 10.2, 10.6 | Mock |
 | S5c Package swimlane and filter | Monorepo packages on cards | 12: 12.5 | Mock |

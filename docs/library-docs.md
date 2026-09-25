@@ -31,9 +31,9 @@ After adding, add an entry here with the version, purpose, and notes.
 | Library | Version | Used for | Why this one |
 |---|---|---|---|
 | Go standard library (`net/http`, `log/slog`, `context`, `os/exec`) | 1.27.1 | HTTP server and routing, logging, processes | Modern routing patterns are built in. No web framework needed. |
-| `golang.org/x/sync/errgroup` | Pin at setup | Groups of goroutines | Standard way to run and stop related goroutines together |
+| `golang.org/x/sync/errgroup` | v0.23.0 | Groups of goroutines, used by `internal/api/stream.go` to run a stream's reader and writer as one unit that stops together | Standard way to run and stop related goroutines together. Checks (section 1): needed, since the "first error wins and cancels the rest" rule is easy to get subtly wrong, though a hand-rolled version is only about 60 lines, so this one is kept for correctness rather than for size; pure Go, no cgo; BSD-3-Clause (Go Authors); released 2026-08-31 and maintained alongside the Go toolchain; no install scripts, and it has no dependencies of its own; size: about 0.35 MB in a probe program on macOS arm64 (measured 2026-09-25), almost all of it the runtime shared with any program that starts goroutines; it does not overlap another library on this list. |
 | `golang.org/x/time/rate` | Pin at setup | Rate limiting per provider | Small, standard token bucket |
-| `github.com/coder/websocket` | Pin at setup | WebSocket event stream | Small, maintained, supports context well |
+| `github.com/coder/websocket` | v1.8.15 | The `/v1/events` WebSocket, used by `internal/api` (`server.go`, `stream.go`, `stream_hub.go`, `stream_pump.go`) | Small, maintained, supports context well. Checks (section 1): needed, since a correct RFC 6455 handshake, frame masking, fragmentation, ping/pong, and close handshake is far beyond 200 lines; pure Go, no cgo; ISC (`LICENSE.txt`, "Copyright (c) 2025 Coder"); released 2026-06-15 and maintained by Coder; no install scripts, and it has no dependencies of its own; size: about 0.35 MB on top of `net/http`, which the daemon links anyway (measured 2026-09-25 on macOS arm64 with probe programs); it does not overlap another library on this list. |
 | `github.com/pelletier/go-toml/v2` | Pin at setup | `config.toml` | Fast, correct TOML |
 | `github.com/fsnotify/fsnotify` | Pin at setup | Watching the vault and worktrees | The standard cross-platform file watcher |
 
@@ -56,8 +56,9 @@ After adding, add an entry here with the version, purpose, and notes.
 | Library | Version | Used for | Why this one |
 |---|---|---|---|
 | `github.com/aymanbagabas/go-pty` | v0.2.3 | PTY on macOS, Linux, and Windows (ConPTY), used by `internal/agents/pty` | One API for all three platforms. Checks (section 1): needed, since ConPTY start-up (pseudo console, process attribute lists, environment block) is far beyond 200 lines; pure Go, no cgo (`CGO_ENABLED=0` builds and vets for macOS, Linux, and Windows were run), and its own libraries are `creack/pty` (MIT), `golang.org/x/sys` and `golang.org/x/crypto` (BSD-3-Clause), and `u-root` (BSD-3-Clause); MIT; released 2026-05-17 and maintained; no install scripts, and `govulncheck` was not run for it (it needs the network, so it is left to the CI run); size: it adds about 1.1 MB to a stripped program on all three platforms, most of it from its SSH helper, which pulls `x/crypto/ssh` into the link even though we never use it (measured 2026-09-25, not yet in `marshald`, so the download budget needs a fresh reading when the adapter is wired); no other library on this list does the same job. |
+| `golang.org/x/sys` (`unix`, `windows`) | v0.47.0 | The single-instance lock (`internal/platform/lock_unix.go`, `lock_windows.go`): `unix.Flock` and `windows.LockFileEx`/`UnlockFileEx` | Checks (section 1): needed, since a real OS-held advisory lock (released automatically on a hard kill, unlike a PID file) needs the raw syscalls the standard library does not expose; pure Go, no cgo; was already an indirect dependency of `go-pty` and `modernc.org/sqlite`, promoted to direct with `go mod tidy` (no other module changed) once this package imported it for real; BSD-3-Clause; Google-maintained, released alongside the Go toolchain and kept current; no install scripts, and `govulncheck` was not run for it (needs the network, left to the CI run); size: syscall wrappers only, negligible; no other library on this list does the same job. |
 | Git command line (not a library) | 2.38 or newer | Worktrees, sparse checkout, merge-tree | Go Git libraries do not fully support these features |
-| `github.com/kardianos/service` | Pin at setup | Installing the daemon as a user service | Covers launchd and systemd. Windows uses a per-user scheduled task through our own small helper. |
+| `github.com/kardianos/service` | Considered, not used | Installing the daemon as a user service | Its license is zlib ("provided 'as-is'..."), which is not on section 1's allowed list (MIT, Apache-2.0, BSD, ISC, MPL-2.0), and the architecture already excluded it for Windows. Installed as a launchd agent, a systemd user unit, and a Windows scheduled task instead, in our own code (`internal/platform/service_launchd.go`, `service_systemd.go`, `service_schtasks.go`), which keeps all three platforms on one license-clean implementation rather than a third-party library for two of them and custom code for the third. |
 
 **Notes:**
 
@@ -131,9 +132,9 @@ These, plus `sqlc` and `tygo`, are installed into `.tools/` by `pnpm setup:tools
 
 | Library | Version | Used for |
 |---|---|---|
-| Go `testing` package | Pin at setup | All tests |
-| `go.uber.org/goleak` | v1.3.0 | Catching leaked goroutines |
-| `github.com/google/go-cmp` | Pin at setup | Comparing structs in tests |
+| Go `testing` package | 1.27.1 | All tests |
+| `go.uber.org/goleak` | v1.3.0 | Catching leaked goroutines. It has no release in the last 12 months (v1.3.0, October 2023), but section 1's maintenance check is a goal rather than a rule for a test-only library with no dependencies: it is one small goroutine stack parser, still the standard tool for this job. |
+| `github.com/google/go-cmp` | Considered, not used | Comparing structs in tests. Plain `reflect.DeepEqual` and hand-written field checks turned out to be enough, so it was never added to `go.mod`. |
 
 ### 2.10 Open decision: codebase map
 

@@ -286,6 +286,30 @@ An empty screen is an invitation to act. Say what goes here and give the next st
 - They appear in a notice list in the sidebar, and go to other channels based on settings.
 - Related notices group into one: "3 cards are idle and will sleep in 2 minutes", with actions for each.
 
+### 5.6 Connection states
+
+Marshal talks to a daemon over the network, so it has states the design never drew. Each one has one component in `@marshal/ui` and shows in one place only.
+
+| Situation | What shows | Component |
+|---|---|---|
+| The daemon cannot be reached: the app has no data yet, or it has some and the daemon has not answered after several tries | A full screen: "Can't reach the daemon", Try again, and the time to the next automatic try. It goes away by itself when the daemon answers | `ConnectionLost` |
+| The app has data and the live connection drops, and the daemon still answers or has not been tried yet | A thin bar at the top: "You're offline." The data stays on screen | `OfflineBanner` |
+| The app is starting and has no data yet | A skeleton of the app's own layout (sidebar, top bar, and board columns), not a spinner | `AppSkeleton` in the web app, built from the skeleton components |
+| One part of the app is loading | Skeletons in the space that part will fill | `Skeleton`, `SkeletonLines`, `SkeletonRow`, and `SkeletonCard`, inside one `SkeletonGroup` |
+| The daemon does not know this device | A full screen to paste the access token | `SignIn` |
+| A service is not set up | "GitHub is not connected." and a Connect button | `NotConnected` |
+| One section failed to load | That section's message, Try again, and Details | `ErrorState` |
+
+Rules:
+
+- **A dropped connection shows the banner first; only a daemon that stays silent shows a full screen.** While the app is reconnecting (the live connection dropped), the banner shows and the data stays where it is. When the checks show that the daemon does not answer (after three failed tries, or fifteen seconds), the app shows the full screen "Can't reach the daemon" even though it has data, and returns to the app by itself when the daemon answers. The banner says changes cannot be made until Marshal reconnects. It never says they are queued, because there are no queued offline actions.
+- **Skeletons are for a part, never for the whole app**, with one exception: before the app has any data at all, it draws its own layout as placeholders (`AppSkeleton`), so the frame does not jump when the data arrives. They have the same box as the real content (padding, border, and corners), so nothing shifts when it arrives. The container being loaded has `aria-busy="true"`, and one `SkeletonGroup` around the shapes says "Loading" once, so a screen reader does not read twenty empty blocks. The soft pulse uses the pulse token and stops under reduced motion like every other animation.
+- **`NotConnected` is only for a service that is not set up**, and it never shows sample rows, cards, or numbers (backend-checklist 2.3, rule 4). Say in one sentence what connecting gives you.
+- **`ErrorState` is for one section, not the app.** An app that cannot reach the daemon shows `ConnectionLost`. The message says what happened and how to fix it (5.3).
+- **None of them shows a stack trace**, a raw error, or a file path in its message. Technical text goes inside the expandable Details, written short by the caller: an error code and a reason.
+- **Screen readers hear the message once.** The message of `ConnectionLost` is an alert when it appears, the banner is a polite status, and the "Trying again in 4 s" line is kept out of those live regions so it is not read every second. `ErrorState` is plain text and not an alert, because one hiccup can fail several sections at once and each alert would interrupt.
+- **`SignIn` keeps the token in its field.** The token is not shown as text, put in an attribute, or logged, and it is trimmed before it is sent. The error under the field is a plain sentence from the caller.
+
 ---
 
 ## 6. Writing rules
