@@ -12,6 +12,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@marshal/protocol": "workspace:*",
     "@marshal/tokens": "workspace:*",
     "@marshal/ui": "workspace:*",
     "solid-js": "1.9.15"

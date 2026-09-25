@@ -8,14 +8,14 @@
     "node": ">=24"
   },
   "scripts": {
-    "dev": "pnpm --parallel --filter daemon --filter web dev",
+    "dev": "pnpm --filter stub-agent build && pnpm --parallel --filter daemon --filter web dev",
     "dev:web": "pnpm --filter web dev",
     "dev:daemon": "pnpm --filter daemon dev",
     "dev:reset": "pnpm --filter daemon dev:reset",
     "setup:tools": "node scripts/setup-tools.mjs",
     "hooks:replay": "pnpm --filter hooks-replay replay",
     "gen": "pnpm --filter @marshal/tokens gen && pnpm --filter @marshal/ui gen && node scripts/go-tool.mjs sqlc generate -f daemon/sqlc.yaml && pnpm --filter @marshal/protocol gen",
-    "build": "pnpm gen && pnpm --filter daemon build && pnpm --filter web build",
+    "build": "pnpm gen && pnpm --filter daemon build && pnpm --filter stub-agent build && pnpm --filter web build",
     "preview": "pnpm --filter web preview",
     "lint": "biome lint . && pnpm -r --workspace-concurrency=1 --if-present lint:go",
     "format": "biome format --write . && pnpm -r --workspace-concurrency=1 --if-present format:go",

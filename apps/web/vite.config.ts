@@ -2,9 +2,12 @@ import { fileURLToPath } from "node:url";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
 import solid from "vite-plugin-solid";
+// The extension is required: Vite's native config loader cannot resolve a relative import
+// without one, and it warns about it on every start.
+import { devTokenPlugin } from "./vite/dev-token.ts";
 
 export default defineConfig({
-  plugins: [solid(), tailwindcss()],
+  plugins: [solid(), tailwindcss(), devTokenPlugin()],
   resolve: { alias: { "~": fileURLToPath(new URL("./src", import.meta.url)) } },
   server: {
     port: 3210,

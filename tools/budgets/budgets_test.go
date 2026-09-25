@@ -93,13 +93,25 @@ func TestMeasuresARealDaemon(t *testing.T) {
 	if testing.Short() {
 		t.Skip("builds the daemon")
 	}
-	binary := filepath.Join(t.TempDir(), "marshald")
+	dir := t.TempDir()
+	binary := filepath.Join(dir, "marshald")
 	if runtime.GOOS == "windows" {
 		binary += ".exe"
 	}
 	build := exec.Command("go", "build", "-C", filepath.Join("..", "..", "daemon"), "-o", binary, "./cmd/marshald")
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("build the daemon: %v\n%s", err, out)
+	}
+	// The dev daemon starts the stub agent, and it looks for it next to its own program, the way
+	// `pnpm build` puts the two together in dist/bin. Without it the daemon refuses to start and
+	// never answers the health call this measurement waits for.
+	stub := filepath.Join(dir, "stub-agent")
+	if runtime.GOOS == "windows" {
+		stub += ".exe"
+	}
+	buildStub := exec.Command("go", "build", "-C", filepath.Join("..", "stub-agent"), "-o", stub, ".")
+	if out, err := buildStub.CombinedOutput(); err != nil {
+		t.Fatalf("build the stub agent: %v\n%s", err, out)
 	}
 	var out, errOut bytes.Buffer
 	code := run([]string{"-daemon", binary, "-idle", "1s", "-max-rss-mb", "500", "-max-cpu-percent", "100"}, &out, &errOut)

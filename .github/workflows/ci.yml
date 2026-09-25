@@ -70,6 +70,7 @@ jobs:
       - run: pnpm setup:tools
       - run: pnpm gen
       - run: pnpm --filter web exec playwright install --with-deps chromium
+      - run: pnpm build
       - run: pnpm test:e2e
       - uses: actions/upload-artifact@v4
         if: failure()
