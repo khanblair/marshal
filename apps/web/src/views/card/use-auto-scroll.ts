@@ -1,5 +1,6 @@
 import { createEffect, createMemo, on, onCleanup, onMount } from "solid-js";
 import { M, type Msg } from "~/mock";
+import type { CardKey } from "~/mock/card-key";
 import type { Panel } from "./panel-state";
 
 /** The user counts as scrolled away when this much of the chat is below the viewport. */
@@ -34,7 +35,7 @@ export interface AutoScroll {
  * mode scrolls to the bottom; new output scrolls only when you are near the bottom,
  * and otherwise shows Jump to latest.
  */
-export function createAutoScroll(id: number, panel: Panel): AutoScroll {
+export function createAutoScroll(id: CardKey, panel: Panel): AutoScroll {
   let chatEl: HTMLElement | undefined;
   let termEl: HTMLElement | undefined;
   const toBottom = () => {

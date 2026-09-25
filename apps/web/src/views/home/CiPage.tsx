@@ -1,7 +1,8 @@
 import { Button, CiStatus, ciAppearance, Icon } from "@marshal/ui";
-import { createMemo, For, Index } from "solid-js";
-import { M, type Project } from "~/mock";
-import { type CiRun, ciInfo, runAgo, runsOf } from "./ci-rows";
+import { createMemo, For, Index, Show } from "solid-js";
+import { M } from "~/mock";
+import { CiNotConnected } from "./CiNotConnected";
+import { type CiRun, ciInfo, hasCi, type ProjectWithCi, runAgo, runsOf } from "./ci-rows";
 
 function RunRow(props: { run: CiRun }) {
   const look = () => ciAppearance(props.run.state);
@@ -24,7 +25,7 @@ function RunRow(props: { run: CiRun }) {
   );
 }
 
-function ProjectRuns(props: { project: Project }) {
+function ProjectRuns(props: { project: ProjectWithCi }) {
   const runs = createMemo(() => runsOf(props.project));
   return (
     <section class="flex flex-col pb-2">
@@ -45,10 +46,18 @@ function ProjectRuns(props: { project: Project }) {
   );
 }
 
-/** The CI health page: every project's main branch, with its workflow runs and its cards' runs. */
+/**
+ * The CI health page: the main branch of every project that has CI data, with its workflow runs and
+ * its cards' runs. A project with no CI data is left out, and when none has any the page says GitHub
+ * is not connected instead of drawing an empty list.
+ */
 export function CiPage(props: { projectId: string }) {
   const projects = createMemo(() =>
-    M.S.projects.filter((p) => props.projectId === "all" || p.id === props.projectId),
+    M.S.projects.filter(hasCi).filter((p) => props.projectId === "all" || p.id === props.projectId),
   );
-  return <For each={projects()}>{(project) => <ProjectRuns project={project} />}</For>;
+  return (
+    <Show when={projects().length > 0} fallback={<CiNotConnected />}>
+      <For each={projects()}>{(project) => <ProjectRuns project={project} />}</For>
+    </Show>
+  );
 }

@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { M } from "~/mock";
+import { cardLabel } from "~/mock/card-key";
 import { HomeAllView } from "./HomeAllView";
 import { type HomeSnapshot, homeSnapshot, PHONE_WIDTH_PX, resetHome } from "./test-support";
 
@@ -129,7 +130,7 @@ describe("Recent activity page", () => {
   it("opens what an entry is about", () => {
     render(() => <HomeAllView />);
     fireEvent.click(screen.getByRole("button", { name: /Plan ready for review on #43/ }));
-    expect(M.S.openId).toBe(43);
+    expect(M.S.openId).toBe("api#43");
   });
 
   it("shows entries added while the page is open", () => {
@@ -205,7 +206,9 @@ describe("CI health page", () => {
     const api = screen
       .getByRole("heading", { level: 3, name: "api-gateway" })
       .closest("section") as HTMLElement;
-    const row = within(api).getByText(`#${card.id} ${card.title}`).closest("button") as HTMLElement;
+    const row = within(api)
+      .getByText(`${cardLabel(card)} ${card.title}`)
+      .closest("button") as HTMLElement;
     expect(within(row).getByText(card.branch ?? "")).toHaveClass("font-mono");
     fireEvent.click(row);
     expect(M.S.openId).toBe(card.id);
@@ -229,5 +232,26 @@ describe("CI health page", () => {
     expect(screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual([
       "web-dashboard",
     ]);
+  });
+  it("leaves out a project with no CI data, and says GitHub is not connected when none has any", () => {
+    const strip = (project: (typeof M.S.projects)[number]) => {
+      delete project.ci;
+      delete project.runs;
+    };
+    const web = M.proj("web");
+    if (!web) throw new Error("seed has no web project");
+    strip(web);
+    const { unmount } = render(() => <HomeAllView />);
+    expect(screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual([
+      "api-gateway",
+      "mobile-app",
+    ]);
+    unmount();
+    for (const project of M.S.projects) strip(project);
+    render(() => <HomeAllView />);
+    expect(screen.queryAllByRole("heading", { level: 3 })).toHaveLength(0);
+    expect(
+      screen.getByText("GitHub is not connected. CI runs appear here once GitHub is connected."),
+    ).toBeInTheDocument();
   });
 });

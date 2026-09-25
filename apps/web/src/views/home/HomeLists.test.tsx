@@ -55,7 +55,7 @@ describe("Recent activity", { timeout: SLOW_TEST_MS }, () => {
   it("opens the card, the schedule, or the project an entry is about", () => {
     render(() => <HomeView />);
     fireEvent.click(screen.getByRole("button", { name: /Plan ready for review on #43/ }));
-    expect(M.S.openId).toBe(43);
+    expect(M.S.openId).toBe("api#43");
     M.S.feed.unshift({
       id: "f-job",
       kind: "schedule",
@@ -133,7 +133,7 @@ describe("Coming up today", { timeout: SLOW_TEST_MS }, () => {
     const rows = [
       today.getByRole("button", { name: /Standup/ }),
       today.getByRole("button", { name: /Nightly/ }),
-      today.getByRole("button", { name: new RegExp(`#${due.id} .* is due`) }),
+      today.getByRole("button", { name: new RegExp(`${M.cardLabelOf(due)} .* is due`) }),
     ];
     expect(rows.map((r) => r.querySelector("span")?.textContent)).toEqual([
       "09:15",
@@ -168,7 +168,9 @@ describe("Coming up today", { timeout: SLOW_TEST_MS }, () => {
     M.go("home");
     fireEvent.click(screen.getByRole("button", { name: /Planning/ }));
     expect(M.S.toasts.at(-1)?.msg).toBe("Planning is from Google Calendar");
-    fireEvent.click(screen.getByRole("button", { name: new RegExp(`#${due.id} .* is due`) }));
+    fireEvent.click(
+      screen.getByRole("button", { name: new RegExp(`${M.cardLabelOf(due)} .* is due`) }),
+    );
     expect(M.S.openId).toBe(due.id);
   });
 
@@ -198,7 +200,7 @@ describe("Coming up today", { timeout: SLOW_TEST_MS }, () => {
 
 describe("Agents awake", { timeout: SLOW_TEST_MS }, () => {
   const sleepButtons = () =>
-    within(section("Agents awake")).getAllByRole("button", { name: /^Sleep #/ });
+    within(section("Agents awake")).getAllByRole("button", { name: /^Sleep / });
 
   it("counts the awake cards against the limit, amber once the limit is reached", () => {
     render(() => <HomeView />);
@@ -226,7 +228,7 @@ describe("Agents awake", { timeout: SLOW_TEST_MS }, () => {
     const card = M.awake().find((c) => c.state === "working");
     if (!card) throw new Error("seed has no working card");
     const view = M.deco(card);
-    const row = screen.getByRole("button", { name: `Sleep #${card.id}` })
+    const row = screen.getByRole("button", { name: `Sleep ${M.cardLabelOf(card)}` })
       .parentElement as HTMLElement;
     expect(within(row).getByText(view.title)).toHaveClass("font-semibold");
     expect(within(row).getByText(view.stateLabel)).toBeVisible();
@@ -239,11 +241,13 @@ describe("Agents awake", { timeout: SLOW_TEST_MS }, () => {
     fireEvent.click(within(section("Agents awake")).getByRole("button", { name: /^Show all/ }));
     const card = M.awake().find((c) => c.state === "review");
     if (!card) throw new Error("seed has no card in review");
-    const button = screen.getByRole("button", { name: `Sleep #${card.id}` });
-    expect(button).toHaveAttribute("title", `Sleep #${card.id}`);
+    const button = screen.getByRole("button", { name: `Sleep ${M.cardLabelOf(card)}` });
+    expect(button).toHaveAttribute("title", `Sleep ${M.cardLabelOf(card)}`);
     fireEvent.click(button);
     expect(M.card(card.id)?.asleep).toBe(true);
-    expect(screen.queryByRole("button", { name: `Sleep #${card.id}` })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: `Sleep ${M.cardLabelOf(card)}` }),
+    ).not.toBeInTheDocument();
   });
 
   it("shows every card on request, and opens the busiest project's agents", () => {
@@ -297,6 +301,40 @@ describe("CI health", { timeout: SLOW_TEST_MS }, () => {
       "web-dashboardMain running",
       "mobile-appMain failed22 min ago",
     ]);
+  });
+
+  const withoutCi = (project: (typeof M.S.projects)[number]) => {
+    delete project.ci;
+    delete project.ciAgo;
+    delete project.monthBase;
+    delete project.runs;
+  };
+
+  it("lists only the projects that have CI data, and draws nothing made up for the rest", () => {
+    const web = M.proj("web");
+    if (!web) throw new Error("seed has no web project");
+    withoutCi(web);
+    render(() => <HomeView />);
+    expect(rows().map((r) => r.textContent)).toEqual([
+      "api-gatewayMain passed38 min ago",
+      "mobile-appMain failed22 min ago",
+    ]);
+    expect(within(section("CI health")).queryByText(/queued/i)).toBeNull();
+  });
+
+  it("says GitHub is not connected, and shows no row, when no project has CI data", () => {
+    for (const project of M.S.projects) withoutCi(project);
+    render(() => <HomeView />);
+    const ci = section("CI health");
+    expect(within(ci).queryAllByRole("button", { name: /Main/ })).toHaveLength(0);
+    expect(
+      within(ci).getByText(
+        "GitHub is not connected. CI runs appear here once GitHub is connected.",
+      ),
+    ).toBeInTheDocument();
+    expect(within(ci).queryByRole("button", { name: "View all CI runs" })).toBeNull();
+    fireEvent.click(within(ci).getByRole("button", { name: "Connect GitHub" }));
+    expect(M.S).toMatchObject({ settingsSection: "integrations", route: { page: "settings" } });
   });
 
   it("offers Show all beyond five projects and links to the full CI page", () => {

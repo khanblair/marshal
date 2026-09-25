@@ -238,7 +238,7 @@ describe("Needs you", { timeout: SLOW_TEST_MS }, () => {
     expect(needs.getByText("Add rate limiting per API key")).toBeVisible();
     expect(needs.getByText("#43")).toHaveClass("text-muted");
     const wait = needs.getByText("Waiting since 34 min ago");
-    expect(wait).toHaveAttribute("title", M.full(M.card(43)?.upd ?? 0));
+    expect(wait).toHaveAttribute("title", M.full(M.card("api#43")?.upd ?? 0));
   });
 
   it("names the button after what the card asks", () => {
@@ -256,17 +256,17 @@ describe("Needs you", { timeout: SLOW_TEST_MS }, () => {
     expect(approve).toHaveLength(1);
     expect(approve[0]).toHaveClass("bg-ink", "hover:bg-ink!");
     fireEvent.click(approve[0] as HTMLElement);
-    expect(M.card(44)?.state).toBe("working");
+    expect(M.card("api#44")?.state).toBe("working");
     expect(screen.queryByRole("button", { name: "Approve" })).not.toBeInTheDocument();
   });
 
   it("opens the card from its row and its button, and the project from its heading", () => {
     render(() => <HomeView />);
     fireEvent.click(screen.getByRole("button", { name: "Review plan" }));
-    expect(M.S.openId).toBe(43);
+    expect(M.S.openId).toBe("api#43");
     M.S.openId = null;
     fireEvent.click(screen.getByText("Add rate limiting per API key"));
-    expect(M.S.openId).toBe(43);
+    expect(M.S.openId).toBe("api#43");
     fireEvent.click(screen.getByRole("button", { name: "web-dashboard1 card" }));
     expect(M.S.route).toMatchObject({ page: "project", pid: "web" });
   });

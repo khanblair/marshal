@@ -7,7 +7,7 @@ import { createShowAll } from "./use-show-all";
 
 function AwakeRow(props: { card: Card }) {
   const view = createMemo(() => M.deco(props.card));
-  const sleepLabel = () => `Sleep #${props.card.id}`;
+  const sleepLabel = () => `Sleep ${M.cardLabelOf(props.card)}`;
   return (
     <div class="flex items-center gap-2 py-2 border-t border-border">
       <button

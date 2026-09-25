@@ -5,6 +5,7 @@
 
 import type { Chat, Msg } from "~/mock";
 import { M } from "~/mock";
+import { cardLabel, cardNumber, parseCardKey } from "~/mock/card-key";
 
 export const ORCHESTRATOR = "Orchestrator";
 
@@ -18,18 +19,21 @@ export const SUGGESTIONS = [
 /** Where the message list counts as scrolled away from the newest message, in px. */
 export const AWAY_THRESHOLD_PX = 80;
 
-const CARD_TARGET = /^#/;
+/** A chat that talks to a card has the card key as its target, such as `web#118`. */
+const isCardTarget = (target: string): boolean => parseCardKey(target) !== null;
 
-const isCardTarget = (target: string): boolean => CARD_TARGET.test(target);
+/** What a target is called in text: a card key reads `#118`, a role reads as it is. */
+const targetName = (target: string): string =>
+  isCardTarget(target) ? cardLabel({ n: cardNumber(target) }) : target;
 
-/** The card a `#id` target points at, if it still exists. */
-const targetCard = (target: string) => (isCardTarget(target) ? M.card(target.slice(1)) : undefined);
+/** The card a key target points at, if it still exists. */
+const targetCard = (target: string) => (isCardTarget(target) ? M.card(target) : undefined);
 
 /** The row label of a chat's target: `#118 Agent name`, `Orchestrator`, or `Tester role`. */
 export function targetLabel(target: string): string {
   if (isCardTarget(target)) {
-    const card = M.card(target.slice(1));
-    return card ? `${target} ${card.agent}` : target;
+    const card = M.card(target);
+    return card ? `${cardLabel(card)} ${card.agent}` : targetName(target);
   }
   return target === ORCHESTRATOR ? ORCHESTRATOR : `${target} role`;
 }
@@ -44,13 +48,13 @@ export function targetBits(chat: Chat): string[] {
   const card = targetCard(chat.target);
   if (card) return [card.agent, card.model, card.asleep ? "Asleep" : "Awake"];
   if (chat.target === ORCHESTRATOR) return [ORCHESTRATOR, "claude-opus-4-1", "High thinking"];
-  return [`${chat.target} role`, "Uses the role template"];
+  return [`${targetName(chat.target)} role`, "Uses the role template"];
 }
 
 export function composerPlaceholder(chat: Chat | undefined): string {
   if (!chat) return "Message";
   const card = targetCard(chat.target);
-  if (card) return `Message #${card.id}`;
+  if (card) return `Message ${cardLabel(card)}`;
   return `Message ${chat.target === ORCHESTRATOR ? "the Orchestrator" : `the ${chat.target}`}`;
 }
 
@@ -86,7 +90,7 @@ export function newChatTargets(pid: string): TargetOption[] {
   }));
   const cards = M.cardsOf(pid)
     .filter(M.isAwake)
-    .map((card) => ({ value: `#${card.id}`, label: `#${card.id} ${card.title}` }));
+    .map((card) => ({ value: card.id, label: `${cardLabel(card)} ${card.title}` }));
   return [{ value: ORCHESTRATOR, label: ORCHESTRATOR }, ...roles, ...cards];
 }
 

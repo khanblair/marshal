@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { M } from "~/mock";
+import { cardNumber } from "~/mock/card-key";
 import { ChatsView } from "./ChatsView";
 import {
   chatByTitle,
@@ -54,7 +55,7 @@ describe("chat header", () => {
     cleanup();
     showChats("web");
     render(() => <ChatsView />);
-    const card = M.card(118);
+    const card = M.card("web#118");
     expect(screen.getByRole("region", { name: "Settings dark mode" })).toBeInTheDocument();
     expect(screen.getByText(card?.model ?? "")).toBeInTheDocument();
     expect(screen.getByText(card?.asleep ? "Asleep" : "Awake")).toBeInTheDocument();
@@ -197,8 +198,11 @@ describe("New chat", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Start chat" }));
     const started = M.S.chats.api?.at(-1);
-    expect(started?.target).toMatch(/^#\d+$/);
-    expect(composer()).toHaveAttribute("placeholder", `Message ${started?.target}`);
+    expect(started?.target).toMatch(/^[a-z][a-z0-9-]*#\d+$/);
+    expect(composer()).toHaveAttribute(
+      "placeholder",
+      `Message #${cardNumber(started?.target ?? "")}`,
+    );
   });
 
   it("is a bottom sheet on a phone, and the new chat replaces the list", () => {

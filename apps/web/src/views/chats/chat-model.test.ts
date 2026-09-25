@@ -30,22 +30,22 @@ const chat = (over: Partial<Chat> = {}): Chat => ({
 
 describe("target labels", () => {
   it("names the target of a card, the Orchestrator, and a role", () => {
-    const card = M.card(118);
-    expect(targetLabel("#118")).toBe(`#118 ${card?.agent}`);
-    expect(targetLabel("#99999")).toBe("#99999");
+    const card = M.card("web#118");
+    expect(targetLabel("web#118")).toBe(`#118 ${card?.agent}`);
+    expect(targetLabel("api#99999")).toBe("#99999");
     expect(targetLabel("Orchestrator")).toBe("Orchestrator");
     expect(targetLabel("Tester")).toBe("Tester role");
   });
 
   it("picks an icon per kind of target", () => {
-    expect(targetIcon("#118")).toBe("bot");
+    expect(targetIcon("web#118")).toBe("bot");
     expect(targetIcon("Orchestrator")).toBe("route");
     expect(targetIcon("Reviewer")).toBe("user-cog");
   });
 
   it("lists the facts under the chat title", () => {
-    const card = M.card(118);
-    expect(targetBits(chat({ target: "#118" }))).toEqual([
+    const card = M.card("web#118");
+    expect(targetBits(chat({ target: "web#118" }))).toEqual([
       card?.agent,
       card?.model,
       card?.asleep ? "Asleep" : "Awake",
@@ -55,7 +55,7 @@ describe("target labels", () => {
       "Tester role",
       "Uses the role template",
     ]);
-    expect(targetBits(chat({ target: "#99999" }))).toEqual([
+    expect(targetBits(chat({ target: "api#99999" }))).toEqual([
       "#99999 role",
       "Uses the role template",
     ]);
@@ -67,7 +67,7 @@ describe("composerPlaceholder", () => {
     expect(composerPlaceholder(undefined)).toBe("Message");
     expect(composerPlaceholder(chat())).toBe("Message the Orchestrator");
     expect(composerPlaceholder(chat({ target: "Tester" }))).toBe("Message the Tester");
-    expect(composerPlaceholder(chat({ target: "#118" }))).toBe("Message #118");
+    expect(composerPlaceholder(chat({ target: "web#118" }))).toBe("Message #118");
   });
 });
 
@@ -75,7 +75,7 @@ describe("matchesQuery", () => {
   const withMsgs = chat({
     msgs: [
       { id: "m1", k: "user", text: "Do we cache JWKS keys?" },
-      { id: "m2", k: "card", cardId: 33 },
+      { id: "m2", k: "card", cardId: "api#33" },
     ],
   });
 
@@ -104,9 +104,9 @@ describe("newChatTargets", () => {
     expect(targets[1]).toEqual({ value: "Worker", label: "Worker role" });
     expect(targets.filter((t) => t.value === "Orchestrator")).toHaveLength(1);
     const awake = M.cardsOf("api").filter(M.isAwake);
-    const cards = targets.filter((t) => t.value.startsWith("#"));
-    expect(cards.map((t) => t.value)).toEqual(awake.map((c) => `#${c.id}`));
-    expect(cards[0]?.label).toBe(`#${awake[0]?.id} ${awake[0]?.title}`);
+    const cards = targets.filter((t) => t.value.includes("#"));
+    expect(cards.map((t) => t.value)).toEqual(awake.map((c) => c.id));
+    expect(cards[0]?.label).toBe(`#${awake[0]?.n} ${awake[0]?.title}`);
   });
 });
 
@@ -116,7 +116,7 @@ describe("threadSignature", () => {
     expect(threadSignature(chat())).toBe("ch1:0:0");
     const base = chat({ msgs: [{ id: "m1", k: "agent", text: "Hello" }] });
     expect(threadSignature(base)).toBe("ch1:1:5");
-    const ref = chat({ msgs: [{ id: "m2", k: "card", cardId: 1 }] });
+    const ref = chat({ msgs: [{ id: "m2", k: "card", cardId: "api#1" }] });
     expect(threadSignature(ref)).toBe("ch1:1:0");
     expect(signatureChatId(threadSignature(base))).toBe("ch1");
     expect(signatureChatId(":0:0")).toBe("");

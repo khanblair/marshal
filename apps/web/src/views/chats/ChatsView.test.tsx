@@ -63,7 +63,7 @@ describe("ChatsView list", () => {
     showChats("web");
     render(() => <ChatsView />);
     expect(
-      within(rowOf("Settings dark mode")).getByText(`#118 ${M.card(118)?.agent}`),
+      within(rowOf("Settings dark mode")).getByText(`#118 ${M.card("web#118")?.agent}`),
     ).toBeVisible();
   });
 
