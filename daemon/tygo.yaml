@@ -1,0 +1,6 @@
+# Generates TypeScript types for the app from the Go wire types. Run through `pnpm gen`.
+packages:
+  - path: "github.com/khanblair/marshal/daemon/internal/protocol"
+    output_path: "../packages/protocol/src/generated/index.ts"
+    type_mappings:
+      time.Time: "string /* an RFC 3339 time */"
