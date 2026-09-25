@@ -1,0 +1,37 @@
+{
+  "name": "marshal",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "packageManager": "pnpm@11.4.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "pnpm --filter web dev",
+    "dev:web": "pnpm --filter web dev",
+    "gen": "pnpm --filter @marshal/tokens gen && pnpm --filter @marshal/ui gen",
+    "build": "pnpm gen && pnpm --filter web build",
+    "preview": "pnpm --filter web preview",
+    "lint": "biome lint .",
+    "format": "biome format --write .",
+    "format:check": "biome format .",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "test": "pnpm -r --if-present test",
+    "test:web": "pnpm --filter web test",
+    "test:ui": "pnpm --filter @marshal/ui test",
+    "test:tokens": "pnpm --filter @marshal/tokens test",
+    "test:e2e": "pnpm --filter web test:e2e",
+    "parity": "node tools/parity/run.mjs",
+    "budgets": "node scripts/budgets.mjs",
+    "smells": "node scripts/smells.mjs",
+    "smells:all": "node scripts/smells.mjs --all",
+    "check": "node scripts/check.mjs"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.14",
+    "jscpd": "5.3.2",
+    "knip": "6.38.0",
+    "typescript": "7.0.2"
+  }
+}
