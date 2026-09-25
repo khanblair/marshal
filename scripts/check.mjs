@@ -3,8 +3,9 @@
  * Steps stop the run on failure unless `--keep-going` is passed.
  */
 import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
-const root = new URL("..", import.meta.url).pathname;
+const root = fileURLToPath(new URL("..", import.meta.url));
 const keepGoing = process.argv.includes("--keep-going");
 
 const STEPS = [

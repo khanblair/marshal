@@ -5,9 +5,10 @@
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { extname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { gzipSync } from "node:zlib";
 
-const DIST = new URL("../apps/web/dist", import.meta.url).pathname;
+const DIST = fileURLToPath(new URL("../apps/web/dist", import.meta.url));
 const BYTES_PER_KB = 1024;
 const KB_PER_MB = 1024;
 

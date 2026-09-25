@@ -12,8 +12,9 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const root = new URL("..", import.meta.url).pathname;
+const root = fileURLToPath(new URL("..", import.meta.url));
 const FILE_WARN_LINES = 400;
 const FILE_BLOCK_LINES = 800;
 /** Folders that exist only once something is added to them (`tools/`) are skipped until then. */
