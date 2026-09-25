@@ -133,3 +133,16 @@ func (s *Service) checkWorktree(ctx context.Context, projectID, path, branch str
 	}
 	return clean, nil
 }
+
+// Worktree returns the worktree folder and branch stored for a card. Both are empty until the
+// card starts. This is a Go-level accessor for another daemon module (the session manager), not a
+// wire type: protocol.Card deliberately leaves the worktree's local filesystem path off the wire,
+// the way a project's own repository folder is on protocol.Project.Path but a card's worktree,
+// which nobody typed in, is not.
+func (s *Service) Worktree(ctx context.Context, cardID string) (path, branch string, err error) {
+	row, err := s.store.Queries().GetCard(ctx, cardID)
+	if err != nil {
+		return "", "", notFound(fmt.Errorf("read card %s: %w", cardID, err), notFoundCard(cardID))
+	}
+	return row.WorktreePath, row.Branch, nil
+}

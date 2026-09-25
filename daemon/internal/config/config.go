@@ -51,7 +51,7 @@ func parseFlags(args []string, usage io.Writer) (rawFlags, error) {
 	fs.StringVar(&raw.dataDir, "data-dir", "", "data folder (default depends on the operating system)")
 	fs.StringVar(&raw.agent, "agent", "", "agents to start: stub or real (default stub in dev mode, real otherwise)")
 	fs.StringVar(&raw.logLevel, "log-level", "", "debug, info, warn, or error")
-	fs.StringVar(&raw.fixture, "fixture", "", "load a fixture project on start, for example small-repo")
+	fs.StringVar(&raw.fixture, "fixture", "", "dev mode only: load a fixture on start (the only one is prototype: the three projects the prototype shows)")
 	if err := fs.Parse(args); err != nil {
 		return rawFlags{}, err
 	}
