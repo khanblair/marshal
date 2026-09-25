@@ -13,10 +13,13 @@ import (
 
 	"github.com/coder/websocket"
 
+	"github.com/khanblair/marshal/daemon/internal/agents/catalog"
 	"github.com/khanblair/marshal/daemon/internal/buildinfo"
 	"github.com/khanblair/marshal/daemon/internal/config"
 	"github.com/khanblair/marshal/daemon/internal/events"
+	"github.com/khanblair/marshal/daemon/internal/projects"
 	"github.com/khanblair/marshal/daemon/internal/protocol"
+	"github.com/khanblair/marshal/daemon/internal/session"
 	"github.com/khanblair/marshal/daemon/internal/store"
 )
 
@@ -38,6 +41,15 @@ type Deps struct {
 	Bus *events.Bus
 	// Dev makes a dev daemon accept its dev token from this machine. A normal daemon ignores it.
 	Dev *DevAccess
+	// Projects manages projects, boards, and cards. When it is set, the routes for projects, boards,
+	// and cards are registered, and so is starting a card when Sessions is set as well.
+	Projects *projects.Service
+	// Sessions starts, sends to, stops, and resumes a card's agent session. When it is set, the
+	// routes to send a message to a card, stop it, and resume it are registered.
+	Sessions *session.Manager
+	// Catalog lists the agents this daemon can start: the real Catalog in real mode, the Stub in
+	// dev mode. When it is set, the routes to list and refresh the agents are registered.
+	Catalog catalog.Source
 	// Limits are the sizes and times. A zero field takes its default.
 	Limits Limits
 }
@@ -50,11 +62,20 @@ type Server struct {
 	limits   Limits
 	auth     *authenticator // nil without a store
 	hub      *hub           // nil without a store and a bus
+	// The services that the domain routes call. Each is nil when its dependency was not given, and
+	// a route that needs one is then not registered. The server only holds them: the rules are in
+	// the services.
+	projects *projects.Service
+	sessions *session.Manager
+	catalog  catalog.Source
 }
 
 // New makes a server. `now` is the clock, so tests can fix the time.
 func New(settings config.Settings, log *slog.Logger, now func() time.Time, deps Deps) *Server {
-	s := &Server{settings: settings, log: log, now: now, limits: deps.Limits.withDefaults()}
+	s := &Server{
+		settings: settings, log: log, now: now, limits: deps.Limits.withDefaults(),
+		projects: deps.Projects, sessions: deps.Sessions, catalog: deps.Catalog,
+	}
 	if deps.Store == nil {
 		return s
 	}
@@ -84,6 +105,7 @@ func (s *Server) handler(extra ...func(*router)) http.Handler {
 		if s.hub != nil {
 			routes.stream("GET /v1/events", s.eventStream)
 		}
+		s.addDomainRoutes(routes)
 	}
 	for _, add := range extra {
 		add(routes)

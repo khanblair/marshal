@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"slices"
 	"time"
@@ -43,8 +44,10 @@ func (s *Server) eventStream(w http.ResponseWriter, r *http.Request) {
 	}
 	defer s.hub.release(st)
 	// Only marshal.v1 is offered back. The client's other subprotocol carries its token and is
-	// never echoed.
-	ws, err := websocket.Accept(w, r, &websocket.AcceptOptions{
+	// never echoed. The recorder keeps the raw connection so a shutdown can end a client that
+	// stops reading (see hijack.go).
+	recorder := &hijackRecorder{ResponseWriter: w}
+	ws, err := websocket.Accept(recorder, r, &websocket.AcceptOptions{
 		Subprotocols:   []string{protocol.WebSocketSubprotocol},
 		OriginPatterns: s.originPatterns(),
 	})
@@ -52,15 +55,15 @@ func (s *Server) eventStream(w http.ResponseWriter, r *http.Request) {
 		st.log.Debug("the upgrade to a WebSocket was refused", "error", err)
 		return
 	}
-	st.serve(context.WithoutCancel(r.Context()), ws)
+	st.serve(context.WithoutCancel(r.Context()), ws, recorder.conn)
 }
 
 // serve runs a connection until it ends and logs how it ended.
-func (st *stream) serve(ctx context.Context, ws *websocket.Conn) {
+func (st *stream) serve(ctx context.Context, ws *websocket.Conn, conn net.Conn) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	start := st.hub.now()
-	st.attach(ws)
+	st.attach(ws, conn)
 	ws.SetReadLimit(st.hub.limits.ClientMessageBytes)
 	st.log.Info("event stream opened")
 	cause := st.run(ctx, ws)
@@ -100,7 +103,7 @@ func (st *stream) readHello(ctx context.Context, ws *websocket.Conn) (protocol.H
 	expired := make(chan struct{})
 	timer := time.AfterFunc(limits.HelloTimeout, func() {
 		defer close(expired)
-		closeWithin(ws, limits.ShutdownCloseWindow, websocket.StatusPolicyViolation, "Send a hello message first.")
+		st.closeWithStatus(ws, websocket.StatusPolicyViolation, "Send a hello message first.")
 	})
 	kind, data, err := ws.Read(ctx)
 	if !timer.Stop() {
@@ -165,8 +168,20 @@ func (st *stream) refuse(ctx context.Context, ws *websocket.Conn, perr *protocol
 	if err := st.send(ctx, ws, protocol.ErrorFrame{Error: *perr}); err != nil {
 		st.log.Debug("send an error frame", "error", err)
 	}
-	closeWithin(ws, st.hub.limits.ShutdownCloseWindow, websocket.StatusPolicyViolation, "Marshal could not use that message.")
+	closeWithin(ws, st.rawConn(), st.hub.limits.ShutdownCloseWindow, websocket.StatusPolicyViolation, "Marshal could not use that message.")
 	return perr
+}
+
+// rawConn is the connection behind the stream's WebSocket, or nil before it was attached.
+func (st *stream) rawConn() net.Conn {
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	return st.conn
+}
+
+// closeWithStatus closes the stream's connection with a status, cutting it after the window.
+func (st *stream) closeWithStatus(ws *websocket.Conn, code websocket.StatusCode, reason string) {
+	closeWithin(ws, st.rawConn(), st.hub.limits.ShutdownCloseWindow, code, reason)
 }
 
 // send writes one frame as a text message. A client that takes longer than the frame timeout is

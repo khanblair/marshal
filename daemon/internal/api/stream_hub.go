@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"net"
 	"sync"
 	"time"
 
@@ -105,6 +106,7 @@ type stream struct {
 
 	mu       sync.Mutex // guards the three fields below
 	ws       *websocket.Conn
+	conn     net.Conn // the raw connection behind ws, for ending a close that is waiting
 	closeReq *closeRequest
 }
 
@@ -116,13 +118,13 @@ type closeRequest struct {
 
 // attach gives the stream its connection. If the hub asked for a close before the connection
 // existed, the close happens now.
-func (st *stream) attach(ws *websocket.Conn) {
+func (st *stream) attach(ws *websocket.Conn, conn net.Conn) {
 	st.mu.Lock()
-	st.ws = ws
+	st.ws, st.conn = ws, conn
 	req := st.closeReq
 	st.mu.Unlock()
 	if req != nil {
-		closeWithin(ws, st.hub.limits.ShutdownCloseWindow, req.code, req.reason)
+		closeWithin(ws, conn, st.hub.limits.ShutdownCloseWindow, req.code, req.reason)
 	}
 }
 
@@ -132,7 +134,7 @@ func (st *stream) requestClose(code websocket.StatusCode, reason string) {
 	if st.closeReq == nil {
 		st.closeReq = &closeRequest{code: code, reason: reason}
 	}
-	ws := st.ws
+	ws, conn := st.ws, st.conn
 	st.mu.Unlock()
 	if ws == nil {
 		return // attach will see the request
@@ -140,25 +142,37 @@ func (st *stream) requestClose(code websocket.StatusCode, reason string) {
 	st.hub.handlers.Add(1)
 	go func() {
 		defer st.hub.handlers.Done()
-		closeWithin(ws, st.hub.limits.ShutdownCloseWindow, code, reason)
+		closeWithin(ws, conn, st.hub.limits.ShutdownCloseWindow, code, reason)
 	}()
 }
 
 // cut closes the connection at once, without a close handshake.
 func (st *stream) cut() {
 	st.mu.Lock()
-	ws := st.ws
+	ws, conn := st.ws, st.conn
 	st.mu.Unlock()
-	if ws != nil {
-		_ = ws.CloseNow()
-	}
+	cut(ws, conn)
 }
 
 // closeWithin closes a WebSocket with a status and waits for the client to answer, but only for
 // the window. After that the connection is cut, so a client that never answers cannot hold up a
 // shutdown. An error from the close is not reported: the connection is going away either way.
-func closeWithin(ws *websocket.Conn, window time.Duration, code websocket.StatusCode, reason string) {
-	timer := time.AfterFunc(window, func() { _ = ws.CloseNow() })
+func closeWithin(ws *websocket.Conn, conn net.Conn, window time.Duration, code websocket.StatusCode, reason string) {
+	timer := time.AfterFunc(window, func() { cut(ws, conn) })
 	defer timer.Stop()
 	_ = ws.Close(code, reason)
+}
+
+// cut ends a connection at once. Closing the raw connection is what actually ends a close
+// handshake that is already waiting: the library's CloseNow only waits once Close has started
+// (`casClosing` in its `close.go`), so it cannot end a client that never answers. Without the raw
+// connection, CloseNow is still worth trying.
+func cut(ws *websocket.Conn, conn net.Conn) {
+	if conn != nil {
+		_ = conn.Close()
+		return
+	}
+	if ws != nil {
+		_ = ws.CloseNow()
+	}
 }
