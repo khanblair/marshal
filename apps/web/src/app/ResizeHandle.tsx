@@ -41,6 +41,7 @@ export function ResizeHandle() {
   };
 
   return (
+    // biome-ignore lint/a11y/useSemanticElements: a splitter is a focusable separator that handles keys and drags; an <hr> cannot take focus
     <div
       role="separator"
       aria-orientation="vertical"

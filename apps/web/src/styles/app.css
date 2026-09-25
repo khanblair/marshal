@@ -63,7 +63,9 @@
   }
   [data-size="phone"] .text-badge,
   [data-size="phone"] .text-caption {
+    /* biome-ignore lint/complexity/noImportantStyles: overrides the design's text-badge and text-caption sizes, as the design's phone rule does */
     font-size: 13px !important;
+    /* biome-ignore lint/complexity/noImportantStyles: goes with the font size above */
     line-height: 18px !important;
   }
   [data-touch="1"] button:not([data-compact]),
@@ -79,7 +81,9 @@
     *,
     *::before,
     *::after {
+      /* biome-ignore lint/complexity/noImportantStyles: reduced motion must win over every component's own animation */
       animation: none !important;
+      /* biome-ignore lint/complexity/noImportantStyles: reduced motion must win over every component's own transition */
       transition: none !important;
     }
   }
