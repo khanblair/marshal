@@ -1,10 +1,12 @@
 import { batch } from "solid-js";
-import { colOf, defaultModel, STATUS, thinkSupported } from "../constants";
+import { defaultModel, thinkSupported } from "../agents";
+import { type CardKey, cardKey, cardLabel, nextCardNumber } from "../card-key";
+import { colOf, STATUS } from "../constants";
 import type { Ctx } from "../context";
 import { addAct, announce, confirm, later, pushMsg, toast } from "../engine";
-import { takeCardId } from "../ids";
 import { checksFor } from "../seed/checks";
-import { card } from "../selectors";
+import { card, cardLabelOf } from "../selectors";
+import type { State } from "../state-types";
 import type { Card, Column, Status } from "../types";
 import { openCard } from "./navigation";
 import { startSession } from "./sessions";
@@ -51,7 +53,7 @@ function applyMove(ctx: Ctx, c: Card, from: Column, to: Column): void {
     c.doing = "Starting without a plan";
     toast(ctx, "Plan skipped");
   } else if (to === "review") {
-    c.pr = c.pr || FAKE_PR_BASE + c.id;
+    c.pr = c.pr || FAKE_PR_BASE + c.n;
     c.ci = "running";
     c.doing = "";
     toast(ctx, "Pull request opened");
@@ -61,7 +63,7 @@ function applyMove(ctx: Ctx, c: Card, from: Column, to: Column): void {
 }
 
 /** Moves a card by hand. A refused move shows briefly, then snaps back with a toast. */
-export function moveCard(ctx: Ctx, id: number, to: Column): void {
+export function moveCard(ctx: Ctx, id: CardKey, to: Column): void {
   const c = card(ctx, id);
   if (!c) return;
   const from = colOf(c.state);
@@ -79,19 +81,21 @@ export function moveCard(ctx: Ctx, id: number, to: Column): void {
   c.upd = Date.now();
   c.asleep = false;
   applyMove(ctx, c, from, to);
-  announce(ctx, `#${c.id} moved to ${STATUS[to].label}`);
+  announce(ctx, `${cardLabelOf(ctx, c)} moved to ${STATUS[to].label}`);
 }
 
 const forkState = (s: Status): Status => (s === "backlog" ? "backlog" : "working");
 
 /** Copies a card into a new one. Like the prototype, the copy shares the checklist and comment lists. */
-export function fork(ctx: Ctx, id: number): void {
+export function fork(ctx: Ctx, id: CardKey): void {
   const { S } = ctx;
   const c = card(ctx, id);
   if (!c) return;
+  const n = nextCardNumber(S.cards, c.p);
   const f: Card = {
     ...c,
-    id: takeCardId(ctx.ids),
+    id: cardKey(c.p, n),
+    n,
     title: `${c.title} (fork)`,
     state: forkState(c.state),
     branch: c.branch ? `${c.branch}-fork` : null,
@@ -108,7 +112,7 @@ export function fork(ctx: Ctx, id: number): void {
   S.cards.push(f);
   S.chat[f.id] = [
     ctx.msg.system(
-      `Forked from #${c.id} at its latest checkpoint. This card has its own worktree and a copy of the session context.`,
+      `Forked from ${cardLabel(c)} at its latest checkpoint. This card has its own worktree and a copy of the session context.`,
     ),
   ];
   S.act[f.id] = [];
@@ -116,27 +120,40 @@ export function fork(ctx: Ctx, id: number): void {
   toast(ctx, "Card forked", { label: "Open", run: () => openCard(ctx, f.id) });
 }
 
-export function deleteCard(ctx: Ctx, id: number): void {
+/**
+ * Drops what the store keeps per card key. A new card can take the number of a deleted one, so
+ * the deleted card must leave no chat, activity, checks, note, or preview state behind.
+ */
+function forgetCardData(S: State, id: CardKey): void {
+  delete S.chat[id];
+  delete S.act[id];
+  delete S.checks[id];
+  if (S.notes) delete S.notes[id];
+  if (S.preview) delete S.preview[id];
+}
+
+export function deleteCard(ctx: Ctx, id: CardKey): void {
   const { S } = ctx;
   const c = card(ctx, id);
   if (!c) return;
   confirm(ctx, {
     title: "Delete card",
     message: c.branch
-      ? `This deletes #${id}, its session, and its worktree with unmerged work on ${c.branch}.`
-      : `This deletes #${id} and its notes.`,
+      ? `This deletes ${cardLabel(c)}, its session, and its worktree with unmerged work on ${c.branch}.`
+      : `This deletes ${cardLabel(c)} and its notes.`,
     action: "Delete card",
     destructive: true,
     run: () =>
       batch(() => {
         S.cards = S.cards.filter((x) => x.id !== id);
+        forgetCardData(S, id);
         if (S.openId === id) S.openId = null;
         toast(ctx, "Card deleted");
       }),
   });
 }
 
-export function rename(ctx: Ctx, id: number, title: string): void {
+export function rename(ctx: Ctx, id: CardKey, title: string): void {
   const c = card(ctx, id);
   if (c && title?.trim()) c.title = title.trim();
 }
@@ -152,13 +169,13 @@ const SETTING_LABELS: Record<SettingKey, string> = {
 };
 
 /** Keeps thinking mode valid after the model changed: off when unsupported, Medium when newly supported. */
-function fixThinking(c: Card): void {
-  if (!thinkSupported(c.model)) c.think = null;
+function fixThinking(ctx: Ctx, c: Card): void {
+  if (!thinkSupported(ctx, c.model)) c.think = null;
   else if (!c.think) c.think = "Medium";
 }
 
 /** Changes one agent setting. Turning on bypass asks for confirmation first. */
-export function setSetting(ctx: Ctx, id: number, key: SettingKey, val: string): void {
+export function setSetting(ctx: Ctx, id: CardKey, key: SettingKey, val: string): void {
   const c = card(ctx, id);
   if (!c) return;
   if (key === "perm" && val === "Bypass permissions" && !c.bypass) {
@@ -166,9 +183,9 @@ export function setSetting(ctx: Ctx, id: number, key: SettingKey, val: string): 
     return;
   }
   if (key === "perm") c.bypass = false;
-  if (key === "agent") c.model = defaultModel(val) ?? c.model;
+  if (key === "agent") c.model = defaultModel(ctx, val) ?? c.model;
   c[key] = val;
-  if (key === "model" || key === "agent") fixThinking(c);
+  if (key === "model" || key === "agent") fixThinking(ctx, c);
   const label = SETTING_LABELS[key];
   if (c.state !== "backlog") {
     pushMsg(ctx, id, ctx.msg.system(`${label} set to ${val}. It takes effect on the next turn.`));
@@ -176,10 +193,12 @@ export function setSetting(ctx: Ctx, id: number, key: SettingKey, val: string): 
   addAct(ctx, id, { kind: "tool", text: `${label} set to ${val}` });
 }
 
-export function requestBypass(ctx: Ctx, id: number): void {
+export function requestBypass(ctx: Ctx, id: CardKey): void {
+  const target = card(ctx, id);
+  if (!target) return;
   confirm(ctx, {
     title: "Turn on bypass permissions",
-    message: `The agent on #${id} will run every command and edit without asking. It stays inside this card's worktree and every action is still audited.`,
+    message: `The agent on ${cardLabel(target)} will run every command and edit without asking. It stays inside this card's worktree and every action is still audited.`,
     action: "Turn on bypass",
     destructive: true,
     ack: "I understand the agent can run any command in the worktree without asking.",
@@ -202,7 +221,7 @@ export function requestBypass(ctx: Ctx, id: number): void {
   });
 }
 
-export function turnOffBypass(ctx: Ctx, id: number): void {
+export function turnOffBypass(ctx: Ctx, id: CardKey): void {
   const c = card(ctx, id);
   if (!c) return;
   c.bypass = false;

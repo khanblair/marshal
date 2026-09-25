@@ -1,4 +1,5 @@
 import { batch } from "solid-js";
+import type { CardKey } from "../card-key";
 import type { Ctx } from "../context";
 import { addAct, confirm, toast } from "../engine";
 import { takeCk } from "../ids";
@@ -8,10 +9,10 @@ import type { Checklist } from "../types";
 /** The signed-in user; checked items record who checked them. */
 const ME = "ada";
 
-const listOf = (ctx: Ctx, cid: number, lid: string): Checklist | undefined =>
+const listOf = (ctx: Ctx, cid: CardKey, lid: string): Checklist | undefined =>
   card(ctx, cid)?.checklists.find((x) => x.id === lid);
 
-export function toggleItem(ctx: Ctx, cid: number, lid: string, iid: string): void {
+export function toggleItem(ctx: Ctx, cid: CardKey, lid: string, iid: string): void {
   const it = listOf(ctx, cid, lid)?.items.find((x) => x.id === iid);
   if (!it) return;
   it.done = !it.done;
@@ -23,19 +24,19 @@ export function toggleItem(ctx: Ctx, cid: number, lid: string, iid: string): voi
   });
 }
 
-export function addItem(ctx: Ctx, cid: number, lid: string, text: string): void {
+export function addItem(ctx: Ctx, cid: CardKey, lid: string, text: string): void {
   if (!text?.trim()) return;
   const l = listOf(ctx, cid, lid);
   if (!l) return;
   l.items.push({ id: `it${takeCk(ctx.ids)}`, text: text.trim(), done: false, by: null });
 }
 
-export function removeItem(ctx: Ctx, cid: number, lid: string, iid: string): void {
+export function removeItem(ctx: Ctx, cid: CardKey, lid: string, iid: string): void {
   const l = listOf(ctx, cid, lid);
   if (l) l.items = l.items.filter((x) => x.id !== iid);
 }
 
-export function addChecklist(ctx: Ctx, cid: number, title?: string): void {
+export function addChecklist(ctx: Ctx, cid: CardKey, title?: string): void {
   const c = card(ctx, cid);
   if (!c) return;
   c.checklists.push({
@@ -47,7 +48,7 @@ export function addChecklist(ctx: Ctx, cid: number, title?: string): void {
   toast(ctx, "Checklist added");
 }
 
-export function deleteChecklist(ctx: Ctx, cid: number, lid: string): void {
+export function deleteChecklist(ctx: Ctx, cid: CardKey, lid: string): void {
   const c = card(ctx, cid);
   const l = listOf(ctx, cid, lid);
   if (!c || !l) return;
@@ -64,7 +65,7 @@ export function deleteChecklist(ctx: Ctx, cid: number, lid: string): void {
   });
 }
 
-export function toggleHideDone(ctx: Ctx, cid: number, lid: string): void {
+export function toggleHideDone(ctx: Ctx, cid: CardKey, lid: string): void {
   const l = listOf(ctx, cid, lid);
   if (l) l.hideDone = !l.hideDone;
 }

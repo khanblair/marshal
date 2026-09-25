@@ -1,3 +1,4 @@
+import type { CardKey } from "../card-key";
 import { isAwake } from "../constants";
 import type { Ctx } from "../context";
 import { addAct, later, live, toast } from "../engine";
@@ -20,7 +21,7 @@ const linksIn = (text: string): Attachment[] =>
 
 const asksAgent = (text: string): boolean => /@agent|@/.test(text) || /\?$/.test(text.trim());
 
-function agentAnswer(ctx: Ctx, cid: number, cm: Comment): void {
+function agentAnswer(ctx: Ctx, cid: CardKey, cm: Comment): void {
   const c = card(ctx, cid);
   if (!c) return;
   const n = cm.att.length;
@@ -36,7 +37,7 @@ function agentAnswer(ctx: Ctx, cid: number, cm: Comment): void {
 }
 
 /** Posts a comment. Links in the text become attachments; an awake agent reads it and may answer. */
-export function addComment(ctx: Ctx, cid: number, text: string, att?: Attachment[]): void {
+export function addComment(ctx: Ctx, cid: CardKey, text: string, att?: Attachment[]): void {
   const c = card(ctx, cid);
   if (!c || (!text.trim() && !att?.length)) return;
   const cm = live<Comment>({
@@ -58,14 +59,14 @@ export function addComment(ctx: Ctx, cid: number, text: string, att?: Attachment
   });
 }
 
-export function deleteComment(ctx: Ctx, cid: number, id: string): void {
+export function deleteComment(ctx: Ctx, cid: CardKey, id: string): void {
   const c = card(ctx, cid);
   if (!c) return;
   c.comments = c.comments.filter((x) => x.id !== id);
   toast(ctx, "Comment deleted");
 }
 
-export function toggleMember(ctx: Ctx, cid: number, pid: string): void {
+export function toggleMember(ctx: Ctx, cid: CardKey, pid: string): void {
   const c = card(ctx, cid);
   if (!c) return;
   c.members = c.members.includes(pid) ? c.members.filter((x) => x !== pid) : [...c.members, pid];

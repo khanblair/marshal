@@ -1,7 +1,7 @@
-import { defaultModel } from "../constants";
+import { defaultAgent, defaultModel } from "../agents";
+import { nextCardNumber } from "../card-key";
 import type { Ctx } from "../context";
 import { live, pushMsg, set, toast } from "../engine";
-import { takeCardId } from "../ids";
 import { type CardSeed, makeCard } from "../seed/cards";
 import { checksFor } from "../seed/checks";
 import type { Activity, Card, Column, Msg, NewCardDraft } from "../types";
@@ -13,11 +13,11 @@ const NEW_CARD_SPAN = { s: 0, e: 3 };
 const FALLBACK_MODEL = "claude-sonnet-4-5";
 
 /**
- * Creates a card with the next id. Like the prototype, `upd: 0` means "at load time",
- * not the current time.
+ * Creates a card with the next number in its project. Like the prototype, `upd: 0` means "at load
+ * time", not the current time.
  */
-export function newCardFrom(ctx: Ctx, seed: Omit<CardSeed, "id">): Card {
-  return makeCard(ctx.loadedAt, { id: takeCardId(ctx.ids), ...seed });
+export function newCardFrom(ctx: Ctx, seed: Omit<CardSeed, "n">): Card {
+  return makeCard(ctx.loadedAt, { n: nextCardNumber(ctx.S.cards, seed.p), ...seed });
 }
 
 /** Adds a card to the end of `S.cards` with its chat, activity, and checks. Returns the live card. */
@@ -60,7 +60,7 @@ export function newCard(ctx: Ctx, opts?: Partial<NewCardDraft>): void {
       body: "",
       template: "Blank",
       role: "Worker",
-      agent: "Claude Code",
+      agent: defaultAgent(ctx),
       start: false,
       ...opts,
     },
@@ -81,7 +81,7 @@ export function createCard(ctx: Ctx): void {
       state: "backlog",
       role: n.role,
       agent: n.agent,
-      model: defaultModel(n.agent) ?? FALLBACK_MODEL,
+      model: defaultModel(ctx, n.agent) ?? FALLBACK_MODEL,
       upd: 0,
       ...NEW_CARD_SPAN,
       perm: n.template === "Plan first" ? "Plan only" : "Auto-accept edits",

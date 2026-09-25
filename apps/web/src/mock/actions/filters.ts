@@ -1,7 +1,8 @@
+import { cardLabel } from "../card-key";
 import { colOf } from "../constants";
 import type { Ctx } from "../context";
 import { toast } from "../engine";
-import { cardsOf } from "../selectors";
+import { cardLabelOf, cardsOf } from "../selectors";
 import type { Card, Filter, FilterKey } from "../types";
 
 type FilterValues = Partial<Record<FilterKey, string[]>>;
@@ -22,14 +23,23 @@ function matchesFilters(c: Card, by: FilterValues): boolean {
   return !by.package || by.package.includes(c.pkg || "No package");
 }
 
-const matchesQuery = (c: Card, q: string): boolean =>
-  !q || c.title.toLowerCase().includes(q) || `#${c.id}`.includes(q) || (c.branch || "").includes(q);
+/**
+ * A search matches the title, the visible label such as `#41`, and the branch. A search that has a
+ * hash sign in it can also name the project, as in `api-gateway #41`. The project name alone is not
+ * searched: every card of a project has it, so a name like "api" would match the whole board.
+ */
+function matchesQuery(ctx: Ctx, c: Card, q: string): boolean {
+  if (!q) return true;
+  if (c.title.toLowerCase().includes(q) || cardLabel(c).includes(q)) return true;
+  if ((c.branch || "").includes(q)) return true;
+  return q.includes("#") && cardLabelOf(ctx, c).toLowerCase().includes(q);
+}
 
 /** The project's cards after its filter chips and search text. */
 export function filtered(ctx: Ctx, pid: string): Card[] {
   const by = groupFilters(ctx.S.filters[pid] ?? []);
   const q = (ctx.S.query[pid] || "").toLowerCase();
-  return cardsOf(ctx, pid).filter((c) => matchesFilters(c, by) && matchesQuery(c, q));
+  return cardsOf(ctx, pid).filter((c) => matchesFilters(c, by) && matchesQuery(ctx, c, q));
 }
 
 /* The actions below work on the current project. Changing filters by hand unselects the saved view. */

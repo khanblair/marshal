@@ -1,4 +1,5 @@
 import { batch } from "solid-js";
+import { type CardKey, cardLabel } from "../card-key";
 import type { Ctx } from "../context";
 import { confirm, later, live, stream, toast } from "../engine";
 import { takeMid } from "../ids";
@@ -19,7 +20,7 @@ function replyBlocked(ctx: Ctx, pid: string, list: Msg[]): void {
   const n = needs(ctx, pid);
   const text = n.length
     ? `${n.length}${n.length === 1 ? " card is" : " cards are"} waiting on you: ${n
-        .map((c) => `#${c.id} ${lowerFirst(c.reason)}`)
+        .map((c) => `${cardLabel(c)} ${lowerFirst(c.reason)}`)
         .join(". ")}.`
     : "Nothing is blocked right now.";
   list.push(
@@ -45,7 +46,7 @@ function replyMakeCards(ctx: Ctx, pid: string, list: Msg[], text: string): void 
     list,
     "I split it into three cards. They start in Backlog, and the second depends on the first.",
     () => {
-      let prev: number | null = null;
+      let prev: CardKey | null = null;
       for (const row of PLAN_ROWS) {
         const c = insertCard(
           ctx,
@@ -78,7 +79,7 @@ function replyMerge(ctx: Ctx, pid: string, list: Msg[]): void {
   stream(
     ctx,
     list,
-    `#${r.id} entered the merge queue. The Integrator is running a dry-run merge first.`,
+    `${cardLabel(r)} entered the merge queue. The Integrator is running a dry-run merge first.`,
   );
   list.push(ctx.msg.cardRef(r.id));
 }

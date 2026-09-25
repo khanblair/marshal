@@ -1,16 +1,17 @@
+import { type CardKey, cardLabel } from "../card-key";
 import type { Ctx } from "../context";
 import { addAct, feed, runTool, seq, setState, streamCard, toast } from "../engine";
 import { card } from "../selectors";
 import type { ApprovalMsg, ApprovalState, PlanMsg } from "../types";
 
-const waitingApproval = (ctx: Ctx, id: number): ApprovalMsg | undefined =>
+const waitingApproval = (ctx: Ctx, id: CardKey): ApprovalMsg | undefined =>
   (ctx.S.chat[id] ?? []).find((x): x is ApprovalMsg => x.k === "approval" && x.st === "waiting");
 
-const waitingPlan = (ctx: Ctx, id: number): PlanMsg | undefined =>
+const waitingPlan = (ctx: Ctx, id: CardKey): PlanMsg | undefined =>
   (ctx.S.chat[id] ?? []).find((x): x is PlanMsg => x.k === "plan" && x.st === "waiting");
 
 /** Mirrors an approval decision into the project chats that asked for the same card. */
-function syncProjectApproval(ctx: Ctx, id: number, st: ApprovalState): void {
+function syncProjectApproval(ctx: Ctx, id: CardKey, st: ApprovalState): void {
   for (const list of Object.values(ctx.S.chats)) {
     for (const ch of list) {
       for (const x of ch.msgs) {
@@ -25,7 +26,7 @@ const UPGRADE_RUN_MS = 2400;
 const EDIT_CALL_SITES = { afterMs: 800, ms: 1200 };
 const RUN_TESTS = { afterMs: 1600, ms: 3500 };
 
-function afterUpgrade(ctx: Ctx, id: number): void {
+function afterUpgrade(ctx: Ctx, id: CardKey): void {
   const c = card(ctx, id);
   if (!c) return;
   seq([
@@ -59,7 +60,7 @@ function afterUpgrade(ctx: Ctx, id: number): void {
 }
 
 /** Approves the card's waiting command, or its waiting plan when there is no command. */
-export function approve(ctx: Ctx, id: number): void {
+export function approve(ctx: Ctx, id: CardKey): void {
   const c = card(ctx, id);
   const a = waitingApproval(ctx, id);
   if (!a) {
@@ -70,7 +71,12 @@ export function approve(ctx: Ctx, id: number): void {
   a.st = "approved";
   syncProjectApproval(ctx, id, "approved");
   addAct(ctx, id, { kind: "approval", text: `You approved: ${a.cmd}`, result: "Approved" });
-  feed(ctx, { kind: "approval", text: `You approved ${a.cmd} on #${id}`, pid: c.p, cardId: id });
+  feed(ctx, {
+    kind: "approval",
+    text: `You approved ${a.cmd} on ${cardLabel(c)}`,
+    pid: c.p,
+    cardId: id,
+  });
   c.doing = `Running ${a.cmd}`;
   setState(ctx, c, "working");
   toast(ctx, "Approved");
@@ -90,7 +96,7 @@ export function approve(ctx: Ctx, id: number): void {
   });
 }
 
-export function deny(ctx: Ctx, id: number): void {
+export function deny(ctx: Ctx, id: CardKey): void {
   const c = card(ctx, id);
   const a = waitingApproval(ctx, id);
   if (!a || !c) return;
@@ -102,7 +108,12 @@ export function deny(ctx: Ctx, id: number): void {
     result: "Denied",
     st: "fail",
   });
-  feed(ctx, { kind: "approval", text: `You denied ${a.cmd} on #${id}`, pid: c.p, cardId: id });
+  feed(ctx, {
+    kind: "approval",
+    text: `You denied ${a.cmd} on ${cardLabel(c)}`,
+    pid: c.p,
+    cardId: id,
+  });
   toast(ctx, "Denied");
   streamCard(
     ctx,
@@ -114,14 +125,19 @@ export function deny(ctx: Ctx, id: number): void {
 
 const PLAN_FIRST_FILE_MS = 2200;
 
-export function approvePlan(ctx: Ctx, id: number): void {
+export function approvePlan(ctx: Ctx, id: CardKey): void {
   const c = card(ctx, id);
   const p = waitingPlan(ctx, id);
   if (!p || !c) return;
   p.st = "approved";
   p.editing = false;
   addAct(ctx, id, { kind: "approval", text: "You approved the plan", result: "Approved" });
-  feed(ctx, { kind: "plan", text: `You approved the plan on #${id}`, pid: c.p, cardId: id });
+  feed(ctx, {
+    kind: "plan",
+    text: `You approved the plan on ${cardLabel(c)}`,
+    pid: c.p,
+    cardId: id,
+  });
   if (c.perm === "Plan only") c.perm = "Auto-accept edits";
   const first = p.steps[0] ?? "";
   c.doing = first;
@@ -141,7 +157,7 @@ export function approvePlan(ctx: Ctx, id: number): void {
   });
 }
 
-export function rejectPlan(ctx: Ctx, id: number): void {
+export function rejectPlan(ctx: Ctx, id: CardKey): void {
   const c = card(ctx, id);
   const p = waitingPlan(ctx, id);
   if (!p || !c) return;
@@ -163,13 +179,13 @@ export function rejectPlan(ctx: Ctx, id: number): void {
   );
 }
 
-export function editPlan(ctx: Ctx, id: number, on: boolean): void {
+export function editPlan(ctx: Ctx, id: CardKey, on: boolean): void {
   const p = waitingPlan(ctx, id);
   if (p) p.editing = on;
 }
 
 /** Saves edited plan steps, one per line; blank lines are dropped. */
-export function savePlan(ctx: Ctx, id: number, text: string): void {
+export function savePlan(ctx: Ctx, id: CardKey, text: string): void {
   const p = waitingPlan(ctx, id);
   if (!p) return;
   p.steps = text
@@ -182,7 +198,7 @@ export function savePlan(ctx: Ctx, id: number, text: string): void {
   toast(ctx, "Plan saved");
 }
 
-export function toggleTool(ctx: Ctx, id: number, msgId: string): void {
+export function toggleTool(ctx: Ctx, id: CardKey, msgId: string): void {
   const x = (ctx.S.chat[id] ?? []).find((z) => z.id === msgId);
   if (x?.k === "tool") x.open = !x.open;
 }

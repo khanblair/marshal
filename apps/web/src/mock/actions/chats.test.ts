@@ -1,4 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { applyProject } from "~/sync/projects";
+import { daemonProject } from "~/testing/projects";
+import { contextOf } from "~/testing/test-store";
 import { FIXED_TIME, makeTwin, SLOW_TEST_MS, type Twin } from "../testing/twin";
 
 const lastToast = (t: Twin): string | undefined => t.port.S.toasts.at(-1)?.msg;
@@ -15,12 +18,12 @@ describe("card messages", { timeout: SLOW_TEST_MS }, () => {
   });
 
   it.each([
-    [41, "Also cover the logout path"],
-    [119, "Use createColumnHelper<ReportRow>()"],
-    [115, "Fix the tooltip on phones"],
-    [45, "Start with the admin routes"],
-    [33, "Anything left?"],
-  ])("sends a message to #%i and gets the scripted answer", (id, text) => {
+    ["api#41", "Also cover the logout path"],
+    ["web#119", "Use createColumnHelper<ReportRow>()"],
+    ["web#115", "Fix the tooltip on phones"],
+    ["api#45", "Start with the admin routes"],
+    ["api#33", "Anything left?"],
+  ])("sends a message to %s and gets the scripted answer", (id, text) => {
     t.run("send", id, text);
     t.run("send", id, "   ");
     t.same();
@@ -59,18 +62,18 @@ describe("project chats", { timeout: SLOW_TEST_MS }, () => {
   it("answers from a role target, and reports when nothing merges", () => {
     t.run("chatSend", "api", chatId("api", 2), "status?");
     t.play(6000, 200);
-    t.run("removeProject", "web");
+    t.removeProject("web");
     t.run("chatSend", "mobile", chatId("mobile", 0), "merge");
     t.play(6000, 200);
   });
 
   it("says nothing is blocked in a project without waiting cards", () => {
-    t.run("addProject", { name: "billing", path: "~/code/billing" });
-    const pid = t.port.S.projects.at(-1)?.id ?? "";
-    t.run("newChat", pid, "");
-    t.run("chatSend", pid, chatId(pid, 0), "What is blocked?");
-    t.play(1000, 100);
-    expect(t.port.S.chats[pid]?.[0]?.msgs.at(-1)).toMatchObject({
+    // A project the daemon just sent has no cards, so this is the port alone (the prototype cannot add one this way).
+    applyProject(contextOf(t.port), daemonProject({ id: "billing", path: "~/code/billing" }));
+    const chat = t.port.newChat("billing", "");
+    t.port.chatSend("billing", chat.id, "What is blocked?");
+    vi.advanceTimersByTime(1000);
+    expect(t.port.S.chats.billing?.[0]?.msgs.at(-1)).toMatchObject({
       text: "Nothing is blocked right now.",
     });
   });
@@ -149,52 +152,11 @@ describe("projects", { timeout: SLOW_TEST_MS }, () => {
     vi.useRealTimers();
   });
 
-  it.each([
-    [{ name: "billing", path: "~/code/billing" }],
-    [{ name: "platform", path: "~/code/platform", mono: true, branch: "trunk" }],
-    [{ name: "svc", path: "~/code/svc", lang: "Go" }],
-  ])("adds a project like the prototype: %o", (o) => {
-    let id = "";
-    t.proto.call("addProject", o);
-    id = t.port.addProject(o);
-    t.same();
-    expect(t.port.proj(id)?.name).toBe(o.name);
-    expect(t.port.S.lastView[id]).toBe("board");
-  });
-
-  it("adds the sample project with three cards (the prototype throws here)", () => {
-    const id = t.port.addProject({
-      name: "marshal-sample",
-      path: "~/.marshal/sample",
-      sample: true,
-    });
-    const cards = t.port.cardsOf(id);
-    expect(cards.map((c) => c.state)).toEqual(["backlog", "working", "review"]);
-    expect(t.port.S.chat[cards[1]?.id ?? 0]?.[2]).toMatchObject({
-      action: "Read src/pages/Reports.tsx",
-    });
-    expect(t.port.S.checks[cards[2]?.id ?? 0]?.[0]).toMatchObject({
-      cmd: "pnpm test",
-      st: "passed",
-    });
-    expect(t.port.S.act[cards[2]?.id ?? 0]?.length).toBeGreaterThan(0);
-  });
-
-  it("renames, and refuses an empty name", () => {
-    expect(t.port.renameProject("api", "  gateway  ")).toBe(true);
-    expect(t.port.renameProject("api", " ")).toBe(false);
-    expect(t.port.renameProject("nope", "x")).toBe(false);
-    t.proto.call("renameProject", "api", "  gateway  ");
-    t.proto.call("renameProject", "api", " ");
-    expect(t.port.proj("api")?.name).toBe("gateway");
-    t.same();
-  });
-
   it.each(["web", "mobile", "api"])("removes %s with its cards, chats, and notices", (pid) => {
     t.run("go", "project", pid);
     const first = t.port.cardsOf(pid)[0];
     t.run("openCard", first?.id);
-    t.run("removeProject", pid);
+    t.removeProject(pid);
     t.same();
     expect(t.port.cardsOf(pid)).toEqual([]);
     expect(t.port.S.openId).toBeNull();
@@ -202,7 +164,7 @@ describe("projects", { timeout: SLOW_TEST_MS }, () => {
   });
 
   it("removes every project", () => {
-    for (const pid of ["api", "web", "mobile"]) t.run("removeProject", pid);
+    for (const pid of ["api", "web", "mobile"]) t.removeProject(pid);
     t.same();
     expect(t.port.S.route.pid).toBeNull();
   });
