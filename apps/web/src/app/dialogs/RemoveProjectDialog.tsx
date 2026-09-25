@@ -7,10 +7,11 @@ const ICON_PX = 14;
 
 const closeRemove = (): void => M.set({ removeProject: null });
 
+/** Sends exactly what the two boxes say: with no request body the daemon keeps nothing. */
 function confirmRemove(draft: RemoveProjectDraft): void {
-  const { id } = draft;
+  const { id, keepBranches, keepMemory } = draft;
   M.set({ removeProject: null });
-  M.removeProject(id);
+  void M.removeProject(id, { keepBranches, keepMemory });
 }
 
 /** The unmerged-work box, with its keep-branches option. */

@@ -116,22 +116,22 @@ describe("ConfirmDialog", () => {
   });
 
   it("is the bypass request the card settings open", () => {
-    M.requestBypass(41);
+    M.requestBypass("api#41");
     render(() => <ConfirmDialog />);
     expect(screen.getByRole("heading", { name: "Turn on bypass permissions" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Turn on bypass" })).toBeDisabled();
     fireEvent.click(screen.getByRole("checkbox"));
     fireEvent.click(screen.getByRole("button", { name: "Turn on bypass" }));
-    expect(M.card(41)?.bypass).toBe(true);
+    expect(M.card("api#41")?.bypass).toBe(true);
     expect(M.S.toasts.map((t) => t.msg)).toContain("Bypass turned on");
   });
 
   it("is the delete confirmation for a card", () => {
-    M.deleteCard(41);
+    M.deleteCard("api#41");
     render(() => <ConfirmDialog />);
     expect(screen.getByRole("heading", { name: "Delete card" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Delete card" }));
-    expect(M.card(41)).toBeUndefined();
+    expect(M.card("api#41")).toBeUndefined();
   });
 
   it("is a bottom sheet on a phone", () => {

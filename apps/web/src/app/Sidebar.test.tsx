@@ -11,8 +11,8 @@ vi.hoisted(() => {
 const projectLabel = (id: string): string => {
   const project = M.proj(id);
   if (!project) throw new Error(`no project ${id}`);
-  const ci = M.CI[project.ci];
-  return `${project.name}: ${M.needs(id).length} need you, main CI ${ci.label.toLowerCase()}, ${M.awake(id).length} awake agents`;
+  const ciText = project.ci ? `, main CI ${M.CI[project.ci].label.toLowerCase()}` : "";
+  return `${project.name}: ${M.needs(id).length} need you${ciText}, ${M.awake(id).length} awake agents`;
 };
 
 beforeEach(() => resetShell());
@@ -65,7 +65,7 @@ describe("Sidebar (desktop, expanded)", () => {
     const button = screen.getByRole("button", { name: "New project" });
     expect(button).toHaveAttribute("data-tour", "new-project");
     fireEvent.click(button);
-    expect(M.S.newProject).toMatchObject({ source: "folder", branch: "main" });
+    expect(M.S.newProject).toMatchObject({ source: "folder", branch: "" });
   });
 
   it("goes to Settings and marks it current", () => {

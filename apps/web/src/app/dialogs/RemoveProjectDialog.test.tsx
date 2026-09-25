@@ -94,19 +94,31 @@ describe("RemoveProjectDialog", () => {
   });
 
   it("removes the project on confirm, in the bypass red", () => {
-    const remove = vi.spyOn(M, "removeProject").mockImplementation(() => {});
+    const remove = vi.spyOn(M, "removeProject").mockResolvedValue(true);
     open();
     render(() => <RemoveProjectDialog />);
     const confirm = screen.getByRole("button", { name: "Remove project" });
     expect(confirm).toHaveClass("bg-bypass-bg", "text-white");
     fireEvent.click(confirm);
-    expect(remove).toHaveBeenCalledWith("web");
+    expect(remove).toHaveBeenCalledWith("web", { keepBranches: true, keepMemory: true });
     expect(M.S.removeProject).toBeNull();
     expect(screen.queryByRole("alertdialog")).toBeNull();
   });
 
+  it("sends the two choices exactly as the boxes say, because no body means keep nothing", () => {
+    const remove = vi.spyOn(M, "removeProject").mockResolvedValue(true);
+    open();
+    render(() => <RemoveProjectDialog />);
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: "Keep their branches in the repository" }),
+    );
+    fireEvent.click(screen.getByRole("checkbox", { name: /Keep the project's memory folder/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove project" }));
+    expect(remove).toHaveBeenCalledWith("web", { keepBranches: false, keepMemory: false });
+  });
+
   it("closes without removing from Cancel, a scrim click, and Escape", () => {
-    const remove = vi.spyOn(M, "removeProject").mockImplementation(() => {});
+    const remove = vi.spyOn(M, "removeProject").mockResolvedValue(true);
     open();
     const { container } = render(() => <RemoveProjectDialog />);
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));

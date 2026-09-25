@@ -10,7 +10,8 @@ vi.hoisted(() => {
 const DESKTOP_PX = 1440;
 const PHONE_PX = 390;
 const HEIGHT_PX = 900;
-const EMPTY = { source: "folder", path: "", url: "", name: "", branch: "main" } as const;
+const EMPTY = { source: "folder", path: "", url: "", name: "", branch: "" } as const;
+const IDLE = "Choose a folder or paste a URL. Marshal detects the language and monorepo tools.";
 
 beforeEach(() => {
   M.setViewport(DESKTOP_PX, HEIGHT_PX);
@@ -51,23 +52,21 @@ describe("NewProjectDialog", () => {
       ),
     ).toBeInTheDocument();
     expect(name()).toHaveValue("");
-    expect(screen.getByRole("textbox", { name: "Default branch" })).toHaveValue("main");
-    expect(status()).toHaveTextContent(
-      "Choose a folder or paste a URL. Marshal detects the language and monorepo tools.",
-    );
+    // A folder's branch is read from the repository, so there is no field for it.
+    expect(screen.queryByRole("textbox", { name: /branch/i })).toBeNull();
+    expect(status()).toHaveTextContent(IDLE);
     expect(add()).toBeDisabled();
   });
 
-  it("fills the name from the folder and reports what it detected", () => {
+  it("fills the name from the folder and never guesses what the repository is", () => {
     render(() => <NewProjectDialog />);
+    for (const folder of ["~/code/billing-service", "~/code/my-monorepo", "~/code/website"]) {
+      fireEvent.input(path(), { target: { value: folder } });
+      expect(status()).toHaveTextContent(IDLE);
+    }
     fireEvent.input(path(), { target: { value: "~/code/billing-service" } });
     expect(name()).toHaveValue("billing-service");
-    expect(status()).toHaveTextContent("Detected a Go project on branch main.");
     expect(add()).toBeEnabled();
-    fireEvent.input(path(), { target: { value: "~/code/my-monorepo" } });
-    expect(status()).toHaveTextContent("Detected a monorepo: pnpm workspaces with 3 packages.");
-    fireEvent.input(path(), { target: { value: "~/code/website" } });
-    expect(status()).toHaveTextContent("Detected a TypeScript project on branch main.");
   });
 
   it("stops following the folder once the name is typed", () => {
@@ -78,20 +77,19 @@ describe("NewProjectDialog", () => {
     expect(M.S.newProject?.nameTouched).toBe(true);
   });
 
-  it("uses the branch in the detection line", () => {
+  it("asks for a branch only when cloning, and leaves it empty for the repository's own", () => {
     render(() => <NewProjectDialog />);
-    fireEvent.input(path(), { target: { value: "~/code/website" } });
-    fireEvent.input(screen.getByRole("textbox", { name: "Default branch" }), {
-      target: { value: "develop" },
-    });
-    expect(status()).toHaveTextContent("Detected a TypeScript project on branch develop.");
+    fireEvent.click(screen.getByRole("radio", { name: "Clone from GitHub" }));
+    expect(screen.getByRole("textbox", { name: "Branch" })).toHaveValue("");
+    expect(screen.getByRole("textbox", { name: "Branch" })).toHaveAttribute(
+      "placeholder",
+      "Repository default",
+    );
   });
 
-  it("fills a sample folder from Choose folder", () => {
+  it("has no Choose folder button: a web page cannot open a folder picker", () => {
     render(() => <NewProjectDialog />);
-    fireEvent.click(screen.getByRole("button", { name: "Choose folder" }));
-    expect(path()).toHaveValue("~/code/billing-service");
-    expect(name()).toHaveValue("billing-service");
+    expect(screen.queryByRole("button", { name: "Choose folder" })).toBeNull();
   });
 
   it("switches to a repository URL for GitHub and names the project from it", () => {
@@ -114,15 +112,42 @@ describe("NewProjectDialog", () => {
     expect(M.S.newProject?.source).toBe("github");
   });
 
-  it("adds the project, opens its board, and closes", () => {
-    vi.spyOn(M, "addProject").mockReturnValue("p99");
+  it("adds the project, opens its board, and closes", async () => {
+    vi.spyOn(M, "addProject").mockResolvedValue({ id: "billing-service" });
     render(() => <NewProjectDialog />);
     fireEvent.input(path(), { target: { value: "~/code/billing-service" } });
     fireEvent.submit(screen.getByRole("dialog"));
+    await vi.waitFor(() => expect(M.S.newProject).toBeNull());
     expect(M.addProject).toHaveBeenCalledOnce();
-    expect(M.S.newProject).toBeNull();
-    expect(M.S.route.pid).toBe("p99");
+    expect(M.S.route.pid).toBe("billing-service");
     expect(M.S.toasts.map((t) => t.msg)).toContain("Project added");
+  });
+
+  it("shows the daemon's refusal under the fields, keeps the dialog open, and keeps the fields", async () => {
+    const sentence = "That repository is already a project in Marshal.";
+    vi.spyOn(M, "addProject").mockResolvedValue({ error: sentence });
+    render(() => <NewProjectDialog />);
+    fireEvent.input(path(), { target: { value: "~/code/billing-service" } });
+    fireEvent.submit(screen.getByRole("dialog"));
+    expect(await screen.findByRole("alert")).toHaveTextContent(sentence);
+    expect(screen.getByRole("dialog", { name: "New project" })).toBeInTheDocument();
+    expect(path()).toHaveValue("~/code/billing-service");
+    expect(name()).toHaveValue("billing-service");
+    expect(add()).toBeEnabled();
+    expect(M.S.toasts).toHaveLength(0);
+  });
+
+  it("refuses a second submit while the first is still running", async () => {
+    let finish: (value: { id: string }) => void = () => {};
+    vi.spyOn(M, "addProject").mockReturnValue(new Promise((resolve) => (finish = resolve)));
+    render(() => <NewProjectDialog />);
+    fireEvent.input(path(), { target: { value: "~/code/billing-service" } });
+    fireEvent.submit(screen.getByRole("dialog"));
+    expect(add()).toBeDisabled();
+    fireEvent.submit(screen.getByRole("dialog"));
+    expect(M.addProject).toHaveBeenCalledOnce();
+    finish({ id: "billing-service" });
+    await vi.waitFor(() => expect(M.S.newProject).toBeNull());
   });
 
   it("does not add a project without a name", () => {

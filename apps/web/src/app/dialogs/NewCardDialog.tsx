@@ -1,17 +1,21 @@
 import { Button, Callout, Checkbox, Dialog, Field, Input, Select, TextArea } from "@marshal/ui";
 import { batch, For, Show } from "solid-js";
+import { AgentNotes } from "~/features/agents/AgentNotes";
+import { agentSelectOptions } from "~/features/agents/agent-picker";
 import { M, type NewCardDraft } from "~/mock";
+import { defaultAgentOf } from "~/mock/agents";
+import { type CardKey, cardLabel } from "~/mock/card-key";
 import { currentProject } from "../shell-layout";
 import { DialogHeader } from "./DialogHeader";
 
 const TEMPLATES = ["Blank", "Bug fix", "New endpoint", "Refactor", "Plan first"];
 const DEFAULT_TEMPLATE = "Blank";
 const DEFAULT_ROLE = "Worker";
-const DEFAULT_AGENT = "Claude Code";
+const AGENT_NOTES_ID = "nc-agent-notes";
 
 const closeNewCard = (): void => M.set({ newCard: null });
 
-function openDuplicate(id: number): void {
+function openDuplicate(id: CardKey): void {
   batch(() => {
     M.set({ newCard: null });
     M.openCard(id);
@@ -33,7 +37,7 @@ function Duplicates(props: { title: string }) {
                 onClick={() => openDuplicate(card.id)}
                 class="border-none bg-transparent p-0 text-left text-inherit underline"
               >
-                #{card.id} {card.title}
+                {cardLabel(card)} {card.title}
               </button>
             )}
           </For>
@@ -43,38 +47,43 @@ function Duplicates(props: { title: string }) {
   );
 }
 
-/** Template, role, and agent, side by side while they fit. */
+/** Template, role, and agent, side by side while they fit, and what the catalog says about the agents under them. */
 function CardOptions(props: { draft: NewCardDraft }) {
+  const agent = () => props.draft.agent || defaultAgentOf(M.agentOptions());
   return (
-    <div class="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-3">
-      <Field label="Template">
-        <Select
-          options={TEMPLATES}
-          value={props.draft.template || DEFAULT_TEMPLATE}
-          onChange={(e) => {
-            props.draft.template = e.currentTarget.value;
-          }}
-        />
-      </Field>
-      <Field label="Role">
-        <Select
-          options={M.ROLE_NAMES}
-          value={props.draft.role || DEFAULT_ROLE}
-          onChange={(e) => {
-            props.draft.role = e.currentTarget.value;
-          }}
-        />
-      </Field>
-      <Field label="Agent">
-        <Select
-          options={Object.keys(M.AGENTS)}
-          value={props.draft.agent || DEFAULT_AGENT}
-          onChange={(e) => {
-            props.draft.agent = e.currentTarget.value;
-          }}
-        />
-      </Field>
-    </div>
+    <>
+      <div class="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-3">
+        <Field label="Template">
+          <Select
+            options={TEMPLATES}
+            value={props.draft.template || DEFAULT_TEMPLATE}
+            onChange={(e) => {
+              props.draft.template = e.currentTarget.value;
+            }}
+          />
+        </Field>
+        <Field label="Role">
+          <Select
+            options={M.ROLE_NAMES}
+            value={props.draft.role || DEFAULT_ROLE}
+            onChange={(e) => {
+              props.draft.role = e.currentTarget.value;
+            }}
+          />
+        </Field>
+        <Field label="Agent">
+          <Select
+            options={agentSelectOptions(M.agentOptions(), agent())}
+            value={agent()}
+            aria-describedby={AGENT_NOTES_ID}
+            onChange={(e) => {
+              props.draft.agent = e.currentTarget.value;
+            }}
+          />
+        </Field>
+      </div>
+      <AgentNotes id={AGENT_NOTES_ID} selected={agent()} />
+    </>
   );
 }
 

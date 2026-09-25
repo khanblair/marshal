@@ -4,10 +4,10 @@ import {
   addDraftProject,
   autoName,
   canAdd,
-  detectKind,
-  detectMessage,
   followName,
+  IDLE_MESSAGE,
   patchDraft,
+  requestOf,
   sourceOf,
 } from "./new-project";
 
@@ -20,7 +20,7 @@ const draft = (over: Partial<NewProjectDraft> = {}): NewProjectDraft => ({
   path: "",
   url: "",
   name: "",
-  branch: "main",
+  branch: "",
   ...over,
 });
 
@@ -39,21 +39,6 @@ describe("sourceOf", () => {
   });
 });
 
-describe("detectKind", () => {
-  it("detects nothing from nothing", () => {
-    expect(detectKind("")).toBeNull();
-  });
-
-  it("guesses a monorepo, Go, or TypeScript from the text, in that order", () => {
-    expect(detectKind("~/code/my-monorepo")).toBe("mono");
-    expect(detectKind("~/code/apps")).toBe("mono");
-    expect(detectKind("~/code/workspace-tools")).toBe("mono");
-    expect(detectKind("~/code/billing-service")).toBe("Go");
-    expect(detectKind("~/code/API")).toBe("Go");
-    expect(detectKind("~/code/website")).toBe("TypeScript");
-  });
-});
-
 describe("autoName", () => {
   it("takes the last path or URL segment without .git", () => {
     expect(autoName("~/code/billing-service")).toBe("billing-service");
@@ -64,19 +49,38 @@ describe("autoName", () => {
   });
 });
 
-describe("detectMessage", () => {
-  it("asks for a folder or URL before anything is typed", () => {
-    expect(detectMessage(null, "main")).toBe(
+describe("the line under the fields", () => {
+  it("says what Marshal does, and never guesses a language or a monorepo from the text typed", () => {
+    expect(IDLE_MESSAGE).toBe(
       "Choose a folder or paste a URL. Marshal detects the language and monorepo tools.",
     );
   });
+});
 
-  it("describes a monorepo, and names the language and branch otherwise", () => {
-    expect(detectMessage("mono", "main")).toBe(
-      "Detected a monorepo: pnpm workspaces with 3 packages. It gets one board with package swimlanes.",
-    );
-    expect(detectMessage("Go", "develop")).toBe("Detected a Go project on branch develop.");
-    expect(detectMessage("TypeScript", "")).toBe("Detected a TypeScript project on branch main.");
+describe("requestOf", () => {
+  it("sends a folder as typed, with the trimmed name", () => {
+    expect(requestOf(draft({ path: " ~/code/billing-service ", name: "  billing  " }))).toEqual({
+      source: "folder",
+      path: "~/code/billing-service",
+      name: "billing",
+    });
+  });
+
+  it("clones a GitHub URL into ~/code/<repository name>, with the branch only when one is typed", () => {
+    const github = {
+      source: "github",
+      url: "https://github.com/acme/ledger.git",
+      name: "ledger",
+    } as const;
+    expect(requestOf(draft(github))).toEqual({
+      source: "clone",
+      url: "https://github.com/acme/ledger.git",
+      dest: "~/code/ledger",
+      name: "ledger",
+    });
+    expect(requestOf(draft({ ...github, branch: " develop " }))).toMatchObject({
+      branch: "develop",
+    });
   });
 });
 
@@ -103,39 +107,62 @@ describe("canAdd and followName", () => {
 });
 
 describe("addDraftProject", () => {
-  it("adds a folder project, opens its board, and confirms with a toast", () => {
-    const add = vi.spyOn(M, "addProject").mockReturnValue("p99");
-    M.set({ newProject: draft() });
-    addDraftProject(draft({ path: "~/code/billing-service", name: "  billing  ", branch: "dev" }));
+  it("adds a folder project, opens its board, closes, and confirms with a toast", async () => {
+    const add = vi.spyOn(M, "addProject").mockResolvedValue({ id: "billing" });
+    const d = draft({ path: "~/code/billing-service", name: "  billing  " });
+    M.set({ newProject: d });
+    await addDraftProject(d);
     expect(add).toHaveBeenCalledWith({
-      name: "billing",
+      source: "folder",
       path: "~/code/billing-service",
-      branch: "dev",
-      mono: false,
-      lang: "Go",
+      name: "billing",
     });
     expect(M.S.newProject).toBeNull();
-    expect(M.S.route).toMatchObject({ page: "project", pid: "p99", view: "board" });
+    expect(M.S.route).toMatchObject({ page: "project", pid: "billing", view: "board" });
     expect(M.S.toasts.map((t) => t.msg)).toContain("Project added");
   });
 
-  it("clones a GitHub project into ~/code and passes monorepo detection on", () => {
-    const add = vi.spyOn(M, "addProject").mockReturnValue("p98");
-    addDraftProject(
+  it("clones a GitHub project into ~/code", async () => {
+    const add = vi.spyOn(M, "addProject").mockResolvedValue({ id: "monorepo" });
+    await addDraftProject(
       draft({ source: "github", url: "https://github.com/acme/monorepo.git", name: "mono" }),
     );
     expect(add).toHaveBeenCalledWith({
+      source: "clone",
+      url: "https://github.com/acme/monorepo.git",
+      dest: "~/code/monorepo",
       name: "mono",
-      path: "~/code/monorepo",
-      branch: "main",
-      mono: true,
-      lang: "TypeScript",
     });
   });
 
-  it("does nothing without a source and a name", () => {
+  it("keeps the dialog open with its fields when the daemon refuses, and shows its sentence", async () => {
+    const sentence = "That folder is not a Git repository. Choose the top folder of a repository.";
+    vi.spyOn(M, "addProject").mockResolvedValue({ error: sentence });
+    const d = draft({ path: "~/code/plain", name: "plain" });
+    M.set({ newProject: d });
+    await addDraftProject(d);
+    expect(M.S.newProject).toMatchObject({ path: "~/code/plain", name: "plain", error: sentence });
+    expect(M.S.newProject?.busy).toBe(false);
+    expect(M.S.toasts).toHaveLength(0);
+  });
+
+  it("refuses a second press while the first is still running", async () => {
+    let finish: (value: { id: string }) => void = () => {};
+    const add = vi
+      .spyOn(M, "addProject")
+      .mockReturnValue(new Promise((resolve) => (finish = resolve)));
+    const d = draft({ path: "~/a", name: "a" });
+    M.set({ newProject: d });
+    const first = addDraftProject(d);
+    await addDraftProject(d);
+    expect(add).toHaveBeenCalledOnce();
+    finish({ id: "a" });
+    await first;
+  });
+
+  it("does nothing without a source and a name", async () => {
     const add = vi.spyOn(M, "addProject");
-    addDraftProject(draft({ path: "~/a" }));
+    await addDraftProject(draft({ path: "~/a" }));
     expect(add).not.toHaveBeenCalled();
   });
 });

@@ -171,7 +171,7 @@ describe("Workspace split panes", () => {
 
 describe("Workspace card panel", () => {
   it("shows the card beside the main view on desktop", () => {
-    M.openCard(41);
+    M.openCard("api#41");
     render(() => <Workspace />);
     expect(shown()).toEqual(["board", "card"]);
     expect(screen.getByRole("complementary", { name: "Card detail" })).toBeInTheDocument();
@@ -180,7 +180,7 @@ describe("Workspace card panel", () => {
 
   it("hides the main view and the panes while the card is expanded", () => {
     M.set({ split: ["list"] });
-    M.openCard(41);
+    M.openCard("api#41");
     M.set({ detailExpanded: true });
     render(() => <Workspace />);
     expect(screen.queryByRole("main")).toBeNull();
@@ -191,7 +191,7 @@ describe("Workspace card panel", () => {
 
   it("covers the main view on phones", () => {
     showProject("board", PHONE_PX);
-    M.openCard(41);
+    M.openCard("api#41");
     render(() => <Workspace />);
     expect(screen.queryByRole("main")).toBeNull();
     expect(shown()).toEqual(["card"]);
@@ -199,7 +199,7 @@ describe("Workspace card panel", () => {
 
   it("overlays the main view on tablets, and the backdrop closes the card", () => {
     showProject("board", TABLET_PX);
-    M.openCard(41);
+    M.openCard("api#41");
     const { container } = render(() => <Workspace />);
     expect(shown()).toEqual(["board", "card"]);
     const backdrop = container.querySelector<HTMLElement>('[aria-hidden="true"].z-\\[140\\]');
@@ -210,7 +210,7 @@ describe("Workspace card panel", () => {
   });
 
   it("shows nothing for an id that is not a card", () => {
-    M.set({ openId: 99999 });
+    M.set({ openId: "api#99999" });
     render(() => <Workspace />);
     expect(screen.queryByRole("complementary")).toBeNull();
     expect(shown()).toEqual(["board"]);
