@@ -1,0 +1,4 @@
+* text=auto eol=lf
+pnpm-lock.yaml -diff
+packages/tokens/dist/** linguist-generated=true
+design/** linguist-vendored=true

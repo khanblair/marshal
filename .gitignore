@@ -1,0 +1,57 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output and generated files
+dist/
+build/
+out/
+.vite/
+*.tsbuildinfo
+.tools/
+
+# Tests and reports
+coverage/
+.vitest/
+test-results/
+playwright-report/
+.parity/
+
+# Tauri (desktop shell, not built yet)
+apps/desktop/src-tauri/target/
+apps/desktop/src-tauri/binaries/
+
+# Go and Rust build artifacts (daemon and desktop, not built yet)
+*.exe
+*.test
+*.out
+target/
+
+# Environment files and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Editors and operating systems
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.swp
+*~
+
+# Local tool settings (the shared .claude/launch.json stays in Git)
+.claude/settings.local.json
+.claude/*.local.*
+.superpowers/
