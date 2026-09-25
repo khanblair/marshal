@@ -1,0 +1,7 @@
+{
+  "source": "clone",
+  "url": "https://github.com/acme/web-dashboard.git",
+  "dest": "/home/ada/code/web-dashboard",
+  "branch": "develop",
+  "name": "Web dashboard"
+}

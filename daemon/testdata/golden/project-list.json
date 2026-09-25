@@ -1,0 +1,41 @@
+{
+  "projects": [
+    {
+      "id": "web-dashboard",
+      "name": "web-dashboard",
+      "path": "/home/ada/code/web-dashboard",
+      "language": "TypeScript",
+      "defaultBranch": "main",
+      "devCommand": "pnpm dev",
+      "bypassLocked": true,
+      "isMonorepo": false,
+      "packages": [],
+      "createdAt": "2026-09-25T10:15:30.123Z",
+      "badges": {
+        "needs": 2,
+        "awake": 1
+      }
+    },
+    {
+      "id": "mobile",
+      "name": "mobile-app",
+      "path": "/home/ada/code/mobile-app",
+      "language": "Monorepo",
+      "defaultBranch": "main",
+      "devCommand": "",
+      "bypassLocked": false,
+      "isMonorepo": true,
+      "packages": [
+        "apps/android",
+        "apps/ios",
+        "packages/ui"
+      ],
+      "createdAt": "2026-09-25T10:15:30.123Z",
+      "badges": {
+        "needs": 0,
+        "awake": 0
+      }
+    }
+  ],
+  "serverTime": "2026-09-25T11:15:30.123Z"
+}

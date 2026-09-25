@@ -1,0 +1,16 @@
+{
+  "id": "web-dashboard",
+  "name": "web-dashboard",
+  "path": "/home/ada/code/web-dashboard",
+  "language": "TypeScript",
+  "defaultBranch": "main",
+  "devCommand": "pnpm dev",
+  "bypassLocked": true,
+  "isMonorepo": false,
+  "packages": [],
+  "createdAt": "2026-09-25T10:15:30.123Z",
+  "badges": {
+    "needs": 2,
+    "awake": 1
+  }
+}

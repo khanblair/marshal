@@ -1,0 +1,6 @@
+{
+  "name": "Dashboard",
+  "devCommand": "npm run dev",
+  "defaultBranch": "develop",
+  "bypassLocked": false
+}
