@@ -137,6 +137,16 @@ describe("NewProjectDialog", () => {
     expect(M.S.toasts).toHaveLength(0);
   });
 
+  it("drops the daemon's refusal when the source changes, since it was about the other source", async () => {
+    vi.spyOn(M, "addProject").mockResolvedValue({ error: "That folder does not exist." });
+    render(() => <NewProjectDialog />);
+    fireEvent.input(path(), { target: { value: "~/code/missing" } });
+    fireEvent.submit(screen.getByRole("dialog"));
+    expect(await screen.findByRole("alert")).toHaveTextContent("That folder does not exist.");
+    fireEvent.click(screen.getByRole("radio", { name: "Clone from GitHub" }));
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
   it("refuses a second submit while the first is still running", async () => {
     let finish: (value: { id: string }) => void = () => {};
     vi.spyOn(M, "addProject").mockReturnValue(new Promise((resolve) => (finish = resolve)));

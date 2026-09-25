@@ -112,7 +112,7 @@ function NewProjectForm(props: { draft: NewProjectDraft }) {
         label="Where the repository comes from"
         options={M.S.vw < ICONS_MIN_WIDTH_PX ? PLAIN_SOURCES : SOURCES}
         value={draft().source || "folder"}
-        onValueChange={(source) => patchDraft(draft(), { source })}
+        onValueChange={(source) => patchDraft(draft(), { source, error: "" })}
       />
       <Show when={draft().source !== "github"}>
         <FolderField draft={draft()} />
