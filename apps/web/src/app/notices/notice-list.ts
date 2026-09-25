@@ -1,5 +1,6 @@
 import { batch } from "solid-js";
 import type { Card, InfoNotice, Marshal, Notice, SleepNotice } from "~/mock";
+import { type CardKey, cardLabel } from "~/mock/card-key";
 
 /* View model of the notices panel, ported from the notices part of the design's `renderVals`. */
 
@@ -14,7 +15,10 @@ export interface NoticeActionModel {
 }
 
 export interface NoticeRowModel {
+  /** The card's label and title, such as `#41 Fix token refresh`. */
   title: string;
+  /** The card's project, shown under the title so cards of two projects with the same number differ. */
+  project: string;
   sub: string;
   subTone: "needs" | "secondary";
   open: () => void;
@@ -29,6 +33,8 @@ export interface NoticeModel {
   sub: string;
   when: string;
   full: string;
+  /** The project of the card a notice is about, shown beside the time, so two projects with the same card number differ. */
+  project?: string;
   /** Set when the notice has a Dismiss button. */
   dismiss?: (() => void) | undefined;
   rows: NoticeRowModel[];
@@ -42,7 +48,7 @@ const SECONDS_DIGITS = 2;
 const SLEEP_SUB =
   "Sleeping frees memory and keeps each session. Cards wake in a few seconds when needed.";
 
-type CardOpener = (id: number) => () => void;
+type CardOpener = (id: CardKey) => () => void;
 
 const act = (label: string, run: () => void, primary = false): NoticeActionModel => ({
   label,
@@ -75,7 +81,8 @@ function needsRow(M: Marshal, c: Card, open: CardOpener): NoticeRowModel {
   if (pending?.k === "approval") actions.unshift(act("Approve", () => M.approve(c.id), true));
   if (pending?.k === "plan") actions.unshift(act("Review plan", open(c.id), true));
   return {
-    title: `#${c.id} ${c.title}`,
+    title: `${cardLabel(c)} ${c.title}`,
+    project: M.proj(c.p)?.name ?? "",
     sub: c.reason,
     subTone: "needs",
     open: open(c.id),
@@ -112,13 +119,14 @@ function base(M: Marshal, n: Notice) {
 }
 
 /** Skips a card that no longer exists, where the design would throw. */
-function sleepRows(M: Marshal, id: number, open: CardOpener): NoticeRowModel[] {
+function sleepRows(M: Marshal, id: CardKey, open: CardOpener): NoticeRowModel[] {
   const c = M.card(id);
   if (!c) return [];
   return [
     {
-      title: `#${c.id} ${c.title}`,
-      sub: M.proj(c.p)?.name ?? "",
+      title: `${cardLabel(c)} ${c.title}`,
+      project: M.proj(c.p)?.name ?? "",
+      sub: "",
       subTone: "secondary",
       open: open(id),
       actions: [
@@ -174,6 +182,13 @@ function infoIcon(n: InfoNotice, danger: boolean): string {
   return n.kind === "plan" ? "st-needs" : "bell";
 }
 
+/** The project name of a plan or CI notice. The texts of the others (main failing, cost) already name it. */
+function noticeProject(M: Marshal, n: InfoNotice): string {
+  if (n.kind !== "plan" && n.kind !== "ci") return "";
+  const pid = (n.cardId && M.card(n.cardId)?.p) || n.pid;
+  return (pid && M.proj(pid)?.name) || "";
+}
+
 /** CI failures, main failing, and plans ready: an optional button that opens the card. */
 function infoNotice(M: Marshal, n: InfoNotice, open: CardOpener): NoticeModel {
   const danger = n.kind === "ci" || n.kind === "ci-main";
@@ -185,6 +200,7 @@ function infoNotice(M: Marshal, n: InfoNotice, open: CardOpener): NoticeModel {
     tone: danger ? "danger" : "needs",
     title: n.text,
     sub: n.sub,
+    project: noticeProject(M, n),
     rows: [],
     actions: target === null ? [] : [act(label, open(target), true)],
   };

@@ -65,7 +65,7 @@ describe("buildNotices", () => {
     const approve = vi.spyOn(M, "approve").mockImplementation(() => {});
     const row = byKey(buildNotices(M, false), "needs").rows.find((r) => r.title.startsWith("#44"));
     row?.actions[0]?.run();
-    expect(approve).toHaveBeenCalledWith(44);
+    expect(approve).toHaveBeenCalledWith("api#44");
   });
 
   it("writes the sleep countdown from the store clock and lists the idle cards", () => {
@@ -73,15 +73,26 @@ describe("buildNotices", () => {
     expect(sleep.title).toMatch(/^3 cards are idle and will sleep in \d+:\d\d$/);
     expect(sleep.dismiss).toBeUndefined();
     expect(sleep.tone).toBe("secondary");
-    expect(sleep.rows.map((r) => r.sub)).toEqual(["api-gateway", "api-gateway", "web-dashboard"]);
+    expect(sleep.rows.map((r) => r.project)).toEqual([
+      "api-gateway",
+      "api-gateway",
+      "web-dashboard",
+    ]);
+    expect(sleep.rows.map((r) => r.sub)).toEqual(["", "", ""]);
     expect(sleep.rows[0]?.actions.map((a) => a.label)).toEqual(["Keep awake", "Sleep now", "Pin"]);
     expect(sleep.actions.map((a) => a.label)).toEqual(["Keep all awake", "Sleep all now"]);
   });
 
   it("says card in the singular for one idle card, and skips a card that no longer exists", () => {
     M.S.notices = [
-      { id: "s", kind: "sleep", cards: [39], deadline: Date.now() + MS * 30, ts: Date.now() },
-      { id: "t", kind: "sleep", cards: [39, 999999], deadline: Date.now(), ts: Date.now() },
+      { id: "s", kind: "sleep", cards: ["api#39"], deadline: Date.now() + MS * 30, ts: Date.now() },
+      {
+        id: "t",
+        kind: "sleep",
+        cards: ["api#39", "api#999999"],
+        deadline: Date.now(),
+        ts: Date.now(),
+      },
     ];
     const [one, two] = buildNotices(M, false).filter((n) => n.key !== "needs");
     expect(one?.title).toMatch(/^1 card is idle and will sleep in /);
@@ -105,7 +116,7 @@ describe("buildNotices", () => {
 
   it("uses the plan icon and Review plan for a plan notice, and no button without a card", () => {
     M.S.notices = [
-      { id: "p", kind: "plan", cardId: 43, text: "Plan ready", sub: "#43", ts: Date.now() },
+      { id: "p", kind: "plan", cardId: "api#43", text: "Plan ready", sub: "#43", ts: Date.now() },
       { id: "q", kind: "ci", text: "CI failed", sub: "", ts: Date.now() },
     ];
     const [plan, ci] = buildNotices(M, false).filter((n) => n.key !== "needs");
@@ -123,14 +134,14 @@ describe("buildNotices", () => {
     M.set({ noticesOpen: true });
     byKey(buildNotices(M, false), "n2").actions[0]?.run();
     expect(M.S.noticesOpen).toBe(false);
-    expect(M.S.openId).toBe(213);
+    expect(M.S.openId).toBe("mobile#213");
   });
 
   it("goes to the card's board first on a phone that is not on a project page", () => {
     M.set({ noticesOpen: true });
     byKey(buildNotices(M, true), "n2").actions[0]?.run();
     expect(M.S.route).toMatchObject({ page: "project", pid: "mobile", view: "board" });
-    expect(M.S.openId).toBe(213);
+    expect(M.S.openId).toBe("mobile#213");
   });
 
   it("opens the limits settings from a cost notice", () => {

@@ -86,10 +86,10 @@ describe("NoticesPanel", () => {
     render(() => <NoticesPanel />);
     const needs = article("4 cards need you");
     fireEvent.click(within(needs).getByRole("button", { name: "Approve" }));
-    expect(approve).toHaveBeenCalledWith(44);
+    expect(approve).toHaveBeenCalledWith("api#44");
     fireEvent.click(within(needs).getByText("#119 Migrate tables to TanStack Table v8"));
     expect(M.S.noticesOpen).toBe(false);
-    expect(M.S.openId).toBe(119);
+    expect(M.S.openId).toBe("web#119");
   });
 
   it("shows the sleep countdown and wakes all idle cards from Keep all awake", () => {

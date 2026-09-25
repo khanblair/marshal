@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { toDaemonProject } from "~/data/mappers/project";
 import { M } from "~/mock";
+import { applyProject } from "~/sync/projects";
+import { daemonProject, PROTOTYPE_PROJECTS } from "~/testing/projects";
+import { contextOf } from "~/testing/test-store";
 import { chipValue, FILTER_KEY_LABEL, filterGroups } from "./filter-groups";
 
 vi.hoisted(() => {
@@ -54,6 +58,35 @@ describe("filterGroups", () => {
     expect(packages.find((o) => o.value === "packages/api-client")?.count).toBe(
       M.cardsOf("mobile").filter((c) => c.pkg === "packages/api-client").length,
     );
+  });
+});
+
+describe("filterGroups for a monorepo whose packages the daemon found on disk", () => {
+  it("also offers a package a card names that the project does not list, so no card is out of reach", () => {
+    const ctx = contextOf(M);
+    const daemonPackages = ["packages/api", "packages/shared", "packages/web"];
+    applyProject(
+      ctx,
+      daemonProject({
+        id: "mobile",
+        name: "mobile-app",
+        language: "Monorepo",
+        isMonorepo: true,
+        packages: daemonPackages,
+      }),
+    );
+    try {
+      M.go("project", "mobile", "board");
+      const values = optionsOf("Package").map((o) => o.value);
+      expect(values.slice(0, 3)).toEqual(daemonPackages);
+      expect(values).toContain("apps/ios");
+      expect(optionsOf("Package").find((o) => o.value === "apps/ios")?.count).toBe(
+        M.cardsOf("mobile").filter((c) => c.pkg === "apps/ios").length,
+      );
+    } finally {
+      const original = PROTOTYPE_PROJECTS.find((p) => p.id === "mobile");
+      if (original) applyProject(ctx, toDaemonProject(original));
+    }
   });
 });
 

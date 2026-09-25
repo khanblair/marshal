@@ -6,6 +6,7 @@
  */
 import { onCleanup, onMount } from "solid-js";
 import { M } from "~/mock";
+import type { CardKey } from "~/mock/card-key";
 import { openPalette } from "./shell-actions";
 
 /** Wait before focusing a card, so its view has rendered the new focus. */
@@ -71,20 +72,20 @@ function focusSearch(e: KeyboardEvent): void {
   el.focus();
 }
 
-function approveKey(e: KeyboardEvent, id: number | null): void {
+function approveKey(e: KeyboardEvent, id: CardKey | null): void {
   if (!id || !M.pendingApproval(id)) return;
   e.preventDefault();
   M.approve(id);
 }
 
-function sleepKey(id: number | null): void {
+function sleepKey(id: CardKey | null): void {
   const c = id ? M.card(id) : undefined;
   if (!(id && c)) return;
   if (c.asleep) M.wake(id);
   else M.sleep(id);
 }
 
-function pinKey(id: number | null): void {
+function pinKey(id: CardKey | null): void {
   if (id && M.card(id)) M.pin(id);
 }
 
@@ -125,7 +126,7 @@ function onGlobalKey(e: KeyboardEvent): void {
 }
 
 /** Next card in a board-like grid of columns. */
-function gridTarget(grid: number[][], focusId: number | null, key: string): number | undefined {
+function gridTarget(grid: CardKey[][], focusId: CardKey | null, key: string): CardKey | undefined {
   let ci = -1;
   let ri = -1;
   grid.forEach((col, i) => {
@@ -147,7 +148,7 @@ function gridTarget(grid: number[][], focusId: number | null, key: string): numb
 }
 
 /** Next card in a list of rows; only up and down move. */
-function rowTarget(rows: number[], focusId: number | null, key: string): number | undefined {
+function rowTarget(rows: CardKey[], focusId: CardKey | null, key: string): CardKey | undefined {
   if (key !== "ArrowDown" && key !== "ArrowUp") return undefined;
   const i = focusId == null ? -1 : rows.indexOf(focusId);
   const next =
@@ -160,7 +161,7 @@ function navigate(key: string, e: KeyboardEvent): void {
   const model = M.nav;
   if (!model) return;
   const focusId = M.S.focusId;
-  let next: number | undefined;
+  let next: CardKey | undefined;
   if (model.grid) next = gridTarget(model.grid, focusId, key);
   else if (model.rows) next = rowTarget(model.rows, focusId, key);
   if (next == null) return;

@@ -9,10 +9,10 @@ vi.hoisted(() => {
 });
 
 /** A card that waits for approval (seed: #44 "Upgrade grpc-go to 1.66"). */
-const APPROVAL_CARD = 44;
-const CARD_A = 41;
-const CARD_B = 42;
-const CARD_C = 43;
+const APPROVAL_CARD = "api#44";
+const CARD_A = "api#41";
+const CARD_B = "api#42";
+const CARD_C = "api#43";
 
 function Keys() {
   useGlobalKeys();

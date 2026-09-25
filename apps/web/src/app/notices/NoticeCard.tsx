@@ -26,8 +26,11 @@ export function NoticeCard(props: { notice: NoticeModel }) {
           <Show when={props.notice.sub}>
             <div class="text-small leading-4.5 text-secondary">{props.notice.sub}</div>
           </Show>
-          <span title={props.notice.full} class="text-caption leading-4 text-muted">
-            {props.notice.when}
+          <span class="flex flex-wrap gap-x-2 text-caption leading-4 text-muted">
+            <Show when={props.notice.project}>
+              <span>{props.notice.project}</span>
+            </Show>
+            <span title={props.notice.full}>{props.notice.when}</span>
           </span>
         </div>
         <Show when={props.notice.dismiss}>

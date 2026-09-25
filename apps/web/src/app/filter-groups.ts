@@ -83,9 +83,13 @@ export function filterGroups(): FilterGroup[] {
   ];
   const packages = currentProject().packages;
   if (packages) {
+    // A card may name a package the project's list lacks; it gets an option too, so it can be found.
+    const unlisted = uniqueSorted(cards.map((c) => c.pkg ?? "")).filter(
+      (p) => !packages.includes(p),
+    );
     groups.push({
       label: "Package",
-      options: valueOptions("package", packages, cards, (c, v) => c.pkg === v),
+      options: valueOptions("package", [...packages, ...unlisted], cards, (c, v) => c.pkg === v),
     });
   }
   return groups;
