@@ -91,7 +91,7 @@ describe("project rows", () => {
   it("openNewProject starts an empty draft", () => {
     M.set({ sideOpen: true });
     openNewProject();
-    expect(M.S.newProject).toMatchObject({ source: "folder", path: "", name: "", branch: "main" });
+    expect(M.S.newProject).toMatchObject({ source: "folder", path: "", name: "", branch: "" });
     expect(M.S.sideOpen).toBe(false);
   });
 });

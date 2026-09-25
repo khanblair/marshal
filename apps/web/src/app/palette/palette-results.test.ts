@@ -18,7 +18,10 @@ describe("paletteResults", () => {
     const list = paletteResults(M, "");
     expect(groups(list)).toEqual(["Actions", "Projects", "Settings", "Cards that need you"]);
     const needs = list.filter((x) => x.group === "Cards that need you");
-    expect(needs.map((x) => x.label.split(" ")[0])).toEqual(["#43", "#119", "#210", "#44"]);
+    expect(needs.map((x) => x.card)).toEqual(["api#43", "web#119", "mobile#210", "api#44"]);
+    // A card row names its project, so cards of two projects with the same number differ.
+    expect(needs[0]?.label).toBe("api-gateway #43 Add rate limiting per API key");
+    expect(needs[1]?.label.startsWith("web-dashboard #119 ")).toBe(true);
     expect(list.some((x) => x.group === "Cards")).toBe(false);
   });
 
@@ -30,7 +33,7 @@ describe("paletteResults", () => {
 
   it("keeps commands that contain every word, in any order, ignoring case", () => {
     const labels = paletteResults(M, "LIMITING rate").map((x) => x.label);
-    expect(labels).toEqual(["#43 Add rate limiting per API key"]);
+    expect(labels).toEqual(["api-gateway #43 Add rate limiting per API key"]);
   });
 
   it("also searches the hint and the group name", () => {

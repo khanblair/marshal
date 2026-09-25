@@ -118,9 +118,9 @@ describe("routes", () => {
 describe("card panel", () => {
   it("is open only for a card that exists", () => {
     expect(detailOpen()).toBe(false);
-    M.set({ openId: 999999 });
+    M.set({ openId: "api#999999" });
     expect(detailOpen()).toBe(false);
-    M.openCard(41);
+    M.openCard("api#41");
     expect(detailOpen()).toBe(true);
   });
 

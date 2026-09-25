@@ -52,13 +52,13 @@ describe("openSettingsSection", () => {
 });
 
 describe("newProjectDraft", () => {
-  it("starts from a folder with the main branch", () => {
+  it("starts from a folder, with the branch left to the repository", () => {
     expect(newProjectDraft()).toEqual({
       source: "folder",
       path: "",
       url: "",
       name: "",
-      branch: "main",
+      branch: "",
     });
   });
 

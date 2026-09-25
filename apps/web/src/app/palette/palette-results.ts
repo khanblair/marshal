@@ -21,9 +21,7 @@ function matching(all: PaletteCommand[], query: string): PaletteCommand[] {
 
 /** With no query: every command except cards, then the cards that need you, regrouped. */
 function withNeedsGroup(M: Marshal, all: PaletteCommand[]): PaletteCommand[] {
-  const needs = M.needs().map((c) =>
-    all.find((x) => x.group === "Cards" && x.label.startsWith(`#${c.id} `)),
-  );
+  const needs = M.needs().map((c) => all.find((x) => x.group === "Cards" && x.card === c.id));
   const regrouped = needs.filter((x) => x !== undefined).map((x) => ({ ...x, group: NEEDS_GROUP }));
   return all.filter((x) => x.group !== "Cards").concat(regrouped);
 }

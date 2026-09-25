@@ -16,7 +16,7 @@ export const newProjectDraft = (): NewProjectDraft => ({
   path: "",
   url: "",
   name: "",
-  branch: "main",
+  branch: "",
 });
 
 /** Opens Settings at one section. */
