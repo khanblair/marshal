@@ -36,8 +36,6 @@ marshal/
   .golangci.yml                 Go lint rules with the blocking smell limits
   .golangci.warn.yml            Go soft limits (the warning levels), run by pnpm smells
   .smells-baseline.json         Accepted smells with reasons (starts empty)
-  prompt.md                     The controller's brief for the Phase 1 work session (kept in the repo, not part of the product)
-  deepseek-report.md            The report that work session wrote (section 7 of the brief)
   README.md                     What Marshal is, and how to get started, linking to docs/ (planned)
   LICENSE                       (planned)
   .github/
