@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createMarshal, type Marshal } from "../marshal";
+import { createTestMarshal } from "~/testing/test-store";
+import type { CardKey } from "../card-key";
+import type { Marshal } from "../marshal";
 import { applyTheme, watchSystemTheme } from "./theme";
 import { watchResize } from "./viewport";
 
 const make = (w = 1440): Marshal =>
-  createMarshal({ hash: "#nosim", storage: null, viewport: { w, h: 900 }, applyTheme });
+  createTestMarshal({ hash: "#nosim", storage: null, viewport: { w, h: 900 }, applyTheme });
 
 function pointer(type: string, x: number, y: number, init: PointerEventInit = {}): PointerEvent {
   return new PointerEvent(type, { clientX: x, clientY: y, button: 0, bubbles: true, ...init });
@@ -30,7 +32,7 @@ describe("card drag", () => {
     vi.useRealTimers();
   });
 
-  const press = (id: number, init: PointerEventInit = {}): void => {
+  const press = (id: CardKey, init: PointerEventInit = {}): void => {
     cardEl.onpointerdown = (e) => {
       const c = M.card(id);
       if (c) M.deco(c).down(e);
@@ -39,7 +41,7 @@ describe("card drag", () => {
   };
 
   it("drags a ghost copy and drops the card on a column", () => {
-    press(41);
+    press("api#41");
     window.dispatchEvent(pointer("pointermove", 12, 11));
     expect(document.body.children).toHaveLength(2);
     window.dispatchEvent(pointer("pointermove", 60, 40));
@@ -49,48 +51,48 @@ describe("card drag", () => {
       zIndex: "450",
       transform: "translate(50px,30px)",
     });
-    expect(M.S).toMatchObject({ dragId: 41, dropCol: "review" });
-    expect(M.deco(M.card(41) as never).opacity).toBe("0.4");
+    expect(M.S).toMatchObject({ dragId: "api#41", dropCol: "review" });
+    expect(M.deco(M.card("api#41") as never).opacity).toBe("0.4");
     window.dispatchEvent(pointer("pointerup", 60, 40));
     expect(document.body.children).toHaveLength(2);
     expect(M.S).toMatchObject({ dragId: null, dropCol: null });
-    expect(M.card(41)?.state).toBe("review");
+    expect(M.card("api#41")?.state).toBe("review");
     // The click that ends the drag must not open the card.
-    M.deco(M.card(41) as never).open();
+    M.deco(M.card("api#41") as never).open();
     expect(M.S.openId).toBeNull();
     vi.advanceTimersByTime(30);
-    M.deco(M.card(41) as never).open();
-    expect(M.S.openId).toBe(41);
+    M.deco(M.card("api#41") as never).open();
+    expect(M.S.openId).toBe("api#41");
   });
 
   it("treats a short press as a click, not a drag", () => {
-    press(41);
+    press("api#41");
     window.dispatchEvent(pointer("pointermove", 12, 12));
     window.dispatchEvent(pointer("pointerup", 12, 12));
     expect(M.S.dragId).toBeUndefined();
-    expect(M.card(41)?.state).toBe("working");
+    expect(M.card("api#41")?.state).toBe("working");
   });
 
   it("does not drop on the card's own column or outside columns", () => {
     column.setAttribute("data-col", "working");
-    press(41);
+    press("api#41");
     window.dispatchEvent(pointer("pointermove", 80, 80));
     window.dispatchEvent(pointer("pointercancel", 80, 80));
-    expect(M.card(41)?.state).toBe("working");
+    expect(M.card("api#41")?.state).toBe("working");
     document.elementFromPoint = () => null;
-    press(41);
+    press("api#41");
     window.dispatchEvent(pointer("pointermove", 80, 80));
     expect(M.S.dropCol).toBeNull();
     window.dispatchEvent(pointer("pointerup", 80, 80));
   });
 
   it("ignores other buttons, buttons inside the card, and phones", () => {
-    press(41, { button: 2 });
+    press("api#41", { button: 2 });
     const inner = document.createElement("button");
     cardEl.append(inner);
     inner.dispatchEvent(pointer("pointerdown", 10, 10));
     M.setViewport(390, 844);
-    press(41);
+    press("api#41");
     window.dispatchEvent(pointer("pointermove", 80, 80));
     expect(M.S.dragId).toBeUndefined();
   });

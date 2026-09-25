@@ -1,3 +1,6 @@
+import { startSync } from "~/sync";
+import * as connection from "~/sync/connection-actions";
+import * as projects from "~/sync/project-actions";
 import * as approvals from "./actions/approvals";
 import * as cardCreate from "./actions/card-create";
 import * as cards from "./actions/cards";
@@ -9,12 +12,12 @@ import * as messages from "./actions/messages";
 import * as navigation from "./actions/navigation";
 import * as onboarding from "./actions/onboarding";
 import { commands } from "./actions/palette";
-import * as projects from "./actions/projects";
 import * as sessions from "./actions/sessions";
 import * as settings from "./actions/settings";
+import * as agents from "./agents";
 import { bindActions, bindQueries } from "./bind";
+import type { CardKey } from "./card-key";
 import {
-  AGENTS,
   CI,
   COLUMNS,
   colOf,
@@ -22,12 +25,10 @@ import {
   HOUR_MS,
   isAwake,
   MINUTE_MS,
-  NO_THINK,
   PERMS,
   ROLE_NAMES,
   STATUS,
   THINK,
-  thinkSupported,
   tone,
   VIEWS,
 } from "./constants";
@@ -41,12 +42,13 @@ import { diffFor } from "./seed/diffs";
 import { filesFor } from "./seed/files";
 import * as q from "./selectors";
 import { startSimulation } from "./sim/start";
+import type { AgentInfo } from "./types";
 
 /** Keyboard navigation model the board, list, agents, and timeline views write for the shell. */
 interface NavModel {
   owner: string;
-  grid?: number[][];
-  rows?: number[];
+  grid?: CardKey[][];
+  rows?: CardKey[];
 }
 
 function queries(ctx: Ctx) {
@@ -54,7 +56,10 @@ function queries(ctx: Ctx) {
     now: q.now,
     rel: q.rel,
     card: q.card,
+    cardLabelOf: q.cardLabelOf,
     proj: q.proj,
+    agentOptions: agents.agentOptions,
+    thinkSupported: agents.thinkSupported,
     person: q.person,
     cardsOf: q.cardsOf,
     needs: q.needs,
@@ -98,7 +103,10 @@ function appActions(ctx: Ctx) {
     saveView: filters.saveView,
     addProject: projects.addProject,
     renameProject: projects.renameProject,
+    saveProject: projects.saveProject,
     removeProject: projects.removeProject,
+    signIn: connection.signIn,
+    reconnect: connection.reconnect,
   });
 }
 
@@ -156,23 +164,25 @@ function chatActions(ctx: Ctx) {
 }
 
 /**
- * Creates one fake daemon: seeded state, the `M` API the views call, and the
- * simulation (unless the hash turns it off). The browser app uses the single
- * instance from `index.ts`; tests create their own.
+ * Creates one store: the state, the `M` API the views call, the simulation of what is still
+ * mock (unless the hash turns it off), and the link with the daemon for what is not. The browser
+ * app uses the single instance from `index.ts`; tests create their own.
  */
 export function createMarshal(env: Env) {
-  const ctx = createContext(env);
+  return createMarshalIn(createContext(env));
+}
+
+/** The store of a context that was made, and possibly filled, first. `createMarshal` is this with a fresh one. */
+export function createMarshalIn(ctx: Ctx) {
   const M = {
     S: ctx.S,
     STATUS,
     COLUMNS,
     CI,
-    AGENTS,
     THINK,
     PERMS,
     ROLE_NAMES,
     VIEWS,
-    NO_THINK,
     T0: ctx.today,
     D: DAY_MS,
     H: HOUR_MS,
@@ -181,7 +191,6 @@ export function createMarshal(env: Env) {
     tone,
     money,
     full,
-    thinkSupported,
     isAwake,
     diffFor,
     filesFor,
@@ -197,12 +206,21 @@ export function createMarshal(env: Env) {
     get mobile(): boolean {
       return q.isMobile(ctx.S);
     },
+    /** The agents by name, as the prototype's `AGENTS` table had them; now the daemon's catalog and the built-in agent. */
+    get AGENTS(): Record<string, AgentInfo> {
+      return agents.agentTable(ctx);
+    },
+    /** The models in the catalog that have no thinking setting. */
+    get NO_THINK(): readonly string[] {
+      return agents.noThink(ctx);
+    },
     ...queries(ctx),
     ...appActions(ctx),
     ...cardActions(ctx),
     ...chatActions(ctx),
   };
-  startSimulation(ctx, env.hash);
+  startSimulation(ctx, ctx.env.hash);
+  startSync(ctx);
   return M;
 }
 

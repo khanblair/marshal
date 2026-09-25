@@ -1,9 +1,10 @@
+import type { CardKey } from "../card-key";
 import type { Card, Msg } from "../types";
 import { genericChat } from "./generic";
 import type { MsgFactory } from "./messages";
 
 /** #210 keeps its generated chat and adds the merge conflict to it. */
-const CONFLICT_CARD_ID = 210;
+const CONFLICT_CARD_ID: CardKey = "mobile#210";
 
 const chat41 = (b: MsgFactory): Msg[] => [
   b.user(
@@ -142,17 +143,17 @@ const chat46 = (b: MsgFactory): Msg[] => [
  * Chats for every seeded card. Like the prototype, every card first gets a generated
  * chat, then eight cards get a written one; the discarded ids keep later ids aligned.
  */
-export function seedCardChats(cards: Card[], b: MsgFactory): Record<number, Msg[]> {
-  const chat: Record<number, Msg[]> = {};
+export function seedCardChats(cards: Card[], b: MsgFactory): Record<CardKey, Msg[]> {
+  const chat: Record<CardKey, Msg[]> = {};
   for (const c of cards) chat[c.id] = genericChat(c, b);
   const card210 = cards.find((c) => c.id === CONFLICT_CARD_ID);
-  chat[41] = chat41(b);
-  chat[43] = chat43(b);
-  chat[44] = chat44(b);
-  chat[119] = chat119(b);
+  chat["api#41"] = chat41(b);
+  chat["api#43"] = chat43(b);
+  chat["api#44"] = chat44(b);
+  chat["web#119"] = chat119(b);
   if (card210) chat[CONFLICT_CARD_ID] = chat210(b, card210);
-  chat[209] = chat209(b);
-  chat[118] = chat118(b);
-  chat[46] = chat46(b);
+  chat["mobile#209"] = chat209(b);
+  chat["web#118"] = chat118(b);
+  chat["api#46"] = chat46(b);
   return chat;
 }

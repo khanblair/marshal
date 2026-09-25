@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from "vitest";
+import { createFakeDaemon } from "~/testing/fake-daemon";
+import { PROTOTYPE_PROJECTS } from "~/testing/projects";
 import type { Card, CardView, MsgView, State } from ".";
 import { loadPrototype } from "./testing/prototype";
 
 /** Every member of the prototype's `window.M`, minus `on` and `selRef`, the `_` helpers kept
- *  internal, and `_suppressClick`; plus `now`. */
+ *  internal, and `_suppressClick`; plus `now` and `cardLabelOf`, which names a card with its project. */
 const API = [
   "AGENTS",
   "CI",
@@ -26,12 +28,15 @@ const API = [
   "addFilter",
   "addItem",
   "addProject",
+  "agentOptions",
+  "reconnect",
   "applyView",
   "approve",
   "approvePlan",
   "archiveChat",
   "awake",
   "card",
+  "cardLabelOf",
   "cardsOf",
   "chatById",
   "chatSend",
@@ -93,6 +98,7 @@ const API = [
   "rename",
   "renameChat",
   "renameProject",
+  "saveProject",
   "requestBypass",
   "resetFirstLaunch",
   "runChecks",
@@ -106,6 +112,7 @@ const API = [
   "setTheme",
   "setView",
   "setViewport",
+  "signIn",
   "simulateCiFailure",
   "sleep",
   "sleepAll",
@@ -129,20 +136,26 @@ describe("index.ts boot", () => {
     vi.useFakeTimers();
     Reflect.deleteProperty(window, "M");
     window.location.hash = "#nosim";
+    // The boot builds the real data layer from the page's own `fetch` and `WebSocket`; a daemon in memory answers them.
+    const daemon = createFakeDaemon({ projects: PROTOTYPE_PROJECTS });
+    vi.stubGlobal("fetch", daemon.fetch);
+    vi.stubGlobal("WebSocket", daemon.sockets.Impl);
   });
   afterEach(() => {
     vi.clearAllTimers();
     vi.useRealTimers();
+    // The stubs stay: a boot that is still connecting when its test ends must not reach jsdom's real sockets.
     Reflect.deleteProperty(window, "M");
   });
 
-  it("puts one ready instance on window.M and announces it", async () => {
+  it("puts one instance on window.M, announces it, and is ready once the daemon has answered", async () => {
     const ready = vi.fn();
     window.addEventListener("marshal-ready", ready);
     const mod = await import(".");
     expect(window.M).toBe(mod.M);
     expect(mod.S).toBe(mod.M.S);
-    expect(mod.M.S.ready).toBe(true);
+    expect(mod.M.S.ready).toBe(false);
+    await vi.waitFor(() => expect(mod.M.S.ready).toBe(true));
     expect(mod.M.S.resolvedTheme).toBe("light");
     expect(document.documentElement.getAttribute("data-theme")).toBe("light");
     expect(ready).toHaveBeenCalledTimes(1);
@@ -158,6 +171,7 @@ describe("index.ts boot", () => {
 
   it("types the store and view models with the exported types", async () => {
     const { M, S } = await import(".");
+    await vi.waitFor(() => expect(S.ready).toBe(true));
     expectTypeOf(S).toEqualTypeOf<State>();
     expectTypeOf(M.card).returns.toEqualTypeOf<Card | undefined>();
     expectTypeOf(M.deco).returns.toEqualTypeOf<CardView>();
@@ -168,7 +182,16 @@ describe("index.ts boot", () => {
   it("matches the prototype's own member list, minus the documented drops", () => {
     const dropped = ["on", "selRef", "_startSession", "_dropFromSleep", "_syncProjectApproval"];
     // The shell sets these on the prototype after load; the port declares them up front.
-    const added = ["_framed", "_scale", "now"];
+    const added = [
+      "_framed",
+      "_scale",
+      "now",
+      "cardLabelOf",
+      "saveProject",
+      "signIn",
+      "reconnect",
+      "agentOptions",
+    ];
     const proto = loadPrototype("#nosim").keys.filter((k) => !dropped.includes(k));
     expect([...proto, ...added].sort()).toEqual([...API].sort());
   });

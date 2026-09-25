@@ -1,5 +1,6 @@
 import { batch } from "solid-js";
 import { moveCard } from "../actions/cards";
+import type { CardKey } from "../card-key";
 import { colOf, isColumn } from "../constants";
 import type { Ctx } from "../context";
 import { set } from "../engine";
@@ -13,7 +14,7 @@ const CLICK_GUARD_MS = 30;
 
 interface DragSession {
   ctx: Ctx;
-  id: number;
+  id: CardKey;
   el: HTMLElement;
   startX: number;
   startY: number;
@@ -69,7 +70,7 @@ function onEnd(s: DragSession): void {
 }
 
 /** Starts a pointer drag of a card: a ghost copy follows the pointer and the drop moves the card. */
-export function dragStart(ctx: Ctx, e: PointerEvent, id: number): void {
+export function dragStart(ctx: Ctx, e: PointerEvent, id: CardKey): void {
   if (e.button !== 0 || isMobile(ctx.S)) return;
   if (e.target instanceof Element && e.target.closest("button")) return;
   const el = e.currentTarget;

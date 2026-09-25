@@ -1,8 +1,10 @@
 import { batch } from "solid-js";
 import { createMutable } from "solid-js/store";
+import type { CardKey } from "./card-key";
 import { STATUS } from "./constants";
 import type { Ctx } from "./context";
 import { takeMid } from "./ids";
+import { cardLabelOf, proj } from "./selectors";
 import type { State } from "./state-types";
 import type {
   Activity,
@@ -82,7 +84,7 @@ export function closeDialog(ctx: Ctx): void {
 }
 
 /** The card's chat, created on first use. */
-function chatList(ctx: Ctx, id: number): Msg[] {
+function chatList(ctx: Ctx, id: CardKey): Msg[] {
   const list = ctx.S.chat[id];
   if (list) return list;
   const fresh = live<Msg[]>([]);
@@ -90,7 +92,7 @@ function chatList(ctx: Ctx, id: number): Msg[] {
   return fresh;
 }
 
-function actList(ctx: Ctx, id: number): Activity[] {
+function actList(ctx: Ctx, id: CardKey): Activity[] {
   const list = ctx.S.act[id];
   if (list) return list;
   const fresh = live<Activity[]>([]);
@@ -99,7 +101,7 @@ function actList(ctx: Ctx, id: number): Activity[] {
 }
 
 /** Appends a message to a card's chat and returns its live proxy. */
-export function pushMsg<T extends Msg>(ctx: Ctx, id: number, msg: T): T {
+export function pushMsg<T extends Msg>(ctx: Ctx, id: CardKey, msg: T): T {
   const item = live(msg);
   chatList(ctx, id).push(item);
   return item;
@@ -115,7 +117,7 @@ export interface ActInput {
 }
 
 /** Adds an entry to the top of a card's activity log and returns its live proxy. */
-export function addAct(ctx: Ctx, id: number, input: ActInput): Activity {
+export function addAct(ctx: Ctx, id: CardKey, input: ActInput): Activity {
   const item = live<Activity>({
     id: `a${takeMid(ctx.ids)}`,
     kind: input.kind,
@@ -136,7 +138,7 @@ export function setState(ctx: Ctx, c: Card, st: Status, extra?: Partial<Card>): 
   const from = c.state;
   Object.assign(c, { state: st, upd: Date.now() }, extra);
   if (st !== "needs") c.reason = extra?.reason || "";
-  if (from !== st) announce(ctx, `#${c.id} moved to ${STATUS[st].label}`);
+  if (from !== st) announce(ctx, `${cardLabelOf(ctx, c)} moved to ${STATUS[st].label}`);
 }
 
 const STREAM_STEP_MS = 45;
@@ -162,7 +164,7 @@ export function stream(ctx: Ctx, list: Msg[], text: string, done?: () => void): 
   return msg;
 }
 
-export const streamCard = (ctx: Ctx, id: number, text: string, done?: () => void): AgentMsg =>
+export const streamCard = (ctx: Ctx, id: CardKey, text: string, done?: () => void): AgentMsg =>
   stream(ctx, chatList(ctx, id), text, done);
 
 export interface ToolRun {
@@ -175,7 +177,7 @@ export interface ToolRun {
 }
 
 /** Shows a running tool call in chat and activity, then completes it after `ms`. */
-export function runTool(ctx: Ctx, id: number, run: ToolRun): void {
+export function runTool(ctx: Ctx, id: CardKey, run: ToolRun): void {
   const msg = pushMsg(ctx, id, ctx.msg.tool(run.icon, run.action, "Running", { st: "running" }));
   const kind = run.kind || (run.icon === "terminal" ? "command" : "file");
   const act = addAct(ctx, id, { kind, text: run.action, result: "Running", st: "running" });
@@ -188,7 +190,11 @@ export function runTool(ctx: Ctx, id: number, run: ToolRun): void {
   });
 }
 
+/** True when the project is on the daemon. Mock notices and feed items about any other never show. */
+const onDaemon = (ctx: Ctx, pid: string | null | undefined): boolean => !pid || !!proj(ctx, pid);
+
 export function notice(ctx: Ctx, input: Omit<InfoNotice, "id" | "ts">): void {
+  if (!onDaemon(ctx, input.pid)) return;
   const item: Notice = { id: `n${takeMid(ctx.ids)}`, ts: Date.now(), ...input };
   ctx.S.notices = [item, ...ctx.S.notices];
 }
@@ -196,6 +202,7 @@ export function notice(ctx: Ctx, input: Omit<InfoNotice, "id" | "ts">): void {
 const FEED_LIMIT = 80;
 
 export function feed(ctx: Ctx, item: Omit<FeedItem, "id" | "ts">): void {
+  if (!onDaemon(ctx, item.pid)) return;
   const { S } = ctx;
   S.feed.unshift({ id: `f${takeMid(ctx.ids)}`, ...item, ts: Date.now() });
   S.feed = S.feed.slice(0, FEED_LIMIT);
