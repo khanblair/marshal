@@ -168,6 +168,8 @@ function navigate(key: string, e: KeyboardEvent): void {
   M.set({ focusId: next });
   const id = next;
   setTimeout(() => {
+    // The page, or a test environment, may be gone by the time the timer fires.
+    if (typeof document === "undefined") return;
     document.querySelector<HTMLElement>(`[data-card="${id}"]`)?.focus();
   }, FOCUS_DELAY_MS);
 }

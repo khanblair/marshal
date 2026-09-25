@@ -3,8 +3,9 @@
  *
  * Blocking: file length over 800 lines, unused code (knip), duplicated code of
  * 30 lines or more (jscpd). Warnings: file length over 400 lines, and the soft
- * limits for function length, complexity, and parameters. The hard limits for
- * function length, complexity, parameters, and `any` run in `pnpm lint`.
+ * limits for function length, complexity, and parameters, for TypeScript (Biome) and
+ * Go (golangci-lint, `.golangci.warn.yml`). The hard limits for function length,
+ * complexity, parameters, and `any` run in `pnpm lint`.
  *
  * There is no git history here yet, so this always checks the whole repo.
  * Accepted smells live in .smells-baseline.json, each with a reason and a task.
@@ -15,14 +16,24 @@ import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
+/** On Windows, pnpm is a .cmd file, which Node can only start through a shell. */
+const useShell = process.platform === "win32";
 const FILE_WARN_LINES = 400;
 const FILE_BLOCK_LINES = 800;
 /** Folders that exist only once something is added to them (`tools/`) are skipped until then. */
-const SOURCE_ROOTS = ["apps", "packages", "scripts", "tools"].filter((dir) =>
+const SOURCE_ROOTS = ["apps", "daemon", "packages", "scripts", "tools"].filter((dir) =>
   existsSync(join(root, dir)),
 );
-const SOURCE_EXT = /\.(ts|tsx|css|mjs)$/;
-const SKIP_DIR = new Set(["node_modules", "dist", "coverage", "test-results", "playwright-report"]);
+const SOURCE_EXT = /\.(ts|tsx|css|mjs|go)$/;
+const SKIP_DIR = new Set([
+  "node_modules",
+  "dist",
+  "coverage",
+  "test-results",
+  "playwright-report",
+  "testdata",
+  "tmp",
+]);
 const SKIP_FILE = /(\.d\.ts|\/dist\/)/;
 
 const baseline =
@@ -68,7 +79,7 @@ function biomeSoftLimits() {
       "--max-diagnostics=1000",
       ...SOURCE_ROOTS,
     ],
-    { cwd: root, encoding: "utf8" },
+    { cwd: root, encoding: "utf8", shell: useShell },
   );
   const start = run.stdout.indexOf("{");
   if (start < 0) return [];
@@ -81,15 +92,65 @@ function biomeSoftLimits() {
     );
 }
 
+/** The Go modules in the repo: the daemon and each tool that has a go.mod. */
+function goModules() {
+  const found = [];
+  if (existsSync(join(root, "daemon", "go.mod"))) found.push("daemon");
+  const tools = join(root, "tools");
+  if (existsSync(tools)) {
+    for (const name of readdirSync(tools)) {
+      if (existsSync(join(tools, name, "go.mod"))) found.push(`tools/${name}`);
+    }
+  }
+  return found;
+}
+
+/** The soft Go limits, from `.golangci.warn.yml`. A missing tool is reported, not skipped. */
+function goSoftLimits() {
+  const warnings = [];
+  for (const dir of goModules()) {
+    const run = spawnSync(
+      "node",
+      [
+        join(root, "scripts", "go-tool.mjs"),
+        "golangci-lint",
+        "run",
+        "--config",
+        join(root, ".golangci.warn.yml"),
+        "--show-stats=false",
+        "--output.json.path",
+        "stdout",
+        "--output.text.path",
+        "stderr",
+        "./...",
+      ],
+      { cwd: join(root, dir), encoding: "utf8" },
+    );
+    const start = (run.stdout ?? "").indexOf("{");
+    if (start < 0) {
+      warnings.push(`${dir}: the Go soft limits could not run. Run \`pnpm setup:tools\` first.`);
+      continue;
+    }
+    for (const issue of JSON.parse(run.stdout.slice(start)).Issues ?? []) {
+      warnings.push(`${issue.Pos.Filename}:${issue.Pos.Line} ${issue.FromLinter}: ${issue.Text}`);
+    }
+  }
+  return warnings;
+}
+
 function runTool(label, args) {
-  const run = spawnSync("pnpm", ["exec", ...args], { cwd: root, encoding: "utf8" });
+  const run = spawnSync("pnpm", ["exec", ...args], {
+    cwd: root,
+    encoding: "utf8",
+    shell: useShell,
+  });
   return { label, ok: run.status === 0, output: `${run.stdout}${run.stderr}`.trim() };
 }
 
 function main() {
   let failed = false;
   const lengths = checkFileLengths();
-  const soft = biomeSoftLimits();
+  const soft = [...biomeSoftLimits(), ...goSoftLimits()];
   const knip = runTool("unused code (knip)", ["knip", "--no-progress"]);
   const dupes = runTool("duplicated code (jscpd)", [
     "jscpd",

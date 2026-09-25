@@ -7,6 +7,8 @@ import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const keepGoing = process.argv.includes("--keep-going");
+/** On Windows, pnpm is a .cmd file, which Node can only start through a shell. */
+const useShell = process.platform === "win32";
 
 const STEPS = [
   ["generate tokens and ui index", "pnpm", ["gen"]],
@@ -16,14 +18,15 @@ const STEPS = [
   ["code smells", "pnpm", ["smells"]],
   ["token contrast", "pnpm", ["--filter", "@marshal/tokens", "check:contrast"]],
   ["unit tests", "pnpm", ["test"]],
-  ["build and budgets", "sh", ["-c", "pnpm build && pnpm budgets"]],
+  ["build", "pnpm", ["build"]],
+  ["budgets", "pnpm", ["budgets"]],
 ];
 
 const results = [];
 for (const [label, cmd, args] of STEPS) {
   console.log(`\n== ${label}`);
   const started = Date.now();
-  const run = spawnSync(cmd, args, { cwd: root, stdio: "inherit" });
+  const run = spawnSync(cmd, args, { cwd: root, stdio: "inherit", shell: useShell });
   const ok = run.status === 0;
   results.push({ label, ok, seconds: Math.round((Date.now() - started) / 1000) });
   if (!ok && !keepGoing) break;

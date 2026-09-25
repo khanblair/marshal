@@ -1,9 +1,11 @@
 /**
- * Size budgets for the web build (`pnpm build` first). Fails when a budget is exceeded.
- * The daemon budgets in docs/architecture.md section 14 are measured when the daemon exists;
- * the ones here are the frontend's own.
+ * Budgets from docs/architecture.md section 14 (`pnpm build` first). Fails when one is exceeded.
+ * The web build size is measured here. The daemon's idle memory and processor use are measured
+ * by tools/budgets, which starts the built daemon and lets it sit idle. CI sets
+ * MARSHAL_BUDGET_IDLE to 60s, which is how long the budget says to watch.
  */
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { gzipSync } from "node:zlib";
@@ -11,6 +13,8 @@ import { gzipSync } from "node:zlib";
 const DIST = fileURLToPath(new URL("../apps/web/dist", import.meta.url));
 const BYTES_PER_KB = 1024;
 const KB_PER_MB = 1024;
+/** How long the daemon sits idle while it is measured. CI uses 60s. */
+const DEFAULT_IDLE = "10s";
 
 const BUDGETS = [
   { name: "JavaScript, gzip", ext: [".js"], gzip: true, maxKb: 300 },
@@ -53,7 +57,23 @@ function main() {
       `${over ? "FAIL" : "ok  "}  ${budget.name.padEnd(20)} ${kb.toFixed(1)} kB of ${budget.maxKb} kB`,
     );
   }
-  return failed ? 1 : 0;
+  return daemonBudgets() || (failed ? 1 : 0);
+}
+
+/** Starts the built daemon and measures its idle memory and processor use. */
+function daemonBudgets() {
+  const binary = join(DIST, "..", "..", "..", "dist", "bin", "marshald");
+  const built = existsSync(binary) || existsSync(`${binary}.exe`);
+  if (!built) {
+    console.error("No daemon build found. Run `pnpm build` first.");
+    return 1;
+  }
+  const idle = process.env.MARSHAL_BUDGET_IDLE ?? DEFAULT_IDLE;
+  const run = spawnSync("pnpm", ["--filter", "budgets", "measure", "-idle", idle], {
+    stdio: "inherit",
+    shell: process.platform === "win32",
+  });
+  return run.status ?? 1;
 }
 
 process.exit(main());

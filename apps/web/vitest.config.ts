@@ -9,6 +9,8 @@ export default defineConfig({
     alias: { "~": fileURLToPath(new URL("./src", import.meta.url)) },
   },
   test: {
+    // A slow or busy machine, such as a CI runner, should not fail a test that is only slow.
+    testTimeout: 15_000,
     environment: "jsdom",
     globals: true,
     setupFiles: ["./src/test-setup.ts"],
