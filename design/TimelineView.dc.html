@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="position:absolute; inset:0; overflow:auto; background:var(--color-surface)">
+  <sc-if value="{{ phone }}">
+    <div style="padding:8px 16px 32px">
+      <p style="margin:8px 0 12px; font-size:13px; color:var(--color-text-secondary)">Cards by planned start day. Open a card to change its dates.</p>
+      <sc-for list="{{ days2 }}" as="d">
+        <section style="display:flex; flex-direction:column; margin-bottom:12px">
+          <h3 style="margin:0; padding:8px 0; font-size:14px; line-height:20px; font-weight:600; color:{{ d.color }}; border-bottom:1px solid var(--color-border)">{{ d.label }}</h3>
+          <sc-for list="{{ d.cards }}" as="c">
+            <div style="display:flex; flex-direction:column; gap:4px; padding:10px 0 10px 10px; border-bottom:1px solid var(--color-border); border-left:3px solid {{ c.edge }}">
+              <button onClick="{{ c.open }}" style="display:flex; gap:8px; align-items:baseline; border:none; background:transparent; padding:0; text-align:left"><span style="font-weight:600; color:{{ c.titleColor }}">{{ c.title }}</span><span style="font-size:13px; color:var(--color-text-muted)">{{ c.num }}</span></button>
+              <span style="display:flex; flex-wrap:wrap; gap:2px 12px; font-size:13px; color:var(--color-text-secondary)"><span style="display:inline-flex; align-items:center; gap:4px; color:{{ c.stColor }}; font-weight:600"><span style="display:inline-flex; color:{{ c.iconColor }}"><m-icon name="{{ c.icon }}" size="14"></m-icon></span>{{ c.stateLabel }}</span><span>{{ c.span }}</span></span>
+              <sc-if value="{{ c.hasDeps }}"><span style="display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; font-size:13px; color:var(--color-text-secondary)"><span>Waits for</span><sc-for list="{{ c.deps }}" as="w"><button onClick="{{ w.open }}" style="min-height:32px; padding:0 8px; border-radius:5px; border:1px solid {{ w.border }}; background:var(--color-surface); color:{{ w.color }}; font-size:13px; font-weight:600">{{ w.label }}</button></sc-for></span></sc-if>
+            </div>
+          </sc-for>
+        </section>
+      </sc-for>
+    </div>
+  </sc-if>
+  <sc-if value="{{ notPhone }}">
+  <div style="position:relative; width:{{ totalW }}; min-height:100%">
+    <div style="position:sticky; top:0; z-index:12; display:flex; height:52px; background:var(--color-surface); border-bottom:1px solid var(--color-border)">
+      <div style="position:sticky; left:0; z-index:2; width:280px; flex:none; display:flex; align-items:flex-end; padding:0 16px 8px; background:var(--color-surface); border-right:1px solid var(--color-border); font-weight:600">{{ rangeLabel }}</div>
+      <div style="position:relative; flex:none; width:{{ trackW }}">
+        <sc-for list="{{ days }}" as="d">
+          <div title="{{ d.full }}" style="position:absolute; top:0; bottom:0; left:{{ d.x }}; width:40px; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; padding-bottom:6px; gap:0; font-size:12px; line-height:16px; color:{{ d.color }}; font-weight:{{ d.weight }}; background:{{ d.bg }}">
+            <span>{{ d.wd }}</span><span>{{ d.n }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+    <div style="position:relative">
+      <sc-for list="{{ rows }}" as="r">
+        <div style="display:flex; height:44px; border-bottom:1px solid var(--color-border)">
+          <button data-card="{{ r.id }}" onClick="{{ r.open }}" aria-label="{{ r.aria }}" style="position:sticky; left:0; z-index:5; width:280px; flex:none; display:flex; align-items:center; gap:8px; padding:0 16px; border:none; border-right:1px solid var(--color-border); background:var(--color-surface); text-align:left" style-hover="background:var(--color-surface-hover)">
+            <span style="display:inline-flex; color:{{ r.iconColor }}"><m-icon name="{{ r.icon }}" size="14"></m-icon></span>
+            <span style="flex:none; font-size:12px; color:var(--color-text-muted)">{{ r.num }}</span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; color:{{ r.titleColor }}">{{ r.title }}</span>
+          </button>
+          <div style="position:relative; flex:none; width:{{ trackW }}; background-image:linear-gradient(to right, var(--color-border) 1px, transparent 1px); background-size:40px 100%; opacity:1">
+            <div onPointerDown="{{ r.down }}" title="{{ r.tip }}" role="button" tabindex="-1" style="position:absolute; top:8px; height:28px; left:{{ r.x }}; width:{{ r.w }}; display:flex; align-items:center; gap:6px; padding:0 8px; border-radius:5px; border:1px solid {{ r.edge }}; border-left:3px solid {{ r.edge }}; background:{{ r.subtle }}; color:{{ r.stColor }}; font-size:12px; line-height:16px; font-weight:600; white-space:nowrap; overflow:hidden; cursor:grab; box-shadow:{{ r.shadow }}; user-select:none; touch-action:none">
+              <span style="display:inline-flex; color:{{ r.iconColor }}"><m-icon name="{{ r.icon }}" size="12"></m-icon></span>{{ r.stateLabel }}
+            </div>
+          </div>
+        </div>
+      </sc-for>
+      <div aria-hidden="true" style="position:absolute; top:0; bottom:0; left:{{ todayX }}; width:0; border-left:1px solid var(--color-border-strong); z-index:3; pointer-events:none"></div>
+      <svg aria-hidden="true" width="{{ trackWNum }}" height="{{ svgH }}" style="position:absolute; left:280px; top:0; pointer-events:none; z-index:4; overflow:visible">
+        <defs>
+          <marker id="tl-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="var(--color-text-secondary)"></path></marker>
+          <marker id="tl-arrow-bad" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="var(--color-status-danger-solid)"></path></marker>
+        </defs>
+        <sc-for list="{{ lines }}" as="l">
+          <path d="{{ l.d }}" fill="none" stroke="{{ l.stroke }}" stroke-width="1.5" stroke-dasharray="{{ l.dash }}" marker-end="{{ l.marker }}"></path>
+        </sc-for>
+      </svg>
+    </div>
+    <div style="position:sticky; left:0; display:flex; flex-wrap:wrap; gap:8px 20px; padding:12px 16px; font-size:12px; line-height:16px; color:var(--color-text-secondary); max-width:100vw">
+      <span style="display:inline-flex; align-items:center; gap:6px"><span style="width:18px; border-top:1.5px solid var(--color-text-secondary)"></span>Depends on</span>
+      <span style="display:inline-flex; align-items:center; gap:6px; color:var(--color-status-danger-text)"><span style="width:18px; border-top:1.5px dashed var(--color-status-danger-solid)"></span>Broken dependency</span>
+      <span>Drag a bar to change its planned dates.</span>
+    </div>
+  </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { drag: null };
+  componentDidMount() { this.u = M.on(() => this.forceUpdate()); }
+  componentWillUnmount() { this.u && this.u(); if (M.nav && M.nav.owner === 'timeline') M.nav = null; }
+  down(e, c) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    const sx = e.clientX; let moved = false;
+    const mv = ev => { const dd = Math.round((ev.clientX - sx) / 40); if (Math.abs(ev.clientX - sx) > 4) moved = true; if (!this.state.drag || this.state.drag.delta !== dd) this.setState({ drag: { id: c.id, delta: dd } }); };
+    const up = () => {
+      window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up);
+      const d = this.state.drag; this.setState({ drag: null });
+      if (!moved) { M.openCard(c.id); return; }
+      if (!d || !d.delta) return;
+      const ns = c.s + d.delta, ne = c.e + d.delta;
+      const broken = [];
+      c.deps.forEach(id => { const a = M.card(id); if (a && a.e != null && ns <= a.e && !(c.s <= a.e)) broken.push('#' + c.id + ' would start before #' + a.id + ' finishes'); });
+      M.S.cards.filter(b => b.deps.includes(c.id)).forEach(b => { if (b.s != null && b.s <= ne && !(b.s <= c.e)) broken.push('#' + b.id + ' would start before #' + c.id + ' finishes'); });
+      const apply = () => { c.s = ns; c.e = ne; M.emit(); M.toast('Dates updated'); };
+      if (broken.length) M.confirm({ title: 'Break a dependency', message: broken.join('. ') + '. The dependent card still waits for the merge before it starts.', action: 'Move anyway', run: apply });
+      else apply();
+    };
+    window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
+  }
+  renderVals() {
+    const S = M.S; const pid = S.route.pid; const tone = M.tone;
+    const START = -14, N = 32, DW = 40;
+    const cards = M.filtered(pid).filter(c => c.s != null).sort((a, b) => a.s - b.s || a.id - b.id);
+    const drag = this.state.drag;
+    const pos = c => { const dl = drag && drag.id === c.id ? drag.delta : 0; return { s: c.s + dl, e: c.e + dl }; };
+    const idx = {}; cards.forEach((c, i) => { idx[c.id] = i; });
+    const days = [];
+    for (let i = 0; i < N; i++) {
+      const t = new Date(M.T0 + (START + i) * M.D); const wk = t.getDay() === 0 || t.getDay() === 6; const today = START + i === 0;
+      days.push({ x: i * DW + 'px', wd: t.toLocaleDateString(undefined, { weekday: 'narrow' }), n: t.getDate(), full: t.toLocaleDateString(undefined, { dateStyle: 'full' }), color: today ? 'var(--color-text-primary)' : wk ? 'var(--color-text-muted)' : 'var(--color-text-secondary)', weight: today ? '700' : '400', bg: wk ? 'var(--color-surface-sunken)' : 'transparent' });
+    }
+    const rows = cards.map(c => {
+      const d = M.deco(c); const p = pos(c);
+      const x = (p.s - START) * DW + 2; const w = (p.e - p.s + 1) * DW - 4;
+      const dd = M.S.cards.filter(b => b.deps.includes(c.id));
+      return { id: c.id, num: d.num, title: c.title, titleColor: d.titleColor, icon: d.icon, iconColor: d.iconColor, stColor: d.stColor, stateLabel: d.stateLabel, subtle: c.state === 'backlog' ? 'var(--color-surface-sunken)' : d.subtle, edge: c.state === 'backlog' ? 'var(--color-border-strong)' : d.edge,
+        x: x + 'px', w: Math.max(24, w) + 'px', shadow: drag && drag.id === c.id ? 'var(--elevation-drag)' : 'none',
+        tip: '#' + c.id + ' ' + c.title + '. ' + d.stateLabel + (c.deps.length ? '. Depends on ' + c.deps.map(i => '#' + i).join(', ') : '') + (dd.length ? '. Blocks ' + dd.map(b => '#' + b.id).join(', ') : ''),
+        aria: d.aria, open: () => M.openCard(c.id), down: e => this.down(e, c) };
+    });
+    const lines = [];
+    cards.forEach(b => b.deps.forEach(aid => {
+      if (idx[aid] == null) return; const a = M.card(aid);
+      const pa = pos(a), pb = pos(b);
+      const x1 = (pa.e - START + 1) * DW - 2, y1 = idx[aid] * 45 + 22; const x2 = (pb.s - START) * DW + 2, y2 = idx[b.id] * 45 + 22;
+      const bad = pb.s <= pa.e;
+      const mx = Math.max(x1 + 10, Math.min(x2 - 10, x1 + 10));
+      lines.push({ d: 'M' + x1 + ' ' + y1 + ' H' + mx + ' V' + y2 + ' H' + (x2 > mx ? x2 : x2), stroke: bad ? 'var(--color-status-danger-solid)' : 'var(--color-text-secondary)', dash: bad ? '4 3' : '0', marker: bad ? 'url(#tl-arrow-bad)' : 'url(#tl-arrow)' });
+    }));
+    M.nav = { owner: 'timeline', rows: cards.map(c => c.id) };
+    const f = t => new Date(t).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    const phone = S.vw < 640; const fmt = o => new Date(M.T0 + o * M.D).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+    const byDay = {}; cards.forEach(c => { (byDay[c.s] = byDay[c.s] || []).push(c); });
+    const days2 = Object.keys(byDay).map(Number).sort((a, b) => a - b).map(o => ({ label: (o === 0 ? 'Today, ' : '') + fmt(o), color: o === 0 ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+      cards: byDay[o].map(c => { const d = M.deco(c); return Object.assign({}, d, { span: c.e === c.s ? 'One day' : 'Until ' + fmt(c.e), open: () => M.openCard(c.id), hasDeps: c.deps.length > 0,
+        deps: c.deps.map(id => M.card(id)).filter(Boolean).map(a => ({ label: '#' + a.id + ' ' + M.STATUS[a.state].label, open: () => M.openCard(a.id), border: a.e >= c.s ? tone('danger', 'solid') : 'var(--color-border-strong)', color: a.e >= c.s ? tone('danger', 'text') : 'var(--color-text-primary)' })) }); }) }));
+    return { phone, notPhone: !phone, days2, days, rows, lines, trackW: N * DW + 'px', trackWNum: N * DW, totalW: 280 + N * DW + 'px', svgH: cards.length * 45, todayX: 280 + (0 - START) * DW + 20 + 'px',
+      rangeLabel: f(M.T0 + START * M.D) + ' to ' + f(M.T0 + (START + N - 1) * M.D) };
+  }
+}
+</script>
+</body>
+</html>

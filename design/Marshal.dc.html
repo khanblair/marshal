@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@400;500;600&amp;family=Atkinson+Hyperlegible+Next:wght@400;500;600;700&amp;display=swap">
+<style>
+:root{--color-canvas:#F5F6F7;--color-surface:#FFFFFF;--color-surface-sunken:#EEF0F2;--color-surface-raised:#FFFFFF;--color-surface-hover:#F0F2F4;--color-surface-selected:#E7EAED;--color-border:#E1E4E8;--color-border-strong:#C9CED4;--color-text-primary:#16191D;--color-text-secondary:#4C535C;--color-text-muted:#6A727B;--color-text-inverse:#F5F6F7;--color-ink:#16191D;--color-ink-hover:#2A2F35;--color-on-ink:#FFFFFF;--color-status-planning-solid:#8A929B;--color-status-planning-text:#4C535C;--color-status-planning-subtle:#F1F3F5;--color-status-working-solid:#1E9E5A;--color-status-working-text:#146C3E;--color-status-working-subtle:#E7F5EC;--color-status-needs-you-solid:#BF8700;--color-status-needs-you-text:#7F5A00;--color-status-needs-you-subtle:#FCF4DC;--color-status-review-solid:#2E6BD9;--color-status-review-text:#1F4FA8;--color-status-review-subtle:#E8EFFC;--color-status-ready-solid:#0F97A0;--color-status-ready-text:#0A6A71;--color-status-ready-subtle:#E3F4F5;--color-status-done-solid:#16191D;--color-status-done-text:#4C535C;--color-status-done-subtle:#F1F3F5;--color-status-danger-solid:#D53B3B;--color-status-danger-text:#A32323;--color-status-danger-subtle:#FBEAEA;--color-bypass-bg:#B42323;--color-bypass-stripe:#9C1C1C;--color-bypass-text:#FFFFFF;--color-diff-added-bg:#E7F5EC;--color-diff-added-line:#CDEBD8;--color-diff-added-text:#146C3E;--color-diff-removed-bg:#FBEAEA;--color-diff-removed-line:#F4D2D2;--color-diff-removed-text:#A32323;--chart-1:#16191D;--chart-2:#6A727B;--chart-3:#A7AEB6;--chart-4:#C9CED4;--chart-grid:#E1E4E8;--chart-axis:#6A727B;--chart-limit:#D53B3B;--font-sans:"Atkinson Hyperlegible Next",ui-sans-serif,system-ui,sans-serif;--font-mono:"Atkinson Hyperlegible Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;--elevation-1:0 6px 16px -4px rgb(22 25 29 / 0.16);--elevation-2:0 16px 40px -8px rgb(22 25 29 / 0.24);--elevation-drag:0 10px 24px -6px rgb(22 25 29 / 0.22);color-scheme:light}
+[data-theme="dark"]{--color-canvas:#15181C;--color-surface:#1B1F24;--color-surface-sunken:#111417;--color-surface-raised:#22272D;--color-surface-hover:#242A31;--color-surface-selected:#2A3139;--color-border:#2B3138;--color-border-strong:#3A424B;--color-text-primary:#E8EBEE;--color-text-secondary:#A8B0B9;--color-text-muted:#858D96;--color-text-inverse:#15181C;--color-ink:#E8EBEE;--color-ink-hover:#FFFFFF;--color-on-ink:#15181C;--color-status-planning-solid:#6B737D;--color-status-planning-text:#A8B0B9;--color-status-planning-subtle:#20252B;--color-status-working-solid:#3DBE7A;--color-status-working-text:#6FD69E;--color-status-working-subtle:#15291F;--color-status-needs-you-solid:#F2B81F;--color-status-needs-you-text:#F5CC5C;--color-status-needs-you-subtle:#2E2610;--color-status-review-solid:#5B8DEF;--color-status-review-text:#8DB0F5;--color-status-review-subtle:#182338;--color-status-ready-solid:#2BB6BF;--color-status-ready-text:#6BD0D6;--color-status-ready-subtle:#11292C;--color-status-done-solid:#E8EBEE;--color-status-done-text:#A8B0B9;--color-status-done-subtle:#20252B;--color-status-danger-solid:#EF5A5A;--color-status-danger-text:#F58A8A;--color-status-danger-subtle:#331A1B;--color-bypass-bg:#C83A3A;--color-bypass-stripe:#A92E2E;--color-diff-added-bg:#15291F;--color-diff-added-line:#1D3A2B;--color-diff-added-text:#6FD69E;--color-diff-removed-bg:#331A1B;--color-diff-removed-line:#4A2224;--color-diff-removed-text:#F58A8A;--chart-1:#E8EBEE;--chart-2:#A8B0B9;--chart-3:#6B737D;--chart-4:#3A424B;--chart-grid:#2B3138;--chart-axis:#858D96;--chart-limit:#EF5A5A;--elevation-1:0 6px 16px -4px rgb(0 0 0 / 0.5);--elevation-2:0 16px 40px -8px rgb(0 0 0 / 0.6);--elevation-drag:0 10px 24px -6px rgb(0 0 0 / 0.55);color-scheme:dark}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--color-canvas);color:var(--color-text-primary);font-family:var(--font-sans);font-size:14px;line-height:20px;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font-family:inherit;font-size:inherit;line-height:inherit;color:inherit}
+button{cursor:pointer}
+button:disabled{cursor:not-allowed}
+a{color:var(--color-text-primary);text-decoration:underline;text-underline-offset:2px}
+a:hover{color:var(--color-text-secondary)}
+:focus{outline:none}
+:focus-visible{outline:2px solid var(--color-ink);outline-offset:2px}
+::placeholder{color:var(--color-text-muted)}
+[data-size="phone"] [style*="font-size: 12px"],[data-size="phone"] [style*="font-size: 11px"]{font-size:13px !important;line-height:18px !important}
+[data-touch="1"] button:not([data-compact]),[data-touch="1"] select,[data-touch="1"] input:not([type="checkbox"]),[data-touch="1"] [role="tab"]{min-height:44px}
+[data-touch="1"] button[aria-label]:not([data-compact]){min-width:44px}
+@keyframes m-pulse{0%,100%{opacity:1}50%{opacity:.45}}
+@keyframes m-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation:none !important;transition:none !important}}
+</style>
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<script src="store.js"></script>
+</helmet>
+<div style="position:fixed; inset:0; overflow:hidden; background:{{ outerBg }}"><div style="{{ frameStyle }}"><div data-app-root="1" data-size="{{ size }}" data-touch="{{ touchAttr }}" style="position:absolute; inset:0; display:flex; background:var(--color-canvas); color:var(--color-text-primary); font-family:var(--font-sans); font-size:14px; line-height:20px; overflow:hidden">
+  <sc-if value="{{ ready }}" hint-placeholder-val="{{ false }}">
+
+  <sc-if value="{{ showSidebar }}" hint-placeholder-val="{{ true }}">
+    <div style="position:relative; flex:none; width:{{ slotW }}; transition:width 200ms cubic-bezier(0.2,0,0,1)">
+      <sc-if value="{{ sideOverlay }}"><div onClick="{{ closeSide }}" style="position:absolute; left:0; top:0; width:100vw; height:100%; z-index:155; background:rgb(10 12 14 / 0.3)"></div></sc-if>
+      <nav aria-label="Main" style="{{ navStyle }}; display:flex; flex-direction:column; border-right:1px solid var(--color-border); background:var(--color-canvas)">
+        <div style="height:48px; flex:none; display:flex; align-items:center; gap:8px; padding:0 8px 0 16px; border-bottom:1px solid var(--color-border)">
+          <m-icon name="st-done" size="20"></m-icon>
+          <sc-if value="{{ sidebarOpen }}"><span style="font-weight:700; font-size:16px; line-height:22px; flex:1">Marshal</span></sc-if>
+          <sc-if value="{{ showSideToggle }}"><button onClick="{{ toggleSidebar }}" aria-label="{{ collapseLabel }}" title="{{ collapseLabel }}" style="width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; border:none; border-radius:5px; background:transparent; color:var(--color-text-secondary)" style-hover="background:var(--color-surface-hover)"><m-icon name="{{ collapseIcon }}" size="16"></m-icon></button></sc-if>
+        </div>
+        <div style="padding:12px 8px 4px; display:flex; flex-direction:column; gap:2px">
+          <sc-if value="{{ iconExpand }}"><button onClick="{{ toggleSidebar }}" aria-label="Expand sidebar" title="Expand sidebar" style="display:flex; align-items:center; justify-content:center; height:40px; border:none; border-radius:5px; background:transparent; color:var(--color-text-secondary)" style-hover="background:var(--color-surface-hover)"><m-icon name="panel-left-open" size="16"></m-icon></button></sc-if>
+          <button onClick="{{ goHome }}" aria-current="{{ homeCurrent }}" title="Home" style="position:relative; display:flex; align-items:center; gap:8px; min-height:32px; padding:0 {{ itemPad }}; border:none; border-radius:5px; background:{{ homeBg }}; color:var(--color-text-primary); font-weight:500; text-align:left; justify-content:{{ itemJustify }}" style-hover="background:var(--color-surface-hover)">
+            <sc-if value="{{ homeSel }}"><span style="position:absolute; left:-8px; top:6px; bottom:6px; width:2px; border-radius:2px; background:var(--color-ink)"></span></sc-if>
+            <m-icon name="house" size="16"></m-icon>
+            <sc-if value="{{ sidebarOpen }}"><span style="flex:1">Home</span></sc-if>
+            <sc-if value="{{ totalNeedsShow }}"><span title="{{ totalNeedsTitle }}" style="display:inline-flex; align-items:center; gap:3px; height:20px; padding:0 6px; border-radius:3px; background:var(--color-status-needs-you-subtle); color:var(--color-status-needs-you-text); font-size:12px; font-weight:600"><m-icon name="st-needs" size="12"></m-icon>{{ totalNeeds }}</span></sc-if>
+          </button>
+        </div>
+        <div style="flex:1; min-height:0; overflow:auto; display:flex; flex-direction:column">
+          <sc-if value="{{ sidebarOpen }}"><span id="projects-heading" style="padding:12px 16px 4px; font-size:13px; line-height:18px; color:var(--color-text-secondary); font-weight:500">Projects</span></sc-if>
+          <div role="list" aria-labelledby="projects-heading" data-tour="{{ projectsTour }}" style="padding:4px 8px; display:flex; flex-direction:column; gap:2px">
+            <sc-for list="{{ projects }}" as="p" hint-placeholder-count="3">
+              <div role="listitem" style="position:relative; display:flex; align-items:center; border-radius:5px; background:{{ p.bg }}">
+                <sc-if value="{{ p.selected }}"><span style="position:absolute; left:-8px; top:8px; bottom:8px; width:2px; border-radius:2px; background:var(--color-ink)"></span></sc-if>
+                <sc-if value="{{ p.renaming }}">
+                  <input ref="{{ p.renameRef }}" defaultValue="{{ p.name }}" onKeyDown="{{ p.renameKey }}" onBlur="{{ p.renameBlur }}" aria-label="Project name" style="flex:1; min-width:0; height:32px; margin:2px; padding:0 8px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-weight:500"></input>
+                </sc-if>
+                <sc-if value="{{ p.notRenaming }}">
+                  <button onClick="{{ p.go }}" title="{{ p.tip }}" aria-label="{{ p.tip }}" style="flex:1; min-width:0; display:flex; align-items:center; gap:8px; min-height:36px; padding:6px {{ itemPad }}; border:none; border-radius:5px; background:transparent; color:var(--color-text-primary); text-align:left; justify-content:{{ itemJustify }}" style-hover="background:var(--color-surface-hover)">
+                    <span style="position:relative; width:20px; height:20px; flex:none; display:inline-flex; align-items:center; justify-content:center; border-radius:5px; border:1px solid var(--color-border-strong); font-size:12px; font-weight:700; color:var(--color-text-secondary)">{{ p.initial }}
+                      <sc-if value="{{ p.collapsedNeeds }}"><span style="position:absolute; right:-8px; top:-8px; min-width:16px; height:16px; padding:0 4px; border-radius:9999px; background:var(--color-status-needs-you-solid); color:#16191D; font-size:11px; line-height:16px; font-weight:700; text-align:center">{{ p.needs }}</span></sc-if>
+                    </span>
+                    <sc-if value="{{ sidebarOpen }}">
+                      <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:500">{{ p.name }}</span>
+                      <span style="display:flex; align-items:center; gap:6px; flex:none">
+                        <sc-if value="{{ p.hasNeeds }}"><span style="display:inline-flex; align-items:center; gap:3px; height:20px; padding:0 5px; border-radius:3px; background:var(--color-status-needs-you-subtle); color:var(--color-status-needs-you-text); font-size:12px; font-weight:600"><m-icon name="st-needs" size="12"></m-icon>{{ p.needs }}</span></sc-if>
+                        <span style="display:inline-flex; color:{{ p.ciColor }}"><m-icon name="{{ p.ciIcon }}" size="14"></m-icon></span>
+                        <span style="display:inline-flex; align-items:center; gap:2px; font-size:12px; color:var(--color-text-secondary)"><m-icon name="zap" size="12"></m-icon>{{ p.awake }}</span>
+                      </span>
+                    </sc-if>
+                  </button>
+                  <sc-if value="{{ sidebarOpen }}"><button onClick="{{ p.toggleMenu }}" aria-label="{{ p.menuLabel }}" aria-expanded="{{ p.menuOpen }}" style="width:24px; height:28px; flex:none; margin-right:2px; display:inline-flex; align-items:center; justify-content:center; border:none; border-radius:5px; background:transparent; color:var(--color-text-muted)" style-hover="background:var(--color-surface-selected); color:var(--color-text-primary)"><m-icon name="ellipsis-vertical" size="14"></m-icon></button></sc-if>
+                </sc-if>
+                <sc-if value="{{ p.menuOpen }}">
+                  <div role="menu" style="position:absolute; right:0; top:calc(100% + 2px); width:200px; padding:6px; border-radius:10px; border:1px solid var(--color-border); background:var(--color-surface-raised); box-shadow:var(--elevation-1); z-index:170">
+                    <button role="menuitem" onClick="{{ p.rename }}" style="width:100%; display:flex; align-items:center; gap:8px; height:32px; padding:0 8px; border:none; border-radius:5px; background:transparent; font-size:13px; text-align:left" style-hover="background:var(--color-surface-hover)"><m-icon name="pencil" size="14"></m-icon>Rename</button>
+                    <button role="menuitem" onClick="{{ p.settings }}" style="width:100%; display:flex; align-items:center; gap:8px; height:32px; padding:0 8px; border:none; border-radius:5px; background:transparent; font-size:13px; text-align:left" style-hover="background:var(--color-surface-hover)"><m-icon name="settings-2" size="14"></m-icon>Project settings</button>
+                    <button role="menuitem" onClick="{{ p.remove }}" style="width:100%; display:flex; align-items:center; gap:8px; height:32px; padding:0 8px; border:none; border-radius:5px; background:transparent; font-size:13px; text-align:left; color:var(--color-status-danger-text)" style-hover="background:var(--color-status-danger-subtle)"><m-icon name="folder-x" size="14"></m-icon>Remove</button>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-for>
+            <button data-tour="{{ newProjectTour }}" onClick="{{ openNewProject }}" title="New project" aria-label="New project" style="display:flex; align-items:center; gap:8px; min-height:32px; padding:0 {{ itemPad }}; border:none; border-radius:5px; background:transparent; color:var(--color-text-secondary); font-weight:500; text-align:left; justify-content:{{ itemJustify }}" style-hover="background:var(--color-surface-hover); color:var(--color-text-primary)">
+              <m-icon name="folder-plus" size="16"></m-icon><sc-if value="{{ sidebarOpen }}"><span>New project</span></sc-if>
+            </button>
+          </div>
+        </div>
+        <div style="padding:8px; border-top:1px solid var(--color-border)">
+          <button onClick="{{ goSettings }}" aria-current="{{ settingsCurrent }}" title="Settings" style="position:relative; width:100%; display:flex; align-items:center; gap:8px; min-height:32px; padding:0 {{ itemPad }}; border:none; border-radius:5px; background:{{ settingsBg }}; color:var(--color-text-primary); font-weight:500; text-align:left; justify-content:{{ itemJustify }}" style-hover="background:var(--color-surface-hover)">
+            <sc-if value="{{ settingsSel }}"><span style="position:absolute; left:-8px; top:6px; bottom:6px; width:2px; border-radius:2px; background:var(--color-ink)"></span></sc-if>
+            <m-icon name="settings" size="16"></m-icon><sc-if value="{{ sidebarOpen }}"><span style="flex:1">Settings</span></sc-if>
+          </button>
+        </div>
+      </nav>
+    </div>
+  </sc-if>
+
+  <div style="flex:1; min-width:0; display:flex; flex-direction:column; position:relative">
+    <header style="height:48px; flex:none; display:flex; align-items:center; gap:8px; padding:0 {{ barPad }}; padding-top:env(safe-area-inset-top); border-bottom:1px solid var(--color-border); background:var(--color-surface); position:relative; z-index:20">
+      <sc-if value="{{ phone }}">
+        <button data-tour="projects-phone" onClick="{{ openPicker }}" aria-haspopup="dialog" style="min-width:0; flex:1; display:flex; align-items:center; gap:6px; height:44px; padding:0 4px; border:none; background:transparent; text-align:left">
+          <span style="min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:16px; line-height:22px; font-weight:600">{{ title }}</span><m-icon name="chevron-down" size="16"></m-icon>
+          <sc-if value="{{ totalNeedsPhone }}"><span style="display:inline-flex; align-items:center; gap:3px; height:20px; padding:0 6px; border-radius:3px; background:var(--color-status-needs-you-subtle); color:var(--color-status-needs-you-text); font-size:13px; font-weight:600"><m-icon name="st-needs" size="12"></m-icon>{{ totalNeeds }}</span></sc-if>
+        </button>
+      </sc-if>
+      <sc-if value="{{ notPhone }}">
+        <div style="flex:1; min-width:0; display:flex; align-items:baseline; gap:8px">
+          <h1 style="margin:0; font-size:16px; line-height:22px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ title }}</h1>
+          <sc-if value="{{ hasSubtitle }}"><span style="font-size:13px; line-height:18px; color:var(--color-text-secondary); white-space:nowrap">{{ subtitle }}</span></sc-if>
+        </div>
+        <button data-tour="search" onClick="{{ openPalette }}" aria-label="Search" title="Search or run a command" style="display:flex; align-items:center; gap:8px; height:32px; width:{{ searchW }}; padding:0 8px; border-radius:5px; border:1px solid var(--color-border); background:var(--color-surface-sunken); color:var(--color-text-muted); font-size:13px; text-align:left; justify-content:{{ searchJustify }}" style-hover="border-color:var(--color-border-strong)">
+          <m-icon name="search" size="14"></m-icon>
+          <sc-if value="{{ desktop }}"><span style="flex:1">Search</span><span style="display:flex; gap:2px"><kbd style="font-family:var(--font-sans); font-size:12px; line-height:16px; padding:0 4px; border:1px solid var(--color-border); border-radius:3px; color:var(--color-text-secondary)">{{ modKey }}</kbd><kbd style="font-family:var(--font-sans); font-size:12px; line-height:16px; padding:0 4px; border:1px solid var(--color-border); border-radius:3px; color:var(--color-text-secondary)">K</kbd></span></sc-if>
+        </button>
+      </sc-if>
+      <button onClick="{{ toggleTheme }}" aria-label="{{ themeLabel }}" title="{{ themeLabel }}" style="width:36px; height:36px; flex:none; display:inline-flex; align-items:center; justify-content:center; border:none; border-radius:5px; background:transparent; color:var(--color-text-primary)" style-hover="background:var(--color-surface-hover)"><m-icon name="{{ themeIcon }}" size="18"></m-icon></button>
+      <button data-tour="notices" onClick="{{ toggleNotices }}" aria-label="{{ noticesLabel }}" aria-expanded="{{ noticesOpen }}" title="Notices" style="position:relative; width:36px; height:36px; flex:none; display:inline-flex; align-items:center; justify-content:center; border:none; border-radius:5px; background:{{ noticesBg }}; color:var(--color-text-primary)" style-hover="background:var(--color-surface-hover)">
+        <m-icon name="bell" size="18"></m-icon>
+        <sc-if value="{{ hasNotices }}"><span style="position:absolute; top:2px; right:0; min-width:16px; height:16px; padding:0 4px; border-radius:9999px; background:var(--color-ink); color:var(--color-on-ink); font-size:11px; line-height:16px; font-weight:700; text-align:center">{{ noticeCount }}</span></sc-if>
+      </button>
+      <div style="position:relative; flex:none">
+        <button data-tour="avatar" onClick="{{ toggleAvatar }}" aria-label="Profile and settings" aria-expanded="{{ avatarOpen }}" style="width:36px; height:36px; display:inline-flex; align-items:center; justify-content:center; border:none; border-radius:9999px; background:transparent; padding:0" style-hover="background:var(--color-surface-hover)">
+          <span style="width:28px; height:28px; border-radius:9999px; background:var(--color-surface-selected); border:1px solid var(--color-border-strong); display:inline-flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; color:var(--color-text-primary)">{{ initials }}</span>
+        </button>
+        <sc-if value="{{ avatarOpen }}">
+          <div onClick="{{ closeMenu }}" style="position:fixed; inset:0; z-index:190"></div>
+          <div role="menu" style="{{ avatarMenuStyle }}">
+            <div style="display:flex; flex-direction:column; padding:8px 10px 10px; border-bottom:1px solid var(--color-border); margin-bottom:4px"><span style="font-weight:600">{{ profileName }}</span><span style="font-size:13px; color:var(--color-text-secondary)">{{ tailnet }}</span></div>
+            <sc-for list="{{ avatarItems }}" as="a">
+              <button role="menuitem" onClick="{{ a.run }}" style="width:100%; display:flex; align-items:center; gap:10px; min-height:36px; padding:0 10px; border:none; border-radius:5px; background:transparent; text-align:left" style-hover="background:var(--color-surface-hover)"><m-icon name="{{ a.icon }}" size="16"></m-icon>{{ a.label }}</button>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+    </header>
+
+    <sc-if value="{{ showViewHeader }}">
+      <div style="flex:none; display:flex; align-items:center; gap:8px; padding:6px 16px; border-bottom:1px solid var(--color-border); background:var(--color-surface); position:relative; z-index:11">
+        <div role="tablist" aria-label="Views" data-tour="views" style="display:flex; gap:2px; padding:2px; border-radius:7px; background:var(--color-surface-sunken); border:1px solid var(--color-border); overflow-x:auto; min-width:0">
+          <sc-for list="{{ views }}" as="v" hint-placeholder-count="6">
+            <button role="tab" data-compact="1" aria-selected="{{ v.selected }}" onClick="{{ v.go }}" title="{{ v.tip }}" style="flex:none; display:inline-flex; align-items:center; gap:6px; height:{{ tabH }}; padding:0 10px; border-radius:5px; border:1px solid {{ v.border }}; background:{{ v.bg }}; color:{{ v.color }}; font-size:13px; font-weight:500" style-hover="color:var(--color-text-primary)">
+              <m-icon name="{{ v.icon }}" size="14"></m-icon><span>{{ v.label }}</span>
+            </button>
+          </sc-for>
+        </div>
+        <div style="flex:1"></div>
+        <sc-if value="{{ canSplit }}">
+          <button onClick="{{ addSplit }}" title="Open another view beside this one" style="display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 10px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-size:13px; font-weight:500" style-hover="background:var(--color-surface-hover)"><m-icon name="columns-2" size="14"></m-icon>Split view</button>
+        </sc-if>
+        <sc-if value="{{ showNewCard }}">
+          <button onClick="{{ newCard }}" style="display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-ink); background:var(--color-ink); color:var(--color-on-ink); font-weight:600" style-hover="background:var(--color-ink-hover)">
+            <m-icon name="plus" size="16"></m-icon><span>New card</span>
+            <sc-if value="{{ desktop }}"><kbd style="font-family:var(--font-sans); font-size:12px; line-height:16px; padding:0 4px; border:1px solid currentColor; border-radius:3px; opacity:.7">N</kbd></sc-if>
+          </button>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ showFilterBar }}">
+      <div style="flex:none; display:flex; align-items:center; flex-wrap:{{ fbWrap }}; overflow-x:{{ fbOverflow }}; gap:8px; padding:8px {{ barPad }}; border-bottom:1px solid var(--color-border); background:var(--color-surface); position:relative; z-index:9">
+        <label style="position:relative; display:flex; align-items:center; flex:none">
+          <span style="position:absolute; left:8px; display:inline-flex; color:var(--color-text-muted)"><m-icon name="search" size="14"></m-icon></span>
+          <input data-search="1" value="{{ query }}" onInput="{{ onQuery }}" placeholder="Filter cards" aria-label="Filter cards" style="height:32px; width:{{ filterW }}; padding:0 28px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-size:13px"></input>
+          <sc-if value="{{ desktop }}"><kbd style="position:absolute; right:6px; font-family:var(--font-sans); font-size:12px; line-height:16px; padding:0 4px; border:1px solid var(--color-border); border-radius:3px; color:var(--color-text-muted)">/</kbd></sc-if>
+        </label>
+        <sc-for list="{{ chips }}" as="f">
+          <span style="flex:none; display:inline-flex; align-items:center; gap:4px; height:32px; padding:0 4px 0 8px; border-radius:3px; border:1px solid var(--color-border-strong); background:var(--color-surface-sunken); font-size:13px">
+            <span style="color:var(--color-text-secondary)">{{ f.k }}</span><span style="font-weight:600">{{ f.v }}</span>
+            <button onClick="{{ f.remove }}" aria-label="{{ f.removeLabel }}" style="width:24px; height:24px; display:inline-flex; align-items:center; justify-content:center; border:none; border-radius:3px; background:transparent; color:var(--color-text-secondary)" style-hover="background:var(--color-surface-hover)"><m-icon name="x" size="12"></m-icon></button>
+          </span>
+        </sc-for>
+        <div style="position:relative; flex:none">
+          <button onClick="{{ toggleFilterMenu }}" aria-expanded="{{ filterMenuOpen }}" style="display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 10px; border-radius:5px; border:1px dashed var(--color-border-strong); background:transparent; color:var(--color-text-secondary); font-size:13px; font-weight:500; white-space:nowrap" style-hover="color:var(--color-text-primary); background:var(--color-surface-hover)"><m-icon name="list-filter" size="14"></m-icon>Add filter</button>
+          <sc-if value="{{ filterMenuOpen }}">
+            <sc-if value="{{ phone }}"><div onClick="{{ closeMenu }}" style="position:fixed; inset:0; z-index:290; background:rgb(10 12 14 / 0.4)"></div></sc-if>
+            <div role="menu" style="{{ popLeft }}">
+              <sc-for list="{{ filterGroups }}" as="g">
+                <div style="padding:8px 8px 4px; font-size:12px; line-height:16px; color:var(--color-text-secondary); font-weight:600">{{ g.label }}</div>
+                <sc-for list="{{ g.options }}" as="o">
+                  <button role="menuitem" onClick="{{ o.add }}" style="width:100%; display:flex; align-items:center; gap:8px; min-height:30px; padding:0 8px; border:none; border-radius:5px; background:transparent; font-size:13px; text-align:left" style-hover="background:var(--color-surface-hover)">
+                    <sc-if value="{{ o.hasIcon }}"><span style="display:inline-flex; color:{{ o.iconColor }}"><m-icon name="{{ o.icon }}" size="14"></m-icon></span></sc-if>
+                    <span style="flex:1">{{ o.label }}</span><span style="color:var(--color-text-muted); font-size:12px">{{ o.count }}</span>
+                  </button>
+                </sc-for>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+        <div style="position:relative; flex:none">
+          <button onClick="{{ toggleViewsMenu }}" aria-expanded="{{ viewsMenuOpen }}" style="display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 10px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-size:13px; font-weight:500; white-space:nowrap" style-hover="background:var(--color-surface-hover)"><m-icon name="bookmark" size="14"></m-icon><span>{{ savedViewLabel }}</span><m-icon name="chevron-down" size="14"></m-icon></button>
+          <sc-if value="{{ viewsMenuOpen }}">
+            <sc-if value="{{ phone }}"><div onClick="{{ closeMenu }}" style="position:fixed; inset:0; z-index:290; background:rgb(10 12 14 / 0.4)"></div></sc-if>
+            <div role="menu" style="{{ popLeft }}">
+              <sc-for list="{{ savedViews }}" as="v">
+                <button role="menuitemradio" aria-checked="{{ v.current }}" onClick="{{ v.apply }}" style="width:100%; display:flex; align-items:center; gap:8px; min-height:30px; padding:0 8px; border:none; border-radius:5px; background:transparent; font-size:13px; text-align:left" style-hover="background:var(--color-surface-hover)">
+                  <span style="width:14px; display:inline-flex"><sc-if value="{{ v.current }}"><m-icon name="check" size="14"></m-icon></sc-if></span>
+                  <span style="flex:1">{{ v.name }}</span><span style="color:var(--color-text-muted); font-size:12px">{{ v.desc }}</span>
+                </button>
+              </sc-for>
+              <div style="height:1px; margin:6px 0; background:var(--color-border)"></div>
+              <form onSubmit="{{ onSaveView }}" style="display:flex; gap:6px; padding:2px">
+                <input name="viewname" placeholder="Name this view" aria-label="Name this view" style="flex:1; min-width:0; height:30px; padding:0 8px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-size:13px"></input>
+                <button type="submit" style="height:30px; padding:0 10px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-size:13px; font-weight:500">Save view</button>
+              </form>
+            </div>
+          </sc-if>
+        </div>
+        <sc-if value="{{ hasFilters }}"><button onClick="{{ clearFilters }}" style="flex:none; height:32px; padding:0 8px; border:none; border-radius:5px; background:transparent; color:var(--color-text-secondary); font-size:13px; white-space:nowrap" style-hover="background:var(--color-surface-hover)">Clear filters</button></sc-if>
+        <div style="flex:1"></div>
+        <sc-if value="{{ showSwim }}">
+          <label style="flex:none; display:flex; align-items:center; gap:6px; font-size:13px; color:var(--color-text-secondary)">
+            <span>Swimlanes</span>
+            <select onChange="{{ onSwim }}" style="height:32px; padding:0 6px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); color:var(--color-text-primary); font-size:13px">
+              <sc-for list="{{ swimOpts }}" as="o"><option value="{{ o.v }}" selected="{{ o.sel }}">{{ o.l }}</option></sc-for>
+            </select>
+          </label>
+        </sc-if>
+        <sc-if value="{{ showCols }}">
+          <div style="position:relative; flex:none">
+            <button onClick="{{ toggleColsMenu }}" aria-expanded="{{ colsMenuOpen }}" style="display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 10px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-size:13px; font-weight:500" style-hover="background:var(--color-surface-hover)"><m-icon name="columns-3" size="14"></m-icon>Columns</button>
+            <sc-if value="{{ colsMenuOpen }}">
+              <sc-if value="{{ phone }}"><div onClick="{{ closeMenu }}" style="position:fixed; inset:0; z-index:290; background:rgb(10 12 14 / 0.4)"></div></sc-if>
+              <div role="menu" style="{{ popRight }}">
+                <sc-for list="{{ listCols }}" as="lc">
+                  <label style="display:flex; align-items:center; gap:8px; min-height:32px; padding:0 8px; border-radius:5px; font-size:13px; cursor:pointer" style-hover="background:var(--color-surface-hover)">
+                    <input type="checkbox" checked="{{ lc.on }}" onChange="{{ lc.toggle }}" style="width:16px; height:16px; margin:0; accent-color:var(--color-ink)"></input>{{ lc.label }}
+                  </label>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <div style="flex:1; min-height:0; display:flex; position:relative">
+      <sc-if value="{{ showMain }}">
+        <main style="flex:1; min-width:0; min-height:0; position:relative; overflow:hidden">
+          <sc-if value="{{ vHome }}"><dc-import name="HomeView" hint-size="100%,100%" style="position:absolute; inset:0"></dc-import></sc-if>
+          <sc-if value="{{ vAll }}"><dc-import name="HomeAllView" hint-size="100%,100%" style="position:absolute; inset:0"></dc-import></sc-if>
+          <sc-if value="{{ vChat }}"><dc-import name="ChatsView" hint-size="100%,100%" style="position:absolute; inset:0"></dc-import></sc-if>
+          <sc-if value="{{ vAgents }}"><dc-import name="AgentsView" hint-size="100%,100%" style="position:absolute; inset:0"></dc-import></sc-if>
+          <sc-if value="{{ vBoard }}"><dc-import name="BoardView" hint-size="100%,100%" style="position:absolute; inset:0"></dc-import></sc-if>
+          <sc-if value="{{ vList }}"><dc-import name="ListView" hint-size="100%,100%" style="position:absolute; inset:0"></dc-import></sc-if>
+          <sc-if value="{{ vTimeline }}"><dc-import name="TimelineView" hint-size="100%,100%" style="position:absolute; inset:0"></dc-import></sc-if>
+          <sc-if value="{{ vCalendar }}"><dc-import name="CalendarView" hint-size="100%,100%" style="position:absolute; inset:0"></dc-import></sc-if>
+          <sc-if value="{{ vSettings }}"><dc-import name="SettingsView" hint-size="100%,100%" style="position:absolute; inset:0"></dc-import></sc-if>
+        </main>
+        <sc-for list="{{ panes }}" as="pn">
+          <section aria-label="{{ pn.aria }}" style="flex:1; min-width:300px; display:flex; flex-direction:column; border-left:4px solid var(--color-border)">
+            <div style="flex:none; display:flex; align-items:center; gap:8px; height:40px; padding:0 8px 0 12px; border-bottom:1px solid var(--color-border); background:var(--color-surface-sunken)">
+              <select onChange="{{ pn.change }}" aria-label="View in this pane" style="height:28px; padding:0 6px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-size:13px; font-weight:600"><sc-for list="{{ pn.opts }}" as="o"><option value="{{ o.v }}" selected="{{ o.sel }}">{{ o.l }}</option></sc-for></select>
+              <span style="flex:1"></span>
+              <button onClick="{{ pn.close }}" aria-label="Close pane" style="width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; border:none; border-radius:5px; background:transparent" style-hover="background:var(--color-surface-hover)"><m-icon name="x" size="14"></m-icon></button>
+            </div>
+            <div style="flex:1; min-height:0; position:relative; overflow:hidden">
+              <sc-if value="{{ pn.chat }}"><dc-import name="ChatsView" hint-size="100%,100%" style="position:absolute; inset:0"></dc-import></sc-if>
+              <sc-if value="{{ pn.agents }}"><dc-import name="AgentsView" hint-size="100%,100%" style="position:absolute; inset:0"></dc-import></sc-if>
+              <sc-if value="{{ pn.board }}"><dc-import name="BoardView" hint-size="100%,100%" style="position:absolute; inset:0"></dc-import></sc-if>
+              <sc-if value="{{ pn.list }}"><dc-import name="ListView" hint-size="100%,100%" style="position:absolute; inset:0"></dc-import></sc-if>
+              <sc-if value="{{ pn.timeline }}"><dc-import name="TimelineView" hint-size="100%,100%" style="position:absolute; inset:0"></dc-import></sc-if>
+              <sc-if value="{{ pn.calendar }}"><dc-import name="CalendarView" hint-size="100%,100%" style="position:absolute; inset:0"></dc-import></sc-if>
+            </div>
+          </section>
+        </sc-for>
+      </sc-if>
+
+      <sc-if value="{{ hasDetail }}">
+        <sc-if value="{{ detailBackdrop }}"><div onClick="{{ closeCard }}" style="position:absolute; inset:0; z-index:140; background:rgb(10 12 14 / 0.3)"></div></sc-if>
+        <sc-if value="{{ showHandle }}">
+          <div role="separator" aria-orientation="vertical" aria-label="Resize card panel" aria-valuemin="480" aria-valuemax="760" aria-valuenow="{{ detailWNum }}" tabindex="0" onPointerDown="{{ resizeDown }}" onKeyDown="{{ resizeKey }}" style="width:5px; flex:none; cursor:col-resize; background:var(--color-border); position:relative; z-index:5" style-hover="background:var(--color-border-strong)"></div>
+        </sc-if>
+        <aside aria-label="Card detail" style="{{ detailStyle }}">
+          <dc-import name="CardDetail" hint-size="100%,100%" style="position:absolute; inset:0"></dc-import>
+        </aside>
+      </sc-if>
+    </div>
+
+    <sc-if value="{{ phone }}">
+      <nav aria-label="Main" data-tour="views-phone" style="flex:none; display:flex; border-top:1px solid var(--color-border); background:var(--color-surface); padding-bottom:env(safe-area-inset-bottom); position:relative; z-index:20">
+        <sc-for list="{{ mobileNav }}" as="t">
+          <button data-tour="{{ t.tour }}" onClick="{{ t.go }}" aria-current="{{ t.current }}" style="flex:1; height:56px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; border:none; background:transparent; color:{{ t.color }}; font-size:13px; font-weight:{{ t.weight }}; position:relative">
+            <sc-if value="{{ t.current }}"><span style="position:absolute; top:0; left:28%; right:28%; height:2px; background:var(--color-ink)"></span></sc-if>
+            <m-icon name="{{ t.icon }}" size="20"></m-icon><span>{{ t.label }}</span>
+            <sc-if value="{{ t.hasBadge }}"><span style="position:absolute; top:6px; left:calc(50% + 6px); min-width:16px; height:16px; padding:0 4px; border-radius:9999px; background:var(--color-status-needs-you-solid); color:#16191D; font-size:11px; line-height:16px; font-weight:700">{{ t.badge }}</span></sc-if>
+          </button>
+        </sc-for>
+      </nav>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{ sheetOpen }}">
+    <div onClick="{{ closeMenu }}" style="position:absolute; inset:0; z-index:290; background:rgb(10 12 14 / 0.4)"></div>
+    <div role="dialog" aria-modal="true" aria-label="{{ sheetTitle }}" style="position:absolute; left:0; right:0; bottom:0; z-index:300; max-height:85%; overflow:auto; padding:8px 12px calc(16px + env(safe-area-inset-bottom)); border-radius:14px 14px 0 0; background:var(--color-surface-raised); box-shadow:var(--elevation-2)">
+      <div style="width:36px; height:4px; margin:4px auto 10px; border-radius:9999px; background:var(--color-border-strong)"></div>
+      <h2 style="margin:0 4px 8px; font-size:16px; line-height:22px; font-weight:600">{{ sheetTitle }}</h2>
+      <sc-for list="{{ sheetItems }}" as="it">
+        <button onClick="{{ it.run }}" aria-current="{{ it.current }}" style="width:100%; display:flex; align-items:center; gap:12px; min-height:48px; padding:0 8px; border:none; border-radius:7px; background:{{ it.bg }}; text-align:left; font-size:15px" style-hover="background:var(--color-surface-hover)">
+          <m-icon name="{{ it.icon }}" size="18"></m-icon><span style="flex:1">{{ it.label }}</span>
+          <sc-if value="{{ it.hasBadge }}"><span style="display:inline-flex; align-items:center; gap:3px; height:22px; padding:0 6px; border-radius:3px; background:var(--color-status-needs-you-subtle); color:var(--color-status-needs-you-text); font-size:13px; font-weight:600"><m-icon name="st-needs" size="12"></m-icon>{{ it.badge }}</span></sc-if>
+          <sc-if value="{{ it.hasHint }}"><span style="font-size:13px; color:var(--color-text-secondary)">{{ it.hint }}</span></sc-if>
+        </button>
+      </sc-for>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ showNotices }}">
+    <div onClick="{{ closeNotices }}" style="position:absolute; inset:0; z-index:99"></div>
+    <section aria-label="Notices" style="{{ noticeStyle }}">
+      <div style="display:flex; align-items:center; gap:8px; padding:10px 16px; border-bottom:1px solid var(--color-border)">
+        <h2 style="margin:0; flex:1; font-size:16px; line-height:22px">Notices</h2>
+        <button onClick="{{ closeNotices }}" aria-label="Close notices" style="width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; border:none; border-radius:5px; background:transparent" style-hover="background:var(--color-surface-hover)"><m-icon name="x" size="16"></m-icon></button>
+      </div>
+      <div style="flex:1; min-height:0; display:flex; flex-direction:column; gap:8px; padding:12px; overflow:auto">
+        <sc-if value="{{ noNotices }}"><p style="margin:16px 0; text-align:center; color:var(--color-text-secondary)">No notices. Sleep warnings, CI failures, and cost warnings show here.</p></sc-if>
+        <sc-for list="{{ notices }}" as="n">
+          <article style="flex:none; border:1px solid var(--color-border); border-radius:7px; background:var(--color-surface); overflow:hidden">
+            <div style="display:flex; gap:10px; padding:12px">
+              <span style="display:inline-flex; margin-top:2px; color:{{ n.iconColor }}"><m-icon name="{{ n.icon }}" size="16"></m-icon></span>
+              <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px">
+                <div style="font-weight:600">{{ n.title }}</div>
+                <sc-if value="{{ n.hasSub }}"><div style="font-size:13px; line-height:18px; color:var(--color-text-secondary)">{{ n.sub }}</div></sc-if>
+                <span title="{{ n.full }}" style="font-size:12px; line-height:16px; color:var(--color-text-muted)">{{ n.when }}</span>
+              </div>
+              <sc-if value="{{ n.dismissable }}"><button onClick="{{ n.dismiss }}" aria-label="Dismiss notice" style="width:28px; height:28px; flex:none; display:inline-flex; align-items:center; justify-content:center; border:none; border-radius:5px; background:transparent; color:var(--color-text-secondary)" style-hover="background:var(--color-surface-hover)"><m-icon name="x" size="14"></m-icon></button></sc-if>
+            </div>
+            <sc-if value="{{ n.hasRows }}">
+              <div style="border-top:1px solid var(--color-border)">
+                <sc-for list="{{ n.rows }}" as="r">
+                  <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:8px 12px; border-bottom:1px solid var(--color-border)">
+                    <button onClick="{{ r.open }}" style="flex:1 1 160px; min-width:0; display:flex; flex-direction:column; align-items:flex-start; border:none; background:transparent; padding:0; text-align:left" style-hover="text-decoration:underline">
+                      <span style="font-size:13px; line-height:18px; font-weight:600; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ r.title }}</span>
+                      <span style="font-size:12px; line-height:16px; color:{{ r.subColor }}">{{ r.sub }}</span>
+                    </button>
+                    <div style="display:flex; flex-wrap:wrap; gap:4px">
+                      <sc-for list="{{ r.actions }}" as="a">
+                        <button onClick="{{ a.run }}" style="height:28px; padding:0 8px; border-radius:5px; border:1px solid {{ a.border }}; background:{{ a.bg }}; color:{{ a.color }}; font-size:12px; font-weight:600" style-hover="opacity:.9">{{ a.label }}</button>
+                      </sc-for>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+            <sc-if value="{{ n.hasActions }}">
+              <div style="display:flex; flex-wrap:wrap; gap:8px; padding:8px 12px; background:var(--color-surface-sunken)">
+                <sc-for list="{{ n.actions }}" as="a">
+                  <button onClick="{{ a.run }}" style="height:28px; padding:0 10px; border-radius:5px; border:1px solid {{ a.border }}; background:{{ a.bg }}; color:{{ a.color }}; font-size:13px; font-weight:600" style-hover="opacity:.9">{{ a.label }}</button>
+                </sc-for>
+              </div>
+            </sc-if>
+          </article>
+        </sc-for>
+      </div>
+    </section>
+  </sc-if>
+
+  <sc-if value="{{ paletteOpen }}">
+    <div onClick="{{ closePalette }}" style="position:absolute; inset:0; z-index:399; background:rgb(10 12 14 / 0.4)"></div>
+    <div role="dialog" aria-modal="true" aria-label="Command palette" style="{{ paletteStyle }}">
+      <div style="display:flex; align-items:center; gap:10px; padding:0 12px 0 16px; min-height:52px; border-bottom:1px solid var(--color-border)">
+        <m-icon name="search" size="16"></m-icon>
+        <input ref="{{ paletteRef }}" value="{{ pq }}" onInput="{{ onPq }}" onKeyDown="{{ onPaletteKey }}" placeholder="Search actions, projects, cards, and settings" aria-label="Search actions, projects, cards, and settings" style="flex:1; min-width:0; height:40px; border:none; background:transparent; font-size:16px; outline:none"></input>
+        <button onClick="{{ closePalette }}" aria-label="Close search" style="height:28px; padding:0 6px; border:1px solid var(--color-border); border-radius:3px; background:transparent; font-size:12px; color:var(--color-text-muted)">Esc</button>
+      </div>
+      <div role="listbox" style="flex:1; min-height:0; overflow:auto; padding:6px">
+        <sc-if value="{{ noResults }}"><p style="margin:24px; text-align:center; color:var(--color-text-secondary)">No results for "{{ pq }}".</p></sc-if>
+        <sc-for list="{{ results }}" as="x">
+          <sc-if value="{{ x.showGroup }}"><div style="padding:8px 10px 4px; font-size:12px; line-height:16px; font-weight:600; color:var(--color-text-secondary)">{{ x.group }}</div></sc-if>
+          <button role="option" aria-selected="{{ x.selected }}" data-pi="{{ x.i }}" onClick="{{ x.run }}" onMouseMove="{{ x.hover }}" style="width:100%; display:flex; align-items:center; gap:10px; min-height:36px; padding:0 10px; border:none; border-radius:7px; background:{{ x.bg }}; text-align:left; font-size:14px">
+            <span style="display:inline-flex; color:{{ x.iconColor }}"><m-icon name="{{ x.icon }}" size="16"></m-icon></span>
+            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ x.label }}</span>
+            <sc-if value="{{ x.hasHint }}"><span style="font-size:13px; color:var(--color-text-muted); white-space:nowrap">{{ x.hint }}</span></sc-if>
+            <sc-if value="{{ x.hasKbd }}"><span style="display:flex; gap:2px"><sc-for list="{{ x.kbd }}" as="k"><kbd style="min-width:20px; text-align:center; font-family:var(--font-sans); font-size:12px; line-height:18px; padding:0 4px; border:1px solid var(--color-border-strong); border-radius:3px; color:var(--color-text-secondary)">{{ k }}</kbd></sc-for></span></sc-if>
+          </button>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ hasDialog }}">
+    <div style="position:absolute; inset:0; z-index:200; background:rgb(10 12 14 / 0.45)" onClick="{{ closeDialog }}"></div>
+    <div role="alertdialog" aria-modal="true" aria-labelledby="dlg-title" onKeyDown="{{ trapKey }}" style="{{ sheet460 }}">
+      <h2 id="dlg-title" style="margin:0; font-size:18px; line-height:24px; font-weight:600">{{ dlg.title }}</h2>
+      <p style="margin:0; color:var(--color-text-secondary)">{{ dlg.message }}</p>
+      <sc-if value="{{ dlgHasAck }}">
+        <label style="display:flex; gap:10px; align-items:flex-start; padding:12px; border-radius:7px; border:1px solid var(--color-border-strong); background:var(--color-status-danger-subtle); color:var(--color-status-danger-text); font-weight:500; cursor:pointer">
+          <input type="checkbox" checked="{{ dlg.acked }}" onChange="{{ toggleAck }}" style="width:18px; height:18px; margin:1px 0 0; accent-color:var(--color-status-danger-solid)"></input><span>{{ dlg.ack }}</span>
+        </label>
+      </sc-if>
+      <div style="display:flex; justify-content:flex-end; flex-wrap:wrap; gap:8px; margin-top:4px">
+        <button ref="{{ dlgCancelRef }}" onClick="{{ closeDialog }}" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-weight:500" style-hover="background:var(--color-surface-hover)">Cancel</button>
+        <button onClick="{{ confirmDialog }}" disabled="{{ dlgDisabled }}" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid {{ dlgBtnBg }}; background:{{ dlgBtnBg }}; color:{{ dlgBtnColor }}; font-weight:600; opacity:{{ dlgOpacity }}">{{ dlg.action }}</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ hasNewCard }}">
+    <div style="position:absolute; inset:0; z-index:200; background:rgb(10 12 14 / 0.45)" onClick="{{ closeNewCard }}"></div>
+    <form role="dialog" aria-modal="true" aria-labelledby="nc-title" onSubmit="{{ submitNewCard }}" onKeyDown="{{ trapKey }}" style="{{ sheet560 }}">
+      <div style="display:flex; align-items:center; gap:8px">
+        <h2 id="nc-title" style="margin:0; flex:1; font-size:18px; line-height:24px; font-weight:600">New card in {{ projName }}</h2>
+        <button type="button" onClick="{{ closeNewCard }}" aria-label="Close" style="width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; border:none; border-radius:5px; background:transparent"><m-icon name="x" size="16"></m-icon></button>
+      </div>
+      <label style="display:flex; flex-direction:column; gap:6px"><span style="font-weight:500">Title</span>
+        <input ref="{{ ncTitleRef }}" value="{{ nc.title }}" onInput="{{ ncTitle }}" placeholder="Fix token refresh on login" style="height:32px; padding:0 10px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface)"></input></label>
+      <sc-if value="{{ hasDupes }}">
+        <div role="status" style="display:flex; gap:8px; padding:10px 12px; border-radius:7px; background:var(--color-status-needs-you-subtle); color:var(--color-status-needs-you-text); font-size:13px; line-height:18px">
+          <m-icon name="copy" size="14"></m-icon>
+          <div style="display:flex; flex-direction:column; gap:2px"><strong>This looks like an existing card</strong>
+            <sc-for list="{{ dupes }}" as="d"><button type="button" onClick="{{ d.open }}" style="border:none; background:transparent; padding:0; text-align:left; color:inherit; text-decoration:underline">{{ d.label }}</button></sc-for></div>
+        </div>
+      </sc-if>
+      <label style="display:flex; flex-direction:column; gap:6px"><span style="font-weight:500">Description</span>
+        <textarea value="{{ nc.body }}" onInput="{{ ncBody }}" rows="3" placeholder="What should the agent do, and what does done mean?" style="padding:8px 10px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); resize:vertical"></textarea>
+        <span style="font-size:13px; line-height:18px; color:var(--color-text-secondary)">This becomes the first message in the card's session.</span></label>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:12px">
+        <label style="display:flex; flex-direction:column; gap:6px"><span style="font-weight:500">Template</span>
+          <select onChange="{{ ncTemplate }}" style="height:32px; padding:0 8px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface)"><sc-for list="{{ tplOpts }}" as="o"><option value="{{ o.v }}" selected="{{ o.sel }}">{{ o.v }}</option></sc-for></select></label>
+        <label style="display:flex; flex-direction:column; gap:6px"><span style="font-weight:500">Role</span>
+          <select onChange="{{ ncRole }}" style="height:32px; padding:0 8px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface)"><sc-for list="{{ roleOpts }}" as="o"><option value="{{ o.v }}" selected="{{ o.sel }}">{{ o.v }}</option></sc-for></select></label>
+        <label style="display:flex; flex-direction:column; gap:6px"><span style="font-weight:500">Agent</span>
+          <select onChange="{{ ncAgent }}" style="height:32px; padding:0 8px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface)"><sc-for list="{{ agentOpts }}" as="o"><option value="{{ o.v }}" selected="{{ o.sel }}">{{ o.v }}</option></sc-for></select></label>
+      </div>
+      <label style="display:flex; align-items:center; gap:8px; cursor:pointer"><input type="checkbox" checked="{{ nc.start }}" onChange="{{ ncStart }}" style="width:18px; height:18px; margin:0; accent-color:var(--color-ink)"></input><span>Start the card right away</span></label>
+      <div style="display:flex; justify-content:flex-end; gap:8px">
+        <button type="button" onClick="{{ closeNewCard }}" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-weight:500">Cancel</button>
+        <button type="submit" disabled="{{ ncDisabled }}" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-ink); background:var(--color-ink); color:var(--color-on-ink); font-weight:600; opacity:{{ ncOpacity }}">Create card</button>
+      </div>
+    </form>
+  </sc-if>
+
+  <sc-if value="{{ hasNewProject }}">
+    <div style="position:absolute; inset:0; z-index:200; background:rgb(10 12 14 / 0.45)" onClick="{{ closeNewProject }}"></div>
+    <form role="dialog" aria-modal="true" aria-labelledby="np-title" onSubmit="{{ submitNewProject }}" onKeyDown="{{ trapKey }}" style="{{ sheet560 }}">
+      <div style="display:flex; align-items:center; gap:8px">
+        <h2 id="np-title" style="margin:0; flex:1; font-size:18px; line-height:24px; font-weight:600">New project</h2>
+        <button type="button" onClick="{{ closeNewProject }}" aria-label="Close" style="width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; border:none; border-radius:5px; background:transparent"><m-icon name="x" size="16"></m-icon></button>
+      </div>
+      <div role="radiogroup" aria-label="Where the repository comes from" style="display:flex; gap:2px; padding:2px; border-radius:7px; background:var(--color-surface-sunken); border:1px solid var(--color-border)">
+        <sc-for list="{{ npSources }}" as="s">
+          <button type="button" role="radio" aria-checked="{{ s.sel }}" onClick="{{ s.go }}" style="flex:1; display:inline-flex; align-items:center; justify-content:center; gap:6px; height:30px; border-radius:5px; border:1px solid {{ s.border }}; background:{{ s.bg }}; font-size:13px; font-weight:500"><m-icon name="{{ s.icon }}" size="14"></m-icon>{{ s.label }}</button>
+        </sc-for>
+      </div>
+      <sc-if value="{{ npFolder }}">
+        <label style="display:flex; flex-direction:column; gap:6px"><span style="font-weight:500">Repository folder</span>
+          <span style="display:flex; gap:8px"><input value="{{ np.path }}" onInput="{{ npPath }}" placeholder="~/code/my-repo" style="flex:1; min-width:0; height:32px; padding:0 10px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-family:var(--font-mono); font-size:13px"></input>
+            <button type="button" onClick="{{ npChoose }}" style="flex:none; height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-weight:500">Choose folder</button></span>
+          <span style="font-size:13px; line-height:18px; color:var(--color-text-secondary)">Marshal reads this repository and makes worktrees beside it. It never moves or deletes your files.</span></label>
+      </sc-if>
+      <sc-if value="{{ npGithub }}">
+        <label style="display:flex; flex-direction:column; gap:6px"><span style="font-weight:500">Repository URL</span>
+          <input value="{{ np.url }}" onInput="{{ npUrl }}" placeholder="https://github.com/owner/repo" style="height:32px; padding:0 10px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-family:var(--font-mono); font-size:13px"></input>
+          <span style="font-size:13px; line-height:18px; color:var(--color-text-secondary)">Marshal clones it into ~/code using the GitHub App.</span></label>
+      </sc-if>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px">
+        <label style="display:flex; flex-direction:column; gap:6px"><span style="font-weight:500">Name</span><input value="{{ np.name }}" onInput="{{ npName }}" style="height:32px; padding:0 10px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface)"></input></label>
+        <label style="display:flex; flex-direction:column; gap:6px"><span style="font-weight:500">Default branch</span><input value="{{ np.branch }}" onInput="{{ npBranch }}" style="height:32px; padding:0 10px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-family:var(--font-mono); font-size:13px"></input></label>
+      </div>
+      <div role="status" style="display:flex; align-items:center; gap:8px; padding:10px 12px; border-radius:7px; background:var(--color-surface-sunken); font-size:13px; line-height:18px; color:var(--color-text-secondary)"><m-icon name="{{ npDetectIcon }}" size="14"></m-icon><span>{{ npDetect }}</span></div>
+      <div style="display:flex; justify-content:flex-end; gap:8px">
+        <button type="button" onClick="{{ closeNewProject }}" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-weight:500">Cancel</button>
+        <button type="submit" disabled="{{ npDisabled }}" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-ink); background:var(--color-ink); color:var(--color-on-ink); font-weight:600; opacity:{{ npOpacity }}">Add project</button>
+      </div>
+    </form>
+  </sc-if>
+
+  <sc-if value="{{ hasRemove }}">
+    <div style="position:absolute; inset:0; z-index:200; background:rgb(10 12 14 / 0.45)" onClick="{{ closeRemove }}"></div>
+    <div role="alertdialog" aria-modal="true" aria-labelledby="rp-title" onKeyDown="{{ trapKey }}" style="{{ sheet520 }}">
+      <h2 id="rp-title" style="margin:0; font-size:18px; line-height:24px; font-weight:600">Remove {{ rp.name }}</h2>
+      <p style="margin:0; font-weight:600">The repository on disk is never deleted. Marshal only stops managing it.</p>
+      <div style="display:flex; flex-direction:column; gap:6px">
+        <span style="font-weight:500">What happens</span>
+        <sc-for list="{{ rp.effects }}" as="e"><span style="display:flex; gap:8px; color:var(--color-text-secondary)"><span style="display:inline-flex; margin-top:2px"><m-icon name="{{ e.icon }}" size="14"></m-icon></span><span>{{ e.text }}</span></span></sc-for>
+      </div>
+      <sc-if value="{{ rp.hasUnmerged }}">
+        <div style="display:flex; flex-direction:column; gap:8px; padding:12px; border-radius:7px; background:var(--color-status-needs-you-subtle); color:var(--color-status-needs-you-text)">
+          <span style="display:flex; align-items:center; gap:6px; font-weight:600"><m-icon name="git-branch" size="14"></m-icon>{{ rp.unmergedLabel }}</span>
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:var(--color-text-primary)"><input type="checkbox" checked="{{ rp.keepBranches }}" onChange="{{ rp.toggleBranches }}" style="width:18px; height:18px; margin:0; accent-color:var(--color-ink)"></input>Keep their branches in the repository</label>
+        </div>
+      </sc-if>
+      <label style="display:flex; align-items:flex-start; gap:8px; cursor:pointer"><input type="checkbox" checked="{{ rp.keepMemory }}" onChange="{{ rp.toggleMemory }}" style="width:18px; height:18px; margin:1px 0 0; accent-color:var(--color-ink)"></input><span style="display:flex; flex-direction:column">Keep the project's memory folder<span style="font-family:var(--font-mono); font-size:12px; color:var(--color-text-secondary)">{{ rp.memPath }}</span></span></label>
+      <div style="display:flex; justify-content:flex-end; flex-wrap:wrap; gap:8px">
+        <button onClick="{{ closeRemove }}" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-weight:500">Cancel</button>
+        <button onClick="{{ confirmRemove }}" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-bypass-bg); background:var(--color-bypass-bg); color:#FFFFFF; font-weight:600">Remove project</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ showOnboarding }}"><dc-import name="Onboarding" hint-size="100%,100%" style="position:absolute; inset:0; z-index:700"></dc-import></sc-if>
+  <sc-if value="{{ showTour }}"><dc-import name="Tour" hint-size="100%,100%" style="position:absolute; inset:0; z-index:650; pointer-events:none"></dc-import></sc-if>
+
+  <div aria-live="polite" style="position:absolute; right:16px; left:16px; bottom:{{ toastBottom }}; z-index:500; display:flex; flex-direction:column; gap:8px; align-items:flex-end; pointer-events:none">
+    <sc-for list="{{ toasts }}" as="t">
+      <div role="status" style="pointer-events:auto; display:flex; align-items:center; gap:12px; max-width:440px; min-height:40px; padding:6px 6px 6px 14px; border-radius:7px; background:var(--color-ink); color:var(--color-on-ink); box-shadow:var(--elevation-1); font-size:14px">
+        <span style="flex:1">{{ t.msg }}</span>
+        <sc-if value="{{ t.hasAction }}"><button onClick="{{ t.runAction }}" style="height:28px; padding:0 10px; border-radius:5px; border:1px solid currentColor; background:transparent; color:inherit; font-weight:600">{{ t.actionLabel }}</button></sc-if>
+        <button onClick="{{ t.dismiss }}" aria-label="Dismiss" style="width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; border:none; border-radius:5px; background:transparent; color:inherit"><m-icon name="x" size="14"></m-icon></button>
+      </div>
+    </sc-for>
+  </div>
+  <div aria-live="polite" style="position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0)">{{ announce }}</div>
+  </sc-if>
+</div></div>
+<div role="toolbar" aria-label="Prototype controls" style="position:fixed; left:12px; bottom:12px; z-index:10000; display:flex; flex-wrap:wrap; align-items:center; gap:4px; padding:4px; border-radius:10px; border:1px solid #C9CED4; background:#FFFFFF; color:#16191D; box-shadow:0 6px 16px -4px rgb(22 25 29 / 0.16); font:400 13px/18px var(--font-sans)">
+  <span style="padding:0 6px; color:#4C535C">Prototype</span>
+  <sc-for list="{{ devices }}" as="d">
+    <button onClick="{{ d.go }}" aria-pressed="{{ d.sel }}" title="{{ d.tip }}" style="height:28px; padding:0 10px; border-radius:5px; border:1px solid {{ d.border }}; background:{{ d.bg }}; color:{{ d.color }}; font:500 13px/18px var(--font-sans)">{{ d.label }}</button>
+  </sc-for>
+  <span style="width:1px; height:20px; background:#E1E4E8; margin:0 2px"></span>
+  <button onClick="{{ resetLaunch }}" style="height:28px; padding:0 10px; border-radius:5px; border:1px solid transparent; background:transparent; color:#16191D; font:500 13px/18px var(--font-sans)">Reset to first launch</button>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { ready: !!window.M, pq: '', sel: 0, device: (() => { try { return localStorage.getItem('marshal-proto-device') || 'fit'; } catch (e) { return 'fit'; } })(), ww: window.innerWidth, wh: window.innerHeight };
+  paletteRef = React.createRef(); ncTitleRef = React.createRef(); dlgCancelRef = React.createRef();
+  componentDidMount() {
+    const go = () => { if (!window.M) return setTimeout(go, 30); this.u = M.on(() => this.forceUpdate()); M._framed = true; this.setState({ ready: true }); };
+    go();
+    this.kd = e => this.onKey(e);
+    window.addEventListener('keydown', this.kd);
+    this.rs = () => this.setState({ ww: window.innerWidth, wh: window.innerHeight });
+    window.addEventListener('resize', this.rs);
+  }
+  frameSize() {
+    const D = { phone: [390, 844], tablet: [820, 1180], desktop: [1440, 900] }; const d = this.state.device;
+    if (!D[d]) return { w: this.state.ww, h: this.state.wh, k: 1, fit: true };
+    const [w, h] = D[d]; return { w, h, k: Math.min(1, (this.state.ww - 32) / w, (this.state.wh - 72) / h) };
+  }
+  frameVals() {
+    const s = this.frameSize(); const dev = this.state.device;
+    const left = s.fit ? 0 : Math.max(16, (this.state.ww - s.w * s.k) / 2); const top = s.fit ? 0 : Math.max(16, (this.state.wh - 56 - s.h * s.k) / 2);
+    const set = d => { try { localStorage.setItem('marshal-proto-device', d); } catch (e) {} this.setState({ device: d }); };
+    return { outerBg: s.fit ? 'var(--color-canvas)' : '#C9CED4',
+      frameStyle: 'position:absolute; left:' + left + 'px; top:' + top + 'px; width:' + s.w + 'px; height:' + s.h + 'px; overflow:hidden; background:var(--color-canvas);' + (s.fit ? '' : ' transform:scale(' + s.k + '); transform-origin:0 0; border-radius:' + (dev === 'phone' ? 36 : 18) + 'px; box-shadow:0 0 0 1px rgb(0 0 0 / 0.12), 0 24px 60px -12px rgb(0 0 0 / 0.35);'),
+      devices: [['fit', 'Fit window', 'Use the full browser window'], ['phone', 'Phone', '390 by 844'], ['tablet', 'Tablet', '820 by 1180'], ['desktop', 'Desktop', '1440 by 900']].map(([k, l, t]) => ({ label: l, tip: t, sel: dev === k, bg: dev === k ? '#16191D' : '#FFFFFF', color: dev === k ? '#FFFFFF' : '#16191D', border: dev === k ? '#16191D' : '#C9CED4', go: () => set(k) })),
+      resetLaunch: () => window.M && M.resetFirstLaunch() };
+  }
+  componentWillUnmount() { this.u && this.u(); window.removeEventListener('keydown', this.kd); window.removeEventListener('resize', this.rs); }
+  componentDidUpdate() {
+    if (!window.M) return; const S = M.S;
+    { const fs = this.frameSize(); M._framed = true; M._scale = fs.k; M.setViewport(fs.w, fs.h); }
+    const f = (flag, key, ref) => { if (flag && !this[key]) { this[key] = document.activeElement || true; setTimeout(() => ref.current && ref.current.focus(), 20); } if (!flag && this[key]) { const r = this[key]; this[key] = null; r.focus && r.focus(); } };
+    f(S.palette, '_rp', this.paletteRef); f(!!S.newCard, '_rn', this.ncTitleRef); f(!!S.dialog, '_rd', this.dlgCancelRef);
+  }
+  openPalette = () => { M.set({ palette: true, menu: null }); this.setState({ pq: '', sel: 0 }); };
+  onKey(e) {
+    if (!window.M) return;
+    const S = M.S; const mod = e.metaKey || e.ctrlKey; const k = e.key;
+    if (S.onboarding || S.tour) return;
+    const ae = document.activeElement;
+    const inField = ae && (/INPUT|TEXTAREA|SELECT/.test(ae.tagName) || ae.isContentEditable);
+    if (mod && k.toLowerCase() === 'k') { e.preventDefault(); if (S.palette) M.set({ palette: false }); else this.openPalette(); return; }
+    if (mod && /^[1-6]$/.test(k)) { e.preventDefault(); const v = M.VIEWS[+k - 1].key; if (S.route.page !== 'project') M.go('project', S.route.pid, v); else M.setView(v); return; }
+    if (k === 'Escape') {
+      if (S.palette) return M.set({ palette: false });
+      if (S.dialog) return M.closeDialog();
+      if (S.newCard) return M.set({ newCard: null });
+      if (S.newProject) return M.set({ newProject: null });
+      if (S.removeProject) return M.set({ removeProject: null });
+      if (S.menu) return M.set({ menu: null });
+      if (S.noticesOpen) return M.set({ noticesOpen: false });
+      if (S.sideOpen) return M.set({ sideOpen: false });
+      if (inField) { ae.blur(); return; }
+      if (S.openId) return M.closeCard();
+      return;
+    }
+    if (S.palette || S.dialog || S.newCard || S.newProject || S.removeProject || inField || mod || e.altKey) return;
+    const id = S.openId || S.focusId;
+    const kl = k.length === 1 ? k.toLowerCase() : k;
+    if (kl === 'n') { e.preventDefault(); if (S.route.page !== 'project') M.go('project', S.route.pid, 'board'); M.newCard(); }
+    else if (k === '/') { const el = document.querySelector('[data-search]'); if (el) { e.preventDefault(); el.focus(); } }
+    else if (kl === 'a') { if (id && M.pendingApproval(id)) { e.preventDefault(); M.approve(id); } }
+    else if (kl === 's') { if (id && M.card(id)) { const c = M.card(id); c.asleep ? M.wake(id) : M.sleep(id); } }
+    else if (kl === 'p') { if (id && M.card(id)) M.pin(id); }
+    else if (k === 'Enter') { if (S.focusId && (ae === document.body || !ae)) { e.preventDefault(); M.openCard(S.focusId); } }
+    else if (/^Arrow/.test(k) && !(ae && ae.closest && ae.closest('[data-no-nav]'))) this.nav(k, e);
+  }
+  nav(k, e) {
+    const n = M.nav; if (!n) return; const S = M.S; let next = null;
+    if (n.grid) {
+      const g = n.grid; let ci = -1, ri = -1;
+      g.forEach((col, i) => { const j = col.indexOf(S.focusId); if (j >= 0) { ci = i; ri = j; } });
+      if (ci < 0) { const f = g.find(c => c.length); next = f && f[0]; }
+      else if (k === 'ArrowDown') next = g[ci][Math.min(ri + 1, g[ci].length - 1)];
+      else if (k === 'ArrowUp') next = g[ci][Math.max(ri - 1, 0)];
+      else { const d = k === 'ArrowRight' ? 1 : -1; let c = ci + d; while (c >= 0 && c < g.length && !g[c].length) c += d; if (c >= 0 && c < g.length) next = g[c][Math.min(ri, g[c].length - 1)]; }
+    } else if (n.rows) {
+      if (k !== 'ArrowDown' && k !== 'ArrowUp') return;
+      const i = n.rows.indexOf(S.focusId);
+      next = n.rows[i < 0 ? 0 : Math.max(0, Math.min(n.rows.length - 1, i + (k === 'ArrowDown' ? 1 : -1)))];
+    }
+    if (next == null) return;
+    e.preventDefault(); M.set({ focusId: next });
+    setTimeout(() => { const el = document.querySelector('[data-card="' + next + '"]'); if (el) el.focus(); }, 20);
+  }
+  paletteResults() {
+    const all = M.commands(); const q = this.state.pq.trim().toLowerCase(); const toks = q.split(/\s+/).filter(Boolean);
+    let res = all.filter(x => toks.every(t => (x.label + ' ' + (x.hint || '') + ' ' + x.group).toLowerCase().includes(t)));
+    if (!q) { const needs = M.needs().map(c => all.find(x => x.group === 'Cards' && x.label.startsWith('#' + c.id + ' '))); res = res.filter(x => x.group !== 'Cards').concat(needs.filter(Boolean).map(x => Object.assign({}, x, { group: 'Cards that need you' }))); }
+    return res.slice(0, 60);
+  }
+  renderVals() {
+    const frame = this.frameVals();
+    if (!window.M || !this.state.ready) return Object.assign(frame, { ready: false });
+    const S = M.S; const tone = M.tone; const S2 = S;
+    const vw = S.vw; const phone = vw < 640; const tablet = vw >= 640 && vw < 1200; const desktop = vw >= 1200; const touch = !desktop;
+    const route = S.route; const page = route.page; const pid = route.pid; const view = route.view;
+    const p = M.proj(pid) || S.projects[0] || { id: null, name: 'No projects', lang: '' };
+    const isProject = page === 'project' && !!M.proj(pid);
+    const sideOverlay = tablet && !!S.sideOpen;
+    const sidebarOpen = desktop ? !S.sidebarCollapsed : sideOverlay;
+    const mod = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl';
+    const closeMenu = () => M.set({ menu: null });
+    const menu = S.menu;
+
+    const projects = S.projects.map(pp => {
+      const n = M.needs(pp.id).length; const aw = M.awake(pp.id).length; const ci = M.CI[pp.ci] || M.CI.queued; const selected = isProject && pid === pp.id; const open = menu === 'proj:' + pp.id;
+      const done = save => { if (S2.renaming !== pp.id) return; S2.renaming = null; if (save != null && save !== pp.name) M.renameProject(pp.id, save); else M.emit(); };
+      return { id: pp.id, name: pp.name, initial: pp.name[0] ? pp.name[0].toUpperCase() : '?', selected, bg: selected ? 'var(--color-surface-selected)' : 'transparent', needs: n, hasNeeds: n > 0, collapsedNeeds: n > 0 && !sidebarOpen, awake: aw, ciIcon: ci.icon, ciColor: ci.color,
+        tip: pp.name + ': ' + n + ' need you, main CI ' + ci.label.toLowerCase() + ', ' + aw + ' awake agents', go: () => { M.set({ sideOpen: false }); M.go('project', pp.id); },
+        renaming: S.renaming === pp.id, notRenaming: S.renaming !== pp.id, menuOpen: open, menuLabel: 'More actions for ' + pp.name,
+        toggleMenu: e => { e.stopPropagation(); M.set({ menu: open ? null : 'proj:' + pp.id }); },
+        rename: () => M.set({ renaming: pp.id, menu: null }),
+        settings: () => { S2.settingsSection = 'project'; S2.settingsPid = pp.id; S2.sideOpen = false; M.go('settings'); },
+        remove: () => M.set({ removeProject: { id: pp.id, keepBranches: true, keepMemory: true }, menu: null, sideOpen: false }),
+        renameRef: el => { if (el && !el._f) { el._f = 1; setTimeout(() => { el.focus(); el.select(); }, 0); } },
+        renameKey: e => { if (e.key === 'Enter') { e.preventDefault(); done(e.target.value); } if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); done(null); } },
+        renameBlur: e => done(e.target.value) };
+    });
+    const totalNeeds = M.needs().length;
+
+    const views = M.VIEWS.map((v, i) => { const sel = isProject && view === v.key; return Object.assign({}, v, { selected: sel, bg: sel ? 'var(--color-surface)' : 'transparent', border: sel ? 'var(--color-border-strong)' : 'transparent', color: sel ? 'var(--color-text-primary)' : 'var(--color-text-secondary)', tip: v.label + ' (' + mod + ' ' + (i + 1) + ')', go: () => M.setView(v.key) }); });
+
+    const showFilterBar = isProject && ['board', 'list', 'timeline'].includes(view) && !(phone && S.openId);
+    const f = S.filters[pid] || [];
+    const KL = { status: 'Status', role: 'Role', agent: 'Agent', label: 'Label', package: 'Package', model: 'Model' };
+    const chips = f.map(x => ({ k: KL[x.k], v: x.k === 'status' ? M.STATUS[x.v].label : x.v, removeLabel: 'Remove filter ' + KL[x.k] + ' ' + x.v, remove: () => M.removeFilter(x.k, x.v) }));
+    const pc = M.cardsOf(pid); const cnt = fn => pc.filter(fn).length; const uniq = a => Array.from(new Set(a)).filter(Boolean).sort();
+    const filterGroups = [
+      { label: 'Status', options: M.COLUMNS.map(s => ({ label: M.STATUS[s].label, hasIcon: true, icon: M.STATUS[s].icon, iconColor: tone(M.STATUS[s].tone, 'solid'), count: cnt(c => M.colOf(c.state) === s), add: () => M.addFilter('status', s) })) },
+      { label: 'Role', options: uniq(pc.map(c => c.role)).map(r => ({ label: r, count: cnt(c => c.role === r), add: () => M.addFilter('role', r) })) },
+      { label: 'Agent', options: uniq(pc.map(c => c.agent)).map(r => ({ label: r, count: cnt(c => c.agent === r), add: () => M.addFilter('agent', r) })) },
+      { label: 'Label', options: uniq([].concat(...pc.map(c => c.labels))).map(r => ({ label: r, count: cnt(c => c.labels.includes(r)), add: () => M.addFilter('label', r) })) }
+    ];
+    if (p.packages) filterGroups.push({ label: 'Package', options: p.packages.map(r => ({ label: r, count: cnt(c => c.pkg === r), add: () => M.addFilter('package', r) })) });
+    const sv = S.savedView[pid];
+    const savedViews = (S.savedViews[pid] || []).map(v => ({ name: v.name, current: v.name === sv, desc: v.swim !== 'none' ? 'By ' + v.swim : v.f.length ? v.f.length + (v.f.length > 1 ? ' filters' : ' filter') : '', apply: () => M.applyView(v.name) }));
+    const colNames = { id: 'ID', title: 'Title', state: 'State', role: 'Role', agent: 'Agent', model: 'Model', think: 'Thinking mode', branch: 'Branch', ci: 'CI', cost: 'Cost', upd: 'Updated', pkg: 'Package' };
+    const listCols = Object.keys(colNames).map(k => ({ label: colNames[k], on: !!S.listCols[k], toggle: () => { if (k === 'title') return; S2.listCols[k] = !S2.listCols[k]; M.emit(); } }));
+    const sheetBase = 'position:fixed; left:0; right:0; bottom:0; z-index:300; max-height:75%; overflow:auto; padding:8px 8px calc(12px + env(safe-area-inset-bottom)); border-radius:14px 14px 0 0; background:var(--color-surface-raised); box-shadow:var(--elevation-2)';
+    const pop = side => phone ? sheetBase : 'position:absolute; top:38px; ' + side + ':0; width:280px; max-height:420px; overflow:auto; padding:6px; border-radius:10px; border:1px solid var(--color-border); background:var(--color-surface-raised); box-shadow:var(--elevation-1); z-index:100';
+
+    const detailOpen = !!S.openId && !!M.card(S.openId);
+    const showMain = !(detailOpen && (phone || S.detailExpanded));
+    const is = v => isProject && view === v;
+    const detailW = Math.max(480, Math.min(760, S.detailW));
+    const detailStyle = phone ? 'position:fixed; inset:0; z-index:250; background:var(--color-surface)'
+      : tablet ? 'position:absolute; top:0; right:0; bottom:0; width:min(640px, 94%); z-index:150; background:var(--color-surface); box-shadow:var(--elevation-2)'
+      : S.detailExpanded ? 'position:relative; flex:1; min-width:0; background:var(--color-surface)'
+      : 'position:relative; flex:none; width:' + detailW + 'px; max-width:60%; background:var(--color-surface)';
+
+    const maxPanes = desktop ? 3 : tablet ? 1 : 0;
+    const panes = isProject && !S.detailExpanded ? S.split.slice(0, maxPanes).map((v, i) => ({ i, aria: 'Pane ' + (i + 2), chat: v === 'chat', agents: v === 'agents', board: v === 'board', list: v === 'list', timeline: v === 'timeline', calendar: v === 'calendar',
+      opts: M.VIEWS.map(x => ({ v: x.key, l: x.label, sel: x.key === v })), change: e => { S2.split[i] = e.target.value; M.emit(); }, close: () => { S2.split.splice(i, 1); M.emit(); } })) : [];
+
+    // notices
+    const nts = []; const needAll = M.needs();
+    const act = (label, run, primary) => ({ label, run, bg: primary ? 'var(--color-ink)' : 'var(--color-surface)', color: primary ? 'var(--color-on-ink)' : 'var(--color-text-primary)', border: primary ? 'var(--color-ink)' : 'var(--color-border-strong)' });
+    const openC = (id, tab) => () => { M.set({ noticesOpen: false }); if (phone && S2.route.page !== 'project') M.go('project', M.card(id).p, 'board'); M.openCard(id, tab); };
+    if (needAll.length) nts.push({ key: 'needs', icon: 'st-needs', iconColor: tone('needs-you', 'solid'), title: needAll.length + (needAll.length === 1 ? ' card needs you' : ' cards need you'), sub: 'Across ' + new Set(needAll.map(c => c.p)).size + ' projects', when: 'Oldest ' + M.rel(needAll[0].upd).toLowerCase(), full: M.full(needAll[0].upd), dismissable: false,
+      rows: needAll.map(c => { const pa = M.pendingApproval(c.id); const acts = [act('Open', openC(c.id))]; if (pa && pa.k === 'approval') acts.unshift(act('Approve', () => M.approve(c.id), true)); if (pa && pa.k === 'plan') acts.unshift(act('Review plan', openC(c.id), true)); return { title: '#' + c.id + ' ' + c.title, sub: c.reason, subColor: tone('needs-you', 'text'), open: openC(c.id), actions: acts }; }), actions: [] });
+    S.notices.forEach(n => {
+      const base = { key: n.id, when: M.rel(n.ts), full: M.full(n.ts), dismissable: true, dismiss: () => M.dismissNotice(n.id), rows: [], actions: [] };
+      if (n.kind === 'sleep') {
+        const left = Math.max(0, Math.ceil((n.deadline - Date.now()) / 1000)); const mm = Math.floor(left / 60), ss = String(left % 60).padStart(2, '0');
+        nts.push(Object.assign(base, { icon: 'moon', iconColor: 'var(--color-text-secondary)', title: n.cards.length + (n.cards.length === 1 ? ' card is idle and will sleep in ' : ' cards are idle and will sleep in ') + mm + ':' + ss, sub: 'Sleeping frees memory and keeps each session. Cards wake in a few seconds when needed.', dismissable: false,
+          rows: n.cards.map(id => { const c = M.card(id); return { title: '#' + c.id + ' ' + c.title, sub: M.proj(c.p).name, subColor: 'var(--color-text-secondary)', open: openC(id), actions: [act('Keep awake', () => M.keepAwake(id)), act('Sleep now', () => M.sleep(id)), act('Pin', () => M.pin(id))] }; }),
+          actions: [act('Keep all awake', () => M.keepAllAwake()), act('Sleep all now', () => M.sleepAll())] }));
+      } else if (n.kind === 'cost') nts.push(Object.assign(base, { icon: 'circle-dollar-sign', iconColor: tone('needs-you', 'solid'), title: n.text, sub: n.sub, actions: [act('Open limits', () => { S2.settingsSection = 'limits'; S2.noticesOpen = false; M.go('settings'); })] }));
+      else { const danger = n.kind === 'ci' || n.kind === 'ci-main'; nts.push(Object.assign(base, { icon: danger ? 'circle-x' : n.kind === 'plan' ? 'st-needs' : 'bell', iconColor: danger ? tone('danger', 'solid') : tone('needs-you', 'solid'), title: n.text, sub: n.sub, actions: n.cardId && M.card(n.cardId) ? [act(n.kind === 'plan' ? 'Review plan' : 'Open card', openC(n.cardId), true)] : [] })); }
+    });
+    nts.forEach(n => { n.hasSub = !!n.sub; n.hasRows = n.rows.length > 0; n.hasActions = n.actions.length > 0; });
+    const noticeStyle = phone ? 'position:absolute; left:0; right:0; top:48px; bottom:0; z-index:100; display:flex; flex-direction:column; background:var(--color-canvas)'
+      : 'position:absolute; right:8px; top:52px; width:min(420px, calc(100% - 16px)); max-height:calc(100% - 60px); display:flex; flex-direction:column; z-index:100; border-radius:10px; border:1px solid var(--color-border); background:var(--color-surface-raised); box-shadow:var(--elevation-1)';
+
+    // sheets (phone)
+    const pickItems = [{ icon: 'house', label: 'Home', current: page === 'home' ? 'page' : undefined, run: () => { closeMenu(); M.go('home'); }, badge: totalNeeds }]
+      .concat(S.projects.map(pp => ({ icon: 'folder-git-2', label: pp.name, current: isProject && pid === pp.id ? 'page' : undefined, badge: M.needs(pp.id).length, run: () => { closeMenu(); M.go('project', pp.id); } })))
+      .concat([{ icon: 'folder-plus', label: 'New project', run: () => M.set({ menu: null, newProject: { source: 'folder', path: '', url: '', name: '', branch: 'main' } }) }]);
+    const moreItems = [
+      { icon: 'search', label: 'Search', hint: 'Actions, cards, settings', run: () => { closeMenu(); this.openPalette(); } },
+      { icon: 'list', label: 'List view', run: () => { closeMenu(); M.go('project', pid, 'list'); } },
+      { icon: 'gantt-chart', label: 'Timeline view', run: () => { closeMenu(); M.go('project', pid, 'timeline'); } },
+      { icon: 'calendar', label: 'Calendar view', run: () => { closeMenu(); M.go('project', pid, 'calendar'); } },
+      { icon: 'plus', label: 'New card', run: () => { closeMenu(); if (!isProject) M.go('project', pid, 'board'); M.newCard(); } },
+      { icon: 'folder-plus', label: 'New project', run: () => M.set({ menu: null, newProject: { source: 'folder', path: '', url: '', name: '', branch: 'main' } }) },
+      { icon: 'settings', label: 'Settings', run: () => { closeMenu(); M.go('settings'); } },
+      { icon: 'map', label: 'Replay tour', run: () => M.startTour() }
+    ];
+    const sheetItems = (menu === 'picker' ? pickItems : moreItems).map(it => Object.assign({ hasBadge: !!it.badge, hasHint: !!it.hint, bg: it.current ? 'var(--color-surface-selected)' : 'transparent' }, it));
+
+    const avatarItems = [
+      { icon: 'user-round', label: 'Profile', run: () => { S2.settingsSection = 'profile'; closeMenu(); M.go('settings'); } },
+      { icon: 'settings', label: 'Settings', run: () => { S2.settingsSection = 'general'; closeMenu(); M.go('settings'); } },
+      { icon: 'keyboard', label: 'Keyboard shortcuts', run: () => { S2.settingsSection = 'shortcuts'; closeMenu(); M.go('settings'); } },
+      { icon: 'map', label: 'Replay tour', run: () => M.startTour() }
+    ];
+    const avatarMenuStyle = phone ? sheetBase : 'position:absolute; right:0; top:42px; width:240px; padding:6px; border-radius:10px; border:1px solid var(--color-border); background:var(--color-surface-raised); box-shadow:var(--elevation-1); z-index:200';
+    const initials = S.profile.name.split(/\s+/).map(x => x[0]).join('').slice(0, 2).toUpperCase();
+
+    // palette
+    const res = S.palette ? this.paletteResults() : []; const sel = Math.min(this.state.sel, Math.max(0, res.length - 1));
+    const results = res.map((x, i) => ({ i, label: x.label, icon: x.icon, iconColor: x.iconColor || 'var(--color-text-secondary)', hint: x.hint, hasHint: !!x.hint && !phone, kbd: (x.kbd || []).map(k => k === '⌘' ? mod : k), hasKbd: !!x.kbd && !phone, group: x.group, showGroup: i === 0 || res[i - 1].group !== x.group, selected: i === sel, bg: i === sel ? 'var(--color-surface-selected)' : 'transparent', hover: () => { if (this.state.sel !== i) this.setState({ sel: i }); }, run: () => { M.set({ palette: false }); x.run(); } }));
+    const paletteStyle = phone ? 'position:absolute; inset:0; z-index:400; display:flex; flex-direction:column; background:var(--color-surface-raised); padding-top:env(safe-area-inset-top)'
+      : 'position:absolute; z-index:400; left:50%; top:12%; transform:translateX(-50%); width:min(640px, calc(100% - 24px)); max-height:70%; display:flex; flex-direction:column; border-radius:14px; border:1px solid var(--color-border); background:var(--color-surface-raised); box-shadow:var(--elevation-2); overflow:hidden';
+    const sheet = w => (phone ? 'position:absolute; left:0; right:0; bottom:0; max-height:92%; border-radius:14px 14px 0 0; padding:20px 16px calc(20px + env(safe-area-inset-bottom));'
+      : 'position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:min(' + w + 'px, calc(100% - 24px)); max-height:90%; border-radius:14px; padding:20px;') + ' z-index:300; overflow:auto; border:1px solid var(--color-border); background:var(--color-surface-raised); box-shadow:var(--elevation-2); display:flex; flex-direction:column; gap:14px';
+
+    const dlg = S.dialog || {}; const dlgDisabled = !!dlg.ack && !dlg.acked;
+    const nc = S.newCard || {};
+    const dupes = S.newCard ? M.dupes(nc.title || '').map(c => ({ label: '#' + c.id + ' ' + c.title, open: () => { M.set({ newCard: null }); M.openCard(c.id); } })) : [];
+
+    // new project
+    const np = S.newProject || {};
+    const src = np.source === 'github' ? (np.url || '') : (np.path || '');
+    const detect = !src ? null : /mono|apps|workspace/i.test(src) ? 'mono' : /go|api|service/i.test(src) ? 'Go' : 'TypeScript';
+    const setNp = o => { Object.assign(S2.newProject, o); M.emit(); };
+    const autoName = v => (v.replace(/\.git$/, '').split(/[\/:]/).filter(Boolean).pop() || '');
+    // remove project
+    const rpS = S.removeProject; let rp = {};
+    if (rpS && M.proj(rpS.id)) {
+      const rpp = M.proj(rpS.id); const cs = M.cardsOf(rpS.id);
+      const unmerged = cs.filter(c => c.branch && c.state !== 'done').length; const awake = cs.filter(M.isAwake).length; const chatsN = (S.chats[rpS.id] || []).length;
+      rp = { name: rpp.name, hasUnmerged: unmerged > 0, unmergedLabel: unmerged + (unmerged === 1 ? ' card has unmerged work' : ' cards have unmerged work'), keepBranches: rpS.keepBranches, keepMemory: rpS.keepMemory, memPath: 'vault/projects/' + rpp.name + '/',
+        effects: [{ icon: 'square', text: 'Running sessions stop. ' + awake + ' agents are awake now.' }, { icon: 'folder-minus', text: 'Worktrees are cleaned up. ' + cs.filter(c => c.branch && c.state !== 'done').length + ' worktrees.' }, { icon: 'trash-2', text: 'Cards and chats are removed from Marshal. ' + cs.length + ' cards and ' + chatsN + ' chats.' }],
+        toggleBranches: () => { rpS.keepBranches = !rpS.keepBranches; M.emit(); }, toggleMemory: () => { rpS.keepMemory = !rpS.keepMemory; M.emit(); } };
+    }
+
+    // bottom nav
+    const cur = { home: page === 'home', board: isProject && view === 'board', chat: isProject && view === 'chat', agents: isProject && view === 'agents', more: menu === 'more' || page === 'settings' || (isProject && ['list', 'timeline', 'calendar'].includes(view)) };
+    const mobileNav = [['home', 'Home', 'house', () => M.go('home')], ['board', 'Board', 'square-kanban', () => M.go('project', pid, 'board')], ['chat', 'Chats', 'messages-square', () => M.go('project', pid, 'chat')], ['agents', 'Agents', 'bot', () => M.go('project', pid, 'agents')], ['more', 'More', 'ellipsis', () => M.set({ menu: 'more' })]]
+      .map(([k, l, ic, go]) => ({ key: k, label: l, icon: ic, tour: k === 'more' ? 'more-phone' : '', current: cur[k] ? 'page' : undefined, go: () => { M.set({ openId: null, noticesOpen: false }); go(); }, hasBadge: k === 'home' && totalNeeds > 0, badge: totalNeeds, color: cur[k] ? 'var(--color-text-primary)' : 'var(--color-text-secondary)', weight: cur[k] ? '600' : '400' }));
+
+    return Object.assign(frame, {
+      ready: true, size: phone ? 'phone' : tablet ? 'tablet' : 'desktop', touchAttr: touch ? '1' : '0', phone, notPhone: !phone, desktop,
+      showSidebar: !phone, slotW: phone ? '0px' : desktop && !S.sidebarCollapsed ? '232px' : '56px', sideOverlay, closeSide: () => M.set({ sideOpen: false }),
+      navStyle: sideOverlay ? 'position:absolute; left:0; top:0; bottom:0; width:232px; z-index:160; box-shadow:var(--elevation-2)' : 'position:absolute; inset:0',
+      sidebarOpen, showSideToggle: sidebarOpen, iconExpand: !sidebarOpen, itemPad: sidebarOpen ? '8px' : '0', itemJustify: sidebarOpen ? 'flex-start' : 'center',
+      toggleSidebar: () => { if (tablet) M.set({ sideOpen: !S2.sideOpen }); else M.set({ sidebarCollapsed: !S2.sidebarCollapsed }); }, collapseLabel: 'Collapse sidebar', collapseIcon: 'panel-left-close',
+      goHome: () => { M.set({ sideOpen: false }); M.go('home'); }, homeSel: page === 'home', homeCurrent: page === 'home' ? 'page' : undefined, homeBg: page === 'home' ? 'var(--color-surface-selected)' : 'transparent',
+      totalNeeds, totalNeedsShow: totalNeeds > 0 && sidebarOpen, totalNeedsPhone: totalNeeds > 0 && page !== 'home', totalNeedsTitle: totalNeeds + ' cards need you across all projects',
+      projects, projectsTour: phone ? '' : 'projects', newProjectTour: phone ? '' : 'new-project',
+      openNewProject: () => M.set({ newProject: { source: 'folder', path: '', url: '', name: '', branch: 'main' }, sideOpen: false }),
+      goSettings: () => { M.set({ sideOpen: false }); M.go('settings'); }, settingsSel: page === 'settings', settingsCurrent: page === 'settings' ? 'page' : undefined, settingsBg: page === 'settings' ? 'var(--color-surface-selected)' : 'transparent',
+
+      barPad: phone ? '8px' : '16px', title: page === 'home' ? 'Home' : page === 'all' ? (S.allKind === 'ci' ? 'CI health' : 'Recent activity') : page === 'settings' ? 'Settings' : p.name, subtitle: isProject ? p.lang : '', hasSubtitle: isProject && !phone,
+      openPicker: () => M.set({ menu: 'picker' }), openPalette: this.openPalette, modKey: mod, searchW: desktop ? '220px' : '40px', searchJustify: desktop ? 'flex-start' : 'center',
+      themeIcon: S.resolvedTheme === 'dark' ? 'sun' : 'moon', themeLabel: S.resolvedTheme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme', toggleTheme: () => { M.setTheme(S2.resolvedTheme === 'dark' ? 'light' : 'dark'); M.toast(S2.resolvedTheme === 'dark' ? 'Dark theme on' : 'Light theme on'); },
+      toggleNotices: () => M.set({ noticesOpen: !S2.noticesOpen, menu: null }), noticesOpen: S.noticesOpen, noticesBg: S.noticesOpen ? 'var(--color-surface-selected)' : 'transparent', hasNotices: nts.length > 0, noticeCount: nts.length, noticesLabel: 'Notices, ' + nts.length,
+      toggleAvatar: () => M.set({ menu: menu === 'avatar' ? null : 'avatar', noticesOpen: false }), avatarOpen: menu === 'avatar', avatarItems, avatarMenuStyle, initials, profileName: S.profile.name, tailnet: S.profile.tailnet, closeMenu,
+
+      showViewHeader: isProject && !phone, views, tabH: touch ? '40px' : '26px', canSplit: isProject && S.split.length < maxPanes && !S.detailExpanded,
+      addSplit: () => { const used = [view].concat(S2.split); S2.split.push((M.VIEWS.find(v => !used.includes(v.key)) || M.VIEWS[0]).key); M.emit(); },
+      showNewCard: isProject && ['board', 'list', 'timeline', 'agents'].includes(view), newCard: () => M.newCard(),
+
+      showFilterBar, fbWrap: phone ? 'nowrap' : 'wrap', fbOverflow: phone ? 'auto' : 'visible', filterW: phone ? '150px' : '200px',
+      query: S.query[pid] || '', onQuery: e => { S2.query[pid] = e.target.value; M.emit(); }, chips, hasFilters: f.length > 0 || !!S.query[pid], clearFilters: () => M.clearFilters(),
+      toggleFilterMenu: () => M.set({ menu: menu === 'filter' ? null : 'filter' }), filterMenuOpen: menu === 'filter', filterGroups, popLeft: pop('left'), popRight: pop('right'),
+      toggleViewsMenu: () => M.set({ menu: menu === 'views' ? null : 'views' }), viewsMenuOpen: menu === 'views', savedViews, savedViewLabel: sv || 'Unsaved view',
+      onSaveView: e => { e.preventDefault(); M.saveView(e.target.viewname.value.trim()); },
+      showSwim: view === 'board' && !phone, swimOpts: [['none', 'None'], ['role', 'Role'], ['agent', 'Agent'], ['package', 'Package'], ['label', 'Label']].map(([v, l]) => ({ v, l, sel: S.swim[pid] === v })), onSwim: e => { S2.swim[pid] = e.target.value; S2.savedView[pid] = null; M.emit(); },
+      showCols: view === 'list' && !phone, toggleColsMenu: () => M.set({ menu: menu === 'cols' ? null : 'cols' }), colsMenuOpen: menu === 'cols', listCols,
+
+      showMain, vHome: page === 'home', vAll: page === 'all', vSettings: page === 'settings', vChat: is('chat'), vAgents: is('agents'), vBoard: is('board'), vList: is('list'), vTimeline: is('timeline'), vCalendar: is('calendar'), panes,
+      hasDetail: detailOpen, detailBackdrop: detailOpen && tablet, closeCard: () => M.closeCard(), showHandle: detailOpen && desktop && !S.detailExpanded, detailStyle, detailWNum: detailW,
+      resizeDown: e => { e.preventDefault(); const sx = e.clientX, w0 = detailW, k = M._scale || 1; const mv = ev => { S2.detailW = Math.max(480, Math.min(760, w0 - (ev.clientX - sx) / k)); M.emit(); }; const up = () => { window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); }; window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up); },
+      resizeKey: e => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); S2.detailW = Math.max(480, Math.min(760, detailW + (e.key === 'ArrowLeft' ? 24 : -24))); M.emit(); } },
+
+      mobileNav, sheetOpen: phone && (menu === 'picker' || menu === 'more'), sheetTitle: menu === 'picker' ? 'Go to' : 'More', sheetItems,
+      showNotices: S.noticesOpen, noticeStyle, notices: nts, noNotices: nts.length === 0, closeNotices: () => M.set({ noticesOpen: false }),
+
+      paletteOpen: S.palette, closePalette: () => M.set({ palette: false }), paletteRef: this.paletteRef, pq: this.state.pq, paletteStyle,
+      onPq: e => this.setState({ pq: e.target.value, sel: 0 }), results, noResults: S.palette && res.length === 0,
+      onPaletteKey: e => {
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); const n = Math.max(0, Math.min(res.length - 1, sel + (e.key === 'ArrowDown' ? 1 : -1))); this.setState({ sel: n }); setTimeout(() => { const el = document.querySelector('[data-pi="' + n + '"]'); if (el && el.parentNode) { const pr = el.parentNode; if (el.offsetTop < pr.scrollTop) pr.scrollTop = el.offsetTop - 8; else if (el.offsetTop + el.offsetHeight > pr.scrollTop + pr.clientHeight) pr.scrollTop = el.offsetTop + el.offsetHeight - pr.clientHeight + 8; } }, 0); }
+        if (e.key === 'Enter' && res[sel]) { e.preventDefault(); M.set({ palette: false }); res[sel].run(); }
+      },
+      sheet460: sheet(460), sheet520: sheet(520), sheet560: sheet(560),
+      hasDialog: !!S.dialog, dlg, dlgHasAck: !!dlg.ack, dlgDisabled, dlgOpacity: dlgDisabled ? '0.5' : '1', dlgBtnBg: dlg.destructive ? 'var(--color-bypass-bg)' : 'var(--color-ink)', dlgBtnColor: dlg.destructive ? '#FFFFFF' : 'var(--color-on-ink)', dlgCancelRef: this.dlgCancelRef,
+      toggleAck: () => { S2.dialog.acked = !S2.dialog.acked; M.emit(); }, closeDialog: () => M.closeDialog(),
+      confirmDialog: () => { const d = S2.dialog; if (!d || (d.ack && !d.acked)) return; M.set({ dialog: null }); d.run && d.run(); },
+      trapKey: e => { if (e.key !== 'Tab') return; const box = e.currentTarget; const fs = Array.from(box.querySelectorAll('button:not([disabled]),input,select,textarea,[tabindex="0"]')); if (!fs.length) return; const first = fs[0], last = fs[fs.length - 1]; if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); } else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); } },
+
+      hasNewCard: !!S.newCard, nc, projName: p.name, ncTitleRef: this.ncTitleRef, closeNewCard: () => M.set({ newCard: null }),
+      ncTitle: e => { S2.newCard.title = e.target.value; M.emit(); }, ncBody: e => { S2.newCard.body = e.target.value; M.emit(); },
+      ncTemplate: e => { S2.newCard.template = e.target.value; M.emit(); }, ncRole: e => { S2.newCard.role = e.target.value; M.emit(); }, ncAgent: e => { S2.newCard.agent = e.target.value; M.emit(); }, ncStart: () => { S2.newCard.start = !S2.newCard.start; M.emit(); },
+      submitNewCard: e => { e.preventDefault(); M.createCard(); }, ncDisabled: !(nc.title || '').trim(), ncOpacity: (nc.title || '').trim() ? '1' : '0.5',
+      tplOpts: ['Blank', 'Bug fix', 'New endpoint', 'Refactor', 'Plan first'].map(v => ({ v, sel: v === (nc.template || 'Blank') })), roleOpts: M.ROLE_NAMES.map(v => ({ v, sel: v === (nc.role || 'Worker') })), agentOpts: Object.keys(M.AGENTS).map(v => ({ v, sel: v === (nc.agent || 'Claude Code') })), dupes, hasDupes: dupes.length > 0,
+
+      hasNewProject: !!S.newProject, np, closeNewProject: () => M.set({ newProject: null }), npFolder: np.source !== 'github', npGithub: np.source === 'github',
+      npSources: [['folder', 'Pick a folder', 'folder-open'], ['github', 'Clone from GitHub', 'github']].map(([k, l, ic]) => ({ label: l, icon: ic, sel: (np.source || 'folder') === k, bg: (np.source || 'folder') === k ? 'var(--color-surface)' : 'transparent', border: (np.source || 'folder') === k ? 'var(--color-border-strong)' : 'transparent', go: () => setNp({ source: k }) })),
+      npPath: e => setNp({ path: e.target.value, name: np.nameTouched ? np.name : autoName(e.target.value) }), npUrl: e => setNp({ url: e.target.value, name: np.nameTouched ? np.name : autoName(e.target.value) }),
+      npChoose: () => setNp({ path: '~/code/billing-service', name: np.nameTouched ? np.name : 'billing-service' }),
+      npName: e => setNp({ name: e.target.value, nameTouched: true }), npBranch: e => setNp({ branch: e.target.value }),
+      npDetect: !detect ? 'Choose a folder or paste a URL. Marshal detects the language and monorepo tools.' : detect === 'mono' ? 'Detected a monorepo: pnpm workspaces with 3 packages. It gets one board with package swimlanes.' : 'Detected a ' + detect + ' project on branch ' + (np.branch || 'main') + '.',
+      npDetectIcon: detect ? 'scan-search' : 'info',
+      npDisabled: !(src.trim() && (np.name || '').trim()), npOpacity: src.trim() && (np.name || '').trim() ? '1' : '0.5',
+      submitNewProject: e => { e.preventDefault(); if (!src.trim() || !(np.name || '').trim()) return; const id = M.addProject({ name: np.name.trim(), path: np.source === 'github' ? '~/code/' + autoName(src) : src, branch: np.branch, mono: detect === 'mono', lang: detect === 'Go' ? 'Go' : 'TypeScript' }); M.set({ newProject: null }); M.go('project', id, 'board'); M.toast('Project added'); },
+
+      hasRemove: !!rpS && !!M.proj(rpS && rpS.id), rp, closeRemove: () => M.set({ removeProject: null }), confirmRemove: () => { const id = rpS.id; M.set({ removeProject: null }); M.removeProject(id); },
+
+      showOnboarding: !!S.onboarding, showTour: !!S.tour && !S.onboarding,
+      toastBottom: phone ? 'calc(72px + env(safe-area-inset-bottom))' : '16px',
+      toasts: S.toasts.map(t => ({ msg: t.msg, hasAction: !!t.action, actionLabel: t.action ? t.action.label : '', runAction: () => { t.dismiss(); t.action.run(); }, dismiss: t.dismiss })),
+      announce: S.announce
+    });
+  }
+}
+</script>
+</body>
+</html>

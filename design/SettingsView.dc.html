@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div data-no-nav="1" style="position:absolute; inset:0; display:flex; flex-direction:{{ dir }}; background:var(--color-canvas)">
+  <nav aria-label="Settings sections" style="flex:none; width:{{ navW }}; display:flex; flex-direction:{{ navDir }}; gap:2px; padding:{{ navPad }}; overflow:auto; border-right:{{ navBorderR }}; border-bottom:{{ navBorderB }}; background:var(--color-canvas)">
+    <sc-for list="{{ sections }}" as="s">
+      <button onClick="{{ s.go }}" aria-current="{{ s.current }}" style="flex:none; display:flex; align-items:center; gap:8px; min-height:{{ ctl }}; padding:0 10px; border:none; border-radius:5px; background:{{ s.bg }}; font-weight:{{ s.weight }}; text-align:left; white-space:nowrap" style-hover="background:var(--color-surface-hover)"><m-icon name="{{ s.icon }}" size="16"></m-icon>{{ s.label }}</button>
+    </sc-for>
+  </nav>
+  <div style="flex:1; min-width:0; overflow:auto">
+    <div style="max-width:880px; padding:{{ pad }}; display:flex; flex-direction:column; gap:24px">
+
+      <sc-if value="{{ sProfile }}">
+        <form onSubmit="{{ saveProfile }}" style="display:flex; flex-direction:column; gap:16px">
+          <h2 style="margin:0; font-size:22px; line-height:28px; font-weight:700">Profile</h2>
+          <div style="display:flex; flex-wrap:wrap; align-items:center; gap:16px">
+            <span aria-label="Your avatar" style="width:64px; height:64px; border-radius:9999px; background:var(--color-surface-selected); border:1px solid var(--color-border-strong); display:inline-flex; align-items:center; justify-content:center; font-size:22px; font-weight:700">{{ pInitials }}</span>
+            <div style="display:flex; gap:8px; flex-wrap:wrap"><button type="button" onClick="{{ uploadAvatar }}" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-weight:500">Upload image</button><span style="align-self:center; font-size:13px; color:var(--color-text-secondary)">Without an image, Marshal shows your initials.</span></div>
+          </div>
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:16px">
+            <label style="display:flex; flex-direction:column; gap:6px"><span style="font-weight:500">Name</span><input value="{{ pd.name }}" onInput="{{ pf.name }}" style="height:32px; padding:0 10px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface)"></input>
+              <sc-if value="{{ nameErr }}"><span style="font-size:13px; color:var(--color-status-danger-text)">Enter a name. It shows on cards you comment on.</span></sc-if></label>
+            <label style="display:flex; flex-direction:column; gap:6px"><span style="font-weight:500">Email</span><input type="email" value="{{ pd.email }}" onInput="{{ pf.email }}" placeholder="Optional" style="height:32px; padding:0 10px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface)"></input><span style="font-size:13px; line-height:18px; color:var(--color-text-secondary)">Used only to send briefs by email.</span></label>
+            <label style="display:flex; flex-direction:column; gap:6px"><span style="font-weight:500">Time zone</span><select onChange="{{ pf.tz }}" style="height:32px; padding:0 10px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface)"><sc-for list="{{ tzOpts }}" as="o"><option value="{{ o.v }}" selected="{{ o.sel }}">{{ o.v }}</option></sc-for></select><span style="font-size:13px; line-height:18px; color:var(--color-text-secondary)">Briefs and schedules run in this time zone.</span></label>
+          </div>
+          <div><button type="submit" disabled="{{ profileClean }}" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-ink); background:var(--color-ink); color:var(--color-on-ink); font-weight:600; opacity:{{ profileOpacity }}">Save profile</button></div>
+          <h3 style="margin:8px 0 0; font-size:16px; line-height:22px; font-weight:600">Paired devices</h3>
+          <div style="display:flex; flex-direction:column; border-top:1px solid var(--color-border)">
+            <sc-if value="{{ noDevices }}"><p style="margin:10px 0; color:var(--color-text-secondary)">No paired devices.</p></sc-if>
+            <sc-for list="{{ devices }}" as="d">
+              <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; padding:10px 0; border-bottom:1px solid var(--color-border)">
+                <m-icon name="{{ d.kind }}" size="18"></m-icon><span style="flex:1 1 160px; display:flex; flex-direction:column"><span style="font-weight:600">{{ d.name }}</span><span style="font-size:13px; color:var(--color-text-secondary)">Last seen {{ d.when }}</span></span>
+                <button type="button" onClick="{{ d.remove }}" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-weight:500; color:var(--color-status-danger-text)">Remove device</button>
+              </div>
+            </sc-for>
+            <div style="display:flex; flex-wrap:wrap; align-items:center; gap:12px; padding:12px 0">
+              <button type="button" onClick="{{ pairDevice }}" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-weight:500">Pair a device</button>
+              <sc-if value="{{ pairing }}"><span style="display:flex; align-items:center; gap:8px"><span style="font-size:13px; color:var(--color-text-secondary)">Enter this code on the device</span><code style="font-family:var(--font-mono); font-size:18px; font-weight:600; padding:2px 8px; border-radius:5px; background:var(--color-surface-sunken)">7QX-2LD</code></span></sc-if>
+            </div>
+          </div>
+          <h3 style="margin:8px 0 0; font-size:16px; line-height:22px; font-weight:600">Tailnet identity</h3>
+          <div style="display:grid; grid-template-columns:max-content 1fr; gap:6px 16px; font-size:14px">
+            <span style="color:var(--color-text-secondary)">Account</span><span>{{ tailnet }}</span>
+            <span style="color:var(--color-text-secondary)">This machine</span><code style="font-family:var(--font-mono); font-size:13px">{{ node }}</code>
+          </div>
+        </form>
+      </sc-if>
+
+      <sc-if value="{{ sProject }}">
+        <form onSubmit="{{ saveProject }}" style="display:flex; flex-direction:column; gap:16px">
+          <div style="display:flex; flex-wrap:wrap; align-items:center; gap:12px"><h2 style="margin:0; flex:1; font-size:22px; line-height:28px; font-weight:700">Project settings</h2>
+            <select onChange="{{ pickProject }}" aria-label="Project" style="height:32px; padding:0 10px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-weight:600"><sc-for list="{{ projOpts }}" as="o"><option value="{{ o.v }}" selected="{{ o.sel }}">{{ o.l }}</option></sc-for></select></div>
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:16px">
+            <label style="display:flex; flex-direction:column; gap:6px"><span style="font-weight:500">Name</span><input value="{{ prd.name }}" onInput="{{ prf.name }}" style="height:32px; padding:0 10px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface)"></input></label>
+            <label style="display:flex; flex-direction:column; gap:6px"><span style="font-weight:500">Default branch</span><input value="{{ prd.branch }}" onInput="{{ prf.branch }}" style="height:32px; padding:0 10px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-family:var(--font-mono); font-size:13px"></input></label>
+            <label style="display:flex; flex-direction:column; gap:6px"><span style="font-weight:500">Dev command</span><input value="{{ prd.dev }}" onInput="{{ prf.dev }}" placeholder="pnpm dev" style="height:32px; padding:0 10px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-family:var(--font-mono); font-size:13px"></input><span style="font-size:13px; line-height:18px; color:var(--color-text-secondary)">Runs in a card's worktree for the live preview.</span></label>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:4px"><span style="font-weight:500">Repository</span><code style="font-family:var(--font-mono); font-size:13px; color:var(--color-text-secondary)">{{ prPath }}</code><span style="font-size:13px; color:var(--color-text-secondary)">{{ prKind }}</span></div>
+          <label style="display:flex; align-items:center; gap:10px; cursor:pointer"><input type="checkbox" checked="{{ prd.lockBypass }}" onChange="{{ prf.lock }}" style="width:18px; height:18px; margin:0; accent-color:var(--color-ink)"></input><span style="display:flex; flex-direction:column"><span style="font-weight:500">Lock bypass permissions</span><span style="font-size:13px; color:var(--color-text-secondary)">Nobody can turn on bypass for cards in this project.</span></span></label>
+          <div style="display:flex; flex-wrap:wrap; gap:8px"><button type="submit" disabled="{{ projClean }}" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-ink); background:var(--color-ink); color:var(--color-on-ink); font-weight:600; opacity:{{ projOpacity }}">Save project</button>
+            <button type="button" onClick="{{ removeProj }}" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-weight:500; color:var(--color-status-danger-text)">Remove project</button></div>
+        </form>
+      </sc-if>
+
+      <sc-if value="{{ sHelp }}">
+        <section style="display:flex; flex-direction:column; gap:12px">
+          <h2 style="margin:0; font-size:22px; line-height:28px; font-weight:700">Help</h2>
+          <sc-for list="{{ helpItems }}" as="h">
+            <div style="display:flex; flex-wrap:wrap; align-items:center; gap:12px; padding:12px 0; border-top:1px solid var(--color-border)">
+              <m-icon name="{{ h.icon }}" size="18"></m-icon><span style="flex:1 1 220px; display:flex; flex-direction:column"><span style="font-weight:600">{{ h.title }}</span><span style="font-size:13px; color:var(--color-text-secondary)">{{ h.desc }}</span></span>
+              <button onClick="{{ h.run }}" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-weight:500">{{ h.btn }}</button>
+            </div>
+          </sc-for>
+        </section>
+      </sc-if>
+
+      <sc-if value="{{ sGeneral }}">
+        <section style="display:flex; flex-direction:column; gap:16px">
+          <h2 style="margin:0; font-size:22px; line-height:28px; font-weight:700">Theme</h2>
+          <div role="radiogroup" aria-label="Theme" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:12px">
+            <sc-for list="{{ themes }}" as="t">
+              <button role="radio" aria-checked="{{ t.sel }}" onClick="{{ t.go }}" style="display:flex; flex-direction:column; gap:10px; padding:12px; border-radius:10px; border:{{ t.border }}; background:var(--color-surface); text-align:left">
+                <span style="display:flex; height:72px; border-radius:7px; overflow:hidden; border:1px solid var(--color-border)">
+                  <span style="flex:1; background:{{ t.a }}; display:flex; flex-direction:column; gap:6px; padding:8px"><span style="height:8px; width:60%; border-radius:2px; background:{{ t.line }}"></span><span style="height:22px; border-radius:3px; border:1px solid {{ t.line }}; border-left:3px solid #1E9E5A; background:{{ t.card }}"></span></span>
+                  <span style="flex:1; background:{{ t.b }}; display:flex; flex-direction:column; gap:6px; padding:8px"><span style="height:8px; width:60%; border-radius:2px; background:{{ t.line2 }}"></span><span style="height:22px; border-radius:3px; border:1px solid {{ t.line2 }}; border-left:3px solid #F2B81F; background:{{ t.card2 }}"></span></span>
+                </span>
+                <span style="display:flex; align-items:center; gap:8px; font-weight:600"><m-icon name="{{ t.icon }}" size="16"></m-icon>{{ t.label }}<sc-if value="{{ t.sel }}"><span style="margin-left:auto; display:inline-flex"><m-icon name="circle-check" size="16"></m-icon></span></sc-if></span>
+                <span style="font-size:13px; line-height:18px; color:var(--color-text-secondary)">{{ t.desc }}</span>
+              </button>
+            </sc-for>
+          </div>
+          <div style="display:flex; flex-wrap:wrap; align-items:center; gap:12px; padding:12px 16px; border-radius:10px; border:1px solid var(--color-border); background:var(--color-surface)">
+            <m-icon name="palette" size="16"></m-icon>
+            <span style="flex:1 1 240px; display:flex; flex-direction:column"><span style="font-weight:600">Custom theme</span><span style="font-size:13px; line-height:18px; color:var(--color-text-secondary)">Override neutrals, ink, and status colors. A custom theme must pass the contrast checks before you can save it.</span></span>
+            <button onClick="{{ customTheme }}" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-weight:500">Create custom theme</button>
+          </div>
+          <h2 style="margin:8px 0 0; font-size:22px; line-height:28px; font-weight:700">Sessions</h2>
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:16px; padding:16px; border-radius:10px; border:1px solid var(--color-border); background:var(--color-surface)">
+            <label style="display:flex; flex-direction:column; gap:6px"><span style="font-weight:500">After a restart</span>
+              <select value="{{ restore }}" onChange="{{ onRestore }}" style="height:32px; padding:0 8px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface)"><option>Auto-restore on startup</option><option>Show a resume button on each card</option></select>
+              <span style="font-size:13px; line-height:18px; color:var(--color-text-secondary)">Cards that were awake pick up where they left off.</span></label>
+            <label style="display:flex; flex-direction:column; gap:6px"><span style="font-weight:500">Sleep idle cards after</span>
+              <select value="{{ idle }}" onChange="{{ onIdle }}" style="height:32px; padding:0 8px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface)"><option value="5">5 minutes</option><option value="15">15 minutes</option><option value="30">30 minutes</option><option value="60">1 hour</option></select>
+              <span style="font-size:13px; line-height:18px; color:var(--color-text-secondary)">You get a notice 2 minutes before a card sleeps.</span></label>
+            <label style="display:flex; flex-direction:column; gap:6px"><span style="font-weight:500">Sleep warnings go to</span>
+              <select value="{{ channel }}" onChange="{{ onChannel }}" style="height:32px; padding:0 8px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface)"><option>In app only</option><option>In app and Telegram</option><option>In app and Discord</option></select></label>
+          </div>
+        </section>
+      </sc-if>
+
+      <sc-if value="{{ sRoles }}">
+        <section style="display:flex; flex-direction:column; gap:16px">
+          <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">
+            <h2 style="margin:0; flex:1; font-size:22px; line-height:28px; font-weight:700">Roles</h2>
+            <button onClick="{{ newRole }}" style="display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-weight:500"><m-icon name="plus" size="16"></m-icon>New role</button>
+          </div>
+          <p style="margin:-8px 0 0; color:var(--color-text-secondary); max-width:72ch">Roles decide how an agent behaves. Marshal ships starter templates, and you can edit every field. Projects can override a role.</p>
+          <div style="display:grid; grid-template-columns:{{ roleCols }}; gap:16px; align-items:start">
+            <div role="listbox" aria-label="Roles" style="display:flex; flex-direction:column; border:1px solid var(--color-border); border-radius:10px; background:var(--color-surface); overflow:hidden">
+              <sc-for list="{{ roles }}" as="r">
+                <button role="option" aria-selected="{{ r.sel }}" onClick="{{ r.go }}" style="display:flex; flex-direction:column; gap:2px; padding:10px 12px; border:none; border-bottom:1px solid var(--color-border); background:{{ r.bg }}; text-align:left" style-hover="background:var(--color-surface-hover)">
+                  <span style="display:flex; align-items:center; gap:6px; font-weight:600">{{ r.name }}<sc-if value="{{ r.starter }}"><span style="height:18px; padding:0 6px; border-radius:3px; border:1px solid var(--color-border); font-size:12px; line-height:16px; font-weight:500; color:var(--color-text-secondary)">Starter</span></sc-if></span>
+                  <span style="display:flex; flex-wrap:wrap; gap:0 10px; font-size:12px; line-height:16px; color:var(--color-text-secondary)"><span>{{ r.model }}</span><span>{{ r.sub }}</span></span>
+                </button>
+              </sc-for>
+            </div>
+            <form onSubmit="{{ saveRole }}" style="display:flex; flex-direction:column; gap:14px; padding:16px; border:1px solid var(--color-border); border-radius:10px; background:var(--color-surface)">
+              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap">
+                <h3 style="margin:0; flex:1; font-size:18px; line-height:24px; font-weight:600">{{ rd.name }}</h3>
+                <sc-if value="{{ rdOverridden }}"><span style="font-size:13px; color:var(--color-text-secondary)">Overridden in api-gateway</span></sc-if>
+              </div>
+              <label style="display:flex; flex-direction:column; gap:6px"><span style="font-weight:500">Name</span><input value="{{ rd.name }}" onInput="{{ rf.name }}" style="height:32px; padding:0 10px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface)"></input></label>
+              <label style="display:flex; flex-direction:column; gap:6px"><span style="font-weight:500">Description</span><input value="{{ rd.desc }}" onInput="{{ rf.desc }}" style="height:32px; padding:0 10px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface)"></input></label>
+              <label style="display:flex; flex-direction:column; gap:6px"><span style="font-weight:500">Instructions</span><textarea value="{{ rd.instr }}" onInput="{{ rf.instr }}" rows="4" style="padding:8px 10px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); resize:vertical"></textarea><span style="font-size:13px; line-height:18px; color:var(--color-text-secondary)">The role's system prompt. Agents also get project memory and board status.</span></label>
+              <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:12px">
+                <sc-for list="{{ roleSelects }}" as="s">
+                  <label style="display:flex; flex-direction:column; gap:6px"><span style="font-weight:500">{{ s.label }}</span>
+                    <select onChange="{{ s.change }}" style="height:32px; padding:0 8px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface)"><sc-for list="{{ s.opts }}" as="o"><option value="{{ o.v }}" selected="{{ o.sel }}">{{ o.v }}</option></sc-for></select></label>
+                </sc-for>
+              </div>
+              <sc-if value="{{ weakWarn }}">
+                <div role="status" style="display:flex; gap:8px; padding:10px 12px; border-radius:7px; background:var(--color-status-needs-you-subtle); color:var(--color-status-needs-you-text); font-size:13px; line-height:18px"><m-icon name="triangle-alert" size="14"></m-icon><span>{{ weakText }}</span></div>
+              </sc-if>
+              <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:12px">
+                <label style="display:flex; flex-direction:column; gap:6px"><span style="font-weight:500">Time limit</span><span style="display:flex; align-items:center; gap:6px"><input type="number" min="1" value="{{ rd.limits.time }}" onInput="{{ rf.time }}" style="width:100%; height:32px; padding:0 10px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface)"></input><span style="color:var(--color-text-secondary)">min</span></span></label>
+                <label style="display:flex; flex-direction:column; gap:6px"><span style="font-weight:500">Cost limit</span><span style="display:flex; align-items:center; gap:6px"><span style="color:var(--color-text-secondary)">$</span><input type="number" min="0" step="0.5" value="{{ rd.limits.cost }}" onInput="{{ rf.cost }}" style="width:100%; height:32px; padding:0 10px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface)"></input></span></label>
+                <label style="display:flex; flex-direction:column; gap:6px"><span style="font-weight:500">Round limit</span><input type="number" min="1" value="{{ rd.limits.rounds }}" onInput="{{ rf.rounds }}" style="height:32px; padding:0 10px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface)"></input></label>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:6px"><span style="font-weight:500">Skills and MCP servers</span>
+                <div style="display:flex; flex-wrap:wrap; gap:6px">
+                  <sc-for list="{{ roleTags }}" as="t"><span style="display:inline-flex; align-items:center; gap:4px; height:24px; padding:0 8px; border-radius:3px; border:1px solid var(--color-border); background:var(--color-surface-sunken); font-family:var(--font-mono); font-size:12px"><m-icon name="{{ t.icon }}" size="12"></m-icon>{{ t.label }}</span></sc-for>
+                </div>
+              </div>
+              <div style="display:flex; flex-wrap:wrap; gap:8px; padding-top:4px">
+                <button type="submit" disabled="{{ roleClean }}" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-ink); background:var(--color-ink); color:var(--color-on-ink); font-weight:600; opacity:{{ roleOpacity }}">Save role</button>
+                <button type="button" onClick="{{ dupRole }}" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-weight:500">Duplicate</button>
+                <sc-if value="{{ rdStarter }}"><button type="button" onClick="{{ resetRole }}" style="height:32px; padding:0 12px; border:none; border-radius:5px; background:transparent; color:var(--color-text-secondary); font-weight:500" style-hover="background:var(--color-surface-hover)">Reset to starter</button></sc-if>
+                <sc-if value="{{ rdCustom }}"><button type="button" onClick="{{ delRole }}" style="height:32px; padding:0 12px; border:none; border-radius:5px; background:transparent; color:var(--color-status-danger-text); font-weight:500" style-hover="background:var(--color-status-danger-subtle)">Delete role</button></sc-if>
+              </div>
+            </form>
+          </div>
+        </section>
+      </sc-if>
+
+      <sc-if value="{{ sProviders }}">
+        <section style="display:flex; flex-direction:column; gap:16px">
+          <h2 style="margin:0; font-size:22px; line-height:28px; font-weight:700">Provider keys</h2>
+          <p style="margin:-8px 0 0; color:var(--color-text-secondary); max-width:72ch">The built-in agent uses these keys. Keys are stored in your system keychain, never in Marshal's database.</p>
+          <div style="display:flex; flex-direction:column; border:1px solid var(--color-border); border-radius:10px; background:var(--color-surface); overflow:hidden">
+            <sc-for list="{{ providers }}" as="p">
+              <div style="display:flex; flex-direction:column; gap:8px; padding:14px 16px; border-bottom:1px solid var(--color-border)">
+                <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px">
+                  <span style="flex:1 1 180px; display:flex; flex-direction:column"><span style="font-weight:600">{{ p.name }}</span><span style="font-size:13px; line-height:18px; color:var(--color-text-secondary)">{{ p.models }}</span></span>
+                  <span style="display:inline-flex; align-items:center; gap:4px; height:22px; padding:0 8px; border-radius:3px; background:{{ p.badgeBg }}; color:{{ p.badgeColor }}; font-size:12px; font-weight:600"><m-icon name="{{ p.badgeIcon }}" size="12"></m-icon>{{ p.badge }}</span>
+                  <sc-if value="{{ p.hasMasked }}"><code style="font-family:var(--font-mono); font-size:12px; color:var(--color-text-secondary)">{{ p.masked }}</code></sc-if>
+                  <sc-if value="{{ p.notEditing }}"><button onClick="{{ p.edit }}" style="height:28px; padding:0 10px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-size:13px; font-weight:500">{{ p.editLabel }}</button></sc-if>
+                </div>
+                <sc-if value="{{ p.hasError }}"><span style="font-size:13px; line-height:18px; color:var(--color-status-danger-text)">{{ p.error }}</span></sc-if>
+                <sc-if value="{{ p.editing }}">
+                  <form onSubmit="{{ p.save }}" style="display:flex; flex-direction:column; gap:6px">
+                    <label style="display:flex; flex-direction:column; gap:6px"><span style="font-weight:500">{{ p.fieldLabel }}</span>
+                      <input name="key" type="{{ p.inputType }}" autocomplete="off" placeholder="{{ p.ph }}" style="height:32px; padding:0 10px; border-radius:5px; border:1px solid {{ p.inputBorder }}; background:var(--color-surface); font-family:var(--font-mono); font-size:13px"></input></label>
+                    <sc-if value="{{ p.hasFieldError }}"><span style="font-size:13px; line-height:18px; color:var(--color-status-danger-text)">{{ p.fieldError }}</span></sc-if>
+                    <div style="display:flex; gap:8px"><button type="submit" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-ink); background:var(--color-ink); color:var(--color-on-ink); font-weight:600">Save key</button><button type="button" onClick="{{ p.cancel }}" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-weight:500">Cancel</button></div>
+                  </form>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </section>
+      </sc-if>
+
+      <sc-if value="{{ sLimits }}">
+        <section style="display:flex; flex-direction:column; gap:16px">
+          <h2 style="margin:0; font-size:22px; line-height:28px; font-weight:700">Cost and awake limits</h2>
+          <p style="margin:-8px 0 0; color:var(--color-text-secondary); max-width:72ch">When a cost limit is reached, running cards pause and move to Needs you. When the awake limit is full, the oldest idle card gets a sleep warning.</p>
+          <form onSubmit="{{ saveLimits }}" style="display:flex; flex-direction:column; gap:12px">
+            <sc-for list="{{ limitRows }}" as="l">
+              <div style="padding:14px 16px; border:1px solid var(--color-border); border-radius:10px; background:var(--color-surface); display:flex; flex-direction:column; gap:12px">
+                <h3 style="margin:0; font-size:16px; line-height:22px; font-weight:600">{{ l.label }}</h3>
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:12px">
+                  <sc-for list="{{ l.fields }}" as="f">
+                    <label style="display:flex; flex-direction:column; gap:6px"><span style="font-weight:500">{{ f.label }}</span>
+                      <span style="display:flex; align-items:center; gap:6px"><sc-if value="{{ f.money }}"><span style="color:var(--color-text-secondary)">$</span></sc-if><input type="number" min="0" step="{{ f.step }}" value="{{ f.value }}" onInput="{{ f.change }}" style="width:100%; height:32px; padding:0 10px; border-radius:5px; border:1px solid {{ f.border }}; background:var(--color-surface)"></input></span>
+                      <span style="font-size:13px; line-height:18px; color:{{ f.helpColor }}">{{ f.help }}</span></label>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-for>
+            <div style="display:flex; gap:8px"><button type="submit" disabled="{{ limitsClean }}" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-ink); background:var(--color-ink); color:var(--color-on-ink); font-weight:600; opacity:{{ limitsOpacity }}">Save limits</button>
+              <sc-if value="{{ limitsDirty }}"><button type="button" onClick="{{ resetLimits }}" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-weight:500">Discard changes</button></sc-if></div>
+          </form>
+        </section>
+      </sc-if>
+
+      <sc-if value="{{ sSchedules }}">
+        <section style="display:flex; flex-direction:column; gap:16px">
+          <div style="display:flex; align-items:center; gap:12px"><h2 style="margin:0; flex:1; font-size:22px; line-height:28px; font-weight:700">Schedules</h2>
+            <button onClick="{{ newSchedule }}" style="display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-weight:500"><m-icon name="plus" size="16"></m-icon>New schedule</button></div>
+          <div style="display:flex; flex-direction:column; border:1px solid var(--color-border); border-radius:10px; background:var(--color-surface); overflow:hidden">
+            <sc-for list="{{ schedules }}" as="s">
+              <div style="border-bottom:1px solid var(--color-border)">
+                <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; padding:12px 16px">
+                  <m-icon name="{{ s.icon }}" size="16"></m-icon>
+                  <span style="flex:1 1 220px; display:flex; flex-direction:column"><span style="font-weight:600">{{ s.name }}</span><span style="font-size:13px; line-height:18px; color:var(--color-text-secondary)">{{ s.when }}</span><span style="font-size:13px; line-height:18px; color:var(--color-text-secondary)">{{ s.action }}</span></span>
+                  <span style="font-size:13px; color:var(--color-text-secondary)">{{ s.project }}</span>
+                  <label style="display:inline-flex; align-items:center; gap:8px; cursor:pointer; font-size:13px">
+                    <button type="button" role="switch" aria-checked="{{ s.enabled }}" aria-label="{{ s.switchLabel }}" onClick="{{ s.toggle }}" style="width:36px; height:20px; padding:2px; border-radius:9999px; border:none; background:{{ s.trackBg }}; display:flex; justify-content:{{ s.justify }}; transition:background-color 80ms"><span style="width:16px; height:16px; border-radius:9999px; background:{{ s.knob }}"></span></button>{{ s.onLabel }}
+                  </label>
+                  <button onClick="{{ s.edit }}" style="height:28px; padding:0 10px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-size:13px; font-weight:500">{{ s.editLabel }}</button>
+                </div>
+                <sc-if value="{{ s.editing }}">
+                  <form onSubmit="{{ s.save }}" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px; padding:0 16px 16px">
+                    <label style="display:flex; flex-direction:column; gap:6px"><span style="font-weight:500">Name</span><input name="name" defaultValue="{{ s.name }}" style="height:32px; padding:0 10px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface)"></input></label>
+                    <label style="display:flex; flex-direction:column; gap:6px"><span style="font-weight:500">Trigger</span><select name="trigger" defaultValue="{{ s.trigger }}" style="height:32px; padding:0 8px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface)"><option>Cron</option><option>Interval</option><option>One-time</option><option>Event</option></select></label>
+                    <label style="display:flex; flex-direction:column; gap:6px"><span style="font-weight:500">When</span><input name="when" defaultValue="{{ s.when }}" style="height:32px; padding:0 10px; border-radius:5px; border:1px solid {{ s.whenBorder }}; background:var(--color-surface)"></input>
+                      <sc-if value="{{ s.hasError }}"><span style="font-size:13px; line-height:18px; color:var(--color-status-danger-text)">{{ s.error }}</span></sc-if>
+                      <sc-if value="{{ s.noError }}"><span style="font-size:13px; line-height:18px; color:var(--color-text-secondary)">For example "Every weekday at 9:00" or "Every 30 minutes".</span></sc-if></label>
+                    <label style="display:flex; flex-direction:column; gap:6px"><span style="font-weight:500">If the machine was asleep</span><select name="missed" defaultValue="{{ s.missed }}" style="height:32px; padding:0 8px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface)"><option>Run once on wake</option><option>Skip</option></select></label>
+                    <label style="display:flex; flex-direction:column; gap:6px; grid-column:1 / -1"><span style="font-weight:500">Action</span><input name="action" defaultValue="{{ s.action }}" style="height:32px; padding:0 10px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface)"></input></label>
+                    <div style="display:flex; gap:8px; grid-column:1 / -1"><button type="submit" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-ink); background:var(--color-ink); color:var(--color-on-ink); font-weight:600">Save schedule</button><button type="button" onClick="{{ s.cancel }}" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-weight:500">Cancel</button></div>
+                  </form>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </section>
+      </sc-if>
+
+      <sc-if value="{{ sIntegrations }}">
+        <section style="display:flex; flex-direction:column; gap:16px">
+          <h2 style="margin:0; font-size:22px; line-height:28px; font-weight:700">Integrations</h2>
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:12px">
+            <sc-for list="{{ integrations }}" as="i">
+              <div style="display:flex; flex-direction:column; gap:10px; padding:14px 16px; border:1px solid var(--color-border); border-radius:10px; background:var(--color-surface)">
+                <div style="display:flex; align-items:center; gap:10px"><m-icon name="{{ i.icon }}" size="20"></m-icon><span style="flex:1; font-weight:600">{{ i.name }}</span>
+                  <span style="display:inline-flex; align-items:center; gap:4px; font-size:12px; font-weight:600; color:{{ i.color }}"><m-icon name="{{ i.stIcon }}" size="12"></m-icon>{{ i.stLabel }}</span></div>
+                <span style="flex:1; font-size:13px; line-height:18px; color:{{ i.detailColor }}">{{ i.detail }}</span>
+                <button onClick="{{ i.run }}" style="align-self:flex-start; height:28px; padding:0 10px; border-radius:5px; border:1px solid {{ i.btnBorder }}; background:{{ i.btnBg }}; color:{{ i.btnColor }}; font-size:13px; font-weight:600">{{ i.btn }}</button>
+              </div>
+            </sc-for>
+          </div>
+        </section>
+      </sc-if>
+
+      <sc-if value="{{ sShortcuts }}">
+        <section style="display:flex; flex-direction:column; gap:16px">
+          <h2 style="margin:0; font-size:22px; line-height:28px; font-weight:700">Keyboard shortcuts</h2>
+          <p style="margin:-8px 0 0; color:var(--color-text-secondary)">Single-letter shortcuts work when you're not typing in a field.</p>
+          <div style="border:1px solid var(--color-border); border-radius:10px; background:var(--color-surface); overflow:hidden">
+            <sc-for list="{{ shortcuts }}" as="k">
+              <div style="display:flex; align-items:center; gap:12px; min-height:40px; padding:6px 16px; border-bottom:1px solid var(--color-border)">
+                <span style="flex:1">{{ k.label }}</span>
+                <span style="display:flex; gap:4px"><sc-for list="{{ k.keys }}" as="x"><kbd style="min-width:24px; text-align:center; font-family:var(--font-sans); font-size:12px; line-height:20px; padding:0 6px; border:1px solid var(--color-border-strong); border-radius:3px; background:var(--color-surface-sunken)">{{ x }}</kbd></sc-for></span>
+              </div>
+            </sc-for>
+          </div>
+        </section>
+      </sc-if>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { roleDraft: null, roleFor: null, provEdit: null, provErr: null, limits: null, schedEdit: null, schedErr: null };
+  componentDidMount() { this.u = M.on(() => this.forceUpdate()); if (M.S.schedEdit) { this.setState({ schedEdit: M.S.schedEdit }); M.S.schedEdit = null; } }
+  componentWillUnmount() { this.u && this.u(); }
+  renderVals() {
+    const S = M.S; const tone = M.tone; const isMobile = S.vw < 640; const sec = S.settingsSection;
+    const SEC = [['profile', 'Profile', 'user-round'], ['general', 'General', 'sliders-horizontal'], ['project', 'Project settings', 'folder-cog'], ['roles', 'Roles', 'users'], ['providers', 'Provider keys', 'key-round'], ['limits', 'Cost and awake limits', 'gauge'], ['schedules', 'Schedules', 'clock'], ['integrations', 'Integrations', 'plug'], ['shortcuts', 'Keyboard shortcuts', 'keyboard'], ['help', 'Help', 'life-buoy']];
+    const sections = SEC.map(([k, l, i]) => ({ label: l, icon: i, current: sec === k ? 'page' : undefined, bg: sec === k ? 'var(--color-surface-selected)' : 'transparent', weight: sec === k ? '600' : '500', go: () => M.set({ settingsSection: k }) }));
+    const up = o => this.setState(o);
+
+    // themes
+    const themes = [['light', 'Light', 'sun', 'Chalk neutrals'], ['dark', 'Dark', 'moon', 'Asphalt neutrals'], ['system', 'System', 'monitor', 'Follows your OS setting']].map(([k, l, i, d]) => ({
+      label: l, icon: i, desc: d, sel: S.theme === k, border: S.theme === k ? '2px solid var(--color-ink)' : '1px solid var(--color-border)', go: () => M.setTheme(k),
+      a: k === 'dark' ? '#15181C' : '#F5F6F7', b: k === 'light' ? '#F5F6F7' : '#15181C', line: k === 'dark' ? '#3A424B' : '#C9CED4', line2: k === 'light' ? '#C9CED4' : '#3A424B', card: k === 'dark' ? '#1B1F24' : '#FFFFFF', card2: k === 'light' ? '#FFFFFF' : '#1B1F24' }));
+
+    // roles
+    const sel = S.roles.find(r => r.name === S.roleSel) || S.roles[0];
+    let rd = this.state.roleFor === sel.name && this.state.roleDraft ? this.state.roleDraft : JSON.parse(JSON.stringify(sel));
+    const setR = (k, v) => { const d = JSON.parse(JSON.stringify(rd)); if (['time', 'cost', 'rounds'].includes(k)) d.limits[k] = +v; else d[k] = v; if (k === 'agent') d.model = M.AGENTS[v].models[0]; up({ roleDraft: d, roleFor: sel.name }); };
+    const roleClean = JSON.stringify(rd) === JSON.stringify(sel);
+    const weak = /haiku|mini|flash|deepseek|qwen/.test(rd.model) && ['Reviewer', 'Integrator'].includes(sel.name);
+    const models = M.AGENTS[rd.agent].models;
+    const roleSelects = [['agent', 'Agent', Object.keys(M.AGENTS)], ['model', 'Model', models], ['backup', 'Backup model', ['gpt-5', 'claude-sonnet-4-5', 'gemini-2.5-pro', 'deepseek-chat']], ['think', 'Thinking mode', M.THINK], ['perm', 'Permission mode', M.PERMS.filter(p => p !== 'Bypass permissions')]].map(([k, l, o]) => ({ label: l, value: rd[k], opts: o.map(v => ({ v, sel: v === rd[k] })), options: o, change: e => setR(k, e.target.value) }));
+    const roles = S.roles.map(r => ({ name: r.name, starter: r.starter, model: r.model, sub: r.overridden ? 'Overridden in 1 project' : r.perm, sel: r.name === sel.name, bg: r.name === sel.name ? 'var(--color-surface-selected)' : 'transparent', go: () => { M.set({ roleSel: r.name }); up({ roleDraft: null, roleFor: null }); } }));
+
+    // providers
+    const providers = S.providers.map(p => {
+      const editing = this.state.provEdit === p.id;
+      const B = { saved: ['Saved', 'check', tone('working', 'subtle'), tone('working', 'text')], empty: ['Not set', 'circle-dashed', 'var(--color-surface-sunken)', 'var(--color-text-secondary)'], invalid: ['Invalid key', 'x', tone('danger', 'subtle'), tone('danger', 'text')] }[p.st];
+      const fe = editing ? this.state.provErr : null;
+      return { name: p.name, models: p.models, badge: B[0], badgeIcon: B[1], badgeBg: B[2], badgeColor: B[3], hasMasked: !!p.masked, masked: p.masked, hasError: p.st === 'invalid' && !editing, error: p.error,
+        editing, notEditing: !editing, editLabel: p.st === 'empty' ? 'Add key' : p.local ? 'Change URL' : 'Change key', fieldLabel: p.local ? 'Server URL' : p.name + ' API key', inputType: p.local ? 'text' : 'password', ph: p.local ? 'http://localhost:11434' : 'Paste the key',
+        inputBorder: fe ? tone('danger', 'solid') : 'var(--color-border-strong)', hasFieldError: !!fe, fieldError: fe,
+        edit: () => up({ provEdit: p.id, provErr: null }), cancel: () => up({ provEdit: null, provErr: null }),
+        save: e => { e.preventDefault(); const v = e.target.key.value.trim(); if (v.length < 12) { up({ provErr: 'This key is too short. Copy the full key from your ' + p.name + ' dashboard and paste it again.' }); return; } p.st = 'saved'; p.masked = p.local ? v : v.slice(0, 6) + '…' + v.slice(-4); up({ provEdit: null, provErr: null }); M.emit(); M.toast('Key saved'); } };
+    });
+
+    // limits
+    const L = this.state.limits || JSON.parse(JSON.stringify(S.limits));
+    const limitsClean = JSON.stringify(L) === JSON.stringify(S.limits);
+    const setL = (scope, k, v) => { const d = JSON.parse(JSON.stringify(L)); d[scope][k] = +v; up({ limits: d }); };
+    const limitRows = [['global', 'All projects']].concat(S.projects.map(p => [p.id, p.name])).map(([scope, label]) => {
+      const cs = M.costs(scope === 'global' ? null : scope); const aw = M.awake(scope === 'global' ? null : scope).length;
+      const f = (k, lbl, used, money, step) => { const v = L[scope][k]; const r = used / v; const bad = v <= 0;
+        return { label: lbl, value: v, money, step, border: bad ? tone('danger', 'solid') : 'var(--color-border-strong)', change: e => setL(scope, k, e.target.value),
+          help: bad ? 'Enter a limit above zero.' : (money ? 'Used ' + M.money(used) : aw + ' awake now') + (r >= 1 ? '. Over this limit.' : r >= 0.8 ? '. Near this limit.' : ''),
+          helpColor: bad || r >= 1 ? tone('danger', 'text') : r >= 0.8 ? tone('needs-you', 'text') : 'var(--color-text-secondary)' }; };
+      return { label, fields: [f('day', 'Daily cost limit', cs.today, true, '0.5'), f('month', 'Monthly cost limit', cs.month, true, '5'), f('awake', 'Awake card limit', aw, false, '1')] };
+    });
+
+    // schedules
+    const schedules = S.schedules.map(s => {
+      const editing = this.state.schedEdit === s.id; const err = editing ? this.state.schedErr : null;
+      return Object.assign({}, s, { editing, editLabel: editing ? 'Close' : 'Edit', switchLabel: (s.enabled ? 'Turn off ' : 'Turn on ') + s.name, onLabel: s.enabled ? 'On' : 'Off',
+        trackBg: s.enabled ? 'var(--color-ink)' : 'var(--color-border-strong)', knob: s.enabled ? 'var(--color-on-ink)' : 'var(--color-surface)', justify: s.enabled ? 'flex-end' : 'flex-start',
+        toggle: () => { s.enabled = !s.enabled; M.emit(); M.toast(s.enabled ? 'Schedule turned on' : 'Schedule turned off'); },
+        edit: () => up({ schedEdit: editing ? null : s.id, schedErr: null }), cancel: () => up({ schedEdit: null, schedErr: null }),
+        hasError: !!err, noError: !err, error: err, whenBorder: err ? tone('danger', 'solid') : 'var(--color-border-strong)',
+        save: e => { e.preventDefault(); const fm = e.target; const w = fm.when.value.trim();
+          if (!/^(every|on|when)\b/i.test(w)) { up({ schedErr: 'Marshal can\'t read this time. Start with "Every", "On", or "When", for example "Every weekday at 9:00".' }); return; }
+          Object.assign(s, { name: fm.name.value.trim() || s.name, trigger: fm.trigger.value, when: w, missed: fm.missed.value, action: fm.action.value.trim() || s.action }); up({ schedEdit: null, schedErr: null }); M.emit(); M.toast('Schedule saved'); } });
+    });
+
+    // integrations
+    const IS = { connected: ['Connected', 'check', tone('working', 'text'), 'Manage'], none: ['Not connected', 'circle-dashed', 'var(--color-text-secondary)', 'Connect'], error: ['Needs attention', 'x', tone('danger', 'text'), 'Reconnect'] };
+    const integrations = S.integrations.map(i => { const s = IS[i.st]; const primary = i.st !== 'connected';
+      return { name: i.name, icon: i.icon, detail: i.detail, detailColor: i.st === 'error' ? tone('danger', 'text') : 'var(--color-text-secondary)', stLabel: s[0], stIcon: s[1], color: s[2], btn: s[3],
+        btnBg: primary ? 'var(--color-ink)' : 'var(--color-surface)', btnColor: primary ? 'var(--color-on-ink)' : 'var(--color-text-primary)', btnBorder: primary ? 'var(--color-ink)' : 'var(--color-border-strong)',
+        run: () => { if (i.st === 'connected') { M.toast(i.name + ' settings opened'); return; } i.st = 'connected'; i.detail = i.id === 'discord' ? 'Approvals and notices go to #marshal in your server' : 'Labeled emails with "marshal" become cards'; M.emit(); M.toast(i.name + ' connected'); } }; });
+
+    const mod = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl';
+    const shortcuts = [['Command palette', [mod, 'K']], ['Switch views, in order', [mod, '1 to 6']], ['New card', ['N']], ['Focus search or filter', ['/']], ['Move between cards and rows', ['Arrow keys']], ['Open the selected card', ['Enter']], ['Close panel, menu, or dialog', ['Esc']], ['Approve the focused approval', ['A']], ['Sleep the selected card', ['S']], ['Pin or unpin the selected card', ['P']]].map(([l, k]) => ({ label: l, keys: k }));
+
+    const pr = S.profile; const pd = this.state.pd || { name: pr.name, email: pr.email, tz: pr.tz };
+    const profileClean = pd.name === pr.name && pd.email === pr.email && pd.tz === pr.tz;
+    const setP = (k, v) => up({ pd: Object.assign({}, pd, { [k]: v }) });
+    const ppid = S.settingsPid && M.proj(S.settingsPid) ? S.settingsPid : (M.proj(S.route.pid) ? S.route.pid : (S.projects[0] || {}).id);
+    const pp = M.proj(ppid) || { name: '', branch: 'main' };
+    const base = { name: pp.name, branch: pp.branch || 'main', dev: pp.dev || (pp.id === 'api' ? '' : 'pnpm dev'), lockBypass: !!pp.lockBypass };
+    const prd = this.state.prFor === ppid && this.state.prd ? this.state.prd : base;
+    const projClean = JSON.stringify(prd) === JSON.stringify(base);
+    const setPr = (k, v) => up({ prd: Object.assign({}, prd, { [k]: v }), prFor: ppid });
+    return {
+      sProfile: sec === 'profile', sProject: sec === 'project', sHelp: sec === 'help',
+      pInitials: (pd.name || pr.name).split(/\s+/).map(x => x[0] || '').join('').slice(0, 2).toUpperCase(), pd, nameErr: !pd.name.trim(),
+      pf: { name: e => setP('name', e.target.value), email: e => setP('email', e.target.value), tz: e => setP('tz', e.target.value) },
+      tzOpts: ['Europe/London', 'Europe/Lisbon', 'Africa/Lagos', 'America/New_York', 'America/Los_Angeles', 'Asia/Singapore'].map(v => ({ v, sel: v === pd.tz })),
+      profileClean: profileClean || !pd.name.trim(), profileOpacity: profileClean || !pd.name.trim() ? '0.5' : '1',
+      saveProfile: e => { e.preventDefault(); if (profileClean || !pd.name.trim()) return; Object.assign(pr, { name: pd.name.trim(), email: pd.email.trim(), tz: pd.tz }); up({ pd: null }); M.emit(); M.toast('Profile saved'); },
+      uploadAvatar: () => M.toast('Choose an image to use as your avatar'),
+      devices: pr.devices.map(d => ({ name: d.name, kind: d.kind, when: M.rel(d.last).toLowerCase(), remove: () => M.confirm({ title: 'Remove device', message: d.name + ' will lose access to Marshal and must pair again to reconnect.', action: 'Remove device', destructive: true, run: () => { pr.devices = pr.devices.filter(x => x !== d); M.emit(); M.toast('Device removed'); } }) })),
+      noDevices: pr.devices.length === 0, pairing: !!this.state.pairing, pairDevice: () => up({ pairing: true }), tailnet: pr.tailnet, node: pr.node,
+      projOpts: S.projects.map(p => ({ v: p.id, l: p.name, sel: p.id === ppid })), pickProject: e => { S.settingsPid = e.target.value; up({ prd: null }); M.emit(); },
+      prd, prPath: pp.path || '', prKind: pp.lang === 'Monorepo' ? 'Monorepo with ' + (pp.packages || []).length + ' packages' : pp.lang + ' project',
+      prf: { name: e => setPr('name', e.target.value), branch: e => setPr('branch', e.target.value), dev: e => setPr('dev', e.target.value), lock: () => setPr('lockBypass', !prd.lockBypass) },
+      projClean, projOpacity: projClean ? '0.5' : '1',
+      saveProject: e => { e.preventDefault(); if (projClean) return; if (!prd.name.trim()) { M.toast('Project names can\'t be empty. The old name is kept.'); return; } Object.assign(pp, { name: prd.name.trim(), branch: prd.branch, dev: prd.dev, lockBypass: prd.lockBypass }); up({ prd: null }); M.emit(); M.toast('Project saved'); },
+      removeProj: () => M.set({ removeProject: { id: ppid, keepBranches: true, keepMemory: true } }),
+      helpItems: [{ icon: 'map', title: 'Tour of Marshal', desc: 'A short walk through Home, projects, views, and notices.', btn: 'Replay tour', run: () => M.startTour() },
+        { icon: 'keyboard', title: 'Keyboard shortcuts', desc: 'Every action has a shortcut or a command in search.', btn: 'Open shortcuts', run: () => M.set({ settingsSection: 'shortcuts' }) },
+        { icon: 'search', title: 'Search', desc: 'Find actions, projects, cards, and settings in one place.', btn: 'Open search', run: () => M.set({ palette: true }) }],
+      dir: isMobile ? 'column' : 'row', navW: isMobile ? 'auto' : '232px', navDir: isMobile ? 'row' : 'column', navPad: isMobile ? '8px 12px' : '16px 8px', navBorderR: isMobile ? 'none' : '1px solid var(--color-border)', navBorderB: isMobile ? '1px solid var(--color-border)' : 'none',
+      ctl: isMobile ? '44px' : '32px', pad: isMobile ? '16px' : '24px 32px 48px', sections,
+      sGeneral: sec === 'general', sRoles: sec === 'roles', sProviders: sec === 'providers', sLimits: sec === 'limits', sSchedules: sec === 'schedules', sIntegrations: sec === 'integrations', sShortcuts: sec === 'shortcuts',
+      themes, customTheme: () => M.toast('Custom theme editor opened'),
+      restore: S.sleep.restore, onRestore: e => { S.sleep.restore = e.target.value; M.emit(); M.toast('Saved'); },
+      idle: String(S.sleep.idle), onIdle: e => { S.sleep.idle = +e.target.value; M.emit(); M.toast('Saved'); },
+      channel: S.sleep.channel, onChannel: e => { S.sleep.channel = e.target.value; M.emit(); M.toast('Saved'); },
+      roleCols: S.vw < 900 ? '1fr' : '240px minmax(0, 1fr)', roles, rd, rdOverridden: !!sel.overridden, rdStarter: sel.starter, rdCustom: !sel.starter,
+      rf: { name: e => setR('name', e.target.value), desc: e => setR('desc', e.target.value), instr: e => setR('instr', e.target.value), time: e => setR('time', e.target.value), cost: e => setR('cost', e.target.value), rounds: e => setR('rounds', e.target.value) },
+      roleSelects, weakWarn: weak, weakText: rd.model + ' is a lighter model. Weak models can break code at ' + (sel.name === 'Reviewer' ? 'review' : 'merge') + ' time. You can still save it.',
+      roleTags: rd.skills.map(s => ({ icon: 'sparkles', label: s })).concat(rd.mcp.map(s => ({ icon: 'server', label: s }))),
+      roleClean, roleOpacity: roleClean ? '0.5' : '1',
+      saveRole: e => { e.preventDefault(); if (roleClean) return; const oldName = sel.name; Object.assign(sel, JSON.parse(JSON.stringify(rd))); S.roleSel = sel.name; up({ roleDraft: null, roleFor: null }); M.emit(); M.toast('Role saved'); },
+      dupRole: () => { const d = JSON.parse(JSON.stringify(rd)); d.name = rd.name + ' copy'; d.starter = false; d.overridden = false; S.roles.push(d); S.roleSel = d.name; up({ roleDraft: null, roleFor: null }); M.emit(); M.toast('Role duplicated'); },
+      resetRole: () => M.confirm({ title: 'Reset to starter', message: 'This replaces your edits to ' + sel.name + ' with the starter template.', action: 'Reset to starter', run: () => { sel.overridden = false; up({ roleDraft: null, roleFor: null }); M.toast('Role reset'); } }),
+      delRole: () => M.confirm({ title: 'Delete role', message: 'This deletes the ' + sel.name + ' role. Cards using it switch to Worker.', action: 'Delete role', destructive: true, run: () => { S.roles = S.roles.filter(r => r !== sel); S.roleSel = 'Worker'; M.emit(); M.toast('Role deleted'); } }),
+      newRole: () => { const d = JSON.parse(JSON.stringify(S.roles.find(r => r.name === 'Worker'))); d.name = 'New role'; d.starter = false; d.overridden = false; S.roles.push(d); S.roleSel = d.name; up({ roleDraft: null, roleFor: null }); M.emit(); },
+      providers,
+      limitRows, limitsClean, limitsDirty: !limitsClean, limitsOpacity: limitsClean ? '0.5' : '1', resetLimits: () => up({ limits: null }),
+      saveLimits: e => {
+        e.preventDefault(); if (limitsClean) return;
+        if (Object.values(L).some(x => x.day <= 0 || x.month <= 0 || x.awake <= 0)) { M.toast('Fix the limits marked in red before saving.'); return; }
+        const raised = Object.keys(L).filter(k => L[k].day > S.limits[k].day || L[k].month > S.limits[k].month);
+        const apply = () => { S.limits = JSON.parse(JSON.stringify(L)); up({ limits: null }); M.emit(); M.toast('Limits saved'); };
+        if (raised.length) M.confirm({ title: 'Raise cost limit', message: 'Agents can spend more before Marshal pauses them in ' + raised.map(k => k === 'global' ? 'all projects' : M.proj(k).name).join(' and ') + '.', action: 'Raise cost limit', run: apply });
+        else apply();
+      },
+      schedules, newSchedule: () => { const s = { id: 's' + Date.now(), name: 'New schedule', kind: 'job', icon: 'clock', trigger: 'Cron', when: 'Every weekday at 9:00', time: '09:00', days: [1, 2, 3, 4, 5], action: 'Send a message to the Orchestrator', project: M.proj(S.route.pid).name, enabled: false, missed: 'Skip' }; S.schedules.push(s); up({ schedEdit: s.id }); M.emit(); },
+      integrations, shortcuts
+    };
+  }
+}
+</script>
+</body>
+</html>

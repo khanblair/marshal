@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div role="dialog" aria-modal="true" aria-labelledby="ob-title" style="position:absolute; inset:0; overflow:auto; background:var(--color-canvas); display:flex; justify-content:center; align-items:{{ align }}; padding:{{ outerPad }}">
+  <div style="width:100%; max-width:640px; display:flex; flex-direction:column; gap:20px; padding:{{ cardPad }}; border-radius:{{ radius }}; border:{{ border }}; background:var(--color-surface)">
+    <div style="display:flex; align-items:center; gap:10px">
+      <m-icon name="st-done" size="20"></m-icon><span style="font-weight:700">Marshal</span>
+      <span style="flex:1"></span>
+      <span aria-live="polite" style="font-size:13px; color:var(--color-text-secondary)">{{ stepLabel }}</span>
+    </div>
+    <div aria-hidden="true" style="display:grid; grid-template-columns:repeat(5, 1fr); gap:4px">
+      <sc-for list="{{ dots }}" as="d"><span style="height:4px; border-radius:9999px; background:{{ d.bg }}"></span></sc-for>
+    </div>
+    <h1 id="ob-title" style="margin:0; font-size:22px; line-height:28px; font-weight:700">{{ title }}</h1>
+
+    <sc-if value="{{ s1 }}">
+      <p style="margin:0; color:var(--color-text-secondary); max-width:60ch">Marshal runs your AI coding agents on a board, one card per task, and moves each card as the work really progresses.</p>
+      <div aria-label="A board with cards moving from planning to done" role="img" style="display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:8px; padding:12px; border-radius:10px; background:var(--color-surface-sunken)">
+        <sc-for list="{{ demoCols }}" as="c">
+          <div style="display:flex; flex-direction:column; gap:6px; min-width:0">
+            <span style="display:flex; align-items:center; gap:4px; font-size:12px; font-weight:600; color:{{ c.text }}"><span style="display:inline-flex; color:{{ c.solid }}"><m-icon name="{{ c.icon }}" size="12"></m-icon></span>{{ c.label }}</span>
+            <sc-for list="{{ c.cards }}" as="k"><span style="height:34px; border-radius:5px; border:1px solid var(--color-border); border-left:3px solid {{ c.solid }}; background:var(--color-surface); padding:6px 8px"><span style="display:block; height:6px; width:{{ k }}; border-radius:2px; background:var(--color-border-strong)"></span></span></sc-for>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ sP }}">
+      <p style="margin:0; color:var(--color-text-secondary)">This is how you appear on cards and in briefs. You can change it later in your profile.</p>
+      <div style="display:flex; flex-wrap:wrap; align-items:center; gap:16px">
+        <span aria-label="Avatar preview" style="width:64px; height:64px; flex:none; border-radius:9999px; background:var(--color-surface-selected); border:1px solid var(--color-border-strong); display:inline-flex; align-items:center; justify-content:center; font-size:22px; font-weight:700">{{ pInitials }}</span>
+        <div style="display:flex; flex-direction:column; gap:4px"><button onClick="{{ uploadAvatar }}" style="align-self:flex-start; height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-weight:500">{{ avatarBtn }}</button><span style="font-size:13px; color:var(--color-text-secondary)">Without an image, Marshal shows your initials.</span></div>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:16px">
+        <label style="display:flex; flex-direction:column; gap:6px"><span style="font-weight:500">Name</span><input value="{{ pName }}" onInput="{{ onName }}" autocomplete="name" style="height:32px; padding:0 10px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface)"></input>
+          <sc-if value="{{ nameErr }}"><span style="font-size:13px; color:var(--color-status-danger-text)">Enter a name to continue.</span></sc-if></label>
+        <label style="display:flex; flex-direction:column; gap:6px"><span style="font-weight:500">Email</span><input type="email" value="{{ pEmail }}" onInput="{{ onEmail }}" placeholder="Optional" autocomplete="email" style="height:32px; padding:0 10px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface)"></input><span style="font-size:13px; line-height:18px; color:var(--color-text-secondary)">Used only to send briefs by email.</span></label>
+        <label style="display:flex; flex-direction:column; gap:6px"><span style="font-weight:500">Time zone</span><select onChange="{{ onTz }}" style="height:32px; padding:0 10px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface)"><sc-for list="{{ tzOpts }}" as="t"><option value="{{ t.v }}" selected="{{ t.sel }}">{{ t.v }}</option></sc-for></select><span style="font-size:13px; line-height:18px; color:var(--color-text-secondary)">Briefs and schedules run in this time zone.</span></label>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:6px"><span style="font-weight:500">Theme</span>
+        <div role="radiogroup" aria-label="Theme" style="display:flex; gap:2px; padding:2px; border-radius:7px; background:var(--color-surface-sunken); border:1px solid var(--color-border); align-self:flex-start">
+          <sc-for list="{{ themes }}" as="t"><button role="radio" aria-checked="{{ t.sel }}" onClick="{{ t.go }}" style="display:inline-flex; align-items:center; gap:6px; height:30px; padding:0 12px; border-radius:5px; border:1px solid {{ t.border }}; background:{{ t.bg }}; font-size:13px; font-weight:500"><m-icon name="{{ t.icon }}" size="14"></m-icon>{{ t.label }}</button></sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ s2 }}">
+      <p style="margin:0; color:var(--color-text-secondary)">Marshal found these agents on this computer. Add API keys to use the built-in agent with any provider. You can do this later in Settings.</p>
+      <ul style="margin:0; padding:0; list-style:none; border-top:1px solid var(--color-border)">
+        <sc-for list="{{ agents }}" as="a">
+          <li style="display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--color-border)">
+            <m-icon name="terminal-square" size="16"></m-icon><span style="flex:1; font-weight:600">{{ a.name }}</span>
+            <code style="font-family:var(--font-mono); font-size:12px; color:var(--color-text-secondary)">{{ a.version }}</code>
+            <span style="display:inline-flex; align-items:center; gap:4px; font-size:13px; font-weight:600; color:var(--color-status-working-text)"><m-icon name="check" size="14"></m-icon>Found</span>
+          </li>
+        </sc-for>
+      </ul>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px">
+        <sc-for list="{{ keys }}" as="k">
+          <label style="display:flex; flex-direction:column; gap:6px"><span style="font-weight:500">{{ k.label }}</span>
+            <input type="password" autocomplete="off" value="{{ k.value }}" onInput="{{ k.change }}" placeholder="Optional" style="height:32px; padding:0 10px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-family:var(--font-mono); font-size:13px"></input></label>
+        </sc-for>
+      </div>
+      <span style="font-size:13px; color:var(--color-text-secondary)">Keys go to your system keychain.</span>
+    </sc-if>
+
+    <sc-if value="{{ s3 }}">
+      <p style="margin:0; color:var(--color-text-secondary)">Each project is one repository with one board. The sample project is safe to try things on.</p>
+      <div role="radiogroup" aria-label="How to add your first project" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:10px">
+        <sc-for list="{{ sources }}" as="s">
+          <button role="radio" aria-checked="{{ s.sel }}" onClick="{{ s.go }}" style="display:flex; flex-direction:column; align-items:flex-start; gap:6px; padding:12px; border-radius:10px; border:{{ s.border }}; background:var(--color-surface); text-align:left">
+            <m-icon name="{{ s.icon }}" size="20"></m-icon><span style="font-weight:600">{{ s.label }}</span><span style="font-size:13px; line-height:18px; color:var(--color-text-secondary)">{{ s.desc }}</span>
+          </button>
+        </sc-for>
+      </div>
+      <sc-if value="{{ srcFolder }}"><label style="display:flex; flex-direction:column; gap:6px"><span style="font-weight:500">Repository folder</span><input value="{{ path }}" onInput="{{ onPath }}" placeholder="~/code/my-repo" style="height:32px; padding:0 10px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-family:var(--font-mono); font-size:13px"></input></label></sc-if>
+      <sc-if value="{{ srcGithub }}"><label style="display:flex; flex-direction:column; gap:6px"><span style="font-weight:500">Repository URL</span><input value="{{ url }}" onInput="{{ onUrl }}" placeholder="https://github.com/owner/repo" style="height:32px; padding:0 10px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-family:var(--font-mono); font-size:13px"></input></label></sc-if>
+    </sc-if>
+
+    <sc-if value="{{ s4 }}">
+      <p style="margin:0; color:var(--color-text-secondary)">Approve plans and commands from your phone. Both are optional.</p>
+      <div style="display:flex; flex-wrap:wrap; gap:16px; align-items:center; padding:14px 0; border-top:1px solid var(--color-border); border-bottom:1px solid var(--color-border)">
+        <div style="flex:1 1 220px; display:flex; flex-direction:column; gap:4px">
+          <span style="font-weight:600">Pair a phone over Tailscale</span>
+          <span style="font-size:13px; line-height:18px; color:var(--color-text-secondary)">Open marshal-laptop.tail3f2a.ts.net on your phone and enter this code.</span>
+        </div>
+        <div style="display:flex; flex-direction:column; align-items:center; gap:2px">
+          <code aria-label="Pairing code" style="font-family:var(--font-mono); font-size:24px; line-height:32px; font-weight:600; padding:4px 12px; border-radius:5px; background:var(--color-surface-sunken)">{{ code }}</code>
+          <span style="font-size:12px; color:var(--color-text-muted)">Expires in 10 minutes</span>
+        </div>
+      </div>
+      <sc-for list="{{ chatApps }}" as="c">
+        <div style="display:flex; align-items:center; gap:10px">
+          <m-icon name="{{ c.icon }}" size="18"></m-icon><span style="flex:1; display:flex; flex-direction:column"><span style="font-weight:600">{{ c.name }}</span><span style="font-size:13px; color:var(--color-text-secondary)">{{ c.desc }}</span></span>
+          <sc-if value="{{ c.connected }}"><span style="display:inline-flex; align-items:center; gap:4px; font-size:13px; font-weight:600; color:var(--color-status-working-text)"><m-icon name="check" size="14"></m-icon>Connected</span></sc-if>
+          <sc-if value="{{ c.notConnected }}"><button onClick="{{ c.connect }}" style="height:32px; padding:0 12px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-weight:500">{{ c.btn }}</button></sc-if>
+        </div>
+      </sc-for>
+    </sc-if>
+
+    <div style="display:flex; align-items:center; gap:8px; margin-top:4px; padding-bottom:env(safe-area-inset-bottom)">
+      <sc-if value="{{ canBack }}"><button onClick="{{ back }}" style="height:36px; padding:0 14px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-weight:500">Back</button></sc-if>
+      <span style="flex:1"></span>
+      <button onClick="{{ skip }}" style="height:36px; padding:0 12px; border:none; border-radius:5px; background:transparent; color:var(--color-text-secondary); font-weight:500" style-hover="background:var(--color-surface-hover)">Skip</button>
+      <button ref="{{ nextRef }}" onClick="{{ next }}" style="height:36px; padding:0 16px; border-radius:5px; border:1px solid var(--color-ink); background:var(--color-ink); color:var(--color-on-ink); font-weight:600" style-hover="background:var(--color-ink-hover)">{{ nextLabel }}</button>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { pName: '', pEmail: '', pTz: 'Europe/London', pImg: false, keys: { anthropic: '', openai: '', gemini: '' }, src: 'sample', path: '', url: '', tg: false, dc: false };
+  nextRef = React.createRef();
+  componentDidMount() { this.u = M.on(() => this.forceUpdate()); setTimeout(() => this.nextRef.current && this.nextRef.current.focus(), 60); }
+  componentWillUnmount() { this.u && this.u(); }
+  finishStep(i) {
+    const S = M.S;
+    if (i === 1) Object.assign(S.profile, { name: this.state.pName.trim() || S.profile.name, email: this.state.pEmail.trim(), tz: this.state.pTz });
+    if (i === 2) Object.entries(this.state.keys).forEach(([id, v]) => { const p = S.providers.find(x => x.id === id); if (p && v.length > 8) { p.st = 'saved'; p.masked = v.slice(0, 6) + '…' + v.slice(-4); } });
+    if (i === 3) {
+      const s = this.state.src; const v = s === 'folder' ? this.state.path : this.state.url;
+      if (s === 'sample') { if (!S.projects.find(p => p.name === 'marshal-sample')) M.addProject({ name: 'marshal-sample', path: '~/.marshal/sample', sample: true }); }
+      else if (v.trim()) { const name = v.replace(/\.git$/, '').split(/[\/:]/).filter(Boolean).pop(); M.addProject({ name, path: s === 'folder' ? v : '~/code/' + name, mono: /mono|apps/i.test(v) }); }
+    }
+    if (i === 4) { if (this.state.tg) S.integrations.find(x => x.id === 'telegram').st = 'connected'; if (this.state.dc) S.integrations.find(x => x.id === 'discord').st = 'connected'; }
+  }
+  renderVals() {
+    const S = M.S; const step = S.obStep; const phone = S.vw < 640; const tone = M.tone;
+    const go = n => { M.set({ obStep: n }); setTimeout(() => this.nextRef.current && this.nextRef.current.focus(), 30); };
+    const last = step === 4; const nameErr = step === 1 && this._tried && !this.state.pName.trim();
+    const next = () => { if (step === 1 && !this.state.pName.trim()) { this._tried = true; this.forceUpdate(); return; } this._tried = false; this.finishStep(step); if (last) M.finishOnboarding(); else go(step + 1); };
+    const titles = ['Welcome to Marshal', 'Set up your profile', 'Connect your agents', 'Add your first project', 'Stay in control from anywhere'];
+    const demo = [['planning', 'Planning', 'st-planning', ['70%', '50%']], ['working', 'Working', 'st-working', ['60%', '80%', '45%']], ['needs-you', 'Needs you', 'st-needs', ['55%']], ['done', 'Done', 'st-done', ['65%', '40%']]];
+    return {
+      align: phone ? 'stretch' : 'center', outerPad: phone ? '0' : '32px 16px', cardPad: phone ? '20px 16px' : '28px', radius: phone ? '0' : '14px', border: phone ? 'none' : '1px solid var(--color-border)',
+      stepLabel: 'Step ' + (step + 1) + ' of 5', dots: [0, 1, 2, 3, 4].map(i => ({ bg: i <= step ? 'var(--color-ink)' : 'var(--color-border)' })), title: titles[step],
+      s1: step === 0, sP: step === 1, s2: step === 2, s3: step === 3, s4: step === 4,
+      pName: this.state.pName, pEmail: this.state.pEmail, nameErr,
+      pInitials: (this.state.pName.trim() || '?').split(/\s+/).map(x => x[0]).join('').slice(0, 2).toUpperCase(),
+      onName: e => this.setState({ pName: e.target.value }), onEmail: e => this.setState({ pEmail: e.target.value }), onTz: e => this.setState({ pTz: e.target.value }),
+      tzOpts: ['Europe/London', 'Europe/Lisbon', 'Africa/Lagos', 'America/New_York', 'America/Los_Angeles', 'Asia/Singapore'].map(v => ({ v, sel: v === this.state.pTz })),
+      avatarBtn: this.state.pImg ? 'Change image' : 'Upload image', uploadAvatar: () => { this.setState({ pImg: true }); M.toast('Choose an image to use as your avatar'); },
+      themes: [['light', 'Light', 'sun'], ['dark', 'Dark', 'moon'], ['system', 'System', 'monitor']].map(([k, l, ic]) => ({ label: l, icon: ic, sel: S.theme === k, bg: S.theme === k ? 'var(--color-surface)' : 'transparent', border: S.theme === k ? 'var(--color-border-strong)' : 'transparent', go: () => M.setTheme(k) })),
+      demoCols: demo.map(([t, l, ic, ks]) => ({ label: l, icon: ic, solid: tone(t, 'solid'), text: tone(t, 'text'), cards: ks })),
+      agents: [['Claude Code', '2.0.14'], ['Codex', '0.42.0'], ['Gemini CLI', '0.8.1']].map(([name, version]) => ({ name, version })),
+      keys: [['anthropic', 'Anthropic API key'], ['openai', 'OpenAI API key'], ['gemini', 'Gemini API key']].map(([id, label]) => ({ label, value: this.state.keys[id], change: e => this.setState({ keys: Object.assign({}, this.state.keys, { [id]: e.target.value }) }) })),
+      sources: [['folder', 'Pick a folder', 'folder-open', 'A repository already on this computer'], ['github', 'Clone from GitHub', 'github', 'Paste a repository URL'], ['sample', 'Use a sample project', 'flask-conical', 'Try Marshal on a small sample repository']].map(([k, l, ic, d]) => ({ label: l, icon: ic, desc: d, sel: this.state.src === k, border: this.state.src === k ? '2px solid var(--color-ink)' : '1px solid var(--color-border)', go: () => this.setState({ src: k }) })),
+      srcFolder: this.state.src === 'folder', srcGithub: this.state.src === 'github', path: this.state.path, url: this.state.url, onPath: e => this.setState({ path: e.target.value }), onUrl: e => this.setState({ url: e.target.value }),
+      code: '4K7-Q2M',
+      chatApps: [['tg', 'Telegram', 'send', 'Notices and approval buttons in a Telegram chat', 'Connect Telegram'], ['dc', 'Discord', 'message-circle', 'Notices and approval buttons in a Discord channel', 'Connect Discord']].map(([k, n, ic, d, b]) => ({ name: n, icon: ic, desc: d, btn: b, connected: this.state[k], notConnected: !this.state[k], connect: () => { this.setState({ [k]: true }); M.toast(n + ' connected'); } })),
+      canBack: step > 0, back: () => go(step - 1), skip: () => { if (last) M.finishOnboarding(); else go(step + 1); }, next, nextRef: this.nextRef, nextLabel: last ? 'Open Marshal' : 'Continue'
+    };
+  }
+}
+</script>
+</body>
+</html>

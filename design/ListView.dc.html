@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="position:absolute; inset:0; overflow:auto; background:var(--color-surface)">
+  <sc-if value="{{ noMatch }}">
+    <div style="display:flex; align-items:center; gap:12px; margin:16px; padding:10px 12px; border-radius:7px; border:1px solid var(--color-border)">
+      <m-icon name="search-x" size="16"></m-icon><span style="flex:1">{{ noMatchText }}</span>
+      <button onClick="{{ clear }}" style="height:28px; padding:0 10px; border-radius:5px; border:1px solid var(--color-border-strong); background:var(--color-surface); font-size:13px; font-weight:500">Clear search</button>
+    </div>
+  </sc-if>
+  <sc-if value="{{ phone }}">
+    <ul style="margin:0; padding:0 16px 24px; list-style:none">
+      <sc-for list="{{ rows }}" as="r">
+        <li><button data-card="{{ r.id }}" onClick="{{ r.open }}" style="width:100%; display:flex; flex-direction:column; gap:4px; padding:12px 0; border:none; border-bottom:1px solid var(--color-border); border-left:3px solid {{ r.edge }}; padding-left:10px; background:transparent; text-align:left">
+          <span style="display:flex; gap:8px; align-items:baseline"><span style="font-weight:600; color:{{ r.titleColor }}">{{ r.title }}</span><span style="font-size:13px; color:var(--color-text-muted)">{{ r.num }}</span></span>
+          <span style="display:flex; flex-wrap:wrap; gap:2px 12px; font-size:13px; line-height:18px; color:var(--color-text-secondary)"><span style="display:inline-flex; align-items:center; gap:4px; color:{{ r.stColor }}; font-weight:600"><span style="display:inline-flex; color:{{ r.iconColor }}"><m-icon name="{{ r.icon }}" size="14"></m-icon></span>{{ r.stateLabel }}</span><span>{{ r.role }}</span><span>{{ r.agent }}</span><sc-if value="{{ r.hasCi }}"><span style="display:inline-flex; align-items:center; gap:4px; color:{{ r.ciColor }}"><m-icon name="{{ r.ciIcon }}" size="14"></m-icon>{{ r.ciLabel }}</span></sc-if><sc-if value="{{ r.hasCost }}"><span>{{ r.cost }}</span></sc-if><span>{{ r.upd }}</span></span>
+        </button></li>
+      </sc-for>
+    </ul>
+  </sc-if>
+  <sc-if value="{{ notPhone }}">
+  <table style="width:100%; min-width:{{ minW }}; border-collapse:separate; border-spacing:0; font-size:13px; line-height:18px">
+    <thead>
+      <tr>
+        <sc-for list="{{ cols }}" as="h">
+          <th scope="col" aria-sort="{{ h.ariaSort }}" style="position:sticky; top:0; z-index:10; height:34px; padding:0; border-bottom:1px solid var(--color-border); background:var(--color-surface-sunken); text-align:{{ h.align }}; white-space:nowrap">
+            <button onClick="{{ h.sort }}" style="width:100%; height:34px; display:flex; justify-content:{{ h.justify }}; align-items:center; gap:4px; padding:0 12px; border:none; background:transparent; font-weight:600; color:var(--color-text-secondary)" style-hover="color:var(--color-text-primary)">{{ h.label }}<sc-if value="{{ h.active }}"><m-icon name="{{ h.icon }}" size="12"></m-icon></sc-if></button>
+          </th>
+        </sc-for>
+      </tr>
+    </thead>
+    <tbody>
+      <sc-for list="{{ rows }}" as="r">
+        <tr data-card="{{ r.id }}" tabindex="0" onClick="{{ r.open }}" onKeyDown="{{ r.key }}" aria-label="{{ r.aria }}" style="cursor:pointer; background:{{ r.bg }}" style-hover="background:var(--color-surface-hover)">
+          <sc-for list="{{ r.cells }}" as="x">
+            <td style="height:36px; padding:0 12px; border-bottom:1px solid var(--color-border); white-space:nowrap; text-align:{{ x.align }}; max-width:{{ x.maxW }}; overflow:hidden; text-overflow:ellipsis; color:{{ x.color }}; font-weight:{{ x.weight }}; font-family:{{ x.font }}; font-size:{{ x.size }}">
+              <sc-if value="{{ x.hasIcon }}"><span style="display:inline-flex; align-items:center; gap:4px"><span style="display:inline-flex; color:{{ x.iconColor }}"><m-icon name="{{ x.icon }}" size="14"></m-icon></span>{{ x.text }}</span></sc-if>
+              <sc-if value="{{ x.noIcon }}">{{ x.text }}</sc-if>
+            </td>
+          </sc-for>
+        </tr>
+      </sc-for>
+    </tbody>
+  </table>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  componentDidMount() { this.u = M.on(() => this.forceUpdate()); }
+  componentWillUnmount() { this.u && this.u(); if (M.nav && M.nav.owner === 'list') M.nav = null; }
+  renderVals() {
+    const S = M.S; const pid = S.route.pid;
+    const sort = S.sort.list;
+    const order = M.COLUMNS;
+    const DEF = {
+      id: { label: 'ID', v: c => c.id, cell: c => ({ text: '#' + c.id, color: 'var(--color-text-muted)' }) },
+      title: { label: 'Title', v: c => c.title.toLowerCase(), cell: (c, d) => ({ text: c.title, weight: '600', color: d.titleColor, maxW: '360px', hasIcon: c.asleep || c.pinned || c.bypass, icon: c.bypass ? 'shield-alert' : c.asleep ? 'moon' : 'pin', iconColor: c.bypass ? M.tone('danger', 'solid') : 'var(--color-text-secondary)' }) },
+      state: { label: 'State', v: c => order.indexOf(M.colOf(c.state)), cell: (c, d) => ({ text: d.stateLabel, hasIcon: true, icon: d.icon, iconColor: d.iconColor, color: d.stColor, weight: '600' }) },
+      role: { label: 'Role', v: c => c.role, cell: c => ({ text: c.role }) },
+      agent: { label: 'Agent', v: c => c.agent, cell: c => ({ text: c.agent }) },
+      model: { label: 'Model', v: c => c.model, cell: c => ({ text: c.model }) },
+      think: { label: 'Thinking', v: c => c.think || '', cell: (c, d) => ({ text: d.think || 'Not supported', color: 'var(--color-text-secondary)' }) },
+      pkg: { label: 'Package', v: c => c.pkg || '', cell: c => ({ text: c.pkg || '', font: 'var(--font-mono)', size: '12px' }) },
+      branch: { label: 'Branch', v: c => c.branch || '', cell: c => ({ text: c.branch || '', font: 'var(--font-mono)', size: '12px', color: 'var(--color-text-secondary)', maxW: '260px' }) },
+      ci: { label: 'CI', v: c => c.ci || '', cell: (c, d) => ({ text: d.ciLabel, hasIcon: d.hasCi, icon: d.ciIcon, iconColor: d.ciColor, color: d.ciColor, weight: '600' }) },
+      cost: { label: 'Cost', align: 'right', v: c => c.cost, cell: (c, d) => ({ text: d.hasCost ? d.cost : '', align: 'right' }) },
+      upd: { label: 'Updated', v: c => c.upd, cell: (c, d) => ({ text: d.upd, color: 'var(--color-text-secondary)' }) }
+    };
+    const keys = ['id', 'title', 'state', 'role', 'agent', 'model', 'think', 'pkg', 'branch', 'ci', 'cost', 'upd'].filter(k => S.listCols[k] && (S.vw >= 1200 || !['think', 'pkg', 'upd', 'model'].includes(k)));
+    const list = M.filtered(pid).slice().sort((a, b) => { const x = DEF[sort.k].v(a), y = DEF[sort.k].v(b); return (x > y ? 1 : x < y ? -1 : 0) * sort.dir; });
+    const cols = keys.map(k => ({ label: DEF[k].label, align: DEF[k].align || 'left', justify: DEF[k].align === 'right' ? 'flex-end' : 'flex-start', active: sort.k === k, icon: sort.dir > 0 ? 'arrow-up' : 'arrow-down', ariaSort: sort.k === k ? (sort.dir > 0 ? 'ascending' : 'descending') : 'none',
+      sort: () => { S.sort.list = { k, dir: sort.k === k ? -sort.dir : 1 }; M.emit(); } }));
+    const rows = list.map(c => {
+      const d = M.deco(c);
+      return Object.assign({}, d, { id: c.id, aria: d.aria, bg: S.focusId === c.id ? 'var(--color-surface-selected)' : 'transparent', open: () => M.openCard(c.id), key: e => { if (e.key === 'Enter') M.openCard(c.id); },
+        cells: keys.map(k => { const x = DEF[k].cell(c, d); return Object.assign({ align: 'left', maxW: 'none', color: 'var(--color-text-primary)', weight: '400', font: 'var(--font-sans)', size: '13px', hasIcon: false }, x, { noIcon: !x.hasIcon }); }) });
+    });
+    M.nav = { owner: 'list', rows: list.map(c => c.id) };
+    const q = S.query[pid];
+    return { phone: S.vw < 640, notPhone: S.vw >= 640, cols, rows, minW: keys.length * 110 + 'px', noMatch: list.length === 0, noMatchText: q ? 'No cards match "' + q + '".' : 'No cards match these filters.', clear: () => M.clearFilters() };
+  }
+}
+</script>
+</body>
+</html>
