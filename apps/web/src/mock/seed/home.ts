@@ -10,7 +10,7 @@ export const seedNotices = (loadedAt: number): Notice[] => [
   {
     id: "n1",
     kind: "sleep",
-    cards: [39, 36, 116],
+    cards: ["api#39", "api#36", "web#116"],
     deadline: loadedAt + SLEEP_NOTICE_MS,
     ts: loadedAt,
   },
@@ -18,7 +18,7 @@ export const seedNotices = (loadedAt: number): Notice[] => [
     id: "n2",
     kind: "ci-main",
     pid: "mobile",
-    cardId: 213,
+    cardId: "mobile#213",
     text: "Main is failing in mobile-app",
     sub: "The android workflow failed in LoginFlowTest",
     ts: loadedAt - 22 * MINUTE_MS,
@@ -45,14 +45,14 @@ const FEED: FeedSeed[] = [
     kind: "merge",
     text: "#205 Refresh tokens in secure storage merged into main",
     pid: "mobile",
-    cardId: 205,
+    cardId: "mobile#205",
     ago: 3 * DAYS,
   },
   {
     kind: "merge",
     text: "#110 Fix flaky login e2e test merged into main",
     pid: "web",
-    cardId: 110,
+    cardId: "web#110",
     ago: 26 * HOURS,
   },
   {
@@ -66,18 +66,18 @@ const FEED: FeedSeed[] = [
     kind: "approval",
     text: "You approved pnpm add @tanstack/react-table on #119",
     pid: "web",
-    cardId: 119,
+    cardId: "web#119",
     ago: 70,
   },
-  { kind: "plan", text: "Plan ready for review on #43", pid: "api", cardId: 43, ago: 34 },
+  { kind: "plan", text: "Plan ready for review on #43", pid: "api", cardId: "api#43", ago: 34 },
   {
     kind: "ci",
     text: "CI failed on main in mobile-app: android workflow",
     pid: "mobile",
-    cardId: 213,
+    cardId: "mobile#213",
     ago: 22,
   },
-  { kind: "ci", text: "CI passed on marshal/39-slog", pid: "api", cardId: 39, ago: 16 },
+  { kind: "ci", text: "CI passed on marshal/39-slog", pid: "api", cardId: "api#39", ago: 16 },
 ];
 
 export function seedFeed(ids: IdCounters, loadedAt: number): FeedItem[] {

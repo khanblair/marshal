@@ -1,3 +1,4 @@
+import type { CardKey } from "../card-key";
 import { type IdCounters, takeMid } from "../ids";
 import type {
   AgentMsg,
@@ -27,8 +28,8 @@ export interface MsgFactory {
   diff(o: Omit<DiffMsg, "id" | "k">): DiffMsg;
   plan(o: Omit<PlanMsg, "id" | "k">): PlanMsg;
   approval(o: Omit<ApprovalMsg, "id" | "k">): ApprovalMsg;
-  cardRef(cardId: number): CardRefMsg;
-  links(text: string, cards: number[]): LinksMsg;
+  cardRef(cardId: CardKey): CardRefMsg;
+  links(text: string, cards: CardKey[]): LinksMsg;
 }
 
 export function createMsgFactory(ids: IdCounters): MsgFactory {

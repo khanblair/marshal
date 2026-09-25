@@ -1,10 +1,11 @@
+import type { CardKey } from "../card-key";
 import type { Card, Check, CheckState, Status } from "../types";
 import { lintFor, testFor } from "./files";
 
 const REVIEWED: readonly Status[] = ["review", "ready", "merging", "done"];
 const APPROVED: readonly Status[] = ["ready", "merging", "done"];
 /** #119 is stuck on a type error, so its tests show as failed whatever its state. */
-const STUCK_CARD_ID = 119;
+const STUCK_CARD_ID: CardKey = "web#119";
 
 function overallState(c: Card): CheckState {
   if (c.state === "backlog") return "pending";

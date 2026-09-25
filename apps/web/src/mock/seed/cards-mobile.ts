@@ -7,7 +7,7 @@ const DAYS = 24 * HOURS;
 /** Seed cards of mobile-app, in the prototype's order. */
 export const MOBILE_CARDS: CardSeed[] = [
   {
-    id: 209,
+    n: 209,
     p: "mobile",
     title: "Biometric login on Android",
     state: "working",
@@ -27,7 +27,7 @@ export const MOBILE_CARDS: CardSeed[] = [
     ctx: 0.58,
   },
   {
-    id: 207,
+    n: 207,
     p: "mobile",
     title: "Shared Button component variants",
     state: "review",
@@ -45,7 +45,7 @@ export const MOBILE_CARDS: CardSeed[] = [
     pr: 1432,
   },
   {
-    id: 210,
+    n: 210,
     p: "mobile",
     title: "Offline queue for API client",
     state: "needs",
@@ -61,12 +61,12 @@ export const MOBILE_CARDS: CardSeed[] = [
     labels: ["feature"],
     s: -4,
     e: 1,
-    deps: [208],
+    deps: ["mobile#208"],
     upd: 20,
     pr: 1435,
   },
   {
-    id: 208,
+    n: 208,
     p: "mobile",
     title: "Typed errors in api-client",
     state: "ready",
@@ -83,7 +83,7 @@ export const MOBILE_CARDS: CardSeed[] = [
     pr: 1429,
   },
   {
-    id: 205,
+    n: 205,
     p: "mobile",
     title: "Refresh tokens in secure storage",
     state: "done",
@@ -98,7 +98,7 @@ export const MOBILE_CARDS: CardSeed[] = [
     pr: 1420,
   },
   {
-    id: 211,
+    n: 211,
     p: "mobile",
     title: "Push notification deep links",
     state: "backlog",
@@ -110,7 +110,7 @@ export const MOBILE_CARDS: CardSeed[] = [
     upd: 8 * HOURS,
   },
   {
-    id: 212,
+    n: 212,
     p: "mobile",
     title: "Upgrade React Native to 0.76",
     state: "backlog",
@@ -120,11 +120,11 @@ export const MOBILE_CARDS: CardSeed[] = [
     labels: ["deps"],
     s: 6,
     e: 11,
-    deps: [211],
+    deps: ["mobile#211"],
     upd: 9 * HOURS,
   },
   {
-    id: 206,
+    n: 206,
     p: "mobile",
     title: "iOS splash screen flicker",
     state: "review",
@@ -143,7 +143,7 @@ export const MOBILE_CARDS: CardSeed[] = [
     pr: 1431,
   },
   {
-    id: 213,
+    n: 213,
     p: "mobile",
     title: "Fix Android e2e failing on main",
     state: "working",

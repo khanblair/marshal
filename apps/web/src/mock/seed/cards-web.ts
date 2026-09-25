@@ -6,7 +6,7 @@ const HOURS = 60;
 /** Seed cards of web-dashboard, in the prototype's order. */
 export const WEB_CARDS: CardSeed[] = [
   {
-    id: 118,
+    n: 118,
     p: "web",
     title: "Dark mode for settings page",
     state: "working",
@@ -21,7 +21,7 @@ export const WEB_CARDS: CardSeed[] = [
     ctx: 0.31,
   },
   {
-    id: 119,
+    n: 119,
     p: "web",
     title: "Migrate tables to TanStack Table v8",
     state: "needs",
@@ -39,7 +39,7 @@ export const WEB_CARDS: CardSeed[] = [
     ctx: 0.81,
   },
   {
-    id: 115,
+    n: 115,
     p: "web",
     title: "Chart tooltips cut off on small screens",
     state: "review",
@@ -57,7 +57,7 @@ export const WEB_CARDS: CardSeed[] = [
     pr: 902,
   },
   {
-    id: 116,
+    n: 116,
     p: "web",
     title: "Add CSV export to reports",
     state: "ready",
@@ -71,7 +71,7 @@ export const WEB_CARDS: CardSeed[] = [
     pr: 899,
   },
   {
-    id: 110,
+    n: 110,
     p: "web",
     title: "Fix flaky login e2e test",
     state: "done",
@@ -88,7 +88,7 @@ export const WEB_CARDS: CardSeed[] = [
     pr: 891,
   },
   {
-    id: 111,
+    n: 111,
     p: "web",
     title: "Update onboarding copy",
     state: "done",
@@ -106,7 +106,7 @@ export const WEB_CARDS: CardSeed[] = [
     pr: 893,
   },
   {
-    id: 120,
+    n: 120,
     p: "web",
     title: "Keyboard shortcuts help dialog",
     state: "backlog",
@@ -117,18 +117,18 @@ export const WEB_CARDS: CardSeed[] = [
     upd: 5 * HOURS,
   },
   {
-    id: 121,
+    n: 121,
     p: "web",
     title: "Virtualize activity table",
     state: "backlog",
     labels: ["perf"],
     s: 2,
     e: 5,
-    deps: [119],
+    deps: ["web#119"],
     upd: 6 * HOURS,
   },
   {
-    id: 117,
+    n: 117,
     p: "web",
     title: "Session timeout warning banner",
     state: "planning",

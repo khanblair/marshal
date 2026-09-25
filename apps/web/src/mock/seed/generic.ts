@@ -23,16 +23,16 @@ export function genericChat(c: Card, b: MsgFactory): Msg[] {
   const out: Msg[] = [
     b.user(`Please ${lowerFirst(c.title)}. Keep the change small and add tests.`),
     b.agent("I'll read the relevant code first, then make the change."),
-    b.tool("file-search", `Read ${file}`, `${READ_LINES.base + (c.id % READ_LINES.spread)} lines`),
+    b.tool("file-search", `Read ${file}`, `${READ_LINES.base + (c.n % READ_LINES.spread)} lines`),
     b.tool(
       "file-pen",
       `Edited ${file}`,
-      `+${EDIT_ADDED.base + (c.id % EDIT_ADDED.spread)} −${c.id % EDIT_REMOVED_SPREAD}`,
+      `+${EDIT_ADDED.base + (c.n % EDIT_ADDED.spread)} −${c.n % EDIT_REMOVED_SPREAD}`,
     ),
     b.tool(
       "terminal",
       `Ran ${testFor(c)}`,
-      `${TESTS_PASSED.base + (c.id % TESTS_PASSED.spread)} passed`,
+      `${TESTS_PASSED.base + (c.n % TESTS_PASSED.spread)} passed`,
     ),
   ];
   if (c.state === "planning") {

@@ -1,4 +1,5 @@
 // biome-ignore-all lint/style/noMagicNumbers: seed data table of diff line numbers from the prototype
+import { type CardKey, cardLabel } from "../card-key";
 import type { Card, DiffFile } from "../types";
 import { filesFor } from "./files";
 
@@ -75,7 +76,7 @@ const DIFF_41: DiffFile[] = [
   { path: "go.sum", add: 1240, del: 0, large: true, hunks: [] },
 ];
 
-const DIFFS: Record<number, DiffFile[]> = { 41: DIFF_41 };
+const DIFFS: Record<CardKey, DiffFile[]> = { "api#41": DIFF_41 };
 
 /** The card's diff: a hand-written one for #41, a small generated one for the others. */
 export function diffFor(c: Card): DiffFile[] {
@@ -86,8 +87,8 @@ export function diffFor(c: Card): DiffFile[] {
   return [
     {
       path: first,
-      add: 12 + (c.id % 30),
-      del: c.id % 9,
+      add: 12 + (c.n % 30),
+      del: c.n % 9,
       hunks: [
         {
           h: "@@ -12,6 +12,9 @@",
@@ -95,7 +96,7 @@ export function diffFor(c: Card): DiffFile[] {
             [" ", 12, `// ${c.title}`],
             ["-", 13, "const legacy = true"],
             ["+", 13, "const legacy = false"],
-            ["+", 14, `// Changed by card #${c.id}`],
+            ["+", 14, `// Changed by card ${cardLabel(c)}`],
             [" ", 15, ""],
           ],
         },
@@ -110,7 +111,7 @@ export function diffFor(c: Card): DiffFile[] {
           h: "@@ -3,4 +3,7 @@",
           lines: [
             [" ", 3, ""],
-            ["+", 4, `// test for #${c.id}`],
+            ["+", 4, `// test for ${cardLabel(c)}`],
             [" ", 5, ""],
           ],
         },

@@ -1,12 +1,16 @@
+import { cardKey } from "../card-key";
 import { MINUTE_MS } from "../constants";
 import type { Card } from "../types";
 import { API_CARDS } from "./cards-api";
 import { MOBILE_CARDS } from "./cards-mobile";
 import { WEB_CARDS } from "./cards-web";
 
-/** Card fields for `makeCard`. `upd` here is minutes before load, as in the prototype's `C()`. */
-export type CardSeed = Omit<Partial<Card>, "upd"> &
-  Pick<Card, "id" | "p" | "title" | "state"> & { upd?: number };
+/**
+ * Card fields for `makeCard`. `upd` here is minutes before load, as in the prototype's `C()`.
+ * A seed names its card by project and number; `makeCard` builds the key.
+ */
+export type CardSeed = Omit<Partial<Card>, "upd" | "id"> &
+  Pick<Card, "n" | "p" | "title" | "state"> & { upd?: number };
 
 const DEFAULT_UPD_MIN = 30;
 
@@ -44,6 +48,7 @@ export function makeCard(loadedAt: number, seed: CardSeed): Card {
     mergePct: 0,
     waking: false,
     ...structuredClone(seed),
+    id: cardKey(seed.p, seed.n),
     upd: loadedAt - (seed.upd ?? DEFAULT_UPD_MIN) * MINUTE_MS,
   };
 }

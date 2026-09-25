@@ -1,6 +1,7 @@
+import type { CardKey } from "../card-key";
 import type { IdCounters } from "../ids";
 import type { CalEvent, Integration, Profile, Provider, Role, Schedule } from "../settings-types";
-import type { Activity, Card, Chat, Check, FeedItem, Msg, Notice, Person, Project } from "../types";
+import type { Activity, Card, Chat, Check, FeedItem, Msg, Notice, Person } from "../types";
 import { seedCalEvents, seedSchedules } from "./calendar";
 import { seedCardChats } from "./card-chats";
 import { PEOPLE, seedCardExtras } from "./card-extras";
@@ -9,18 +10,17 @@ import { checksFor } from "./checks";
 import { activityFrom } from "./generic";
 import { seedFeed, seedNotices } from "./home";
 import { createMsgFactory } from "./messages";
+import { seedProfile } from "./profile";
 import { seedProjectChats } from "./project-chats";
-import { seedProfile, seedProjects } from "./projects";
 import { seedIntegrations, seedProviders, seedRoles } from "./settings";
 
 export interface Seed {
   people: Person[];
-  projects: Project[];
   cards: Card[];
-  chat: Record<number, Msg[]>;
+  chat: Record<CardKey, Msg[]>;
   chats: Record<string, Chat[]>;
-  act: Record<number, Activity[]>;
-  checks: Record<number, Check[]>;
+  act: Record<CardKey, Activity[]>;
+  checks: Record<CardKey, Check[]>;
   roles: Role[];
   providers: Provider[];
   integrations: Integration[];
@@ -41,13 +41,12 @@ export function buildSeed(ids: IdCounters, loadedAt: number): Seed {
   seedCardExtras(cards, ids, loadedAt);
   const chat = seedCardChats(cards, b);
   const chats = seedProjectChats(b, ids, loadedAt);
-  const act: Record<number, Activity[]> = {};
-  const checks: Record<number, Check[]> = {};
+  const act: Record<CardKey, Activity[]> = {};
+  const checks: Record<CardKey, Check[]> = {};
   for (const c of cards) act[c.id] = activityFrom(chat[c.id] ?? [], c.upd, ids);
   for (const c of cards) checks[c.id] = checksFor(c);
   return {
     people: structuredClone(PEOPLE),
-    projects: seedProjects(),
     cards,
     chat,
     chats,

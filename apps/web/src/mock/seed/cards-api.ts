@@ -7,7 +7,7 @@ const DAYS = 24 * HOURS;
 /** Seed cards of api-gateway, in the prototype's order. */
 export const API_CARDS: CardSeed[] = [
   {
-    id: 41,
+    n: 41,
     p: "api",
     title: "Fix token refresh on login",
     state: "working",
@@ -24,7 +24,7 @@ export const API_CARDS: CardSeed[] = [
     upd: 1,
   },
   {
-    id: 43,
+    n: 43,
     p: "api",
     title: "Add rate limiting per API key",
     state: "needs",
@@ -41,7 +41,7 @@ export const API_CARDS: CardSeed[] = [
     upd: 34,
   },
   {
-    id: 44,
+    n: 44,
     p: "api",
     title: "Upgrade grpc-go to 1.66",
     state: "needs",
@@ -58,7 +58,7 @@ export const API_CARDS: CardSeed[] = [
     upd: 12,
   },
   {
-    id: 39,
+    n: 39,
     p: "api",
     title: "Structured logging with slog",
     state: "review",
@@ -74,7 +74,7 @@ export const API_CARDS: CardSeed[] = [
     pr: 281,
   },
   {
-    id: 40,
+    n: 40,
     p: "api",
     title: "Retry upstream calls with jitter",
     state: "review",
@@ -92,7 +92,7 @@ export const API_CARDS: CardSeed[] = [
     pr: 284,
   },
   {
-    id: 36,
+    n: 36,
     p: "api",
     title: "Remove deprecated v1 routes",
     state: "ready",
@@ -106,7 +106,7 @@ export const API_CARDS: CardSeed[] = [
     pr: 276,
   },
   {
-    id: 35,
+    n: 35,
     p: "api",
     title: "Health check returns build info",
     state: "merging",
@@ -125,7 +125,7 @@ export const API_CARDS: CardSeed[] = [
     pr: 274,
   },
   {
-    id: 33,
+    n: 33,
     p: "api",
     title: "Cache JWKS keys for 10 minutes",
     state: "done",
@@ -142,7 +142,7 @@ export const API_CARDS: CardSeed[] = [
     pr: 268,
   },
   {
-    id: 45,
+    n: 45,
     p: "api",
     title: "OpenAPI spec for admin routes",
     state: "backlog",
@@ -153,12 +153,12 @@ export const API_CARDS: CardSeed[] = [
     labels: ["docs"],
     s: 3,
     e: 6,
-    deps: [36],
+    deps: ["api#36"],
     due: 7,
     upd: 3 * HOURS,
   },
   {
-    id: 46,
+    n: 46,
     p: "api",
     title: "Split config loader into packages",
     state: "planning",
@@ -169,11 +169,11 @@ export const API_CARDS: CardSeed[] = [
     doing: "Reading internal/config and its callers",
     s: 1,
     e: 5,
-    deps: [39],
+    deps: ["api#39"],
     upd: 1,
   },
   {
-    id: 42,
+    n: 42,
     p: "api",
     title: "Load test the /v2/proxy path",
     state: "working",

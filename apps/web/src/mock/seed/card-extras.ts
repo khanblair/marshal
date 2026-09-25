@@ -1,3 +1,4 @@
+import type { CardKey } from "../card-key";
 import { MINUTE_MS } from "../constants";
 import { type IdCounters, takeCk } from "../ids";
 import type { Attachment, Card, Checklist, Comment, Person } from "../types";
@@ -24,7 +25,7 @@ interface CommentSeed {
 }
 
 interface CardExtraSeed {
-  id: number;
+  id: CardKey;
   members: string[];
   checklists?: ChecklistSeed[];
   comments?: CommentSeed[];
@@ -36,7 +37,7 @@ const ITEM_SPACING_MIN = 17;
 /* Listed in the prototype's order, which decides the seeded checklist and comment ids. */
 const EXTRAS: CardExtraSeed[] = [
   {
-    id: 41,
+    id: "api#41",
     members: ["ada", "blair"],
     checklists: [
       {
@@ -84,7 +85,7 @@ const EXTRAS: CardExtraSeed[] = [
     ],
   },
   {
-    id: 43,
+    id: "api#43",
     members: ["ada", "godana"],
     checklists: [
       {
@@ -107,9 +108,9 @@ const EXTRAS: CardExtraSeed[] = [
       },
     ],
   },
-  { id: 44, members: ["ada"] },
+  { id: "api#44", members: ["ada"] },
   {
-    id: 118,
+    id: "web#118",
     members: ["angella", "ada"],
     checklists: [
       {
@@ -139,7 +140,7 @@ const EXTRAS: CardExtraSeed[] = [
     ],
   },
   {
-    id: 119,
+    id: "web#119",
     members: ["godana"],
     comments: [
       {
@@ -149,9 +150,9 @@ const EXTRAS: CardExtraSeed[] = [
       },
     ],
   },
-  { id: 209, members: ["blair"] },
+  { id: "mobile#209", members: ["blair"] },
   {
-    id: 207,
+    id: "mobile#207",
     members: ["angella"],
     checklists: [
       {
@@ -162,7 +163,7 @@ const EXTRAS: CardExtraSeed[] = [
     ],
   },
   {
-    id: 210,
+    id: "mobile#210",
     members: ["ada", "godana"],
     checklists: [
       {
@@ -176,9 +177,9 @@ const EXTRAS: CardExtraSeed[] = [
       },
     ],
   },
-  { id: 116, members: ["godana"] },
-  { id: 39, members: ["blair"] },
-  { id: 36, members: ["ada"] },
+  { id: "web#116", members: ["godana"] },
+  { id: "api#39", members: ["blair"] },
+  { id: "api#36", members: ["ada"] },
 ];
 
 function makeChecklist(ids: IdCounters, loadedAt: number, seed: ChecklistSeed): Checklist {
