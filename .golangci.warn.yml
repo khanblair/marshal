@@ -1,0 +1,35 @@
+# Warning-level Go checks: the "fix, or explain in the change" limits from
+# docs/code-standards.md section 12.2. `pnpm smells` runs this file and lists what it finds
+# without failing the build.
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: none
+  enable:
+    - funlen
+    - gocognit
+    - nestif
+    - dupl
+    - mnd
+    - revive
+  settings:
+    funlen:
+      lines: 50
+      statements: -1
+    gocognit:
+      min-complexity: 15
+    nestif:
+      min-complexity: 4
+    dupl:
+      threshold: 60
+    revive:
+      rules:
+        - name: argument-limit
+          arguments: [4]
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters: [funlen, gocognit, dupl, mnd]

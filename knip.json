@@ -4,7 +4,8 @@
     ".": {
       "entry": ["scripts/*.mjs"],
       "project": ["scripts/**/*.mjs"],
-      "ignoreDependencies": ["jscpd", "solid-js"]
+      "ignoreDependencies": ["jscpd", "solid-js"],
+      "ignoreBinaries": ["go"]
     },
     "apps/web": {
       "entry": ["src/**/*.test.{ts,tsx}", "e2e/**/*.ts"],
@@ -17,7 +18,12 @@
     "packages/tokens": {
       "entry": ["scripts/*.ts", "src/*.ts", "test/**/*.ts"],
       "project": ["src/**/*.ts", "scripts/**/*.ts", "test/**/*.ts"]
+    },
+    "packages/protocol": {
+      "entry": ["test/**/*.ts"],
+      "project": ["src/**/*.ts", "test/**/*.ts"]
     }
   },
-  "ignoreDependencies": ["tailwindcss"]
+  "ignoreDependencies": ["tailwindcss"],
+  "ignore": ["**/testdata/**"]
 }

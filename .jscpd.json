@@ -13,8 +13,10 @@
     "pnpm-lock.yaml",
     "**/*.test.ts",
     "**/*.test.tsx",
+    "**/*_test.go",
+    "**/testdata/**",
     "packages/tokens/src/themes.ts",
     "apps/web/src/mock/seed/**"
   ],
-  "format": ["typescript", "tsx", "javascript", "css"]
+  "format": ["typescript", "tsx", "javascript", "css", "go"]
 }

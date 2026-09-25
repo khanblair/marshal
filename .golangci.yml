@@ -1,0 +1,61 @@
+# Blocking Go checks. The limits match docs/code-standards.md section 12.2, and CI fails on any
+# finding. The softer warning limits are in .golangci.warn.yml and are run by `pnpm smells`.
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - ineffassign
+    - unused
+    - unparam
+    - funlen
+    - gocognit
+    - nestif
+    - dupl
+    - goconst
+    - gochecknoglobals
+    - revive
+  settings:
+    funlen:
+      lines: 100
+      statements: -1
+    gocognit:
+      min-complexity: 25
+    nestif:
+      min-complexity: 6
+    dupl:
+      threshold: 150
+    goconst:
+      min-len: 3
+      min-occurrences: 4
+    revive:
+      rules:
+        - name: exported
+        - name: package-comments
+        - name: var-naming
+        - name: error-naming
+        - name: error-strings
+        - name: increment-decrement
+        - name: indent-error-flow
+        - name: argument-limit
+          arguments: [6]
+  exclusions:
+    rules:
+      # Tests and table data are excluded from the size and duplication limits.
+      - path: _test\.go
+        linters: [funlen, gocognit, dupl, goconst, unparam, gochecknoglobals]
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/khanblair/marshal

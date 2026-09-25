@@ -30,7 +30,7 @@ After adding, add an entry here with the version, purpose, and notes.
 
 | Library | Version | Used for | Why this one |
 |---|---|---|---|
-| Go standard library (`net/http`, `log/slog`, `context`, `os/exec`) | Pin at setup | HTTP server and routing, logging, processes | Modern routing patterns are built in. No web framework needed. |
+| Go standard library (`net/http`, `log/slog`, `context`, `os/exec`) | 1.27.1 | HTTP server and routing, logging, processes | Modern routing patterns are built in. No web framework needed. |
 | `golang.org/x/sync/errgroup` | Pin at setup | Groups of goroutines | Standard way to run and stop related goroutines together |
 | `golang.org/x/time/rate` | Pin at setup | Rate limiting per provider | Small, standard token bucket |
 | `github.com/coder/websocket` | Pin at setup | WebSocket event stream | Small, maintained, supports context well |
@@ -43,7 +43,7 @@ After adding, add an entry here with the version, purpose, and notes.
 |---|---|---|---|
 | `modernc.org/sqlite` | Pin at setup | SQLite driver | Pure Go, no cgo, so cross-compiling stays simple |
 | `github.com/pressly/goose/v3` | Pin at setup | Migrations | Simple, supports embedded SQL files |
-| `sqlc` (tool) | Pin at setup | Generating typed Go from SQL queries | Real SQL, type safety, no ORM |
+| `sqlc` (tool) | v1.31.1 | Generating typed Go from SQL queries | Real SQL, type safety, no ORM |
 
 **Notes:**
 
@@ -68,7 +68,7 @@ After adding, add an entry here with the version, purpose, and notes.
 | Library | Version | Used for | Why this one |
 |---|---|---|---|
 | `github.com/modelcontextprotocol/go-sdk` | Pin at setup | The internal MCP server, and MCP client for the built-in agent | The official Go SDK |
-| ACP (Agent Client Protocol) | Pin at setup | Talking to ACP agents | Use an official or well-maintained Go SDK if one is available at setup. Otherwise, implement the JSON-RPC over stdio layer ourselves, which is small. Decide in task 1.6. |
+| `github.com/coder/acp-go-sdk` | v0.13.5 | Talking to ACP agents, and the stub agent used in tests | Chosen in task 1.6, built early for the stub agent (Phase 0). Generated from the official ACP schema, so method and type names cannot drift. Checks (section 1): needed, since the protocol layer is about 15,000 generated lines; pure Go, no cgo; Apache-2.0; last release June 2026 and maintained by Coder; no install scripts; nothing else on this list overlaps. |
 | `github.com/anthropics/anthropic-sdk-go` | Pin at setup | Anthropic adapter | Official SDK, supports thinking and tool use |
 | `github.com/openai/openai-go` | Pin at setup | OpenAI and all OpenAI-compatible providers (OpenRouter, DeepSeek, Ollama, LM Studio) | Official SDK, base URL can be changed per provider |
 | `google.golang.org/genai` | Pin at setup | Gemini adapter | Official Google Gen AI SDK |
@@ -109,7 +109,7 @@ After adding, add an entry here with the version, purpose, and notes.
 |---|---|---|---|
 | `github.com/chromedp/chromedp` | Pin at setup | Screenshot checks | Drives the user's installed Chrome or Edge, no bundled browser |
 | `github.com/robfig/cron/v3` | Pin at setup | Parsing and running cron schedules | Standard, supports time zones |
-| `github.com/gzuidhof/tygo` (tool) | Pin at setup | Generating TypeScript types from Go | Keeps `packages/protocol` in sync with the API |
+| `github.com/gzuidhof/tygo` (tool) | v0.2.21 | Generating TypeScript types from Go | Keeps `packages/protocol` in sync with the API |
 
 **Notes:**
 
@@ -119,8 +119,8 @@ After adding, add an entry here with the version, purpose, and notes.
 
 | Tool | Version | Used for |
 |---|---|---|
-| `air` | Pin at setup | Restarting the daemon when Go files change, in `pnpm dev` |
-| `golangci-lint` | Pin at setup | Go linting and code smell checks (see `code-standards.md` section 12) |
+| `air` | v1.67.4 | Restarting the daemon when Go files change, in `pnpm dev` |
+| `golangci-lint` | v2.14.0 | Go linting and code smell checks (see `code-standards.md` section 12) |
 
 These, plus `sqlc` and `tygo`, are installed into `.tools/` by `pnpm setup:tools`.
 
@@ -129,7 +129,7 @@ These, plus `sqlc` and `tygo`, are installed into `.tools/` by `pnpm setup:tools
 | Library | Version | Used for |
 |---|---|---|
 | Go `testing` package | Pin at setup | All tests |
-| `go.uber.org/goleak` | Pin at setup | Catching leaked goroutines |
+| `go.uber.org/goleak` | v1.3.0 | Catching leaked goroutines |
 | `github.com/google/go-cmp` | Pin at setup | Comparing structs in tests |
 
 ### 2.10 Open decision: codebase map
