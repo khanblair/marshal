@@ -2,24 +2,27 @@
  * Text and rules of the timeline that do not depend on the store: bar tooltips, what a
  * drop would break, and the day groups of the phone list. From design/TimelineView.dc.html.
  */
+import { type CardKey, cardLabel, cardNumber } from "~/mock/card-key";
 import type { Planned } from "./timeline-geometry";
 
 interface Titled extends Planned {
   title: string;
 }
 
-const refs = (ids: readonly number[]): string => ids.map((id) => `#${id}`).join(", ");
+/** `#39, #41` for the card keys, which belong to the timeline's own project. */
+const refs = (keys: readonly CardKey[]): string =>
+  keys.map((key) => cardLabel({ n: cardNumber(key) })).join(", ");
 
 /** Bar tooltip: the card, its state, what it waits for, and what waits for it. */
 export function barTip(c: Titled, stateLabel: string, blocks: readonly Planned[]): string {
   const dependsOn = c.deps.length ? `. Depends on ${refs(c.deps)}` : "";
   const blocking = blocks.length ? `. Blocks ${refs(blocks.map((b) => b.id))}` : "";
-  return `#${c.id} ${c.title}. ${stateLabel}${dependsOn}${blocking}`;
+  return `${cardLabel(c)} ${c.title}. ${stateLabel}${dependsOn}${blocking}`;
 }
 
 /** Cards on the timeline, sorted by planned start and then id. */
 export function timelineCards<T extends Planned>(cards: readonly T[]): T[] {
-  return cards.filter((c) => c.s != null).sort((a, b) => (a.s ?? 0) - (b.s ?? 0) || a.id - b.id);
+  return cards.filter((c) => c.s != null).sort((a, b) => (a.s ?? 0) - (b.s ?? 0) || a.n - b.n);
 }
 
 export interface MovePlan {
@@ -38,7 +41,7 @@ export function planMove<T extends Planned>(
   c: T,
   delta: number,
   all: readonly T[],
-  find: (id: number) => T | undefined,
+  find: (id: CardKey) => T | undefined,
 ): MovePlan {
   const s0 = c.s ?? 0;
   const e0 = c.e ?? 0;
@@ -48,12 +51,12 @@ export function planMove<T extends Planned>(
   for (const id of c.deps) {
     const a = find(id);
     if (a && a.e != null && s <= a.e && !(s0 <= a.e)) {
-      broken.push(`#${c.id} would start before #${a.id} finishes`);
+      broken.push(`${cardLabel(c)} would start before ${cardLabel(a)} finishes`);
     }
   }
   for (const b of all.filter((x) => x.deps.includes(c.id))) {
     if (b.s != null && b.s <= e && !(b.s <= e0)) {
-      broken.push(`#${b.id} would start before #${c.id} finishes`);
+      broken.push(`${cardLabel(b)} would start before ${cardLabel(c)} finishes`);
     }
   }
   return { s, e, broken };

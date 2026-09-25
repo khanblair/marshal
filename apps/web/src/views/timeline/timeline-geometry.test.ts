@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { cardKey } from "~/mock/card-key";
 import {
   barWidth,
   barX,
@@ -20,11 +21,13 @@ const DAY_MS = 86_400_000;
 /** A Thursday, local midnight. */
 const TODAY = new Date(2026, 8, 24).getTime();
 
-const planned = (id: number, s: number | null, e: number | null, deps: number[] = []) => ({
-  id,
+/** A card of the api project: `planned(2, ...)` is `api#2`, and `deps` are numbers in that project. */
+const planned = (n: number, s: number | null, e: number | null, deps: number[] = []) => ({
+  id: cardKey("api", n),
+  n,
   s,
   e,
-  deps,
+  deps: deps.map((d) => cardKey("api", d)),
 });
 
 describe("constants", () => {
@@ -45,12 +48,12 @@ describe("spanOf", () => {
   });
 
   it("shifts only the card being dragged", () => {
-    expect(spanOf(planned(1, 2, 5), { id: 1, delta: -3 })).toEqual({ s: -1, e: 2 });
-    expect(spanOf(planned(1, 2, 5), { id: 2, delta: -3 })).toEqual({ s: 2, e: 5 });
+    expect(spanOf(planned(1, 2, 5), { id: "api#1", delta: -3 })).toEqual({ s: -1, e: 2 });
+    expect(spanOf(planned(1, 2, 5), { id: "api#2", delta: -3 })).toEqual({ s: 2, e: 5 });
   });
 
   it("counts a missing day as 0 like the design's arithmetic", () => {
-    expect(spanOf(planned(1, null, null), { id: 1, delta: 2 })).toEqual({ s: 2, e: 2 });
+    expect(spanOf(planned(1, null, null), { id: "api#1", delta: 2 })).toEqual({ s: 2, e: 2 });
   });
 });
 
@@ -112,7 +115,7 @@ describe("dependencyLines", () => {
   });
 
   it("follows a dragged bar", () => {
-    const dragged = (c: (typeof rows)[number]) => spanOf(c, { id: 2, delta: -3 });
+    const dragged = (c: (typeof rows)[number]) => spanOf(c, { id: "api#2", delta: -3 });
     expect(dependencyLines(rows, dragged)[0]?.bad).toBe(true);
   });
 });

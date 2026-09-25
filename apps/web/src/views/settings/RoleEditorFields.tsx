@@ -1,5 +1,7 @@
 import { Field, IconLabel, Select, type SelectProps } from "@marshal/ui";
 import { createMemo, For } from "solid-js";
+import { AgentNotes } from "~/features/agents/AgentNotes";
+import { agentSelectOptions, modelOptions } from "~/features/agents/agent-picker";
 import { M, type Role } from "~/mock";
 import { GRID_MIN_140, GRID_MIN_170 } from "./auto-fit-grid";
 import { NumberInput } from "./NumberInput";
@@ -18,34 +20,48 @@ const ROLE_SELECTS: readonly RoleSelectSpec[] = [
   { key: "perm", label: "Permission mode" },
 ];
 
-const AGENT_NAMES = Object.keys(M.AGENTS);
-const BACKUP_MODELS = ["gpt-5", "claude-sonnet-4-5", "gemini-2.5-pro", "deepseek-chat"];
+const AGENT_NOTES_ID = "role-agent-notes";
 /** Bypass is a per-card choice with its own acknowledgement, so roles cannot default to it. */
 const ROLE_PERMISSIONS = M.PERMS.filter((permission) => permission !== "Bypass permissions");
 
-/** Agent, model, backup model, thinking mode, and permission mode. The models follow the agent. */
+/** Every model any agent in the catalog can run, once each, for the backup model. */
+const allModels = (): string[] => [
+  ...new Set(M.agentOptions().flatMap((agent) => agent.models.map((model) => model.id))),
+];
+
+/**
+ * Agent, model, backup model, thinking mode, and permission mode, all from the daemon's catalog.
+ * The models follow the agent, and thinking mode is offered only for a model that has one.
+ */
 export function RoleSelects(props: { draft: RoleDraft; role: () => Role }) {
   const models = createMemo(() => M.AGENTS[props.role().agent]?.models ?? []);
+  const specs = () =>
+    ROLE_SELECTS.filter((spec) => spec.key !== "think" || M.thinkSupported(props.role().model));
   const options = (key: RoleSelectSpec["key"]): SelectProps["options"] => {
-    if (key === "agent") return AGENT_NAMES;
-    if (key === "model") return models();
-    if (key === "backup") return BACKUP_MODELS;
+    const role = props.role();
+    if (key === "agent") return agentSelectOptions(M.agentOptions(), role.agent);
+    if (key === "model") return modelOptions(models(), role.model);
+    if (key === "backup") return modelOptions(allModels(), role.backup);
     return key === "think" ? M.THINK : ROLE_PERMISSIONS;
   };
   return (
-    <div class={GRID_MIN_170}>
-      <For each={ROLE_SELECTS}>
-        {(spec) => (
-          <Field label={spec.label}>
-            <Select
-              options={options(spec.key)}
-              value={props.role()[spec.key]}
-              onChange={(e) => props.draft.editText(spec.key, e.currentTarget.value)}
-            />
-          </Field>
-        )}
-      </For>
-    </div>
+    <>
+      <div class={GRID_MIN_170}>
+        <For each={specs()}>
+          {(spec) => (
+            <Field label={spec.label}>
+              <Select
+                options={options(spec.key)}
+                value={props.role()[spec.key]}
+                aria-describedby={spec.key === "agent" ? AGENT_NOTES_ID : undefined}
+                onChange={(e) => props.draft.editText(spec.key, e.currentTarget.value)}
+              />
+            </Field>
+          )}
+        </For>
+      </div>
+      <AgentNotes id={AGENT_NOTES_ID} selected={props.role().agent} />
+    </>
   );
 }
 

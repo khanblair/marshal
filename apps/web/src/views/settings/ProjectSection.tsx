@@ -14,7 +14,7 @@ export function ProjectSection(props: { project: ProjectDraft }) {
       title="Project settings"
       onSubmit={(event) => {
         event.preventDefault();
-        props.project.save();
+        void props.project.save();
       }}
       actions={
         <Select

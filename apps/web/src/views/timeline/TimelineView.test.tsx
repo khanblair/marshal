@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type Card, M } from "~/mock";
+import type { CardKey } from "~/mock/card-key";
 import { TimelineView } from "./TimelineView";
 import { rangeLabel } from "./timeline-geometry";
 import { timelineCards } from "./timeline-model";
@@ -15,22 +16,22 @@ const PHONE_W = 390;
 const DAY_PX = 40;
 const PRESS_X = 300;
 
-const live = (id: number): Card => {
+const live = (id: CardKey): Card => {
   const c = M.card(id);
   if (!c) throw new Error(`no card ${id}`);
   return c;
 };
 const rows = () => [...document.querySelectorAll<HTMLElement>("[data-card]")];
-const barOf = (id: number): HTMLElement => {
+const barOf = (id: CardKey): HTMLElement => {
   const bar = document.querySelector<HTMLElement>(`[data-card="${id}"] + div [role="button"]`);
   if (!bar) throw new Error(`no bar for ${id}`);
   return bar;
 };
 const move = (x: number) => window.dispatchEvent(new PointerEvent("pointermove", { clientX: x }));
 const release = () => window.dispatchEvent(new PointerEvent("pointerup"));
-const press = (id: number) =>
+const press = (id: CardKey) =>
   fireEvent.pointerDown(barOf(id), { clientX: PRESS_X, button: 0, pointerId: 1 });
-const dragBy = (id: number, days: number) => {
+const dragBy = (id: CardKey, days: number) => {
   press(id);
   move(PRESS_X + days * DAY_PX);
   release();
@@ -51,7 +52,7 @@ afterEach(() => {
 describe("TimelineView on desktop", () => {
   it("shows one row per planned card of the project, sorted by start day", () => {
     render(() => <TimelineView />);
-    const expected = timelineCards(M.filtered("api")).map((c) => String(c.id));
+    const expected = timelineCards(M.filtered("api")).map((c) => c.id);
     expect(rows().map((r) => r.dataset.card)).toEqual(expected);
     expect(expected.length).toBeGreaterThan(5);
   });
@@ -68,20 +69,20 @@ describe("TimelineView on desktop", () => {
   it("opens the card from its row", () => {
     render(() => <TimelineView />);
     fireEvent.click(rows()[0] as HTMLElement);
-    expect(M.S.openId).toBe(Number(rows()[0]?.dataset.card));
+    expect(M.S.openId).toBe(rows()[0]?.dataset.card);
   });
 
   it("labels each row for screen readers", () => {
     render(() => <TimelineView />);
     const first = rows()[0] as HTMLElement;
-    expect(first.getAttribute("aria-label")).toBe(M.deco(live(Number(first.dataset.card))).aria);
+    expect(first.getAttribute("aria-label")).toBe(M.deco(live(first.dataset.card as CardKey)).aria);
   });
 
   it("gives each bar a tooltip with what it depends on", () => {
     render(() => <TimelineView />);
-    expect(barOf(46).title).toMatch(/^#46 .*\. Depends on #39/);
-    expect(barOf(39).title).toMatch(/Blocks #46/);
-    expect(barOf(46).tabIndex).toBe(-1);
+    expect(barOf("api#46").title).toMatch(/^#46 .*\. Depends on #39/);
+    expect(barOf("api#39").title).toMatch(/Blocks #46/);
+    expect(barOf("api#46").tabIndex).toBe(-1);
   });
 
   it("draws a line for each dependency, red and dashed only when broken", () => {
@@ -89,7 +90,7 @@ describe("TimelineView on desktop", () => {
     const paths = () => [...document.querySelectorAll("svg path[stroke-dasharray]")];
     expect(paths().length).toBeGreaterThan(0);
     expect(paths().filter((p) => p.getAttribute("stroke-dasharray") === "4 3")).toHaveLength(0);
-    live(45).s = -3;
+    live("api#45").s = -3;
     expect(paths().filter((p) => p.getAttribute("stroke-dasharray") === "4 3")).toHaveLength(1);
   });
 
@@ -104,7 +105,7 @@ describe("TimelineView on desktop", () => {
   it("keeps the arrow-key rows for the shell while mounted and clears them on unmount", () => {
     const view = render(() => <TimelineView />);
     expect(M.nav?.owner).toBe("timeline");
-    expect(M.nav?.rows).toEqual(rows().map((r) => Number(r.dataset.card)));
+    expect(M.nav?.rows).toEqual(rows().map((r) => r.dataset.card));
     view.unmount();
     expect(M.nav).toBeNull();
   });
@@ -120,14 +121,14 @@ describe("dragging a bar", () => {
 
   it("opens the card when the bar is pressed and released without moving", () => {
     render(() => <TimelineView />);
-    press(46);
+    press("api#46");
     release();
-    expect(M.S.openId).toBe(46);
+    expect(M.S.openId).toBe("api#46");
   });
 
   it("ignores a press with another mouse button", () => {
     render(() => <TimelineView />);
-    fireEvent.pointerDown(barOf(46), { clientX: PRESS_X, button: 2 });
+    fireEvent.pointerDown(barOf("api#46"), { clientX: PRESS_X, button: 2 });
     release();
     expect(M.S.openId).toBeNull();
   });
@@ -169,14 +170,14 @@ describe("dragging a bar", () => {
 
   it("asks before a move that breaks a dependency, and moves on Move anyway", () => {
     render(() => <TimelineView />);
-    const { s } = live(46);
-    dragBy(46, -3);
+    const { s } = live("api#46");
+    dragBy("api#46", -3);
     expect(M.S.dialog?.title).toBe("Break a dependency");
     expect(M.S.dialog?.action).toBe("Move anyway");
     expect(M.S.dialog?.message).toContain("#46 would start before #39 finishes");
-    expect(live(46).s).toBe(s);
+    expect(live("api#46").s).toBe(s);
     M.S.dialog?.run();
-    expect(live(46).s).toBe((s ?? 0) - 3);
+    expect(live("api#46").s).toBe((s ?? 0) - 3);
   });
 
   it("stops following the pointer when the browser cancels it", () => {
@@ -196,7 +197,7 @@ describe("dragging a bar", () => {
   it("removes its window listeners when the view goes away mid drag", () => {
     const remove = vi.spyOn(window, "removeEventListener");
     const view = render(() => <TimelineView />);
-    press(46);
+    press("api#46");
     view.unmount();
     const types = remove.mock.calls.map(([type]) => type);
     expect(types).toEqual(expect.arrayContaining(["pointermove", "pointerup", "pointercancel"]));
@@ -228,11 +229,11 @@ describe("TimelineView on a phone", () => {
     const chip = screen.getByRole("button", { name: /^#39 / });
     expect(chip).toBeInTheDocument();
     fireEvent.click(chip);
-    expect(M.S.openId).toBe(39);
+    expect(M.S.openId).toBe("api#39");
   });
 
   it("marks a card it waits for red when that card ends too late", () => {
-    live(45).s = -3;
+    live("api#45").s = -3;
     render(() => <TimelineView />);
     const late = screen.getAllByRole("button", { name: /^#36 / })[0] as HTMLElement;
     expect(late.style.color).toBe(M.tone("danger", "text"));

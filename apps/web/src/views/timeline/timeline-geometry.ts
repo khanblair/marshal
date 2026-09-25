@@ -2,6 +2,7 @@
  * Geometry of the timeline grid, value for value from design/TimelineView.dc.html.
  * Everything here is a pure function of day offsets (days from today) and row indexes.
  */
+import type { CardKey } from "~/mock/card-key";
 
 /** First day on the grid, as an offset from today. */
 const START_DAY = -14;
@@ -43,15 +44,17 @@ export interface Span {
 
 /** What the timeline needs from a card. */
 export interface Planned {
-  id: number;
+  id: CardKey;
+  /** The number within the project, which breaks ties between cards that start the same day. */
+  n: number;
   s: number | null;
   e: number | null;
-  deps: readonly number[];
+  deps: readonly CardKey[];
 }
 
 /** A bar being dragged: its card and how many days it moved. */
 export interface BarDrag {
-  id: number;
+  id: CardKey;
   delta: number;
 }
 

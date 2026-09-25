@@ -1,6 +1,7 @@
 import { StatusLabel } from "@marshal/ui";
 import { createMemo, For, Show } from "solid-js";
 import { type Card, M } from "~/mock";
+import { cardLabel } from "~/mock/card-key";
 import { isLateFor, spanLabel } from "./timeline-model";
 
 export interface TimelinePhoneCardProps {
@@ -20,7 +21,7 @@ function WaitsForChip(props: { card: Card; waiting: Card }) {
         color: late() ? M.tone("danger", "text") : "var(--color-text-primary)",
       }}
     >
-      {`#${props.card.id} ${M.STATUS[props.card.state].label}`}
+      {`${cardLabel(props.card)} ${M.STATUS[props.card.state].label}`}
     </button>
   );
 }

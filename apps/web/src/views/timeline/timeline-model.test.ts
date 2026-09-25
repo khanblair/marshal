@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { type CardKey, cardKey } from "~/mock/card-key";
 import {
   barTip,
   breakMessage,
@@ -15,18 +16,21 @@ const DAY_MS = 86_400_000;
 const TODAY = new Date(2026, 8, 24).getTime();
 
 interface P {
-  id: number;
+  id: CardKey;
+  n: number;
   title: string;
   s: number | null;
   e: number | null;
-  deps: number[];
+  deps: CardKey[];
 }
-const card = (id: number, s: number | null, e: number | null, deps: number[] = []): P => ({
-  id,
-  title: `Card ${id}`,
+/** A card of the api project: `card(5, ...)` is `api#5`, and `deps` are numbers in that project. */
+const card = (n: number, s: number | null, e: number | null, deps: number[] = []): P => ({
+  id: cardKey("api", n),
+  n,
+  title: `Card ${n}`,
   s,
   e,
-  deps,
+  deps: deps.map((d) => cardKey("api", d)),
 });
 
 describe("barTip", () => {
@@ -43,7 +47,7 @@ describe("barTip", () => {
 describe("timelineCards", () => {
   it("drops cards without planned dates and sorts by start, then id", () => {
     const list = [card(3, 2, 3), card(1, null, null), card(2, 2, 4), card(4, -1, 0)];
-    expect(timelineCards(list).map((c) => c.id)).toEqual([4, 2, 3]);
+    expect(timelineCards(list).map((c) => c.n)).toEqual([4, 2, 3]);
   });
 });
 
@@ -51,7 +55,7 @@ describe("planMove", () => {
   const a = card(1, 0, 3);
   const b = card(2, 5, 6, [1]);
   const all = [a, b];
-  const find = (id: number) => all.find((c) => c.id === id);
+  const find = (id: CardKey) => all.find((c) => c.id === id);
 
   it("shifts both dates", () => {
     expect(planMove(b, 2, all, find)).toMatchObject({ s: 7, e: 8, broken: [] });
@@ -90,7 +94,7 @@ describe("breakMessage", () => {
 describe("groupByStart", () => {
   it("groups by start day, earliest first, keeping card order", () => {
     const groups = groupByStart([card(1, 3, 4), card(2, -1, 0), card(3, 3, 5), card(4, 0, 0)]);
-    expect(groups.map((g) => [g.offset, g.cards.map((c) => c.id)])).toEqual([
+    expect(groups.map((g) => [g.offset, g.cards.map((c) => c.n)])).toEqual([
       [-1, [2]],
       [0, [4]],
       [3, [1, 3]],
