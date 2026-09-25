@@ -41,25 +41,27 @@ After adding, add an entry here with the version, purpose, and notes.
 
 | Library | Version | Used for | Why this one |
 |---|---|---|---|
-| `modernc.org/sqlite` | Pin at setup | SQLite driver | Pure Go, no cgo, so cross-compiling stays simple |
-| `github.com/pressly/goose/v3` | Pin at setup | Migrations | Simple, supports embedded SQL files |
-| `sqlc` (tool) | v1.31.1 | Generating typed Go from SQL queries | Real SQL, type safety, no ORM |
+| `modernc.org/sqlite` | v1.59.0 | SQLite driver, used by `internal/store` through `database/sql` | Pure Go, no cgo, so cross-compiling stays simple. Checks (section 1): needed, since a database engine is far beyond 200 lines; the driver carries SQLite 3.53.4 transpiled to Go, and `CGO_ENABLED=0` builds for macOS, Linux, and Windows were run; BSD-3-Clause (SQLite itself is public domain), and its indirect libraries `modernc.org/libc`, `mathutil`, `memory`, `bigfft`, `google/uuid` are BSD-3-Clause and `go-humanize`, `go-isatty`, `go-strftime` are MIT; released 2026-09-15 and maintained; `govulncheck` (v1.8.0, 2026-09-25) found no vulnerabilities in the daemon packages that use it, and it has no install scripts; size: about 6.3 MB when it is linked into the 9.5 MB daemon and used to open a database and run a statement, and about 7.2 MB with goose and the store code (measured 2026-09-25 on macOS arm64 with probe programs; `marshald` does not use it yet, so the download and idle RAM budgets need a fresh reading when the store is wired); no other library on this list does the same job. |
+| `github.com/pressly/goose/v3` | v3.28.0 | Migrations, used through its `Provider` API only (no command line, and the global registry is off) | Simple, supports embedded SQL files, and sqlc reads goose files. Checks (section 1): need is borderline, since a forward-only runner is about 150 lines of our own, and we keep goose because sqlc reads its file format and it applies each file in one transaction and records the version; pure Go, MIT, its indirect libraries are MIT (`mfridman/interpolate`, `go.uber.org/multierr`) and Apache-2.0 (`sethvargo/go-retry`); released 2026-09-02 and maintained; `govulncheck` found nothing (see above) and there are no install scripts; size: about 0.8 MB in the daemon (measured 2026-09-25, same probes as above); it does not overlap another library on this list. We only ever run migrations up: a test fails if a file has a Down section. |
+| `sqlc` (tool) | v1.31.1 | Generating typed Go from SQL queries. `pnpm gen` runs `sqlc generate -f daemon/sqlc.yaml`, and the output in `daemon/internal/store/db` is committed | Real SQL, type safety, no ORM. The generated code uses only `database/sql`, so it adds no library to the daemon. |
 
 **Notes:**
 
 - Open SQLite with WAL mode, `busy_timeout`, and foreign keys on. Use one writer connection and a small pool of readers.
+- The driver takes its settings in the path as `?_pragma=name(value)`, so every connection the pool makes gets them. Use a plain file path, not a `file:` address, because the driver drops the query part of a plain path before it opens the file. Never test with `:memory:`: it has no WAL and each connection gets its own empty copy. Tests use a file in `t.TempDir()`.
 - `modernc.org/sqlite` is slower than the cgo driver for heavy writes. Our write load is light, so this is fine. If a benchmark shows it matters, we revisit.
 
 ### 2.3 Processes, terminals, and Git
 
 | Library | Version | Used for | Why this one |
 |---|---|---|---|
-| `github.com/aymanbagabas/go-pty` | Pin at setup | PTY on macOS, Linux, and Windows (ConPTY) | One API for all three platforms |
+| `github.com/aymanbagabas/go-pty` | v0.2.3 | PTY on macOS, Linux, and Windows (ConPTY), used by `internal/agents/pty` | One API for all three platforms. Checks (section 1): needed, since ConPTY start-up (pseudo console, process attribute lists, environment block) is far beyond 200 lines; pure Go, no cgo (`CGO_ENABLED=0` builds and vets for macOS, Linux, and Windows were run), and its own libraries are `creack/pty` (MIT), `golang.org/x/sys` and `golang.org/x/crypto` (BSD-3-Clause), and `u-root` (BSD-3-Clause); MIT; released 2026-05-17 and maintained; no install scripts, and `govulncheck` was not run for it (it needs the network, so it is left to the CI run); size: it adds about 1.1 MB to a stripped program on all three platforms, most of it from its SSH helper, which pulls `x/crypto/ssh` into the link even though we never use it (measured 2026-09-25, not yet in `marshald`, so the download budget needs a fresh reading when the adapter is wired); no other library on this list does the same job. |
 | Git command line (not a library) | 2.38 or newer | Worktrees, sparse checkout, merge-tree | Go Git libraries do not fully support these features |
 | `github.com/kardianos/service` | Pin at setup | Installing the daemon as a user service | Covers launchd and systemd. Windows uses a per-user scheduled task through our own small helper. |
 
 **Notes:**
 
+- go-pty is used by `internal/agents/pty` only. It starts the process itself (Unix: `setsid` and the controlling terminal are set for us, so the process leads its own process group, and we end the tree with a signal to the group; Windows: ConPTY, ended with `taskkill /T`). On Unix the adapter closes its own copy of the terminal's child end right after the start, since otherwise the read side never sees end of file. Do not set `CREATE_NEW_PROCESS_GROUP` on Windows: it turns Ctrl-C off for the program.
 - Always pass Git arguments as a list, never through a shell.
 - Check the Git version on start. Below 2.38, show a clear message saying which version is needed.
 
@@ -77,6 +79,7 @@ After adding, add an entry here with the version, purpose, and notes.
 
 - All provider calls go through the `providers` module, which adds the queue, retries, fallback, and usage tracking. Agent code never calls an SDK directly.
 - Thinking modes are mapped per provider in one place in `providers`. Do not spread provider-specific settings through other modules.
+- The ACP client side is used by `internal/agents/acp` (task 1.6), always through the alias `sdk`. Facts about v0.13.5 that the adapter relies on: the connection has no `Close`, and its goroutines end only when the agent's standard output reaches end of file, so the adapter waits for `Done()` after the process exits; inbound notifications are handled one at a time, in order, and a response is only delivered after the notifications that came before it; a permission request is handled in its own goroutine; and on a parse error the library logs the whole raw line, so the adapter gives the connection a logger that drops it. The model and thinking controls are session config options with the categories `model` and `thought_level`.
 
 ### 2.5 Integrations
 

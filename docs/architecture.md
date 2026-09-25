@@ -131,7 +131,12 @@ Modules publish events such as `card.moved` or `session.state_changed`. Other mo
 
 - The bus is in-process. There is no external queue.
 - Events are small structs. Large data (logs, diffs) is referenced by ID, never copied into events.
-- Slow subscribers get their own buffered channel. If a buffer fills, the oldest non-critical events for that subscriber are dropped, and the subscriber re-syncs from the store. Critical events (approvals, state changes) are never dropped.
+- `Publish` never blocks and never waits for a subscriber. It gives the event the next sequence number (1, 2, 3, and so on in each epoch, across all topics) and the time from the bus clock, then returns the number. Every subscriber sees events in sequence order.
+- A subscriber follows a set of topics, or all of them, and can add and remove topics while subscribed.
+- Each subscriber has its own bounded queues and one goroutine. There is no goroutine per event. An ordinary event queue holds 256 events. If it fills, the oldest ordinary event for that subscriber is dropped, the subscription reports `Lagged`, and the subscriber re-syncs from the store.
+- Critical events (approvals, state changes) are never dropped. They have a separate queue of 1,024 events per subscriber. If even that overflows, the bus closes the subscription with the reason "closed for resync", and the consumer reloads from the store and subscribes again.
+- The bus keeps the newest 2,000 events in a ring. A reconnecting client is replayed the events it missed from the ring, on the topics it follows, or told to reload: `SubscribeSince` subscribes and replays in one step, so no event falls between them. The rules for gaps, epochs, and resync frames are in section 11.5.
+- The sizes are settings of the bus, so tests use small ones.
 
 ---
 
@@ -146,6 +151,7 @@ type Agent interface {
     Start(ctx context.Context, spec StartSpec) (SessionHandle, error)
     Resume(ctx context.Context, sessionID string, spec StartSpec) (SessionHandle, error)
     Send(ctx context.Context, h SessionHandle, msg UserMessage) error
+    Interrupt(ctx context.Context, h SessionHandle) error
     Events(h SessionHandle) <-chan AgentEvent
     Respond(ctx context.Context, h SessionHandle, r ApprovalResponse) error
     Stop(ctx context.Context, h SessionHandle) error
@@ -153,19 +159,44 @@ type Agent interface {
 }
 ```
 
-`Capabilities` tells the harness what the agent supports: resume, structured events, model switching, thinking modes, and MCP.
+`Capabilities` tells the harness what the agent supports: resume, loading a saved session, structured events, model switching, thinking modes, and MCP. It takes no handle, so it describes the latest session the agent started. Each `SessionHandle` also carries the capabilities its own session found, and which of the requested model, thinking mode, and permission mode the agent really took.
 
-### 4.2 Three adapters
+How the interface behaves (the same for every adapter):
+
+- **Lifetime.** The context of `Start` and `Resume` only bounds the start. The session lives until `Stop` or until its process ends, so a request that ends does not kill the agent.
+- **One turn at a time.** `Send` returns at once, and the turn ends with a `TurnEnded` event. A second `Send` while a turn runs returns `ErrBusy`, and the session manager queues the message. `Interrupt` stops the running turn and keeps the session, so the stop button in the UI does not lose the conversation. The turn then ends with `TurnEnded` and the reason `cancelled`.
+- **Events.** One channel per session, closed after the last event, `Exited`. The reader must keep reading until then. The events are `MessageChunk`, `ThoughtChunk`, `ToolCall`, `ToolCallUpdate`, `PlanUpdate`, `PermissionRequested`, `TurnEnded`, `Failed`, and `Exited`. A turn ends with `TurnEnded`, or with `Exited` if the process ends first. An agent that stops without being asked produces `Failed` and then `Exited`. Tool output in an event is cut to 16 KiB with a `Truncated` flag, and the full text belongs in the session logs.
+- **Permissions.** `PermissionRequested` blocks the turn until `Respond`, or until `Interrupt` or `Stop` answers "cancelled".
+- **Resume.** `Resume` starts a new process for an old session id. If the agent cannot do that, it returns `ErrCannotResume`, and the session manager follows section 5.3.
+- **Choosing an adapter.** A `Registry` maps an agent kind to a factory, so dev mode and tests register the stub agent where a real agent would go.
+
+The ACP adapter (`agents/acp`) starts every process through `internal/proc`, the one helper that starts child processes. The helper passes a short allow-list of environment variables to the child, puts it in its own process group, always collects it, and on stop asks politely before it kills the whole process tree. The adapter tells the agent that the client has no file system and no terminal, so the agent uses its own tools in its own working folder.
+
+### 4.2 The adapters
 
 | Adapter | Used for | How |
 |---|---|---|
 | **ACP** | Agents that speak the Agent Client Protocol | JSON-RPC over stdio. Structured messages, tool calls, and permission requests. Preferred. |
+| **Claude Code** | Claude Code | Claude Code's own streaming JSON mode over stdio (`claude -p --input-format stream-json --output-format stream-json`), driven directly: Claude Code has no ACP support. One process per session, kept alive across turns. |
 | **PTY** | Agents without ACP, and the terminal view | Runs the CLI in a virtual terminal. Uses the CLI's own streaming or JSON mode where it has one. |
 | **Built-in** | The built-in agent | A loop inside the daemon that calls model providers directly. No extra process. |
+
+The Claude Code adapter (`agents/claude`) starts `claude -p` itself, writes one stream-json line per message to its standard input, and parses its standard output line by line into the same closed set of `AgentEvent` values every adapter produces; the wire format is close enough to plain JSON that it needs no protocol library. **It has no permission-request channel yet**, so every session passes `--permission-prompts=none`: a tool call that would need approval is denied at once instead of waiting for an answer nobody can give, matching the catalog's `Approvals: false` for this agent, and `Respond` always returns `ErrUnknownRequest`. `Interrupt` tries up to three stages to end the turn in flight, each with its own grace period: a `control_request` control message first, then SIGINT (Claude Code's documented way to end a turn without leaving it "unfinished" for a `--resume` to replay, unlike SIGTERM; Windows has no portable equivalent and skips this stage), and only as a last resort stopping the process outright and starting a fresh one with `--resume` on the next `Send`, so the session id and the conversation survive even when the process itself is replaced. See the package's own report for the exact permission-mode mapping and what is and is not confirmed against Claude Code's documentation, including the real cost if the SIGINT stage does not behave as documented.
+
+The PTY adapter (`agents/pty`) runs the CLI in a pseudo-terminal through go-pty: a Unix pseudo-terminal on macOS and Linux, and ConPTY on Windows. It implements the same `Agent` interface, and its capabilities say `StructuredEvents: false`. What is different about it:
+
+- **Events.** A terminal has no turns, tool calls, or permission requests. The only events are `TerminalOutput` and `Exited`, and there is no `TurnEnded`. `TerminalOutput` carries raw bytes, escape sequences included, for a terminal view to draw. Output is joined into one event per 30 ms, or sooner when 16 KiB have piled up, so a chatty program does not flood the event bus and a heavy one is not slowed down. `Send` never returns `ErrBusy`, and `Respond` always returns `ErrUnknownRequest`.
+- **Input and size.** `Send` types the text and a line end. `Interrupt` types Ctrl-C. The adapter also has three calls for the terminal view: `WriteRaw` for what the person types, `Resize` for the size of the view (the default is 120 by 32), and `Snapshot`.
+- **Late viewers.** The adapter keeps the last 256 KiB of each session's output in a ring of fixed size, so memory stays flat however much a program prints. `Snapshot` returns it, and a viewer that opens late paints it and then follows the events. The full stream goes to the session log through the adapter's `Tee` option.
+- **Resume.** A CLI can be resumed only when its config says how (`ResumeArgs`, with `StartArgs` to choose the session id at the start). Without that, `Resume` returns `ErrCannotResume`.
+- **Environment.** The program gets the same short allow-list as every child of `internal/proc`, plus `TERM=xterm-256color` and what the config and the session add. A variable such as a token in the daemon's own environment does not reach it.
+- **Stop.** Stop asks politely first (SIGTERM to the process group on Unix, closing the pseudo console on Windows), waits a grace period, and then kills the whole process tree (the process group on Unix, `taskkill /T` on Windows). The adapter starts the process through go-pty rather than `internal/proc`, because a pseudo-terminal needs its own start, and it uses the helpers of `internal/proc` for the environment and for ending the tree.
 
 ### 4.3 Chat view and terminal view
 
 A CLI's structured mode and its interactive terminal mode are different ways of running it. One process cannot serve both at once. Switching views stops the current process and resumes the **same session ID** in the other mode. This takes one to three seconds and keeps the full context.
+
+The terminal view is the PTY adapter. The app paints `Snapshot` first and then follows the `TerminalOutput` events, sends what the person types with `WriteRaw`, and sends its size with `Resize`. For a CLI whose terminal mode can pick a session up by id, the PTY config's `StartArgs` and `ResumeArgs` carry that id, so switching views keeps the session. A CLI that cannot do that gives `ErrCannotResume`, and the session manager follows section 5.3.
 
 ### 4.4 Agent detection
 
@@ -371,8 +402,8 @@ All app state lives in one SQLite database. Large data lives on disk and is refe
 | `approvals` | Pending and past approvals | id, session_id, request_json, decision, decided_by |
 | `audit_log` | Every agent action | id, session_id, actor, action, target, detail_json, created_at |
 | `notices` | Notifications | id, kind, priority, group_key, body, read_at |
-| `users` | People. In solo use, one row for the owner. | id, name, email, avatar_path, time_zone, tailnet_identity |
-| `devices` | Paired devices | id, user_id, name, kind, paired_at, last_seen_at, revoked_at |
+| `users` | People. In solo use, one row for the owner. | id, name, email, avatar_path, time_zone, tailnet_identity, created_at, updated_at |
+| `devices` | Paired devices | id, user_id, name, kind (web, desktop, mobile, cli, or dev), token_hash, paired_at, last_seen_at, revoked_at |
 | `user_progress` | Onboarding and tutorial state | user_id, onboarding_step, onboarding_done_at, tutorial_done_at, tutorial_skipped |
 | `memberships` | User roles per project | user_id, project_id, role |
 | `mcp_servers` | Configured MCP servers | id, name, transport_json, health, last_checked_at |
@@ -381,7 +412,15 @@ All app state lives in one SQLite database. Large data lives on disk and is refe
 
 Session search uses SQLite full-text search over `session_events.summary` and card notes.
 
-Migrations live in `daemon/internal/store/migrations` and run on daemon start. Every migration is forward only.
+Conventions for every table:
+
+- Every id is TEXT (a project id, or an opaque id from section 11.5).
+- Every time is INTEGER Unix milliseconds in UTC. Times are converted to the wire `Timestamp` at the edge of a module, never stored as text. Tables are `STRICT`, so SQLite refuses a value of the wrong type. A time that may be missing is NULL.
+- A client token is never stored. `devices.token_hash` holds the SHA-256 of the token in lower case hex, and a lookup compares hashes.
+
+The database runs in WAL mode with one writer connection and a small pool of read-only connections, so a reader never waits for a write. A transaction never wraps a model call or any call to the outside.
+
+Migrations live in `daemon/internal/store/migrations` and run on daemon start. Every migration is forward only, and a test fails if a file has a Down section. Migration `0001_init.sql` holds only the four tables of this section that Phase 1 starts with: `settings`, `users`, `devices`, and `user_progress`. Each later module adds its own numbered file for its own tables.
 
 ---
 
@@ -435,6 +474,8 @@ One stream at `/v1/events`. Clients subscribe to topics (a project, a card, the 
 
 Main event types: `project.created`, `project.updated`, `project.removed`, `chat.created`, `chat.updated`, `chat.archived`, `chat.deleted`, `activity.created`, `card.created`, `card.updated`, `card.moved`, `card.members_changed`, `checklist.updated`, `comment.created`, `comment.read_by_agent`, `session.state_changed`, `session.output`, `session.tool_call`, `approval.requested`, `approval.resolved`, `ci.updated`, `quality.checked`, `merge.progress`, `notice.created`, `usage.updated`, `budget.warning`.
 
+Frames, topics, sequence numbers, and re-sync are in section 11.5.
+
 ### 11.3 Shared types
 
 API types are defined once in Go and generated into TypeScript for the UI, so the two sides can never drift. The generated package is `packages/protocol`.
@@ -459,6 +500,112 @@ Served by the daemon to every agent, over stdio for CLI agents and in-process fo
 | `read_comments` | Read new comments on the card, which marks them as read by the agent |
 | `read_attachment` | Read an attached file |
 | `post_comment` | Post a comment as the agent |
+
+### 11.5 Protocol conventions
+
+These rules apply to every route and every event. They are written once in `daemon/internal/protocol` and generated into `packages/protocol`. Golden files in `daemon/testdata/golden/` are written by the Go tests and read by the TypeScript tests, so a change on one side fails a test on the other.
+
+**Timestamps**
+
+- Every timestamp is UTC in RFC 3339 with milliseconds: `2026-09-25T10:15:30.123Z`. In Go the type is `Timestamp`. In TypeScript it is a plain `string`.
+- A time that was never set does not encode. It is a bug, and it stops the response instead of sending the year 1. A time that may be absent is a pointer in Go and `null` on the wire.
+- Every response that lists or shows state carries `serverTime`, the daemon's clock when the response was made. The client shows ages and countdowns from it, so a clock that is a little off never shows a wrong "4 min ago". Go types for such responses end in `Snapshot`, or are `Page`, and a test checks that they have the field.
+
+**IDs**
+
+| Kind | Form | Example |
+|---|---|---|
+| Project id | Lower case letters, digits, and hyphens. 2 to 24 characters. Starts with a letter. Never changes. | `api`, `web-dashboard` |
+| Card number | A whole number that starts at 1 in each project. | `12` |
+| Card key | `<projectId>#<number>`. Used for display and references. A hash sign must be escaped in a URL. | `web-dashboard#12` |
+| Opaque id | 26 characters of Crockford base32 (a ULID). The first 10 are the time, so ids sort by creation time to the millisecond. | `01M3C107JB041061050R3GG28A` |
+
+- A project id is made from the project name (lower case, other characters become one hyphen, cut to 24 characters). A name with no usable letters gives `project`. A duplicate gets `-2`, `-3`, and so on.
+- Chats, sessions, devices, approvals, and cards all have an opaque id. Routes use it: `/v1/cards/{id}`, `/v1/chats/{id}`. Project routes use the project id.
+- A card has both its opaque id and its key. Two projects can each have a card 12, so a list that mixes projects always shows the project name with the number.
+
+**Errors**
+
+Every error answer has the same shape and no other body:
+
+```json
+{ "error": { "code": "not_found", "message": "Marshal cannot find that card. It may have been removed.", "details": { "id": "01M3C107JB041061050R3GG28A" } } }
+```
+
+| Code | HTTP status | Meaning |
+|---|---|---|
+| `invalid_argument` | 400 | The request was malformed, or a value is not allowed. |
+| `unauthorized` | 401 | No valid token. |
+| `forbidden` | 403 | A valid token that may not do this. |
+| `not_found` | 404 | The thing does not exist. |
+| `conflict` | 409 | The request clashes with the current state. |
+| `refused` | 422 | A valid request that the rules do not allow, such as an illegal card move. |
+| `unsupported` | 501 | Not available on this machine, or not yet. |
+| `unavailable` | 503 | Not possible right now. Try again. |
+| `internal` | 500 | Something broke inside the daemon. |
+
+- Codes never change once released. The client branches on the code and shows the message.
+- A message is a plain sentence that follows the writing rules in `ui-rules.md`: it says what happened and, when there is something to do, what to do next. It has no jargon, no blame, and no apology.
+- `details` holds extra facts for the "Details" section, such as the id that was not found. It is optional.
+- An error the daemon did not expect becomes `internal` with one generic message. The real reason goes to the daemon log and never to the client.
+
+**Paging**
+
+- A list route takes `cursor` and `limit`. The answer is `{ "items": [...], "nextCursor": "...", "serverTime": "..." }`. An empty `nextCursor` means the end.
+- `limit` defaults to 50 and is at most 200. A larger number is cut to 200. A value that is not a whole number of 1 or more is `invalid_argument`.
+- A cursor is opaque. The daemon makes it from the position of the next page as small JSON, encoded as URL-safe base64 without padding. Clients send it back exactly as received and never read or build one. A cursor that cannot be read is `invalid_argument`.
+
+**Lists of allowed values**
+
+Each list is defined once in Go. It becomes a TypeScript union type and a readonly array named `<Type>Values`, for example `CardState` and `CardStateValues`, so the app and the daemon cannot disagree. The words shown to people stay in the app.
+
+| Type | Values |
+|---|---|
+| `CardState` | `backlog`, `planning`, `working`, `needs`, `review`, `ready`, `merging`, `done` |
+| `PermissionMode` | `ask`, `auto-edits`, `plan`, `full-auto`, `bypass` |
+| `ThinkingMode` | `low`, `medium`, `high`, `extra-high` |
+| `AgentKind` | `claude`, `gemini`, `codex`, `builtin` |
+| `AgentStatus` | `supported`, `untested`, `missing` |
+| `SessionState` | `starting`, `awake`, `working`, `waiting-approval`, `sleep-warning`, `asleep`, `waking`, `stopped` |
+| `FeedKind` | `brief`, `merge`, `schedule`, `approval`, `plan`, `ci`, `tool` |
+| `NoticeKind` | `sleep`, `ci-main`, `cost`, `plan`, `ci` |
+| `ActivityKind` | `file`, `command`, `test`, `tool`, `approval` |
+| `CIState` | `queued`, `running`, `passed`, `failed`, `cancelled` |
+| `CardViewMode` | `chat`, `terminal` |
+
+`ErrorCode`, `EventType`, `TopicKind`, and `ResyncReason` are lists too. A Go test fails if a const block and its `<Type>Values()` function differ, or if a list is missing from the golden file `enums.json`.
+
+**Events**
+
+The WebSocket carries frames as JSON text.
+
+| Frame | Direction | Fields |
+|---|---|---|
+| `Hello` | Client to daemon | `subscribe` (topics), `sinceSeq`, `epoch` |
+| `EventBatch` | Daemon to client | `epoch`, `events` (one or more) |
+| `Resync` | Daemon to client | `epoch`, `reason`, `seq` |
+
+An event is `{ seq, topic, type, at, data }`. `data` is the payload, read by `type`. In TypeScript it is `unknown` until the client has checked `type`.
+
+- **Topics** are `home`, `project:<projectId>`, `card:<cardId>`, and `chat:<chatId>`. Go has one constructor for each and `ParseTopic`, which also checks the shape of the id.
+- **Epoch.** The daemon makes a new random id each time it starts.
+- **Seq.** Inside an epoch, `seq` grows by one for every event the daemon publishes, on any topic. A client that follows only some topics sees increasing numbers with gaps, and that is normal. Events with a `seq` the client has already applied are ignored, because a replay may repeat them.
+- **Frames.** A client tells `EventBatch` from `Resync` by its keys (`events` or `reason`). The generated type `ServerFrame` is the union of the two.
+- A client sends `Hello` first. Sending it again replaces the subscription.
+- Event types are listed in section 11.2. Phase 1 sends `project.created`, `project.updated`, `project.removed`, `card.created`, `card.updated`, `card.moved`, `session.state_changed`, `session.output`, and `session.tool_call`. The others are reserved names.
+
+**Auth and the WebSocket**
+
+Every HTTP request carries `Authorization: Bearer <token>`. Browsers cannot set headers on a WebSocket, and tokens must not be in URLs, so the client offers two subprotocols: `marshal.v1` and `bearer.<token>`. The daemon checks the token and answers with `marshal.v1` only. It never sends the token back and never logs the offered list.
+
+**Re-sync**
+
+The daemon keeps a ring of the most recent events, 2,000 of them (`ReplayBufferSize`).
+
+1. The client connects and sends `Hello` with the epoch and the last `seq` it applied. On a first connection the epoch is empty and `sinceSeq` is 0.
+2. If the epoch matches and `sinceSeq` is inside the ring, the daemon sends the missed events, in order, and then continues with new ones.
+3. Otherwise the daemon sends `Resync` and continues with new events from that point. `reason` says why: `epoch-changed` (a first connection, or the daemon restarted), `too-far-behind` (the client's position is older than the ring), or `unknown-position` (newer than anything sent in this epoch). `seq` is the newest number sent so far.
+4. On `Resync` the client keeps the new epoch, then reloads its snapshots. An event that arrives during the reload may repeat what the snapshot already shows. Events carry the new state of what changed, not a difference, so applying one twice does no harm.
 
 ---
 

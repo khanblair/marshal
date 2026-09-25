@@ -91,7 +91,7 @@ daemon/
   go.sum
   package.json                  pnpm scripts that wrap Go commands (no Node code)
   .air.toml                     Reload settings for pnpm dev
-  sqlc.yaml                     SQL to Go generation settings
+  sqlc.yaml                     SQL to Go generation settings (run by pnpm gen, output in internal/store/db)
   tygo.yaml                     Go to TypeScript type generation settings
 
   cmd/
@@ -110,12 +110,25 @@ daemon/
     buildinfo/
       buildinfo.go              The version number that the daemon, the tool, and the app share
 
-    protocol/
-      health.go                 Wire types (plain types only), generated into packages/protocol
+    protocol/                   Wire types and the small rules that belong to them, generated into packages/protocol (architecture.md section 11.5)
+      doc.go                    Package comment
+      health.go                 The health answer
+      time.go                   Timestamp: UTC, RFC 3339, milliseconds
+      ids.go                    Project ids, slugs, and card keys
+      opaque_id.go              Opaque ids (ULIDs) and their validity check
+      errors.go                 Error codes, the one error shape, and its helpers
+      page.go                   Page of a list
+      enums.go                  The fixed lists: card states, permission and thinking modes, agents, sessions, feed, notices, activity, CI, card views
+      event_types.go            Event type names
+      events.go                 Event, event batch, hello, resync, and the WebSocket subprotocol names
+      topics.go                 Topics, their constructors, and the parser
+      conventions_test.go       Checks the package's own source against the rules (no bare time.Time, server time, enum lists)
+      *_test.go                 Table tests and golden files for each rule
 
     testutil/
       fixtures.go               Fixture repositories, copied to temp folders and committed for tests
       golden.go                 Golden files shared with the app's tests
+      stubagent.go              Builds tools/stub-agent once per test process and returns the path of the program
 
     platform/
       paths.go                  Data folder per OS, dev and normal
@@ -123,7 +136,16 @@ daemon/
       reset.go                  Guard and delete for the dev data folder
       lock.go                   Single instance lock
       service.go                Install and run as a user service (launchd, systemd, Windows task)
-      process.go                Child process helper: working folder, environment, process group, cleanup
+
+    proc/                       The one helper that starts child processes (never through a shell)
+      proc.go                   Start, Process (Wait, Done, Pid, StderrTail), and Stop: polite first, then the whole process tree
+      pipes.go                  Output and input pipes that outlive the child's exit
+      env.go                    The environment allow-list and the extra entries a caller adds
+      tail.go                   The bounded tail of standard error
+      proc_unix.go              Process groups and signals (SIGTERM, then SIGKILL to the group)
+      proc_windows.go           New process group, hidden window, and taskkill /T /F
+      tree.go                   Environ, Polite, KillTree, and Sweep, for code that starts a child by another route (the PTY adapter)
+      *_test.go                 Tests that start the test binary itself as the child (helper process pattern)
 
     config/
       config.go                 Settings from flags, MARSHAL_* environment settings, and defaults (config.toml comes later)
@@ -136,7 +158,9 @@ daemon/
       pairing.go                Device pairing codes
       websocket.go              Event stream and topic subscriptions
       batching.go               Output batching every 16 to 50 ms
-      errors.go                 Turns errors into plain user messages
+      errors.go                 Turns any error into the one error shape and its HTTP status
+      respond.go                Writes JSON answers
+      paging.go                 Reads limit and cursor, and encodes and decodes cursors
       handlers_projects.go      Projects: list, create, rename, edit, remove
       handlers_boards.go        Board, saved views, filters
       handlers_cards.go         Cards: create, start, move, fork, checkpoints, diff
@@ -157,9 +181,11 @@ daemon/
       handlers_hooks.go         Webhook routes, signature checks first
 
     events/
-      bus.go                    In-process publish and subscribe
-      types.go                  Event types
-      subscriber.go             Buffered subscribers, drop rules for slow ones
+      bus.go                    In-process publish and subscribe: sequence numbers, the replay ring, Since and SubscribeSince
+      event.go                  Event, Replay (ok, too-old, other-epoch, ahead), and why a subscription closed
+      filter.go                 Topic filters (exact topics or all), and the helper that filters a replay
+      subscription.go           One subscriber: bounded queues, drop rules for slow ones, one goroutine
+      queue.go                  The growing first-in first-out list behind the queues and the ring
 
     projects/
       service.go                Projects module interface and wiring
@@ -219,21 +245,53 @@ daemon/
       activity.go               Activity feed events
 
     agents/
-      agent.go                  Agent interface and shared types
+      agent.go                  Agent interface, StartSpec, SessionHandle, and Capabilities
+      events.go                 The closed set of agent events and their value words, including TerminalOutput from the PTY adapter
+      errors.go                 ErrBusy, ErrCannotResume, and the other errors callers act on, and AuthRequiredError
+      registry.go               Registry: agent kind to factory
+      truncate.go               Cuts event text to its bound without splitting a character
       capabilities.go           What each agent supports
       detect.go                 Finds installed CLIs and their versions
       acp/
-        rpc.go                  JSON-RPC over stdio
-        adapter.go              ACP agent adapter
+        config.go               Adapter settings: program, arguments, environment, timeouts
+        adapter.go              ACP agent adapter: the agents.Agent methods and the running sessions
+        session.go              One running process and its connection, the event channel, and the end of the session
+        handshake.go            Start and resume: hello, sign-in on demand, the session, and its settings
+        settings.go             Model, thinking, and permission mode through the agent's modes and options
+        turn.go                 Send, the turn goroutine, interrupt, and stop
+        permission.go           Permission requests that wait for Respond
+        client.go               What the agent calls: updates, permission requests, and the methods that are not offered
+        convert.go              Protocol updates to agent events, with the size bound
+        logger.go               A quiet logger for the protocol library that drops raw message text
+        *_test.go               Tests against the stub agent and a fake agent (the test binary started again in a protocol mode)
+      claude/
+        config.go               Adapter settings; the permission mode and effort mappings
+        args.go                 Argument lists for a new session and for a resumed one
+        adapter.go              Claude Code agent adapter: the agents.Agent methods and the running sessions
+        session.go              Process lifecycle: launch, wait for ready, watch for exit, and the event channel
+        dispatch.go             Reads one stream-json output line and turns it into an event
+        turn.go                 Send, Interrupt (control_request, then SIGINT, then a stop-and-resume fallback), and Stop
+        interrupt_unix.go       Sends SIGINT to end a turn (Unix)
+        interrupt_windows.go    SIGINT has no portable equivalent here; always errors, so Interrupt skips to the fallback
+        convert.go              Tool call kind, path, and command, and the turn-end reason
+        wire.go                 The stream-json line shapes, in and out
+        uuid.go                 Session ids: Claude Code's --session-id needs a UUID, not one of Marshal's own ULIDs
+        *_test.go               Tests against a fake claude program (the test binary started again in stream-json mode)
       pty/
-        pty.go                  PTY start and resize
-        adapter.go              PTY agent adapter
+        config.go               Adapter settings: program, arguments, resume and instruction arguments, size, tee, and the size and timing constants
+        adapter.go              PTY agent adapter: the agents.Agent methods, WriteRaw, Resize, Snapshot, and the running sessions
+        session.go              One program in a terminal: input, resize, stop (polite, then the whole tree), and the end of the session
+        output.go               Reads the terminal, feeds the ring and the tee, and batches output into TerminalOutput events
+        ring.go                 The fixed-size ring of the last 256 KiB of output
+        pty_unix.go             Line end and the child end of the terminal on Unix
+        pty_windows.go          Line end and the polite stop on Windows (ConPTY)
+        testdata/helper/        Small program the tests run in the terminal (standard library only, no shell)
+        *_test.go               Tests against the helper program, including a 50 MB burst that checks memory stays flat
       builtin/
         loop.go                 Built-in agent loop
         tools.go                Read, edit, run, and MCP tools
         adapter.go              Built-in agent adapter
       cli/
-        claude_code.go          Claude Code: modes, flags, resume
         codex.go                Codex: modes, flags, resume
         gemini_cli.go           Gemini CLI: modes, flags, resume
 
@@ -251,11 +309,18 @@ daemon/
       conntest.go               Provider key test
 
     gitx/
-      git.go                    Runs Git with argument lists
+      git.go                    Runs Git with argument lists, and stops it when the context is cancelled
       version.go                Git version check
-      worktrees.go              Create and remove worktrees
-      sparse.go                 Sparse checkout and auto widening
-      branches.go               Branches and backup branches
+      errors.go                 Plain errors callers match: not a repo, dirty, outside root, bad address
+      paths.go                  Path checks: full path, no "..", inside a folder, empty or missing
+      inspect.go                Repo facts: top folder, branches, remotes without credentials, clean
+      worktree.go               Create and remove worktrees, and undo a failed create
+      worktreelist.go           List and prune worktrees
+      sparse.go                 Sparse checkout limited to folders (auto widening comes later)
+      branches.go               Create, check, list, merge-check, and delete branches (backup branches come later)
+      branchname.go             Card branch names, marshal/<project>-<number>-<title>
+      cloneurl.go               Checks a clone address and strips credentials from it
+      clone.go                  Clone with only the allowed protocols, and no token in errors
       checkpoints.go            Checkpoint refs and restore
       diff.go                   Structured diffs
       mergetree.go              Dry-run merges
@@ -396,27 +461,30 @@ daemon/
       report.go                 Budget warnings
 
     store/
-      db.go                     SQLite connection, WAL mode, writer and readers
-      migrate.go                Runs migrations on start
+      store.go                  Open, Close, Ping, Read, and Write: SQLite in WAL mode, one writer and a pool of readers
+      migrate.go                Runs the embedded migrations on start (goose), and the forward-only check
+      accounts.go               HashToken (device tokens are stored as SHA-256 hex) and EnsureOwner
+      time.go                   Unix milliseconds to the wire Timestamp
       migrations/
-        0001_init.sql           First schema (all tables in architecture.md section 10)
-      queries/
-        projects.sql            Queries by area, one file each:
-        cards.sql                 projects, cards, chats, sessions, usage,
-        chats.sql                 schedules, integrations, quality, audit,
-        sessions.sql              accounts, dashboard, and settings
+        0001_init.sql           First schema: only settings, users, devices, and user_progress.
+                                Each later module adds its own numbered file for its own tables.
+      queries/                  SQL by area, one file each
+        settings.sql            Settings: get and set
+        accounts.sql            The owner, and devices: create, find by token hash, list, touch, revoke
+        projects.sql            Planned. Each of these is added by the module that owns the tables.
+        cards.sql
+        chats.sql
+        sessions.sql
         usage.sql
         schedules.sql
         integrations.sql
         quality.sql
         audit.sql
-        accounts.sql
         dashboard.sql
-        settings.sql
         checklists.sql
         comments.sql
         members.sql
-      gen/                      Generated by sqlc. Do not edit.
+      db/                       Generated by sqlc (`pnpm gen`). Do not edit.
 
     web/
       embed.go                  Embeds the built UI into the daemon
@@ -804,7 +872,9 @@ packages/protocol/
     index.ts                    Exports
     generated/                  Generated from Go by tygo (pnpm gen). Do not edit.
   test/
-    golden.test.ts              Checks the daemon's golden files against the generated types
+    golden.ts                   Reads the daemon's golden files
+    golden.test.ts              Checks each golden file against the generated types
+    enums.test.ts               Checks the generated <Type>Values arrays against the Go lists, and the timestamp format
 ```
 
 ---
@@ -851,7 +921,7 @@ tools/
 scripts/
   setup-tools.mjs               Installs the pinned Go tools into .tools/
   go-tool.mjs                   Runs a Go tool from .tools/bin, the same way on every platform
-  gen-protocol.mjs              Generates packages/protocol from the Go types with tygo, then formats it
+  gen-protocol.mjs              Generates packages/protocol from the Go types with tygo, adds the <Type>Values arrays, then formats it
   smells.mjs                    Runs all smell tools (Biome, golangci-lint, knip, jscpd) and the file length check
   budgets.mjs                   Web build size, then the daemon's idle memory and processor use
   check.mjs                     Runs everything CI runs, in order
