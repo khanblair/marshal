@@ -1,14 +1,5 @@
-import { expect, type Page, test } from "@playwright/test";
-
-/** The three sizes the design defines: phone under 640, tablet 640 to 1199, desktop 1200 up. */
-const SIZES = [
-  { name: "phone", width: 390, height: 844 },
-  { name: "tablet", width: 820, height: 1180 },
-  { name: "desktop", width: 1440, height: 900 },
-  // The smallest phone and a small tablet, where labels used to wrap and headers overflowed.
-  { name: "phone", width: 320, height: 640 },
-  { name: "tablet", width: 700, height: 900 },
-] as const;
+import { expect, test } from "@playwright/test";
+import { openApp, SIZES, scrollsSideways, wrappedButtons } from "./support/app";
 
 type Marshal = NonNullable<Window["M"]>;
 type GoArgs = Parameters<Marshal["go"]>;
@@ -35,50 +26,10 @@ const CARD_TABS: readonly CardTab[] = [
   "notes",
   "preview",
 ];
-const CARD_ID = 41;
+const CARD_NUMBER = 41;
+/** A card is known by its project and number. */
+const CARD_KEY = `api#${CARD_NUMBER}`;
 const MIN_HEIGHT_FOR_CARD_PANEL = 800;
-
-async function openApp(page: Page, size: (typeof SIZES)[number]): Promise<string[]> {
-  const problems: string[] = [];
-  page.on("pageerror", (error) => problems.push(`page error: ${error.message}`));
-  page.on("console", (message) => {
-    if (message.type() === "error") problems.push(`console error: ${message.text()}`);
-  });
-  await page.setViewportSize({ width: size.width, height: size.height });
-  await page.addInitScript(() => window.localStorage.setItem("marshal-proto-onboarded", "1"));
-  await page.goto("/#nosim");
-  await page.waitForFunction(() => Boolean(window.M?.S?.ready));
-  return problems;
-}
-
-/** True when the page scrolls sideways, which no size of this app should do. */
-const scrollsSideways = (page: Page) =>
-  page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
-
-/**
- * Text of `Button` components (fixed-height, centered) whose label is drawn on more than one
- * line. Rows that are buttons, such as feed items, may wrap on purpose and are not checked.
- */
-const wrappedButtons = (page: Page) =>
-  page.evaluate(() => {
-    const wrapped: string[] = [];
-    for (const button of document.querySelectorAll(
-      "[data-app-root] button.inline-flex.justify-center",
-    )) {
-      const walker = document.createTreeWalker(button, NodeFilter.SHOW_TEXT);
-      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-        if ((node.textContent ?? "").trim().length < 2) continue;
-        const range = document.createRange();
-        range.selectNodeContents(node);
-        const lines = new Set([...range.getClientRects()].map((rect) => Math.round(rect.top)));
-        if (lines.size > 1) {
-          wrapped.push((button.textContent ?? "").trim());
-          break;
-        }
-      }
-    }
-    return wrapped;
-  });
 
 for (const size of SIZES) {
   test.describe(`${size.name} (${size.width} by ${size.height})`, () => {
@@ -92,7 +43,7 @@ for (const size of SIZES) {
       expect(box?.width).toBe(size.width);
       expect(box?.height).toBe(size.height);
       await expect(page.getByRole("toolbar", { name: "Prototype controls" })).toHaveCount(0);
-      expect(problems).toEqual([]);
+      expect(problems.list()).toEqual([]);
     });
 
     for (const route of ROUTES) {
@@ -102,21 +53,21 @@ for (const size of SIZES) {
         await expect(page.locator("[data-app-root]")).toBeVisible();
         expect(await scrollsSideways(page)).toBe(false);
         expect(await wrappedButtons(page)).toEqual([]);
-        expect(problems).toEqual([]);
+        expect(problems.list()).toEqual([]);
       });
     }
 
     for (const tab of CARD_TABS) {
-      test(`card #${CARD_ID} ${tab} tab fits without sideways scrolling`, async ({ page }) => {
+      test(`card #${CARD_NUMBER} ${tab} tab fits without sideways scrolling`, async ({ page }) => {
         const problems = await openApp(page, size);
         await page.evaluate(() => window.M?.go("project", "api", "board"));
-        await page.evaluate(([id, name]) => window.M?.openCard(id, name), [CARD_ID, tab] as const);
+        await page.evaluate(([id, name]) => window.M?.openCard(id, name), [CARD_KEY, tab] as const);
         // On a very short phone the card's header fills the screen and leaves the panel no height.
         const panel = page.getByRole("tabpanel");
         if (size.height >= MIN_HEIGHT_FOR_CARD_PANEL) await expect(panel).toBeVisible();
         else await expect(panel).toBeAttached();
         expect(await scrollsSideways(page)).toBe(false);
-        expect(problems).toEqual([]);
+        expect(problems.list()).toEqual([]);
       });
     }
   });
