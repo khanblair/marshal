@@ -1,0 +1,8 @@
+# The web app's own build and test output
+dist/
+coverage/
+.vitest/
+.vite/
+test-results/
+playwright-report/
+*.tsbuildinfo
