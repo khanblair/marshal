@@ -40,7 +40,9 @@ describe("terminalLines", () => {
   it("writes the plan, system notes, and failed tool results", () => {
     expect(texts(43)).toContain("? Plan with 5 steps  waiting");
     const stuck = terminalLines(cardOf(119), M.S.chat[119] ?? [], []);
-    expect(stuck.find((line) => line.text.startsWith("# The stuck detector"))?.class).toBe("text-muted");
+    expect(stuck.find((line) => line.text.startsWith("# The stuck detector"))?.class).toBe(
+      "text-muted",
+    );
     expect(stuck.find((line) => line.text === "    Failed")?.class).toBe("text-status-danger-text");
   });
 

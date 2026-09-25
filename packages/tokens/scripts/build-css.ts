@@ -69,10 +69,22 @@ function colorTheme(): string {
 }
 
 function scaleTheme(): string {
-  const text = Object.entries(textSizes).map(([n, px]): [string, string] => [`text-${n}`, `${px}px`]);
-  const radius = Object.entries(radii).map(([n, px]): [string, string] => [`radius-${n}`, `${px}px`]);
-  const container = Object.entries(sizes).map(([n, px]): [string, string] => [`container-${n}`, `${px}px`]);
-  const bps = Object.entries(breakpoints).map(([n, px]): [string, string] => [`breakpoint-${n}`, `${px}px`]);
+  const text = Object.entries(textSizes).map(([n, px]): [string, string] => [
+    `text-${n}`,
+    `${px}px`,
+  ]);
+  const radius = Object.entries(radii).map(([n, px]): [string, string] => [
+    `radius-${n}`,
+    `${px}px`,
+  ]);
+  const container = Object.entries(sizes).map(([n, px]): [string, string] => [
+    `container-${n}`,
+    `${px}px`,
+  ]);
+  const bps = Object.entries(breakpoints).map(([n, px]): [string, string] => [
+    `breakpoint-${n}`,
+    `${px}px`,
+  ]);
   const ease = Object.entries(easings).map(([n, v]): [string, string] => [`ease-${n}`, v]);
   return [
     "  --text-*: initial;",

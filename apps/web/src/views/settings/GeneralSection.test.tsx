@@ -66,7 +66,9 @@ describe("General section: sessions", () => {
   it("shows the session options from the store", () => {
     showSettings("general");
     expect(screen.getByRole("heading", { name: "Sessions", level: 2 })).toBeInTheDocument();
-    expect(screen.getByLabelText("After a restart", { exact: false })).toHaveValue("Auto-restore on startup");
+    expect(screen.getByLabelText("After a restart", { exact: false })).toHaveValue(
+      "Auto-restore on startup",
+    );
     expect(screen.getByLabelText("Sleep idle cards after", { exact: false })).toHaveValue("15");
     expect(screen.getByLabelText("Sleep warnings go to")).toHaveValue("In app only");
     expect(
@@ -76,7 +78,9 @@ describe("General section: sessions", () => {
 
   it("saves each choice and toasts", () => {
     showSettings("general");
-    fireEvent.change(screen.getByLabelText("Sleep idle cards after", { exact: false }), { target: { value: "60" } });
+    fireEvent.change(screen.getByLabelText("Sleep idle cards after", { exact: false }), {
+      target: { value: "60" },
+    });
     expect(M.S.sleep.idle).toBe(60);
     fireEvent.change(screen.getByLabelText("After a restart", { exact: false }), {
       target: { value: "Show a resume button on each card" },

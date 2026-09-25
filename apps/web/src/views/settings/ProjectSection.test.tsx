@@ -29,7 +29,10 @@ describe("Project settings section", () => {
     expect(screen.getByLabelText("Default branch")).toHaveValue("main");
     expect(screen.getByLabelText("Default branch")).toHaveClass("font-mono");
     expect(screen.getByLabelText("Dev command", { exact: false })).toHaveValue("");
-    expect(screen.getByLabelText("Dev command", { exact: false })).toHaveAttribute("placeholder", "pnpm dev");
+    expect(screen.getByLabelText("Dev command", { exact: false })).toHaveAttribute(
+      "placeholder",
+      "pnpm dev",
+    );
     expect(screen.getByText("~/code/api-gateway")).toBeInTheDocument();
     expect(screen.getByText("Go project")).toBeInTheDocument();
     expect(screen.getByLabelText("Lock bypass permissions", { exact: false })).not.toBeChecked();
@@ -64,7 +67,9 @@ describe("Project settings section", () => {
     showSettings("project");
     fireEvent.input(nameField(), { target: { value: " gateway " } });
     fireEvent.input(screen.getByLabelText("Default branch"), { target: { value: "develop" } });
-    fireEvent.input(screen.getByLabelText("Dev command", { exact: false }), { target: { value: "go run ." } });
+    fireEvent.input(screen.getByLabelText("Dev command", { exact: false }), {
+      target: { value: "go run ." },
+    });
     fireEvent.click(screen.getByLabelText("Lock bypass permissions", { exact: false }));
     expect(saveButton()).toBeEnabled();
     fireEvent.click(saveButton());

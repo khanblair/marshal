@@ -1,5 +1,5 @@
-import { defineConfig } from "vitest/config";
 import solid from "vite-plugin-solid";
+import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   plugins: [solid()],
@@ -12,7 +12,9 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./src/test-setup.ts"],
     include: ["src/**/*.test.{ts,tsx}"],
-    server: { deps: { inline: [/solid-js/, /@solidjs\/testing-library/, /lucide-solid/, /@marshal\/ui/] } },
+    server: {
+      deps: { inline: [/solid-js/, /@solidjs\/testing-library/, /lucide-solid/, /@marshal\/ui/] },
+    },
     coverage: {
       provider: "v8",
       include: ["src/**/*.{ts,tsx}"],

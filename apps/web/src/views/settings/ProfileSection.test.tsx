@@ -36,8 +36,12 @@ describe("Profile section", () => {
   it("follows the name being typed in the initials, and saves the trimmed edits", () => {
     showSettings("profile");
     fireEvent.input(nameField(), { target: { value: "  grace brewster hopper " } });
-    fireEvent.input(screen.getByLabelText("Email", { exact: false }), { target: { value: " grace@navy.mil " } });
-    fireEvent.change(screen.getByLabelText("Time zone", { exact: false }), { target: { value: "Asia/Singapore" } });
+    fireEvent.input(screen.getByLabelText("Email", { exact: false }), {
+      target: { value: " grace@navy.mil " },
+    });
+    fireEvent.change(screen.getByLabelText("Time zone", { exact: false }), {
+      target: { value: "Asia/Singapore" },
+    });
     expect(screen.getByLabelText("Your avatar")).toHaveTextContent("GB");
     expect(saveButton()).toBeEnabled();
     fireEvent.click(saveButton());
@@ -57,7 +61,9 @@ describe("Profile section", () => {
       "text-status-danger-text",
     );
     expect(saveButton()).toBeDisabled();
-    fireEvent.input(screen.getByLabelText("Email", { exact: false }), { target: { value: "a@b.c" } });
+    fireEvent.input(screen.getByLabelText("Email", { exact: false }), {
+      target: { value: "a@b.c" },
+    });
     expect(saveButton()).toBeDisabled();
   });
 

@@ -177,7 +177,9 @@ describe("CI health page", () => {
     expect(within(mobile).getAllByText("main")).toHaveLength(3);
     // "ago" text is rounded to minutes, hours, or days, so parse it back to minutes
     // before checking order: "4 h ago" (240 min) must not sort before "44 min ago".
-    const ages = [...mobile.querySelectorAll("button > span:last-child")].map((s) => s.textContent ?? "");
+    const ages = [...mobile.querySelectorAll("button > span:last-child")].map(
+      (s) => s.textContent ?? "",
+    );
     const minutes = ages.map((age) => {
       const n = Number.parseInt(age, 10);
       if (age.endsWith("days ago")) return n * 24 * 60;
@@ -186,7 +188,9 @@ describe("CI health page", () => {
     });
     expect(minutes).toEqual([...minutes].sort((x, y) => x - y));
     // The android workflow and card #213 both failed, so scope to the android row.
-    const androidRow = within(mobile).getByText("android apps/android").closest("button") as HTMLElement;
+    const androidRow = within(mobile)
+      .getByText("android apps/android")
+      .closest("button") as HTMLElement;
     expect(within(androidRow).getByText("Failed")).toHaveClass(
       "text-status-danger-text",
       "font-semibold",

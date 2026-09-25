@@ -34,7 +34,9 @@ describe("commentViews", () => {
   });
 
   it("marks a link attachment with the link icon and its address", () => {
-    const link = commentViews(cardOf(118)).flatMap((v) => v.files).find((f) => f.isLink);
+    const link = commentViews(cardOf(118))
+      .flatMap((v) => v.files)
+      .find((f) => f.isLink);
     expect(link).toMatchObject({
       icon: "link",
       href: "https://figma.com/file/settings-dark",
@@ -45,7 +47,14 @@ describe("commentViews", () => {
   it("shows Agent read this only for read comments of people on a started card", () => {
     expect(commentViews(cardOf(41)).some((v) => v.readShow)).toBe(true);
     const backlog = cardOf(45);
-    backlog.comments.push({ id: "c1", author: "ada", text: "Hi", ts: Date.now(), att: [], read: true });
+    backlog.comments.push({
+      id: "c1",
+      author: "ada",
+      text: "Hi",
+      ts: Date.now(),
+      att: [],
+      read: true,
+    });
     expect(commentViews(backlog).every((v) => !v.readShow)).toBe(true);
   });
 });
@@ -69,7 +78,13 @@ describe("attachments", () => {
     vi.stubGlobal("URL", { createObjectURL: () => "blob:x" });
     const image = new File(["x".repeat(2_500_000)], "shot.png", { type: "image/png" });
     const note = new File(["hello"], "notes.txt", { type: "text/plain" });
-    const list = { 0: image, 1: note, length: 2, item: () => null, [Symbol.iterator]: Array.prototype[Symbol.iterator] } as unknown as FileList;
+    const list = {
+      0: image,
+      1: note,
+      length: 2,
+      item: () => null,
+      [Symbol.iterator]: Array.prototype[Symbol.iterator],
+    } as unknown as FileList;
     expect(attachmentsFrom(list)).toEqual([
       { kind: "image", name: "shot.png", size: "2.5 MB", src: "blob:x" },
       { kind: "file", name: "notes.txt", size: "1 KB", src: "blob:x" },
