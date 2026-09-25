@@ -1,0 +1,14 @@
+{
+  "name": "budgets",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Measures the daemon's idle RAM and CPU against the budgets in docs/architecture.md section 14. Scripts only: the program is Go.",
+  "scripts": {
+    "measure": "node ../../scripts/go-tool.mjs go run . -daemon ../../dist/bin/marshald",
+    "build": "node ../../scripts/go-tool.mjs go build -o ../../dist/bin/ .",
+    "test": "node ../../scripts/go-tool.mjs go test -race ./...",
+    "lint:go": "node ../../scripts/go-tool.mjs golangci-lint run ./...",
+    "format:go": "node ../../scripts/go-tool.mjs golangci-lint fmt ./...",
+    "format:check:go": "node ../../scripts/go-tool.mjs golangci-lint fmt --diff ./..."
+  }
+}
