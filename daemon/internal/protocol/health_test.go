@@ -13,6 +13,6 @@ func TestHealthGolden(t *testing.T) {
 		Status:     "ok",
 		Version:    "0.0.0",
 		Mode:       "dev",
-		ServerTime: time.Date(2026, time.September, 25, 10, 0, 0, 0, time.UTC),
+		ServerTime: protocol.NewTimestamp(time.Date(2026, time.September, 25, 10, 0, 0, 0, time.UTC)),
 	})
 }
