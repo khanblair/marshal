@@ -1,5 +1,6 @@
 import { batch } from "solid-js";
 import { type ApprovalMsg, type Card, type Column, M, type PlanMsg } from "~/mock";
+import type { CardKey } from "~/mock/card-key";
 
 /** One button in the card's action row. */
 export interface CardAction {
@@ -29,7 +30,7 @@ const action = (
   extra: Partial<CardAction> = {},
 ): CardAction => ({ label, icon, run, primary: false, disabled: false, ...extra });
 
-function approvalAction(id: number, pending: Pending): CardAction[] {
+function approvalAction(id: CardKey, pending: Pending): CardAction[] {
   if (pending?.k === "approval") {
     return [action("Approve", "check", () => M.approve(id), { primary: true, kbd: "A" })];
   }

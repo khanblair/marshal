@@ -75,14 +75,18 @@ const CHECKPOINT_AGES_MIN = [
   FIRST_CHECKPOINT_MIN,
 ] as const;
 
-/** Three fake restore points per started card, newest first. */
-export function checkpointsFor(cardId: number, started: boolean, firstFile: string): Checkpoint[] {
+/** Three fake restore points per started card, newest first. A ref is named by the card's number, because each project is its own repository. */
+export function checkpointsFor(
+  cardNumber: number,
+  started: boolean,
+  firstFile: string,
+): Checkpoint[] {
   if (!started) return [];
   const labels = ["Before turn 6", `Before editing ${firstFile.split("/").pop()}`, "Session start"];
   const total = labels.length;
   return labels.map((label, i) => ({
     label,
-    ref: `refs/marshal/cp/${cardId}/${total - i}`,
+    ref: `refs/marshal/cp/${cardNumber}/${total - i}`,
     when: `${CHECKPOINT_AGES_MIN[i]} min ago`,
     restore: () =>
       M.confirm({

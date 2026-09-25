@@ -12,14 +12,18 @@ const SECONDARY = "text-secondary";
 const NEEDS_YOU = "text-status-needs-you-text font-semibold";
 
 function headerLines(card: Card): TerminalLine[] {
-  const agent = M.AGENTS[card.agent];
+  // A card can name an agent the catalog does not know (mock cards), or one that is not installed and has no version.
+  const version = M.AGENTS[card.agent]?.version;
   const project = M.proj(card.p);
-  const session = `${(card.id * SESSION_ID_FACTOR).toString(HEX_RADIX)}a2f`;
+  const session = `${(card.n * SESSION_ID_FACTOR).toString(HEX_RADIX)}a2f`;
   const where = card.branch
     ? `~/.marshal/worktrees/${project?.name}/${card.branch.replace("marshal/", "")}`
     : project?.path;
   return [
-    { text: `${card.agent} ${agent?.version}   session ${session}`, class: SECONDARY },
+    {
+      text: `${version ? `${card.agent} ${version}` : card.agent}   session ${session}`,
+      class: SECONDARY,
+    },
     { text: `Resumed in ${where}`, class: SECONDARY },
     { text: " ", class: "" },
   ];

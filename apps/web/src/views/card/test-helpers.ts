@@ -1,4 +1,5 @@
 import { M } from "~/mock";
+import type { CardKey } from "~/mock/card-key";
 
 const DESKTOP_PX = 1440;
 const HEIGHT_PX = 900;
@@ -32,7 +33,7 @@ export function resetStore(width = DESKTOP_PX): void {
 }
 
 /** The card as the store holds it, for assertions. */
-export function cardOf(id: number) {
+export function cardOf(id: CardKey) {
   const card = M.card(id);
   if (!card) throw new Error(`no card #${id}`);
   return card;

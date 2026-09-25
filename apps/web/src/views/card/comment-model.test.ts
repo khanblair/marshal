@@ -10,19 +10,19 @@ describe("commentViews", () => {
   beforeEach(() => resetStore());
 
   it("lists comments newest first and names the authors", () => {
-    const views = commentViews(cardOf(41));
-    expect(views).toHaveLength(cardOf(41).comments.length);
+    const views = commentViews(cardOf("api#41"));
+    expect(views).toHaveLength(cardOf("api#41").comments.length);
     expect(views.map((v) => v.name)).toContain("Claude Code agent");
     expect(views.map((v) => v.name)).toContain("Blair Akandwanaho");
     expect(views.find((v) => v.isAgent)?.initials).toBe("");
   });
 
   it("splits images from files and links, and only lets you delete your own", () => {
-    const views = commentViews(cardOf(41));
+    const views = commentViews(cardOf("api#41"));
     const withImage = views.find((v) => v.images.length > 0);
     expect(withImage?.images[0]).toEqual({ name: "logout-after-refresh.png", src: "" });
     expect(views.some((v) => v.mine)).toBe(true);
-    const plan = commentViews(cardOf(43)).find((v) => v.files.length > 0);
+    const plan = commentViews(cardOf("api#43")).find((v) => v.files.length > 0);
     expect(plan?.files[0]).toMatchObject({
       name: "plan-tiers-2026.xlsx",
       icon: "file-text",
@@ -34,7 +34,7 @@ describe("commentViews", () => {
   });
 
   it("marks a link attachment with the link icon and its address", () => {
-    const link = commentViews(cardOf(118))
+    const link = commentViews(cardOf("web#118"))
       .flatMap((v) => v.files)
       .find((f) => f.isLink);
     expect(link).toMatchObject({
@@ -45,8 +45,8 @@ describe("commentViews", () => {
   });
 
   it("shows Agent read this only for read comments of people on a started card", () => {
-    expect(commentViews(cardOf(41)).some((v) => v.readShow)).toBe(true);
-    const backlog = cardOf(45);
+    expect(commentViews(cardOf("api#41")).some((v) => v.readShow)).toBe(true);
+    const backlog = cardOf("api#45");
     backlog.comments.push({
       id: "c1",
       author: "ada",

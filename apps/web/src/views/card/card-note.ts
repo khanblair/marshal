@@ -36,7 +36,7 @@ export function saveNote(card: Card, text: string): void {
 
 /** Where the note lives in the Obsidian vault. */
 export const notePath = (card: Card): string =>
-  `vault/cards/${card.id}-${card.title
+  `vault/cards/${card.n}-${card.title
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/-$/, "")}.md`;
