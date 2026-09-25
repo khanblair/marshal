@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -211,6 +212,19 @@ func TestEnvironmentIsFiltered(t *testing.T) {
 	}
 	if !strings.Contains(out, "PATH=") {
 		t.Errorf("environment lacks PATH:\n%s", out)
+	}
+}
+
+func TestTheNameOfTheUserReachesTheChild(t *testing.T) {
+	t.Parallel()
+	env := buildEnv([]string{"USER=ada", "LOGNAME=ada", "AWS_SECRET_ACCESS_KEY=should-not-pass"}, nil)
+	for _, want := range []string{"USER=ada", "LOGNAME=ada"} {
+		if !slices.Contains(env, want) {
+			t.Errorf("environment lacks %q: %v", want, env)
+		}
+	}
+	if slices.Contains(env, "AWS_SECRET_ACCESS_KEY=should-not-pass") {
+		t.Errorf("a secret reached the child: %v", env)
 	}
 }
 
