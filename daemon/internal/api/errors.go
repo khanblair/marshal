@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"net/http"
 
@@ -16,7 +17,12 @@ func (s *Server) writeError(w http.ResponseWriter, err error) {
 		perr = protocol.Internal().WithCause(err)
 	}
 	status := statusOf(perr.Code)
-	if status >= http.StatusInternalServerError {
+	switch {
+	case errors.Is(err, context.Canceled):
+		// The client hung up, or the daemon is shutting down, while the request was being answered.
+		// That is not a failure of the daemon, so it must not read as one in the log.
+		s.log.Debug("request cancelled", "error", err)
+	case status >= http.StatusInternalServerError:
 		s.log.Error("request failed", "code", perr.Code, "error", err)
 	}
 	s.writeJSON(w, status, protocol.ErrorResponse{Error: *perr})

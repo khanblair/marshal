@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -110,6 +111,21 @@ func TestWriteErrorHidesUnknownErrors(t *testing.T) {
 	}
 	if !strings.Contains(logs.String(), "permission denied") {
 		t.Errorf("the reason was not logged: %q", logs.String())
+	}
+}
+
+func TestWriteErrorDoesNotReportAHungUpClientAsAFailure(t *testing.T) {
+	server, logs := newTestServer()
+	rec := httptest.NewRecorder()
+	server.writeError(rec, fmt.Errorf("list projects: %w", context.Canceled))
+	if strings.Contains(logs.String(), "level=ERROR") {
+		t.Errorf("a cancelled request was logged as an error: %q", logs.String())
+	}
+	if !strings.Contains(logs.String(), "request cancelled") {
+		t.Errorf("the cancelled request was not logged at all: %q", logs.String())
+	}
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want the unchanged 500", rec.Code)
 	}
 }
 

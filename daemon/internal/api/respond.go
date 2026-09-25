@@ -30,3 +30,9 @@ func (s *Server) writeJSON(w http.ResponseWriter, status int, body any) {
 		s.log.Debug("write a response", "error", err)
 	}
 }
+
+// writeNoContent answers a request that worked and has nothing to return. A 204 has no body, so
+// writeJSON, which always writes one, is not used.
+func (s *Server) writeNoContent(w http.ResponseWriter) {
+	w.WriteHeader(http.StatusNoContent)
+}
