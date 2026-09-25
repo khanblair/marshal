@@ -13,8 +13,9 @@ vi.hoisted(() => {
   window.location.hash = "#nosim";
 });
 
-const card = (patch: Partial<Card>): Card => ({ ...(M.card(41) as Card), ...patch });
-const ids = (cards: readonly Card[]): number[] => cards.map((c) => c.id);
+const card = (patch: Partial<Card>): Card => ({ ...(M.card("api#41") as Card), ...patch });
+/** The numbers of the cards, which is what the sort orders show as `#41`. */
+const ids = (cards: readonly Card[]): number[] => cards.map((c) => c.n);
 
 describe("sessionLabel and sessionIcon", () => {
   it("say Awake with a sun for a live session", () => {
@@ -54,10 +55,26 @@ describe("activityOf", () => {
 
 describe("sortAgentCards", () => {
   const list = [
-    card({ id: 1, state: "review", cost: 2, role: "Worker", think: "Low", doing: "b" }),
-    card({ id: 2, state: "working", cost: 1, role: "Tester", think: "High", doing: "a" }),
-    card({ id: 3, state: "working", cost: 3, role: "Worker", think: null, doing: "" }),
-    card({ id: 4, state: "done", cost: 1, role: "Docs writer", think: "Medium", doing: "c" }),
+    card({ id: "api#1", n: 1, state: "review", cost: 2, role: "Worker", think: "Low", doing: "b" }),
+    card({
+      id: "api#2",
+      n: 2,
+      state: "working",
+      cost: 1,
+      role: "Tester",
+      think: "High",
+      doing: "a",
+    }),
+    card({ id: "api#3", n: 3, state: "working", cost: 3, role: "Worker", think: null, doing: "" }),
+    card({
+      id: "api#4",
+      n: 4,
+      state: "done",
+      cost: 1,
+      role: "Docs writer",
+      think: "Medium",
+      doing: "c",
+    }),
   ];
 
   it("orders by state, working first, newest first inside one state", () => {
@@ -93,7 +110,12 @@ describe("sortAgentCards", () => {
 describe("withSessions", () => {
   it("leaves out backlog cards", () => {
     expect(
-      ids(withSessions([card({ id: 1, state: "backlog" }), card({ id: 2, state: "working" })])),
+      ids(
+        withSessions([
+          card({ id: "api#1", n: 1, state: "backlog" }),
+          card({ id: "api#2", n: 2, state: "working" }),
+        ]),
+      ),
     ).toEqual([2]);
   });
 });

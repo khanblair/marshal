@@ -26,10 +26,10 @@ const MOBILE_PACKAGES = [
   "packages/api-client",
 ];
 
-function makeCard(id: number, patch: Partial<Card> = {}): Card {
-  const base = M.card(41);
+function makeCard(n: number, patch: Partial<Card> = {}): Card {
+  const base = M.card("api#41");
   if (!base) throw new Error("seed card 41 missing");
-  return { ...base, id, labels: [], pkg: null, ...patch };
+  return { ...base, id: `api#${n}`, n, labels: [], pkg: null, ...patch };
 }
 
 describe("laneKeyOf", () => {
@@ -64,7 +64,7 @@ describe("laneKeys", () => {
     expect(laneKeys(list, "label", [])).toEqual(["auth", "ui", "No label"]);
   });
 
-  it("follows the project's package order and drops packages it does not list", () => {
+  it("follows the project's package order, then gives an unlisted package its own lane", () => {
     const list = [
       makeCard(1, { pkg: "packages/ui" }),
       makeCard(2, { pkg: "apps/ios" }),
@@ -74,6 +74,7 @@ describe("laneKeys", () => {
     expect(laneKeys(list, "package", MOBILE_PACKAGES)).toEqual([
       "apps/ios",
       "packages/ui",
+      "elsewhere",
       "No package",
     ]);
   });
@@ -102,8 +103,8 @@ describe("buildBoard", () => {
   it("orders the cards of a column as the store does and mirrors them in the grid", () => {
     const board = buildBoard({ ...base, list: M.cardsOf("api"), swim: "none" });
     const working = board.lanes[0]?.columns.find((c) => c.col === "working");
-    expect(working?.cards.map((c) => c.id)).toEqual([42, 41]);
-    expect(board.grid[columns.indexOf("working")]).toEqual([42, 41]);
+    expect(working?.cards.map((c) => c.id)).toEqual(["api#42", "api#41"]);
+    expect(board.grid[columns.indexOf("working")]).toEqual(["api#42", "api#41"]);
     expect(board.grid).toHaveLength(columns.length);
   });
 
@@ -133,7 +134,7 @@ describe("buildBoard", () => {
     expect(column?.cards).toHaveLength(DONE_LIMIT);
     expect(column?.total).toBe(DONE_LIMIT + 5);
     expect(column?.showAll).toBe(true);
-    expect(column?.cards[0]?.id).toBe(500 + DONE_LIMIT + 4);
+    expect(column?.cards[0]?.id).toBe(`api#${500 + DONE_LIMIT + 4}`);
     const all = buildBoard({ ...base, list: done, swim: "none", showAllDone: true });
     const shown = all.lanes[0]?.columns.find((c) => c.col === "done");
     expect(shown?.cards).toHaveLength(DONE_LIMIT + 5);
@@ -144,7 +145,7 @@ describe("buildBoard", () => {
     const board = buildBoard({ ...base, columns: ["needs"], list: M.cardsOf("api"), swim: "none" });
     expect(board.lanes[0]?.columns.map((c) => c.col)).toEqual(["needs"]);
     expect(board.grid).toHaveLength(1);
-    expect(board.grid[0]).toEqual(expect.arrayContaining([43, 44]));
+    expect(board.grid[0]).toEqual(expect.arrayContaining(["api#43", "api#44"]));
   });
 });
 

@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
 import { createMemo } from "solid-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type Card, M } from "~/mock";
+import type { CardKey } from "~/mock/card-key";
 import { CardItem } from "./CardItem";
 
 vi.hoisted(() => {
@@ -10,24 +11,24 @@ vi.hoisted(() => {
 
 const seed = JSON.parse(JSON.stringify(M.S.cards));
 const DESKTOP_PX = 1440;
-const CARD_WORKING = 41;
-const CARD_NEEDS = 43;
-const CARD_MERGING = 35;
-const CARD_PACKAGE = 209;
+const CARD_WORKING = "api#41";
+const CARD_NEEDS = "api#43";
+const CARD_MERGING = "api#35";
+const CARD_PACKAGE = "mobile#209";
 
-function findCard(id: number): Card {
+function findCard(id: CardKey): Card {
   const card = M.card(id);
   if (!card) throw new Error(`no card #${id}`);
   return card;
 }
 
 /** A card the way the board draws it: its view model in a memo, so store changes reach it. */
-function LiveCard(props: { id: number }) {
+function LiveCard(props: { id: CardKey }) {
   const view = createMemo(() => M.deco(findCard(props.id)));
   return <CardItem c={view()} />;
 }
 
-const cardEl = (id: number): HTMLElement => {
+const cardEl = (id: CardKey): HTMLElement => {
   const el = document.querySelector<HTMLElement>(`[data-card="${id}"]`);
   if (!el) throw new Error(`no element for #${id}`);
   return el;

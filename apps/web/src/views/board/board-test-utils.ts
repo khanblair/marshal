@@ -36,10 +36,9 @@ export const column = (col: string): HTMLElement => {
   return el;
 };
 
-export const cardIds = (root: ParentNode): number[] =>
-  Array.from(root.querySelectorAll<HTMLElement>("[data-card]")).map((el) =>
-    Number(el.dataset.card),
-  );
+/** The keys of the cards drawn under `root`, in document order. */
+export const cardIds = (root: ParentNode): string[] =>
+  Array.from(root.querySelectorAll<HTMLElement>("[data-card]")).map((el) => el.dataset.card ?? "");
 
 /** Fake timers, a seeded store, and cleanup, for every test of the file. */
 export function useBoardTestStore(): void {

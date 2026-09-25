@@ -1,11 +1,12 @@
 import { type Card, M } from "~/mock";
+import type { CardKey } from "~/mock/card-key";
 import { type AgentAction, actionsFor, openChatAction } from "./agent-actions";
 import { activityOf, sessionIcon, sessionLabel } from "./agents-model";
 
 /** Everything the table row and the phone row of one session show. */
 export interface AgentRowData {
-  /** Value of `data-card`: the card id, or empty for the Orchestrator. */
-  dataCard: number | "";
+  /** Value of `data-card`: the card key, or empty for the Orchestrator. */
+  dataCard: CardKey | "";
   num: string;
   title: string;
   bypass: boolean;

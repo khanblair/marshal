@@ -1,4 +1,5 @@
 import { type Card, M } from "~/mock";
+import { cardLabel } from "~/mock/card-key";
 
 /** One button at the end of a session row. */
 export interface AgentAction {
@@ -22,7 +23,7 @@ export function openChatAction(): AgentAction {
 export function stopSession(card: Card): void {
   M.confirm({
     title: "Stop session",
-    message: `This stops the agent process for #${card.id}. The session is kept, and you can resume it later.`,
+    message: `This stops the agent process for ${cardLabel(card)}. The session is kept, and you can resume it later.`,
     action: "Stop session",
     run: () => {
       card.paused = card.state === "working";
@@ -36,18 +37,19 @@ export function stopSession(card: Card): void {
 /** Open always; the others only while the card has not finished. Read it inside a memo. */
 export function actionsFor(card: Card): AgentAction[] {
   const id = card.id;
+  const label = cardLabel(card);
   const actions: AgentAction[] = [
-    { label: "Open", icon: "panel-right-open", aria: `Open #${id}`, run: () => M.openCard(id) },
+    { label: "Open", icon: "panel-right-open", aria: `Open ${label}`, run: () => M.openCard(id) },
   ];
   if (card.state === "done") return actions;
   actions.push(
     card.asleep
-      ? { label: "Wake", icon: "sun", aria: `Wake #${id}`, run: () => M.wake(id) }
-      : { label: "Sleep", icon: "moon", aria: `Sleep #${id}`, run: () => M.sleep(id) },
+      ? { label: "Wake", icon: "sun", aria: `Wake ${label}`, run: () => M.wake(id) }
+      : { label: "Sleep", icon: "moon", aria: `Sleep ${label}`, run: () => M.sleep(id) },
     {
       label: card.pinned ? "Unpin" : "Pin",
       icon: card.pinned ? "pin-off" : "pin",
-      aria: `${card.pinned ? "Unpin" : "Pin"} #${id}`,
+      aria: `${card.pinned ? "Unpin" : "Pin"} ${label}`,
       run: () => M.pin(id),
     },
   );
@@ -55,7 +57,7 @@ export function actionsFor(card: Card): AgentAction[] {
     actions.push({
       label: "Stop",
       icon: "square",
-      aria: `Stop session on #${id}`,
+      aria: `Stop session on ${label}`,
       run: () => stopSession(card),
     });
   }

@@ -85,7 +85,7 @@ export function activityOf(card: Card): string {
 type SortValue = string | number;
 
 const SORT_VALUES: Record<AgentSortKey, (card: Card) => SortValue> = {
-  card: (card) => card.id,
+  card: (card) => card.n,
   role: (card) => card.role,
   agent: (card) => card.agent,
   model: (card) => card.model,
@@ -107,7 +107,7 @@ export function sortAgentCards(cards: readonly Card[], sort: TableSort): Card[] 
   const sortValue = isSortKey(sort.k) ? SORT_VALUES[sort.k] : () => 0;
   return cards
     .slice()
-    .sort((a, b) => (compareSortValues(sortValue(a), sortValue(b)) || b.id - a.id) * sort.dir);
+    .sort((a, b) => (compareSortValues(sortValue(a), sortValue(b)) || b.n - a.n) * sort.dir);
 }
 
 /** The cards that have an agent session: everything except the backlog. */

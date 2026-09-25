@@ -1,6 +1,8 @@
 import { fireEvent, render, screen, within } from "@solidjs/testing-library";
 import { describe, expect, it, vi } from "vitest";
 import { M } from "~/mock";
+import { GOLDEN_CATALOG } from "~/testing/agents";
+import { useCatalog } from "~/testing/test-store";
 import { BoardView } from "./BoardView";
 import { cardIds, column, useBoardTestStore } from "./board-test-utils";
 
@@ -171,5 +173,43 @@ describe("BoardView quick add", () => {
     field.value = "Codex card";
     fireEvent.keyDown(field, { key: "Enter" });
     expect(M.S.cards[M.S.cards.length - 1]).toMatchObject({ agent: "Codex", model: "gpt-5-codex" });
+  });
+
+  describe("in the lane of an agent that is not installed", () => {
+    const codexBacklog = (): HTMLElement => {
+      const lane = screen.getByRole("button", { name: /^Codex/ }).nextElementSibling;
+      const backlog = lane?.querySelector<HTMLElement>('section[data-col="backlog"]');
+      if (!backlog) throw new Error("no Codex lane");
+      return backlog;
+    };
+
+    it("gives the new card the default agent, not the agent that cannot be used", () => {
+      const restore = useCatalog(M, GOLDEN_CATALOG);
+      M.S.swim.api = "agent";
+      render(() => <BoardView />);
+      const backlog = codexBacklog();
+      fireEvent.click(within(backlog).getByRole("button", { name: "Add a card" }));
+      vi.runAllTimers();
+      const field = within(backlog).getByRole<HTMLTextAreaElement>("textbox", {
+        name: "Card title",
+      });
+      field.value = "Card for a missing agent";
+      fireEvent.keyDown(field, { key: "Enter" });
+      expect(M.S.cards[M.S.cards.length - 1]).toMatchObject({
+        title: "Card for a missing agent",
+        agent: "Claude Code",
+      });
+      restore();
+    });
+
+    it("opens the New card dialog on the default agent, not the missing one", () => {
+      const restore = useCatalog(M, GOLDEN_CATALOG);
+      M.S.swim.api = "agent";
+      render(() => <BoardView />);
+      const backlog = codexBacklog();
+      fireEvent.click(within(backlog).getByRole("button", { name: "Create from a template" }));
+      expect(M.S.newCard).toMatchObject({ template: "Bug fix", agent: "Claude Code" });
+      restore();
+    });
   });
 });

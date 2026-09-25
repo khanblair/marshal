@@ -1,4 +1,5 @@
 import { type Card, type Column, M, type SwimKey } from "~/mock";
+import type { CardKey } from "~/mock/card-key";
 
 /** Done shows only the newest cards until "Show all". */
 export const DONE_LIMIT = 20;
@@ -28,8 +29,8 @@ export interface LaneModel {
 
 export interface BoardModel {
   lanes: LaneModel[];
-  /** Card ids per column index, the keyboard navigation model the shell reads from `M.nav`. */
-  grid: number[][];
+  /** Card keys per column index, the keyboard navigation model the shell reads from `M.nav`. */
+  grid: CardKey[][];
 }
 
 /** Where an add card control lives: a column inside a lane. */
@@ -68,8 +69,9 @@ const compareLaneKeys = (a: string, b: string): number =>
   Number(a.startsWith(NO_LANE_PREFIX)) - Number(b.startsWith(NO_LANE_PREFIX)) || a.localeCompare(b);
 
 /**
- * The lanes in order. Package lanes follow the project's package order, and cards whose
- * package the project does not list get no lane, as in the prototype.
+ * The lanes in order. Package lanes follow the project's package order, then any package a card
+ * names that the project does not list (the daemon lists what it found on disk, and a card can
+ * name another), each in its own lane, then "No package". No card is left without a lane.
  */
 export function laneKeys(
   list: readonly Card[],
@@ -78,7 +80,13 @@ export function laneKeys(
 ): string[] {
   const seen = Array.from(new Set(list.map((c) => laneKeyOf(c, swim)))).sort(compareLaneKeys);
   const keys =
-    swim === "package" ? [...packages, NO_PACKAGE].filter((k) => seen.includes(k)) : seen;
+    swim === "package"
+      ? [
+          ...packages.filter((k) => seen.includes(k)),
+          ...seen.filter((k) => k !== NO_PACKAGE && !packages.includes(k)),
+          ...seen.filter((k) => k === NO_PACKAGE),
+        ]
+      : seen;
   return keys.length ? keys : [ALL_LANE];
 }
 
@@ -95,7 +103,7 @@ function buildColumn(cards: readonly Card[], col: Column, showAllDone: boolean):
 
 /** Lanes, their columns, and the keyboard grid for the filtered cards of one project. */
 export function buildBoard(input: BoardInput): BoardModel {
-  const grid: number[][] = input.columns.map(() => []);
+  const grid: CardKey[][] = input.columns.map(() => []);
   const lanes = laneKeys(input.list, input.swim, input.packages).map((key): LaneModel => {
     const inLane = input.list.filter((c) => laneKeyOf(c, input.swim) === key);
     const collapsed = input.isCollapsed(key);

@@ -1,8 +1,12 @@
 import { fireEvent, render, screen, within } from "@solidjs/testing-library";
 import { describe, expect, it } from "vitest";
+import { toDaemonProject } from "~/data/mappers/project";
 import { M } from "~/mock";
+import { applyProject } from "~/sync/projects";
+import { daemonProject, PROTOTYPE_PROJECTS } from "~/testing/projects";
+import { contextOf } from "~/testing/test-store";
 import { BoardView } from "./BoardView";
-import { column, useBoardTestStore } from "./board-test-utils";
+import { cardIds, column, useBoardTestStore } from "./board-test-utils";
 
 vi.hoisted(() => {
   window.location.hash = "#nosim";
@@ -39,6 +43,39 @@ describe("BoardView swimlanes", () => {
       "packages/api-client",
     ]);
     expect(names[0]).toHaveClass("font-mono", "text-small");
+  });
+
+  it("gives a card whose package the daemon did not list its own lane, and hides no card", () => {
+    const ctx = contextOf(M);
+    // The dev daemon's mobile project lists the packages found on disk, not the ones the mock cards name.
+    applyProject(
+      ctx,
+      daemonProject({
+        id: "mobile",
+        name: "mobile-app",
+        language: "Monorepo",
+        isMonorepo: true,
+        packages: ["packages/api", "packages/shared", "packages/web"],
+      }),
+    );
+    try {
+      M.go("project", "mobile", "board");
+      render(() => <BoardView />);
+      const lanes = screen
+        .getAllByRole("button", { expanded: true })
+        .map((h) => h.firstElementChild?.nextElementSibling?.textContent);
+      expect(lanes).toEqual([
+        "apps/android",
+        "apps/ios",
+        "packages/api-client",
+        "packages/auth",
+        "packages/ui",
+      ]);
+      expect(cardIds(document.body)).toHaveLength(M.cardsOf("mobile").length);
+    } finally {
+      const original = PROTOTYPE_PROJECTS.find((p) => p.id === "mobile");
+      if (original) applyProject(ctx, toDaemonProject(original));
+    }
   });
 
   it("collapses and expands a lane, remembering it per project and swimlane mode", () => {

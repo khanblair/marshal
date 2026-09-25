@@ -12,12 +12,13 @@ vi.hoisted(() => {
 const FIRST_CLONE_ID = 400;
 
 function addDoneCards(count: number): void {
-  const template = M.card(33);
+  const template = M.card("api#33");
   if (!template) throw new Error("seed card 33 missing");
   for (let i = 0; i < count; i++) {
     M.S.cards.push({
       ...JSON.parse(JSON.stringify(template)),
-      id: FIRST_CLONE_ID + i,
+      id: `api#${FIRST_CLONE_ID + i}`,
+      n: FIRST_CLONE_ID + i,
       title: `Old card ${i}`,
       upd: template.upd - (i + 1),
     } satisfies Card);
@@ -57,9 +58,9 @@ describe("BoardView columns", () => {
 
   it("puts each card in its column, newest first, and merging cards in Ready to merge", () => {
     render(() => <BoardView />);
-    expect(cardIds(column("working"))).toEqual([42, 41]);
-    expect(cardIds(column("ready")).sort()).toEqual([35, 36]);
-    expect(cardIds(column("done"))).toEqual([33]);
+    expect(cardIds(column("working"))).toEqual(["api#42", "api#41"]);
+    expect(cardIds(column("ready")).sort()).toEqual(["api#35", "api#36"]);
+    expect(cardIds(column("done"))).toEqual(["api#33"]);
   });
 
   it("has no tabs on desktop and fills its parent", () => {
@@ -71,13 +72,13 @@ describe("BoardView columns", () => {
   it("opens a card on click", () => {
     render(() => <BoardView />);
     fireEvent.click(within(column("needs")).getByRole("button", { name: /^#43 / }));
-    expect(M.S.openId).toBe(43);
+    expect(M.S.openId).toBe("api#43");
   });
 
   it("lights the border of the column a dragged card is over and says where to drop", () => {
     render(() => <BoardView />);
     expect(column("review")).toHaveClass("border-transparent");
-    M.set({ dragId: 41, dropCol: "review" });
+    M.set({ dragId: "api#41", dropCol: "review" });
     expect(column("review")).toHaveClass("border-border-strong");
     expect(column("review")).not.toHaveClass("border-transparent");
     M.S.cards = M.S.cards.filter((c) => M.colOf(c.state) !== "planning");
@@ -96,7 +97,7 @@ describe("BoardView keyboard navigation model", () => {
     const view = render(() => <BoardView />);
     expect(M.nav?.owner).toBe("board");
     expect(M.nav?.grid).toHaveLength(7);
-    expect(M.nav?.grid?.[2]).toEqual([42, 41]);
+    expect(M.nav?.grid?.[2]).toEqual(["api#42", "api#41"]);
     view.unmount();
     expect(M.nav).toBeNull();
   });
@@ -113,7 +114,7 @@ describe("BoardView filters and empty states", () => {
   it("shows only the filtered cards and counts them", () => {
     M.addFilter("status", "needs");
     render(() => <BoardView />);
-    expect(cardIds(column("needs"))).toEqual([43, 44]);
+    expect(cardIds(column("needs"))).toEqual(["api#43", "api#44"]);
     expect(cardIds(column("working"))).toEqual([]);
     expect(within(column("working")).getByText("No cards")).toBeInTheDocument();
   });
@@ -213,7 +214,7 @@ describe("BoardView on a phone", () => {
       "true",
     );
     expect(document.querySelectorAll("section[data-col]")).toHaveLength(1);
-    expect(cardIds(column("needs"))).toEqual([43, 44]);
+    expect(cardIds(column("needs"))).toEqual(["api#43", "api#44"]);
   });
 
   const scroller = (): HTMLElement => {
