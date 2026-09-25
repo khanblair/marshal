@@ -22,7 +22,6 @@
     "test:ui": "pnpm --filter @marshal/ui test",
     "test:tokens": "pnpm --filter @marshal/tokens test",
     "test:e2e": "pnpm --filter web test:e2e",
-    "parity": "node tools/parity/run.mjs",
     "budgets": "node scripts/budgets.mjs",
     "smells": "node scripts/smells.mjs",
     "smells:all": "node scripts/smells.mjs --all",

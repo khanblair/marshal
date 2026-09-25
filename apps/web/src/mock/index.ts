@@ -1,7 +1,7 @@
 /**
  * The fake Marshal daemon, ported from design/store.js. Views read `M.S` (a Solid
  * mutable store, so reads are tracked) and call the actions on `M`. The same object is
- * on `window.M`, where the parity harness drives it.
+ * on `window.M`, where the browser console and end-to-end tests can drive it.
  */
 import { applyTheme, watchSystemTheme } from "./dom/theme";
 import { watchResize } from "./dom/viewport";

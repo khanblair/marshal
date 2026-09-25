@@ -9,7 +9,6 @@
     "**/node_modules/**",
     "**/dist/**",
     "**/coverage/**",
-    "**/.parity/**",
     "design/**",
     "pnpm-lock.yaml",
     "**/*.test.ts",

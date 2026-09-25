@@ -18,7 +18,7 @@ const FILE_WARN_LINES = 400;
 const FILE_BLOCK_LINES = 800;
 const SOURCE_ROOTS = ["apps", "packages", "scripts", "tools"];
 const SOURCE_EXT = /\.(ts|tsx|css|mjs)$/;
-const SKIP_DIR = new Set(["node_modules", "dist", "coverage", ".parity", "test-results", "playwright-report"]);
+const SKIP_DIR = new Set(["node_modules", "dist", "coverage", "test-results", "playwright-report"]);
 const SKIP_FILE = /(\.d\.ts|\/dist\/)/;
 
 const baseline = JSON.parse(readFileSync(join(root, ".smells-baseline.json"), "utf8")).accepted ?? [];

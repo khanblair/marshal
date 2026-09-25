@@ -15,7 +15,6 @@ coverage/
 .vitest/
 test-results/
 playwright-report/
-.parity/
 
 # Tauri (desktop shell, not built yet)
 apps/desktop/src-tauri/target/

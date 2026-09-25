@@ -17,10 +17,6 @@
     "packages/tokens": {
       "entry": ["scripts/*.ts", "src/*.ts", "test/**/*.ts"],
       "project": ["src/**/*.ts", "scripts/**/*.ts", "test/**/*.ts"]
-    },
-    "tools/parity": {
-      "entry": ["*.mjs", "scenarios/*.mjs"],
-      "project": ["**/*.mjs"]
     }
   },
   "ignoreDependencies": ["tailwindcss"]
