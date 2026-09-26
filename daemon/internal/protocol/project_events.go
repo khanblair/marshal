@@ -34,3 +34,24 @@ type CardMovedEventData struct {
 	// From is the state the card was in before.
 	From CardState `json:"from"`
 }
+
+// CardDeletedEventData is the payload of card.deleted. It is critical: a client that missed it
+// would keep drawing a card that is gone.
+type CardDeletedEventData struct {
+	// CardID is the opaque id of the card that is gone, which is what routes use.
+	CardID string `json:"cardId"`
+	// Key is the card's key, `<projectId>#<number>`, which is how the app names a card in its own
+	// store. It is here because a client cannot turn the opaque id back into the key by itself.
+	Key string `json:"key"`
+	// ProjectID is the project it belonged to, so a client knows which board to redraw.
+	ProjectID string `json:"projectId"`
+}
+
+// LabelUpdatedEventData is the payload of label.updated. A label that was deleted is not in the
+// snapshot the event carries, so a client replaces its list with this one.
+type LabelUpdatedEventData struct {
+	// ProjectID is the project whose labels changed.
+	ProjectID string `json:"projectId"`
+	// Labels are the project's labels as they are now, by name.
+	Labels []Label `json:"labels"`
+}

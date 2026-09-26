@@ -10,11 +10,14 @@ const (
 	ProjectSourceFolder ProjectSource = "folder"
 	// ProjectSourceClone is a repository to copy from a server into Dest first.
 	ProjectSourceClone ProjectSource = "clone"
+	// ProjectSourceSample is the small sample repository that ships with Marshal. The daemon writes
+	// it into its own data folder the first time, so it needs no path and no network.
+	ProjectSourceSample ProjectSource = "sample"
 )
 
 // ProjectSourceValues lists every project source.
 func ProjectSourceValues() []ProjectSource {
-	return []ProjectSource{ProjectSourceFolder, ProjectSourceClone}
+	return []ProjectSource{ProjectSourceFolder, ProjectSourceClone, ProjectSourceSample}
 }
 
 // Valid reports whether s is a project source.
@@ -66,8 +69,8 @@ type ProjectListSnapshot struct {
 	ServerTime Timestamp `json:"serverTime"`
 }
 
-// CreateProjectRequest is the body of POST /v1/projects. Send Path for a folder, or URL and Dest
-// for a clone.
+// CreateProjectRequest is the body of POST /v1/projects. Send Path for a folder, URL and Dest for
+// a clone, and only the source (and a name, if wanted) for the sample.
 type CreateProjectRequest struct {
 	// Source says which of the fields below are used.
 	Source ProjectSource `json:"source"`
@@ -79,7 +82,8 @@ type CreateProjectRequest struct {
 	Dest string `json:"dest,omitempty"`
 	// Branch is the branch to check out when cloning. Empty means the repository's default.
 	Branch string `json:"branch,omitempty"`
-	// Name is the display name. Empty means the name of the repository's folder.
+	// Name is the display name. Empty means the name of the repository's folder, which for the
+	// sample is "marshal-sample".
 	Name string `json:"name,omitempty"`
 }
 

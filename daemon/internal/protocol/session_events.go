@@ -15,6 +15,11 @@ package protocol
 //     already say "sent when an agent calls a tool", not "sent as part of session output", so this
 //     keeps the two constants doing what their names say.
 //
+// A project chat's session (docs/backend-checklist.md B2.10) publishes the same three events, with
+// the same payloads, on the topic chat:<id> instead of card:<id>. Each carries chatId beside cardId,
+// and exactly one of the two is set: cardId is empty in a chat's event, and chatId is left out of a
+// card's, so a client tells them apart by which is there.
+//
 // Neither payload is sent for a PermissionRequested event: that belongs to the approvals flow of
 // architecture.md section 11.4 and Phase 3 (B3.4), which does not exist yet, so a permission
 // request is only logged for now (see internal/session's report).
@@ -22,8 +27,10 @@ package protocol
 // SessionOutputEventData is the payload of session.output: a piece of the agent's answer, a piece
 // of its reasoning, or a full replacement of its plan.
 type SessionOutputEventData struct {
-	// CardID is the card whose session produced this output.
+	// CardID is the card whose session produced this output. It is empty when a chat's did.
 	CardID string `json:"cardId"`
+	// ChatID is the chat whose session produced this output. It is left out when a card's did.
+	ChatID string `json:"chatId,omitempty"`
 	// Kind is "message", "thought", or "plan".
 	Kind string `json:"kind"`
 	// Text is the chunk of text, for "message" and "thought". It is cut with agents.Truncate the
@@ -44,8 +51,10 @@ type PlanStep struct {
 // SessionToolCallEventData is the payload of session.tool_call: a tool call starting, or an
 // update to one that is already running.
 type SessionToolCallEventData struct {
-	// CardID is the card whose session made this tool call.
+	// CardID is the card whose session made this tool call. It is empty when a chat's did.
 	CardID string `json:"cardId"`
+	// ChatID is the chat whose session made this tool call. It is left out when a card's did.
+	ChatID string `json:"chatId,omitempty"`
 	// Kind is "tool_call" or "tool_call_update".
 	Kind     string        `json:"kind"`
 	ToolCall AgentToolCall `json:"toolCall"`
@@ -84,8 +93,10 @@ type FileDiff struct {
 
 // SessionStateChangedEventData is the payload of session.state_changed.
 type SessionStateChangedEventData struct {
-	// CardID is the card the session belongs to.
+	// CardID is the card the session belongs to. It is empty for a chat's session.
 	CardID string `json:"cardId"`
+	// ChatID is the chat the session belongs to. It is left out for a card's session.
+	ChatID string `json:"chatId,omitempty"`
 	// SessionID is the session's own opaque id (not the agent's session id).
 	SessionID string `json:"sessionId"`
 	// State is the state the session moved to.

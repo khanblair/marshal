@@ -32,11 +32,30 @@ const (
 	FrameTypeResync FrameType = "resync"
 	// FrameTypeError says the client did something wrong on the stream. See ErrorFrame.
 	FrameTypeError FrameType = "error"
+	// FrameTypeTerminalInput is a message from the client with what the person typed into a card's
+	// terminal. See TerminalInput.
+	FrameTypeTerminalInput FrameType = "terminal.input"
+	// FrameTypeTerminalResize is a message from the client with the size of a card's terminal
+	// view. See TerminalResize.
+	FrameTypeTerminalResize FrameType = "terminal.resize"
+	// FrameTypeTerminalSnapshot is a message from the client that asks for a card's recent
+	// terminal screen. See TerminalSnapshotRequest.
+	FrameTypeTerminalSnapshot FrameType = "terminal.snapshot"
+	// FrameTypeTerminalScreen is a frame from the daemon with a card's recent terminal screen.
+	// See TerminalScreen.
+	FrameTypeTerminalScreen FrameType = "terminal.screen"
+	// FrameTypeTerminalRefused is a frame from the daemon that says a terminal message cannot be
+	// done now, and leaves the connection open. See TerminalRefusal.
+	FrameTypeTerminalRefused FrameType = "terminal.refused"
 )
 
 // FrameTypeValues lists every frame type.
 func FrameTypeValues() []FrameType {
-	return []FrameType{FrameTypeHello, FrameTypeEvents, FrameTypeResync, FrameTypeError}
+	return []FrameType{
+		FrameTypeHello, FrameTypeEvents, FrameTypeResync, FrameTypeError,
+		FrameTypeTerminalInput, FrameTypeTerminalResize, FrameTypeTerminalSnapshot,
+		FrameTypeTerminalScreen, FrameTypeTerminalRefused,
+	}
 }
 
 // Valid reports whether t is a frame type.
@@ -102,7 +121,7 @@ func ResyncReasonValues() []ResyncReason {
 // client reloads its snapshots. Events after Seq follow on the same connection, so nothing is
 // lost between the frame and the reload.
 //
-//tygo:emit export type ServerFrame = EventBatch | Resync | ErrorFrame
+//tygo:emit export type ServerFrame = EventBatch | Resync | ErrorFrame | TerminalScreen | TerminalRefusal
 type Resync struct {
 	// Type is always "resync". Encoding sets it.
 	Type FrameType `json:"type" tstype:"typeof FrameTypeResync"`

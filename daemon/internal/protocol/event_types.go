@@ -32,6 +32,15 @@ const (
 	EventTypeCardUpdated EventType = "card.updated"
 	// EventTypeCardMoved is sent when a card changes state or position.
 	EventTypeCardMoved EventType = "card.moved"
+	// EventTypeCardDeleted is sent when a card is removed from its board.
+	EventTypeCardDeleted EventType = "card.deleted"
+	// EventTypeLabelUpdated is sent when a project's labels change, including one being deleted.
+	EventTypeLabelUpdated EventType = "label.updated"
+	// EventTypeSavedViewUpdated is sent when a project's saved views change, including one being
+	// deleted.
+	EventTypeSavedViewUpdated EventType = "saved_view.updated"
+	// EventTypeMeUpdated is sent when a person's profile, preferences, or progress change.
+	EventTypeMeUpdated EventType = "me.updated"
 	// EventTypeCardMembersChanged is sent when the people on a card change.
 	EventTypeCardMembersChanged EventType = "card.members_changed"
 	// EventTypeChecklistUpdated is sent when a checklist or one of its items changes.
@@ -46,6 +55,9 @@ const (
 	EventTypeSessionOutput EventType = "session.output"
 	// EventTypeSessionToolCall is sent when an agent calls a tool.
 	EventTypeSessionToolCall EventType = "session.tool_call"
+	// EventTypeSessionTerminalOutput is sent for output from a card's terminal. It is live-only: it
+	// is never kept in the replay ring, and a client that reconnects asks for the screen instead.
+	EventTypeSessionTerminalOutput EventType = "session.terminal_output"
 	// EventTypeApprovalRequested is sent when an agent asks for permission.
 	EventTypeApprovalRequested EventType = "approval.requested"
 	// EventTypeApprovalResolved is sent when a permission request is answered.
@@ -70,9 +82,11 @@ func EventTypeValues() []EventType {
 		EventTypeProjectCreated, EventTypeProjectUpdated, EventTypeProjectRemoved,
 		EventTypeChatCreated, EventTypeChatUpdated, EventTypeChatArchived, EventTypeChatDeleted,
 		EventTypeActivityCreated,
-		EventTypeCardCreated, EventTypeCardUpdated, EventTypeCardMoved, EventTypeCardMembersChanged,
+		EventTypeCardCreated, EventTypeCardUpdated, EventTypeCardMoved, EventTypeCardDeleted,
+		EventTypeLabelUpdated, EventTypeSavedViewUpdated, EventTypeMeUpdated, EventTypeCardMembersChanged,
 		EventTypeChecklistUpdated, EventTypeCommentCreated, EventTypeCommentReadByAgent,
 		EventTypeSessionStateChanged, EventTypeSessionOutput, EventTypeSessionToolCall,
+		EventTypeSessionTerminalOutput,
 		EventTypeApprovalRequested, EventTypeApprovalResolved, EventTypeCIUpdated,
 		EventTypeQualityChecked, EventTypeMergeProgress, EventTypeNoticeCreated,
 		EventTypeUsageUpdated, EventTypeBudgetWarning,
