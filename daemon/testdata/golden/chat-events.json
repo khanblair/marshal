@@ -1,0 +1,88 @@
+{
+  "type": "events",
+  "epoch": "01M3C0ZZZZ000000000000000A",
+  "events": [
+    {
+      "seq": 1,
+      "topic": "project:web-dashboard",
+      "type": "chat.created",
+      "at": "2026-09-30T12:00:00.020Z",
+      "data": {
+        "chat": {
+          "id": "01M3C107JB041061050R3GG281",
+          "projectId": "web-dashboard",
+          "title": "JWKS caching question",
+          "target": {
+            "kind": "orchestrator",
+            "id": ""
+          },
+          "agentKind": "claude",
+          "model": "claude-opus-4-1",
+          "thinking": null,
+          "permissionMode": "ask",
+          "archivedAt": null,
+          "lastActiveAt": "2026-09-30T10:00:00.000Z",
+          "createdAt": "2026-09-29T10:00:00.000Z"
+        }
+      }
+    },
+    {
+      "seq": 2,
+      "topic": "project:web-dashboard",
+      "type": "chat.updated",
+      "at": "2026-09-30T12:00:00.040Z",
+      "data": {
+        "chat": {
+          "id": "01M3C107JB041061050R3GG283",
+          "projectId": "web-dashboard",
+          "title": "Plan the export work",
+          "target": {
+            "kind": "role",
+            "id": "Worker"
+          },
+          "agentKind": "claude",
+          "model": "claude-opus-4-1",
+          "thinking": null,
+          "permissionMode": "ask",
+          "archivedAt": null,
+          "lastActiveAt": "2026-09-30T11:59:00.000Z",
+          "createdAt": "2026-09-29T10:00:00.000Z"
+        }
+      }
+    },
+    {
+      "seq": 3,
+      "topic": "project:web-dashboard",
+      "type": "chat.archived",
+      "at": "2026-09-30T12:00:00.060Z",
+      "data": {
+        "chat": {
+          "id": "01M3C107JB041061050R3GG282",
+          "projectId": "web-dashboard",
+          "title": "Rate limits per key",
+          "target": {
+            "kind": "card",
+            "id": "01M3C107JB041061050R3GG28A"
+          },
+          "agentKind": "claude",
+          "model": "claude-sonnet-4-1",
+          "thinking": "high",
+          "permissionMode": "auto-edits",
+          "archivedAt": "2026-09-30T11:30:00.000Z",
+          "lastActiveAt": "2026-09-30T09:00:00.000Z",
+          "createdAt": "2026-09-28T10:00:00.000Z"
+        }
+      }
+    },
+    {
+      "seq": 4,
+      "topic": "project:web-dashboard",
+      "type": "chat.deleted",
+      "at": "2026-09-30T12:00:00.080Z",
+      "data": {
+        "chatId": "01M3C107JB041061050R3GG281",
+        "projectId": "web-dashboard"
+      }
+    }
+  ]
+}

@@ -1,0 +1,59 @@
+{
+  "type": "events",
+  "epoch": "01M3C0ZZZZ000000000000000A",
+  "events": [
+    {
+      "seq": 1,
+      "topic": "chat:01M3C107JB041061050R3GG281",
+      "type": "session.state_changed",
+      "at": "2026-09-25T10:15:30.143Z",
+      "data": {
+        "cardId": "",
+        "chatId": "01M3C107JB041061050R3GG281",
+        "sessionId": "01M3C107JF041061050R3GG28B",
+        "state": "working"
+      }
+    },
+    {
+      "seq": 2,
+      "topic": "chat:01M3C107JB041061050R3GG281",
+      "type": "session.output",
+      "at": "2026-09-25T10:15:30.163Z",
+      "data": {
+        "cardId": "",
+        "chatId": "01M3C107JB041061050R3GG281",
+        "kind": "message",
+        "text": "Nothing is blocked right now."
+      }
+    },
+    {
+      "seq": 3,
+      "topic": "chat:01M3C107JB041061050R3GG281",
+      "type": "session.tool_call",
+      "at": "2026-09-25T10:15:30.183Z",
+      "data": {
+        "cardId": "",
+        "chatId": "01M3C107JB041061050R3GG281",
+        "kind": "tool_call",
+        "toolCall": {
+          "id": "call-1",
+          "title": "List the cards",
+          "toolKind": "other",
+          "status": "in_progress"
+        }
+      }
+    },
+    {
+      "seq": 4,
+      "topic": "chat:01M3C107JB041061050R3GG281",
+      "type": "session.state_changed",
+      "at": "2026-09-25T10:15:30.203Z",
+      "data": {
+        "cardId": "",
+        "chatId": "01M3C107JB041061050R3GG281",
+        "sessionId": "01M3C107JF041061050R3GG28B",
+        "state": "asleep"
+      }
+    }
+  ]
+}

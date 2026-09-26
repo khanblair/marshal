@@ -1,0 +1,37 @@
+{
+  "message": {
+    "id": "01M3C107JB041061050R3GG28F",
+    "kind": "tool",
+    "seq": 3,
+    "at": "2026-09-30T12:00:00.000Z",
+    "text": "",
+    "tool": {
+      "id": "call_1",
+      "title": "Edited internal/upstream/conn.go",
+      "toolKind": "edit",
+      "state": "ok",
+      "hasDetail": true
+    },
+    "diff": null,
+    "plan": null,
+    "approval": null,
+    "card": null
+  },
+  "tool": {
+    "id": "call_1",
+    "title": "Edited internal/upstream/conn.go",
+    "toolKind": "edit",
+    "path": "internal/upstream/conn.go",
+    "command": "",
+    "content": "Replaced the deprecated Dial with DialContext.",
+    "diffs": [
+      {
+        "path": "internal/upstream/conn.go",
+        "oldText": "conn, err := net.Dial(\"tcp\", addr)\n",
+        "newText": "conn, err := dialer.DialContext(ctx, \"tcp\", addr)\n"
+      }
+    ],
+    "truncated": true
+  },
+  "serverTime": "2026-09-30T12:00:00.000Z"
+}

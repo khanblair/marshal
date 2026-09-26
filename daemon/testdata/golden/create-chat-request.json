@@ -1,0 +1,7 @@
+{
+  "title": "Plan the export work",
+  "target": {
+    "kind": "role",
+    "id": "Worker"
+  }
+}

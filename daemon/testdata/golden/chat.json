@@ -1,0 +1,16 @@
+{
+  "id": "01M3C107JB041061050R3GG283",
+  "projectId": "web-dashboard",
+  "title": "Plan the export work",
+  "target": {
+    "kind": "role",
+    "id": "Worker"
+  },
+  "agentKind": "claude",
+  "model": "claude-opus-4-1",
+  "thinking": null,
+  "permissionMode": "ask",
+  "archivedAt": null,
+  "lastActiveAt": "2026-09-30T11:59:00.000Z",
+  "createdAt": "2026-09-29T10:00:00.000Z"
+}

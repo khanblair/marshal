@@ -1,0 +1,38 @@
+{
+  "projectId": "web-dashboard",
+  "chats": [
+    {
+      "id": "01M3C107JB041061050R3GG281",
+      "projectId": "web-dashboard",
+      "title": "JWKS caching question",
+      "target": {
+        "kind": "orchestrator",
+        "id": ""
+      },
+      "agentKind": "claude",
+      "model": "claude-opus-4-1",
+      "thinking": null,
+      "permissionMode": "ask",
+      "archivedAt": null,
+      "lastActiveAt": "2026-09-30T10:00:00.000Z",
+      "createdAt": "2026-09-29T10:00:00.000Z"
+    },
+    {
+      "id": "01M3C107JB041061050R3GG282",
+      "projectId": "web-dashboard",
+      "title": "Rate limits per key",
+      "target": {
+        "kind": "card",
+        "id": "01M3C107JB041061050R3GG28A"
+      },
+      "agentKind": "claude",
+      "model": "claude-sonnet-4-1",
+      "thinking": "high",
+      "permissionMode": "auto-edits",
+      "archivedAt": "2026-09-30T11:30:00.000Z",
+      "lastActiveAt": "2026-09-30T09:00:00.000Z",
+      "createdAt": "2026-09-28T10:00:00.000Z"
+    }
+  ],
+  "serverTime": "2026-09-30T12:00:00.000Z"
+}

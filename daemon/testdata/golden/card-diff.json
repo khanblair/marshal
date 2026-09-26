@@ -1,0 +1,66 @@
+{
+  "cardId": "01M3C107JB041061050R3GG28A",
+  "base": "main",
+  "branch": "marshal/api-41-refresh-the-token",
+  "files": [
+    {
+      "path": "assets/logo.png",
+      "oldPath": "",
+      "status": "modified",
+      "additions": 0,
+      "deletions": 0,
+      "binary": true,
+      "large": false
+    },
+    {
+      "path": "go.sum",
+      "oldPath": "",
+      "status": "added",
+      "additions": 1240,
+      "deletions": 0,
+      "binary": false,
+      "large": true
+    },
+    {
+      "path": "internal/auth/legacy.go",
+      "oldPath": "",
+      "status": "deleted",
+      "additions": 0,
+      "deletions": 41,
+      "binary": false,
+      "large": false
+    },
+    {
+      "path": "internal/auth/middleware.go",
+      "oldPath": "",
+      "status": "modified",
+      "additions": 19,
+      "deletions": 3,
+      "binary": false,
+      "large": false
+    },
+    {
+      "path": "internal/auth/refresh.go",
+      "oldPath": "",
+      "status": "modified",
+      "additions": 38,
+      "deletions": 9,
+      "binary": false,
+      "large": false
+    },
+    {
+      "path": "internal/auth/session.go",
+      "oldPath": "internal/auth/token.go",
+      "status": "renamed",
+      "additions": 2,
+      "deletions": 2,
+      "binary": false,
+      "large": false
+    }
+  ],
+  "fileCount": 1203,
+  "additions": 1299,
+  "deletions": 55,
+  "truncated": true,
+  "serverTime": "2026-09-30T12:00:00.000Z"
+}

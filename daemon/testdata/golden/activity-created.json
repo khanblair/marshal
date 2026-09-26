@@ -1,0 +1,19 @@
+{
+  "entry": {
+    "id": "01M3C107JB041061050R3GG28A",
+    "kind": "merge",
+    "text": "#110 Fix flaky login e2e test merged into main",
+    "projectId": "web",
+    "at": "2026-09-30T12:00:00.000Z",
+    "cardId": "01M3C107JB041061050R3GG28B",
+    "cardKey": "web#110",
+    "jobId": ""
+  },
+  "day": {
+    "day": "2026-09-30T00:00:00.000Z",
+    "cardsFinished": 3,
+    "merges": 3,
+    "ciFailures": 0,
+    "costMicros": 0
+  }
+}

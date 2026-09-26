@@ -1,0 +1,136 @@
+{
+  "items": [
+    {
+      "id": "01M3C107JB041061050R3GG28A",
+      "kind": "card",
+      "seq": 8,
+      "at": "2026-09-30T12:00:00.000Z",
+      "text": "Made a card for the failing check.",
+      "tool": null,
+      "diff": null,
+      "plan": null,
+      "approval": null,
+      "card": {
+        "cards": [
+          {
+            "projectId": "api",
+            "number": 43
+          }
+        ]
+      }
+    },
+    {
+      "id": "01M3C107JB041061050R3GG28B",
+      "kind": "approval",
+      "seq": 7,
+      "at": "2026-09-30T12:00:00.000Z",
+      "text": "Asked to run rm -rf build",
+      "tool": null,
+      "diff": null,
+      "plan": null,
+      "approval": {
+        "state": "waiting",
+        "command": "rm -rf build",
+        "reason": "Clean the build folder"
+      },
+      "card": null
+    },
+    {
+      "id": "01M3C107JB041061050R3GG28C",
+      "kind": "plan",
+      "seq": 6,
+      "at": "2026-09-30T12:00:00.000Z",
+      "text": "Plan with 2 steps",
+      "tool": null,
+      "diff": null,
+      "plan": {
+        "state": "waiting",
+        "steps": [
+          "Read the callers",
+          "Change the signature"
+        ],
+        "files": [
+          "internal/upstream/conn.go"
+        ],
+        "risks": [],
+        "checks": [
+          "go test ./..."
+        ]
+      },
+      "approval": null,
+      "card": null
+    },
+    {
+      "id": "01M3C107JB041061050R3GG28D",
+      "kind": "diff",
+      "seq": 5,
+      "at": "2026-09-30T12:00:00.000Z",
+      "text": "3 files changed",
+      "tool": null,
+      "diff": {
+        "files": 3,
+        "additions": 42,
+        "deletions": 7
+      },
+      "plan": null,
+      "approval": null,
+      "card": null
+    },
+    {
+      "id": "01M3C107JB041061050R3GG28E",
+      "kind": "system",
+      "seq": 4,
+      "at": "2026-09-30T12:00:00.000Z",
+      "text": "Session resumed after Marshal restarted.",
+      "tool": null,
+      "diff": null,
+      "plan": null,
+      "approval": null,
+      "card": null
+    },
+    {
+      "id": "01M3C107JB041061050R3GG28F",
+      "kind": "tool",
+      "seq": 3,
+      "at": "2026-09-30T12:00:00.000Z",
+      "text": "",
+      "tool": {
+        "id": "call_1",
+        "title": "Edited internal/upstream/conn.go",
+        "toolKind": "edit",
+        "state": "ok",
+        "hasDetail": true
+      },
+      "diff": null,
+      "plan": null,
+      "approval": null,
+      "card": null
+    },
+    {
+      "id": "01M3C107JB041061050R3GG28G",
+      "kind": "agent",
+      "seq": 2,
+      "at": "2026-09-30T12:00:00.000Z",
+      "text": "I read the callers before changing the signature.",
+      "tool": null,
+      "diff": null,
+      "plan": null,
+      "approval": null,
+      "card": null
+    },
+    {
+      "id": "01M3C107JB041061050R3GG28H",
+      "kind": "user",
+      "seq": 1,
+      "at": "2026-09-30T12:00:00.000Z",
+      "text": "Upgrade the upstream library.",
+      "tool": null,
+      "diff": null,
+      "plan": null,
+      "approval": null,
+      "card": null
+    }
+  ],
+  "nextCursor": "eyJzZXEiOjF9",
+  "serverTime": "2026-09-30T12:00:00.000Z"
+}

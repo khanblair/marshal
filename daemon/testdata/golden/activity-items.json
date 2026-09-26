@@ -1,0 +1,51 @@
+{
+  "items": [
+    {
+      "id": "01M3C107JB041061050R3GG28A",
+      "kind": "file",
+      "seq": 5,
+      "at": "2026-09-30T12:00:00.000Z",
+      "text": "Edited internal/upstream/conn.go",
+      "result": "",
+      "state": "ok"
+    },
+    {
+      "id": "01M3C107JB041061050R3GG28B",
+      "kind": "command",
+      "seq": 4,
+      "at": "2026-09-30T12:00:00.000Z",
+      "text": "Bash: go build ./...",
+      "result": "",
+      "state": "running"
+    },
+    {
+      "id": "01M3C107JB041061050R3GG28C",
+      "kind": "test",
+      "seq": 3,
+      "at": "2026-09-30T12:00:00.000Z",
+      "text": "Bash: go test ./...",
+      "result": "ok github.com/khanblair/marshal/daemon",
+      "state": "ok"
+    },
+    {
+      "id": "01M3C107JB041061050R3GG28D",
+      "kind": "tool",
+      "seq": 2,
+      "at": "2026-09-30T12:00:00.000Z",
+      "text": "Searched the repository for conn.go",
+      "result": "",
+      "state": "failed"
+    },
+    {
+      "id": "01M3C107JB041061050R3GG28E",
+      "kind": "approval",
+      "seq": 1,
+      "at": "2026-09-30T12:00:00.000Z",
+      "text": "Asked to run go mod tidy",
+      "result": "",
+      "state": "waiting"
+    }
+  ],
+  "nextCursor": "",
+  "serverTime": "2026-09-30T12:00:00.000Z"
+}
