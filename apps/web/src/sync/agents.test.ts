@@ -114,7 +114,8 @@ describe("the agents section", () => {
   it("subscribes to nothing for it: the catalog is not a stream", async () => {
     const d = open();
     await createSyncedMarshal(d);
-    expect(d.sockets.last().hellos()[0]?.subscribe).toEqual(["home"]);
+    // Only the Home topic and the person's own (`me`): nothing is named for the catalog.
+    expect(d.sockets.last().hellos()[0]?.subscribe).toEqual(["home", "me"]);
   });
 
   it("shows the first-load error, not the app, when the catalog cannot be loaded, and loads it on Try again", async () => {
