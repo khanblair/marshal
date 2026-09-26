@@ -58,6 +58,18 @@ export { Toast, type ToastProps } from "./base/Toast";
 export { ToastRegion, type ToastRegionProps } from "./base/ToastRegion";
 export { compareSortValues, sortDirection, type TableSort, toggleSort } from "./base/table-sort";
 export type { LooseString } from "./base/types";
+export { VirtualList, type VirtualListHandle, type VirtualListProps } from "./base/VirtualList";
+export {
+  listHeight,
+  type RowRange,
+  rowOffsets,
+  rowsBetween,
+  rowsToDraw,
+  rowWindow,
+  sameRange,
+  scrollTopOfRow,
+  type WindowView,
+} from "./base/virtual-window";
 export { type CiState, CiStatus, type CiStatusProps, ciAppearance } from "./board/CiStatus";
 export { StatusLabel, type StatusLabelProps } from "./board/StatusLabel";
 export { DiffStat, type DiffStatProps } from "./card/DiffStat";

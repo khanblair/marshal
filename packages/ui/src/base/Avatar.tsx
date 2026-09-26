@@ -10,6 +10,8 @@ export interface AvatarProps extends Omit<JSX.HTMLAttributes<HTMLSpanElement>, "
   kind?: "person" | "agent";
   /** Initials of a person, up to two letters. */
   initials?: string;
+  /** The person's picture, which is drawn in place of the initials. Ignored for the agent. */
+  src?: string;
   /** 22 (default), 28, or 64. */
   size?: AvatarSize;
   /** A 2 px surface-colored border, so overlapping avatars stay apart (card members). */
@@ -50,6 +52,7 @@ export function Avatar(props: AvatarProps) {
   const [local, others] = splitProps(props, [
     "kind",
     "initials",
+    "src",
     "size",
     "ring",
     "bordered",
@@ -72,6 +75,9 @@ export function Avatar(props: AvatarProps) {
       <Switch fallback={local.initials}>
         <Match when={agent()}>
           <Icon name="bot" size={AGENT_ICON_PX[size()]} />
+        </Match>
+        <Match when={local.src}>
+          {(src) => <img alt="" src={src()} class="size-full rounded-full object-cover" />}
         </Match>
       </Switch>
     </span>

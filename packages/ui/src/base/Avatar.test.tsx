@@ -19,6 +19,31 @@ describe("Avatar", () => {
     expect(avatar.querySelector("svg")).toBeNull();
   });
 
+  it("draws a person's picture in place of the initials, filling the circle", () => {
+    const { container } = render(() => (
+      <Avatar initials="AO" src="blob:http://localhost/abc" size={64} bordered />
+    ));
+    const avatar = first(container);
+    const image = avatar.querySelector("img");
+    expect(image).toHaveAttribute("src", "blob:http://localhost/abc");
+    expect(image).toHaveAttribute("alt", "");
+    expect(image).toHaveClass("size-full", "rounded-full", "object-cover");
+    expect(avatar).not.toHaveTextContent("AO");
+    expect(avatar).toHaveClass("size-16", "rounded-full", "border");
+  });
+
+  it("draws the initials again when there is no picture", () => {
+    const { container } = render(() => <Avatar initials="AO" />);
+    expect(first(container)).toHaveTextContent("AO");
+    expect(first(container).querySelector("img")).toBeNull();
+  });
+
+  it("ignores a picture for the agent", () => {
+    const { container } = render(() => <Avatar kind="agent" src="blob:x" />);
+    expect(first(container).querySelector("img")).toBeNull();
+    expect(first(container).querySelector("svg")).not.toBeNull();
+  });
+
   it("draws the agent as a rounded square with a bot icon", () => {
     const { container } = render(() => <Avatar kind="agent" initials="ignored" />);
     const avatar = first(container);
