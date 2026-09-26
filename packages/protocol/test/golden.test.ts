@@ -2,14 +2,20 @@ import { describe, expect, it } from "vitest";
 import type {
   Card,
   CardKey,
+  CreateLabelRequest,
   ErrorFrame,
   ErrorResponse,
   EventBatch,
   Health,
   Hello,
+  HomeSnapshot,
+  LabelSnapshot,
+  MoveCardRequest,
   Page,
   Resync,
   ServerFrame,
+  UpdateCardRequest,
+  UpdateLabelRequest,
   WhoAmI,
   Error as WireError,
   Event as WireEvent,
@@ -105,7 +111,7 @@ describe("golden files from the daemon", () => {
   });
 
   it("has frames a client can tell apart by their type", () => {
-    // `type` narrows a ServerFrame to one of the three, and the compiler checks that each branch
+    // `type` narrows a ServerFrame to one of the five, and the compiler checks that each branch
     // reads a field that frame really has.
     const describeFrame = (frame: ServerFrame): string => {
       switch (frame.type) {
@@ -115,11 +121,17 @@ describe("golden files from the daemon", () => {
           return frame.reason;
         case "error":
           return frame.error.code;
+        case "terminal.screen":
+          return `${frame.cols}x${frame.rows}`;
+        case "terminal.refused":
+          return frame.error.code;
       }
     };
     expect(describeFrame(golden("resync") as ServerFrame)).toBe("epoch-changed");
     expect(describeFrame(golden("error-frame") as ServerFrame)).toBe("invalid_argument");
     expect(describeFrame(golden("event-batch") as ServerFrame)).toBe("2 events");
+    expect(describeFrame(golden("terminal-screen") as ServerFrame)).toBe("120x32");
+    expect(describeFrame(golden("terminal-refused") as ServerFrame)).toBe("refused");
   });
 
   it("has a card whose thinking setting is always present, and null when the card has none", () => {
@@ -138,6 +150,28 @@ describe("golden files from the daemon", () => {
       model: "claude-sonnet-4-5",
       thinking: "high",
       permissionMode: "auto-edits",
+      role: "",
+      // A list on the wire is never null, so a card with no labels carries [].
+      labels: [],
+      package: "",
+      plannedStart: null,
+      plannedEnd: null,
+      due: null,
+      actualStart: null,
+      actualEnd: null,
+      pullRequest: null,
+      ci: null,
+      contextUsed: 0,
+      needsReason: null,
+      doingNow: "",
+      paused: false,
+      pinned: false,
+      // The session state is required and nullable in the same way: null until the card has a
+      // session, and the stored state after that (`protocol/card.go`).
+      session: null,
+      // Which view the card opens in (chat or terminal, section S9): chat until the person
+      // switches it.
+      viewMode: "chat",
       branch: "",
       createdAt: "2026-09-25T10:15:30.123Z",
       updatedAt: "2026-09-25T10:16:30.123Z",
@@ -145,6 +179,8 @@ describe("golden files from the daemon", () => {
     expect(golden("card")).toEqual(withSetting);
     const withoutSetting: Card = { ...withSetting, thinking: null };
     expect(withoutSetting.thinking).toBeNull();
+    const asleep: Card = { ...withSetting, session: "asleep" };
+    expect(asleep.session).toBe("asleep");
   });
 
   it("has the answer to whoami", () => {
@@ -156,5 +192,116 @@ describe("golden files from the daemon", () => {
       serverTime: "2026-09-25T10:15:30.123Z",
     };
     expect(golden("whoami")).toEqual(sample);
+  });
+});
+
+// The card edits, moves, labels, and the Home answer. Each sample is checked against the generated
+// type by the compiler, and against the daemon's golden file by the assertion, so the two sides
+// cannot drift apart.
+describe("the Phase 2 golden files", () => {
+  it("has an update-card request that sets only what changed", () => {
+    const sample: UpdateCardRequest = {
+      title: "Add a health check endpoint",
+      agent: "claude",
+      permissionMode: "auto-edits",
+      role: "Implementer",
+      package: "packages/api",
+      labels: ["01M3C107JB04106105A"],
+      plannedStart: { at: "2026-09-30T12:00:00.000Z" },
+      due: { clear: true },
+    };
+    expect(golden("update-card-request")).toEqual(sample);
+  });
+
+  it("has a request that clears a date without inventing a moment for it", () => {
+    const sample: UpdateCardRequest = { due: { clear: true } };
+    expect(golden("update-card-request-clear-date")).toEqual(sample);
+  });
+
+  it("has a move request that carries the target column and nothing else", () => {
+    const sample: MoveCardRequest = { state: "working" };
+    expect(golden("move-card-request")).toEqual(sample);
+  });
+
+  it("has a project's labels", () => {
+    const sample: LabelSnapshot = {
+      projectId: "web-dashboard",
+      labels: [
+        {
+          id: "01M3C107JB041061050R3GG28B",
+          projectId: "web-dashboard",
+          name: "backend",
+          color: "blue",
+          createdAt: "2026-09-30T12:00:00.000Z",
+        },
+        {
+          id: "01M3C107JB041061050R3GG28C",
+          projectId: "web-dashboard",
+          name: "urgent",
+          color: "red",
+          createdAt: "2026-09-30T12:00:00.000Z",
+        },
+      ],
+      serverTime: "2026-09-30T12:00:00.000Z",
+    };
+    expect(golden("label-snapshot")).toEqual(sample);
+  });
+
+  it("has the label requests", () => {
+    const create: CreateLabelRequest = { name: "urgent", color: "red" };
+    expect(golden("create-label-request")).toEqual(create);
+    const update: UpdateLabelRequest = { name: "urgent" };
+    expect(golden("update-label-request")).toEqual(update);
+  });
+
+  it("has the Home answer with a waiting card and an awake one", () => {
+    const sample: HomeSnapshot = {
+      needs: [
+        {
+          cardId: "01M3C107JB041061050R3GG28A",
+          key: "web-dashboard#12",
+          number: 12,
+          projectId: "web-dashboard",
+          projectName: "web-dashboard",
+          title: "Add a health check endpoint",
+          reason: { kind: "plan-ready", text: "The plan is ready for review." },
+          waitingSince: "2026-09-30T12:00:00.000Z",
+          role: "Implementer",
+        },
+      ],
+      awake: [
+        {
+          cardId: "01M3C107JB041061050R3GG28A",
+          key: "web-dashboard#12",
+          number: 12,
+          projectId: "web-dashboard",
+          projectName: "web-dashboard",
+          title: "Add a health check endpoint",
+          state: "working",
+          session: "working",
+          doingNow: "Writing the handler",
+          pinned: true,
+          paused: false,
+          contextUsed: 42,
+          awakeSince: "2026-09-30T12:00:00.000Z",
+        },
+      ],
+      tiles: { needs: 1, working: 1, mergedToday: 3 },
+      // A hand-built answer without a range carries no stored numbers, which is what null means.
+      stats: null,
+      serverTime: "2026-09-30T12:00:00.000Z",
+    };
+    expect(golden("home-snapshot")).toEqual(sample);
+  });
+
+  it("has an empty Home answer with empty lists, never null", () => {
+    const empty: HomeSnapshot = {
+      needs: [],
+      awake: [],
+      tiles: { needs: 0, working: 0, mergedToday: 0 },
+      stats: null,
+      serverTime: "2026-09-30T12:00:00.000Z",
+    };
+    expect(golden("home-snapshot-empty")).toEqual(empty);
   });
 });
