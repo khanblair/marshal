@@ -39,8 +39,10 @@ func WithID(id string) CreateOption {
 
 // Create adds a repository as a project. For a folder, the path must be the top folder of a Git
 // working tree. For a clone, the repository is copied into Dest first and then added like a
-// folder. The language, packages, and dev command are detected and stored, the board is made with
-// the default columns in the same transaction, and project.created is published after the commit.
+// folder. For the sample, the sample repository is written into the data folder first (sample.go)
+// and then added like a folder. The language, packages, and dev command are detected and stored,
+// the board is made with the default columns in the same transaction, and project.created is
+// published after the commit.
 func (s *Service) Create(ctx context.Context, in CreateInput, opts ...CreateOption) (protocol.Project, error) {
 	var cfg createConfig
 	for _, opt := range opts {
@@ -80,7 +82,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput, opts ...CreateOpti
 // checkCreate refuses a request that cannot work before anything is asked of Git or the disk.
 func checkCreate(in CreateInput, cfg createConfig) error {
 	if !in.Source.Valid() {
-		return protocol.InvalidArgument("Choose whether to add a folder or clone a repository.")
+		return protocol.InvalidArgument("Choose whether to add a folder, clone a repository, or use the sample project.")
 	}
 	if strings.TrimSpace(in.Name) != "" {
 		if err := checkName(in.Name); err != nil {
@@ -116,6 +118,9 @@ func checkName(name string) error {
 func (s *Service) openRepository(ctx context.Context, in CreateInput) (gitx.RepoInfo, error) {
 	if in.Source == protocol.ProjectSourceFolder {
 		return s.inspectFolder(ctx, in.Path)
+	}
+	if in.Source == protocol.ProjectSourceSample {
+		return s.sampleRepository(ctx)
 	}
 	dest, err := expandHome(strings.TrimSpace(in.Dest))
 	if err != nil {

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"reflect"
 	"testing"
 
 	"github.com/khanblair/marshal/daemon/internal/protocol"
@@ -41,7 +42,7 @@ func TestEventsAreInOrderWithTheirPayloads(t *testing.T) {
 
 	card := e.card(t, project.ID, "A card")
 	cardCreated := e.nextType(t, protocol.EventTypeCardCreated, protocol.ProjectTopic(project.ID))
-	if data, ok := cardCreated.Data.(protocol.CardEventData); !ok || data.Card != card {
+	if data, ok := cardCreated.Data.(protocol.CardEventData); !ok || !reflect.DeepEqual(data.Card, card) {
 		t.Errorf("card.created data = %+v", cardCreated.Data)
 	}
 
@@ -50,7 +51,7 @@ func TestEventsAreInOrderWithTheirPayloads(t *testing.T) {
 		t.Fatal(err)
 	}
 	cardMoved := e.nextType(t, protocol.EventTypeCardMoved, protocol.ProjectTopic(project.ID))
-	if data, ok := cardMoved.Data.(protocol.CardMovedEventData); !ok || data.Card != moved || data.From != protocol.CardStateBacklog {
+	if data, ok := cardMoved.Data.(protocol.CardMovedEventData); !ok || !reflect.DeepEqual(data.Card, moved) || data.From != protocol.CardStateBacklog {
 		t.Errorf("card.moved data = %+v", cardMoved.Data)
 	}
 	badge := e.nextType(t, protocol.EventTypeProjectUpdated, protocol.HomeTopic)

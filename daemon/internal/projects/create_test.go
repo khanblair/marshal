@@ -333,9 +333,9 @@ func TestCreateRefusesFoldersThatAreNotRepositories(t *testing.T) {
 			"Enter the full path of the folder, starting from the top of the disk or with ~."},
 		{"no path", folderRequest("  "), protocol.ErrorCodeInvalidArgument, "Choose the folder of the repository."},
 		{"no source", protocol.CreateProjectRequest{Path: repo}, protocol.ErrorCodeInvalidArgument,
-			"Choose whether to add a folder or clone a repository."},
+			"Choose whether to add a folder, clone a repository, or use the sample project."},
 		{"an unknown source", protocol.CreateProjectRequest{Source: "github", Path: repo}, protocol.ErrorCodeInvalidArgument,
-			"Choose whether to add a folder or clone a repository."},
+			"Choose whether to add a folder, clone a repository, or use the sample project."},
 		{"a name that is too long", protocol.CreateProjectRequest{Source: protocol.ProjectSourceFolder, Path: repo, Name: strings.Repeat("n", 101)},
 			protocol.ErrorCodeInvalidArgument, "Project names can have at most 100 characters."},
 	}

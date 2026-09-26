@@ -2,6 +2,7 @@ package projects_test
 
 import (
 	"context"
+	"reflect"
 	"slices"
 	"strings"
 	"sync"
@@ -30,11 +31,11 @@ func TestCreateCardFillsInTheDefaults(t *testing.T) {
 		t.Errorf("id %q, created %v, updated %v", card.ID, card.CreatedAt, card.UpdatedAt)
 	}
 	ev := e.nextType(t, protocol.EventTypeCardCreated, protocol.ProjectTopic(project.ID))
-	if data, ok := ev.Data.(protocol.CardEventData); !ok || data.Card != card || !ev.Critical {
+	if data, ok := ev.Data.(protocol.CardEventData); !ok || !reflect.DeepEqual(data.Card, card) || !ev.Critical {
 		t.Errorf("event = %+v (critical %v), want the card and a critical event", ev.Data, ev.Critical)
 	}
 	again, err := e.svc.Card(context.Background(), card.ID)
-	if err != nil || again != card {
+	if err != nil || !reflect.DeepEqual(again, card) {
 		t.Errorf("Card = %+v, %v; want %+v", again, err, card)
 	}
 }
@@ -163,7 +164,7 @@ func TestEachProjectCountsItsOwnCards(t *testing.T) {
 	if apiCard.Key != "api#12" || webCard.Key != "web#12" || apiCard.ProjectID != "api" || webCard.ProjectID != "web" {
 		t.Errorf("keys %q and %q, projects %q and %q", apiCard.Key, webCard.Key, apiCard.ProjectID, webCard.ProjectID)
 	}
-	if apiCard != byProject["api"][number] || webCard != byProject["web"][number] {
+	if !reflect.DeepEqual(apiCard, byProject["api"][number]) || !reflect.DeepEqual(webCard, byProject["web"][number]) {
 		t.Error("CardByKey did not return the card that was made with that number")
 	}
 	key, err := protocol.ParseCardKey(apiCard.Key)
@@ -218,12 +219,12 @@ func TestSetStatePublishesTheMove(t *testing.T) {
 	}
 	ev := e.nextType(t, protocol.EventTypeCardMoved, protocol.ProjectTopic(project.ID))
 	data, ok := ev.Data.(protocol.CardMovedEventData)
-	if !ok || data.Card != moved || data.From != protocol.CardStateBacklog || !ev.Critical {
+	if !ok || !reflect.DeepEqual(data.Card, moved) || data.From != protocol.CardStateBacklog || !ev.Critical {
 		t.Errorf("event = %+v (critical %v)", ev.Data, ev.Critical)
 	}
 	e.noEvent(t) // working is not "needs", so the project's badge did not change
 	got, err := e.svc.Card(context.Background(), card.ID)
-	if err != nil || got != moved {
+	if err != nil || !reflect.DeepEqual(got, moved) {
 		t.Errorf("Card = %+v, %v", got, err)
 	}
 }
@@ -248,7 +249,7 @@ func TestSetStateToTheSameStateDoesNothing(t *testing.T) {
 	card := e.card(t, project.ID, "x")
 	e.drainEvents()
 	got, err := e.svc.SetState(context.Background(), card.ID, protocol.CardStateBacklog)
-	if err != nil || got != card {
+	if err != nil || !reflect.DeepEqual(got, card) {
 		t.Errorf("SetState = %+v, %v; want the card unchanged", got, err)
 	}
 	e.noEvent(t)
@@ -320,5 +321,40 @@ func TestAFailingAwakeCounterFailsTheList(t *testing.T) {
 	}
 	if _, err := e.svc.Get(context.Background(), project.ID); err == nil {
 		t.Error("Get hid a failing awake counter")
+	}
+}
+
+// A card can be added to the backlog, planning, or working. The other columns come from what
+// happens to the card, so asking for one of them is refused.
+func TestCreateCardRefusesAStartStateThatIsNotAColumn(t *testing.T) {
+	e := newEnv(t)
+	project := e.folder(t, "small-repo")
+	ctx := context.Background()
+
+	for _, state := range []protocol.CardState{"", protocol.CardStateBacklog, protocol.CardStatePlanning, protocol.CardStateWorking} {
+		if _, err := e.svc.CreateCard(ctx, project.ID, protocol.CreateCardRequest{Title: "Fine", StartState: state}); err != nil {
+			t.Errorf("CreateCard with start state %q: %v", state, err)
+		}
+	}
+	// The row is written in the backlog whichever of the three was asked for: the route starts
+	// the session, and nothing shows a card as working before its agent exists.
+	cards, err := e.svc.Cards(ctx, project.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, card := range cards {
+		if card.State != protocol.CardStateBacklog {
+			t.Errorf("card %s was written as %s, want backlog", card.Key, card.State)
+		}
+	}
+	for _, state := range []protocol.CardState{
+		protocol.CardStateDone, protocol.CardStateNeeds, protocol.CardStateReview,
+		protocol.CardStateReady, protocol.CardStateMerging, "sideways",
+	} {
+		_, err := e.svc.CreateCard(ctx, project.ID, protocol.CreateCardRequest{Title: "No", StartState: state})
+		perr, ok := err.(*protocol.Error)
+		if !ok || perr.Code != protocol.ErrorCodeInvalidArgument {
+			t.Errorf("CreateCard with start state %q = %v, want invalid_argument", state, err)
+		}
 	}
 }

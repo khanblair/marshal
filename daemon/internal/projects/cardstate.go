@@ -40,7 +40,10 @@ func (s *Service) SetState(ctx context.Context, id string, state protocol.CardSt
 	if err != nil {
 		return protocol.Card{}, err
 	}
-	card := toCard(after)
+	card, err := s.cardWithLabels(ctx, after)
+	if err != nil {
+		return protocol.Card{}, err
+	}
 	if before.State == after.State {
 		return card, nil
 	}
@@ -105,7 +108,10 @@ func (s *Service) SetWorktree(ctx context.Context, id, path, branch string) (pro
 	if err != nil {
 		return protocol.Card{}, err
 	}
-	card := toCard(after)
+	card, err := s.cardWithLabels(ctx, after)
+	if err != nil {
+		return protocol.Card{}, err
+	}
 	if changed {
 		s.publish(protocol.ProjectTopic(card.ProjectID), protocol.EventTypeCardUpdated, protocol.CardEventData{Card: card}, false)
 	}

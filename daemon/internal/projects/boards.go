@@ -21,7 +21,10 @@ func DefaultColumns() []protocol.CardState {
 // Board returns a project's columns and all of its cards, from one read, so they agree.
 func (s *Service) Board(ctx context.Context, projectID string) (protocol.BoardSnapshot, error) {
 	var board db.Board
-	var rows []db.Card
+	var (
+		rows         []db.Card
+		labelsByCard map[string][]protocol.Label
+	)
 	err := s.store.Read(ctx, func(q *db.Queries) error {
 		var err error
 		if board, err = q.GetBoardByProject(ctx, projectID); err != nil {
@@ -29,6 +32,9 @@ func (s *Service) Board(ctx context.Context, projectID string) (protocol.BoardSn
 		}
 		if rows, err = q.ListCardsByProject(ctx, projectID); err != nil {
 			return fmt.Errorf("list the cards of project %s: %w", projectID, err)
+		}
+		if labelsByCard, err = cardLabelsByCard(ctx, q, projectID); err != nil {
+			return err
 		}
 		return nil
 	})
@@ -39,10 +45,14 @@ func (s *Service) Board(ctx context.Context, projectID string) (protocol.BoardSn
 	if err := json.Unmarshal([]byte(board.ColumnsJSON), &columns); err != nil {
 		return protocol.BoardSnapshot{}, fmt.Errorf("read the columns of project %s: %w", projectID, err)
 	}
+	cards, err := s.withSessions(ctx, projectID, toCards(rows, labelsByCard))
+	if err != nil {
+		return protocol.BoardSnapshot{}, err
+	}
 	return protocol.BoardSnapshot{
 		ProjectID:  projectID,
 		Columns:    columns,
-		Cards:      toCards(rows),
+		Cards:      cards,
 		ServerTime: protocol.NewTimestamp(s.now()),
 	}, nil
 }
