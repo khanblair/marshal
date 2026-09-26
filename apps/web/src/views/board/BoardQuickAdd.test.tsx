@@ -1,5 +1,7 @@
+// First, so the store `~/mock` builds is the one that follows a fake daemon (S5a is the daemon's).
+import { daemon, resetDaemonCards } from "~/testing/daemon-cards-store";
 import { fireEvent, render, screen, within } from "@solidjs/testing-library";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { M } from "~/mock";
 import { GOLDEN_CATALOG } from "~/testing/agents";
 import { useCatalog } from "~/testing/test-store";
@@ -11,6 +13,11 @@ vi.hoisted(() => {
 });
 
 useBoardTestStore();
+
+beforeEach(() => {
+  // The cards a test adds are really added to the daemon, so it starts each test with its own 29.
+  resetDaemonCards();
+});
 
 describe("BoardView quick add", () => {
   const openForm = (col: string): HTMLTextAreaElement => {
@@ -56,16 +63,18 @@ describe("BoardView quick add", () => {
     ).toBeInTheDocument();
   });
 
-  it("adds a card on Enter, clears the field, and keeps the form open", () => {
+  it("adds a card on Enter, clears the field, and keeps the form open", async () => {
     render(() => <BoardView />);
     const field = openForm("backlog");
     const before = M.S.cards.length;
     field.value = "  A brand new card  ";
     fireEvent.keyDown(field, { key: "Enter" });
-    expect(M.S.cards).toHaveLength(before + 1);
-    const created = M.S.cards[M.S.cards.length - 1];
-    expect(created).toMatchObject({ title: "A brand new card", state: "backlog", p: "api" });
     expect(field.value).toBe("");
+    // The daemon owns the new card's number and puts it in the store when it answers.
+    await vi.waitFor(() => expect(M.S.cards).toHaveLength(before + 1));
+    expect(daemon.routes()).toContain("POST /v1/projects/api/cards");
+    const created = M.S.cards.find((card) => card.title === "A brand new card");
+    expect(created).toMatchObject({ title: "A brand new card", state: "backlog", p: "api" });
     expect(M.S.quickAddAt).toBe("all:backlog");
     expect(cardIds(column("backlog"))).toContain(created?.id);
   });
@@ -81,15 +90,17 @@ describe("BoardView quick add", () => {
     expect(M.S.cards).toHaveLength(before);
   });
 
-  it("adds and starts a card from the Working form with the submit button", () => {
+  it("adds and starts a card from the Working form with the submit button", async () => {
     render(() => <BoardView />);
     const field = openForm("working");
     field.value = "Start me now";
     fireEvent.click(within(column("working")).getByRole("button", { name: "Add and start" }));
-    const created = M.S.cards[M.S.cards.length - 1];
-    expect(created?.title).toBe("Start me now");
-    expect(created?.state).toBe("working");
     expect(field.value).toBe("");
+    await vi.waitFor(() =>
+      expect(M.S.cards.find((card) => card.title === "Start me now")).toBeDefined(),
+    );
+    const created = M.S.cards.find((card) => card.title === "Start me now");
+    expect(created?.state).toBe("working");
   });
 
   it("closes on Escape without letting the shell's window handler see the key", () => {
@@ -140,7 +151,7 @@ describe("BoardView quick add", () => {
     expect(M.S.newCard).toMatchObject({ template: "Bug fix", start: true });
   });
 
-  it("gives a card added in a role lane that role, and a template card too", () => {
+  it("gives a card added in a role lane that role, and a template card too", async () => {
     M.S.swim.api = "role";
     render(() => <BoardView />);
     const testerBacklog = document.querySelectorAll<HTMLElement>('section[data-col="backlog"]')[2];
@@ -152,7 +163,10 @@ describe("BoardView quick add", () => {
     });
     field.value = "Test the lane";
     fireEvent.keyDown(field, { key: "Enter" });
-    expect(M.S.cards[M.S.cards.length - 1]).toMatchObject({
+    await vi.waitFor(() =>
+      expect(M.S.cards.find((card) => card.title === "Test the lane")).toBeDefined(),
+    );
+    expect(M.S.cards.find((card) => card.title === "Test the lane")).toMatchObject({
       title: "Test the lane",
       role: "Tester",
     });
@@ -160,7 +174,7 @@ describe("BoardView quick add", () => {
     expect(M.S.newCard).toMatchObject({ role: "Tester" });
   });
 
-  it("sets the agent and its first model for a card added in an agent lane", () => {
+  it("sets the agent and its first model for a card added in an agent lane", async () => {
     M.S.swim.api = "agent";
     render(() => <BoardView />);
     const codex = screen.getByRole("button", { name: /^Codex/ });
@@ -172,7 +186,13 @@ describe("BoardView quick add", () => {
     const field = within(backlog).getByRole<HTMLTextAreaElement>("textbox", { name: "Card title" });
     field.value = "Codex card";
     fireEvent.keyDown(field, { key: "Enter" });
-    expect(M.S.cards[M.S.cards.length - 1]).toMatchObject({ agent: "Codex", model: "gpt-5-codex" });
+    await vi.waitFor(() =>
+      expect(M.S.cards.find((card) => card.title === "Codex card")).toBeDefined(),
+    );
+    expect(M.S.cards.find((card) => card.title === "Codex card")).toMatchObject({
+      agent: "Codex",
+      model: "gpt-5-codex",
+    });
   });
 
   describe("in the lane of an agent that is not installed", () => {
@@ -183,7 +203,7 @@ describe("BoardView quick add", () => {
       return backlog;
     };
 
-    it("gives the new card the default agent, not the agent that cannot be used", () => {
+    it("gives the new card the default agent, not the agent that cannot be used", async () => {
       const restore = useCatalog(M, GOLDEN_CATALOG);
       M.S.swim.api = "agent";
       render(() => <BoardView />);
@@ -195,7 +215,10 @@ describe("BoardView quick add", () => {
       });
       field.value = "Card for a missing agent";
       fireEvent.keyDown(field, { key: "Enter" });
-      expect(M.S.cards[M.S.cards.length - 1]).toMatchObject({
+      await vi.waitFor(() =>
+        expect(M.S.cards.find((card) => card.title === "Card for a missing agent")).toBeDefined(),
+      );
+      expect(M.S.cards.find((card) => card.title === "Card for a missing agent")).toMatchObject({
         title: "Card for a missing agent",
         agent: "Claude Code",
       });

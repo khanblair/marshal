@@ -13,6 +13,8 @@ export interface CardHeaderProps {
   card: Card;
   c: CardView;
   panel: Panel;
+  /** How many files the card's diff has, for the Diff tab's count. */
+  diffCount: number;
 }
 
 function sessionIcon(card: Card): string {
@@ -21,7 +23,7 @@ function sessionIcon(card: Card): string {
 }
 
 /** Card number, state pill, awake label, pinned, and the expand and close buttons. */
-function TopRow(props: CardHeaderProps) {
+function TopRow(props: Omit<CardHeaderProps, "diffCount">) {
   const expandLabel = () =>
     M.S.detailExpanded ? "Show board beside card" : "Expand card to full view";
   return (
@@ -93,7 +95,7 @@ export function CardHeader(props: CardHeaderProps) {
       <span class="text-caption leading-4 text-secondary -mt-1">
         Changes take effect on the next turn.
       </span>
-      <CardTabs card={props.card} />
+      <CardTabs card={props.card} diffCount={props.diffCount} />
     </div>
   );
 }

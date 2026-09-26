@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type CalEvent, type Card, M, type Schedule } from "~/mock";
 import { cardLabel } from "~/mock/card-key";
+import { prototypeCards } from "~/testing/prototype-cards";
 import { CalendarView } from "./CalendarView";
 import { fullDate, monthLabel, shiftCursor, weekdayLabels } from "./calendar-dates";
 
@@ -12,7 +13,7 @@ vi.hoisted(() => {
 const seed = {
   schedules: structuredClone(JSON.parse(JSON.stringify(M.S.schedules))) as Schedule[],
   events: structuredClone(JSON.parse(JSON.stringify(M.S.calEvents))) as CalEvent[],
-  cards: structuredClone(JSON.parse(JSON.stringify(M.S.cards))) as Card[],
+  cards: prototypeCards(),
 };
 const DESKTOP_W = 1440;
 const PHONE_W = 390;

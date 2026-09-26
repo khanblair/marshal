@@ -3,13 +3,14 @@ import { createMemo } from "solid-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type Card, M } from "~/mock";
 import type { CardKey } from "~/mock/card-key";
+import { prototypeCards } from "~/testing/prototype-cards";
 import { CardItem } from "./CardItem";
 
 vi.hoisted(() => {
   window.location.hash = "#nosim";
 });
 
-const seed = JSON.parse(JSON.stringify(M.S.cards));
+const seed = prototypeCards();
 const DESKTOP_PX = 1440;
 const CARD_WORKING = "api#41";
 const CARD_NEEDS = "api#43";

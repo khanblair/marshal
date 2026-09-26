@@ -1,8 +1,9 @@
 import { cleanup } from "@solidjs/testing-library";
 import { afterEach, beforeEach, vi } from "vitest";
 import { M } from "~/mock";
+import { prototypeCards } from "~/testing/prototype-cards";
 
-const seed = JSON.parse(JSON.stringify(M.S.cards));
+const seed = prototypeCards();
 const DESKTOP_PX = 1440;
 const VIEWPORT_HEIGHT_PX = 900;
 export const PHONE_PX = 390;

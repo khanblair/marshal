@@ -1,13 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type Card, M } from "~/mock";
 import type { CardKey } from "~/mock/card-key";
+import { prototypeCards } from "~/testing/prototype-cards";
 import { actionsFor, openChatAction, stopSession } from "./agent-actions";
 
 vi.hoisted(() => {
   window.location.hash = "#nosim";
 });
 
-const seed = structuredClone(JSON.parse(JSON.stringify(M.S.cards)));
+const seed = prototypeCards();
 
 const live = (id: CardKey): Card => {
   const c = M.card(id);

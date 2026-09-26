@@ -8,6 +8,7 @@ import { ChecklistsTab } from "./ChecklistsTab";
 import { CommentsTab } from "./CommentsTab";
 import { ensureNote } from "./card-note";
 import { DiffTab } from "./DiffTab";
+import { createDiffList } from "./diff-list";
 import { NotesTab } from "./NotesTab";
 import { PreviewTab } from "./PreviewTab";
 import { createPanelState } from "./panel-state";
@@ -21,6 +22,7 @@ export interface CardPanelProps {
 /** The open card: bypass banner, header, and the tab that is selected. */
 export function CardPanel(props: CardPanelProps) {
   const panel = createPanelState();
+  const diff = createDiffList(() => props.card);
   const c = createMemo(() => M.deco(props.card));
   createEffect(() => ensureNote(props.card));
   return (
@@ -28,7 +30,7 @@ export function CardPanel(props: CardPanelProps) {
       <Show when={props.card.bypass}>
         <BypassBanner cardId={props.card.id} />
       </Show>
-      <CardHeader card={props.card} c={c()} panel={panel} />
+      <CardHeader card={props.card} c={c()} panel={panel} diffCount={diff.files().length} />
       <div
         role="tabpanel"
         aria-labelledby={`tab-${M.S.tab}`}
@@ -45,7 +47,7 @@ export function CardPanel(props: CardPanelProps) {
             <ActivityTab card={props.card} c={c()} />
           </Match>
           <Match when={M.S.tab === "diff"}>
-            <DiffTab card={props.card} panel={panel} />
+            <DiffTab card={props.card} panel={panel} list={diff} />
           </Match>
           <Match when={M.S.tab === "checks"}>
             <ChecklistsTab card={props.card} panel={panel} />

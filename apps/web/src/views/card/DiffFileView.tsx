@@ -11,10 +11,10 @@ export interface DiffFileViewProps {
   onLoad: () => void;
 }
 
-function Hunks(props: { file: DiffFile; loaded: boolean }) {
+function Hunks(props: { file: DiffFile }) {
   return (
     <div class="overflow-x-auto border-t border-border">
-      <Index each={hunkViews(props.file, props.loaded)}>
+      <Index each={hunkViews(props.file)}>
         {(hunk) => (
           <>
             <div class="py-0.5 px-2.5 bg-surface-sunken text-secondary font-mono text-caption leading-5 whitespace-pre">
@@ -72,7 +72,7 @@ export function DiffFileView(props: DiffFileViewProps) {
         </div>
       </Show>
       <Show when={props.open && (!large() || props.loaded)}>
-        <Hunks file={props.file} loaded={props.loaded} />
+        <Hunks file={props.file} />
       </Show>
     </div>
   );

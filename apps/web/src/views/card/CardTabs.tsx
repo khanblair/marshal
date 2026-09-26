@@ -4,6 +4,8 @@ import { cardTabs, neighborTab } from "./card-tabs";
 
 export interface CardTabsProps {
   card: Card;
+  /** How many files the card's diff has: the daemon's count for a real card, not the mock's. */
+  diffCount: number;
 }
 
 const TAB =
@@ -28,7 +30,7 @@ export function CardTabs(props: CardTabsProps) {
       onKeyDown={onTabKeys}
       class="flex gap-0.5 -mx-1 overflow-x-auto"
     >
-      <Index each={cardTabs(props.card)}>
+      <Index each={cardTabs(props.card, props.diffCount)}>
         {(tab) => {
           const selected = () => M.S.tab === tab().key;
           return (

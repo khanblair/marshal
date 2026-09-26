@@ -25,12 +25,7 @@ export function stopSession(card: Card): void {
     title: "Stop session",
     message: `This stops the agent process for ${cardLabel(card)}. The session is kept, and you can resume it later.`,
     action: "Stop session",
-    run: () => {
-      card.paused = card.state === "working";
-      card.asleep = true;
-      card.doing = "";
-      M.toast("Session stopped");
-    },
+    run: () => M.stopSession(card.id),
   });
 }
 
