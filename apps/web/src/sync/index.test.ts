@@ -4,8 +4,14 @@ import { TOKEN_KEY } from "~/data/token";
 import type { Marshal } from "~/mock";
 import { createFakeDaemon, FAKE_TOKEN, type FakeDaemon } from "~/testing/fake-daemon";
 import { PROTOTYPE_PROJECTS, wireProject } from "~/testing/projects";
-import { contextOf, createSyncedMarshal, createTestMarshal } from "~/testing/test-store";
+import {
+  contextOf,
+  createSyncedMarshal,
+  createTestMarshal,
+  MOCK_CARDS,
+} from "~/testing/test-store";
 import { startSync } from ".";
+import type { Syncer } from "./syncer";
 
 let daemon: FakeDaemon | null = null;
 afterEach(() => {
@@ -23,7 +29,9 @@ const listCalls = (d: FakeDaemon) => d.routes().filter((r) => r === "GET /v1/pro
 describe("startSync with a daemon", () => {
   it("is not ready until the daemon has answered, then loads the projects and is", async () => {
     const d = open({ projects: PROTOTYPE_PROJECTS });
-    const M = createTestMarshal({ data: d.data });
+    // The cards are the mock's here, so the reservoir still fills the store: this test is about
+    // the connection and the projects, not about where the cards come from.
+    const M = createTestMarshal({ data: d.data, sections: MOCK_CARDS });
     expect(M.S.ready).toBe(false);
     expect(M.S.projects).toEqual([]);
     expect(M.S.connection?.state).toBe("starting");
@@ -42,11 +50,11 @@ describe("startSync with a daemon", () => {
     expect(M.now() - Date.now()).toBeLessThan(130_000);
   });
 
-  it("subscribes to the Home topic", async () => {
+  it("subscribes to the Home topic and to the person's own, the me topic", async () => {
     const d = open();
     await createSyncedMarshal(d);
     const hello = d.sockets.last().hellos()[0];
-    expect(hello?.subscribe).toEqual(["home"]);
+    expect(hello?.subscribe).toEqual(["home", "me"]);
   });
 
   it("applies project events from the stream, once each", async () => {
@@ -194,5 +202,45 @@ describe("startSync without one", () => {
     });
     expect(projectIds(M)).toEqual([]);
     expect(contextOf(M).sync).toBeNull();
+  });
+});
+
+describe("what a section does between snapshots", () => {
+  /** A section that only records that it was started and stopped. */
+  function recorder(section: "S3" | "S32") {
+    const log: string[] = [];
+    const syncer: Syncer<null> = {
+      section,
+      topics: [],
+      load: async () => null,
+      apply: () => undefined,
+      start: () => {
+        log.push("started");
+        return () => log.push("stopped");
+      },
+    };
+    return { log, syncer };
+  }
+
+  it("starts the sections that are on the daemon, once, and stops them when the store stops", async () => {
+    const d = open();
+    const { log, syncer } = recorder("S3");
+    const M = createTestMarshal({ data: d.data });
+    // A store that follows the daemon already started the app's own sections; this one is started by hand.
+    const control = startSync(contextOf(M), [syncer]);
+    expect(log).toEqual(["started"]);
+    control?.stop();
+    expect(log).toEqual(["started", "stopped"]);
+  });
+
+  it("does not start a section that is still on the mock", () => {
+    const d = open();
+    const { log, syncer } = recorder("S32");
+    const M = createTestMarshal({
+      data: d.data,
+      sections: { ...sectionStatus, S32: "mock" },
+    });
+    startSync(contextOf(M), [syncer])?.stop();
+    expect(log).toEqual([]);
   });
 });
