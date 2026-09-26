@@ -1,0 +1,121 @@
+Start the sample todo service
+
+A small HTTP service that keeps a list of todos in memory.
+-- .gitignore --
+node_modules/
+-- README.md --
+# marshal-sample
+
+A small todo service to try Marshal on. It is safe to try things on: Marshal made this copy for
+you, nothing else uses it, and removing the project from Marshal never deletes it.
+
+## Run it
+
+It needs Node.js 22.18 or newer, and nothing else to install.
+
+    npm run dev
+
+The server listens on http://localhost:3000. It keeps the todos in memory, so they dissapear
+when the server stops.
+
+## What it does
+
+- `GET /todos` lists the todos.
+- `POST /todos` adds one. Send `{"title": "Buy milk"}`.
+-- package.json --
+{
+  "name": "marshal-sample",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A small todo service to try Marshal on.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "dev": "node --watch src/server.ts",
+    "start": "node src/server.ts"
+  }
+}
+-- tsconfig.json --
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true
+  },
+  "include": ["src"]
+}
+-- src/todos.ts --
+export type Todo = {
+  id: number;
+  title: string;
+  done: boolean;
+};
+
+const todos: Todo[] = [];
+let nextId = 1;
+
+/** Every todo, oldest first. */
+export function listTodos(): Todo[] {
+  return todos;
+}
+
+/** Adds a todo and returns it. */
+export function addTodo(title: string): Todo {
+  const todo: Todo = { id: nextId++, title, done: false };
+  todos.push(todo);
+  return todo;
+}
+-- src/server.ts --
+import { createServer, type ServerResponse } from "node:http";
+import { addTodo, listTodos } from "./todos.ts";
+
+const port = Number(process.env.PORT ?? 3000);
+
+function send(res: ServerResponse, status: number, body: unknown): void {
+  res.writeHead(status, { "content-type": "application/json" });
+  res.end(JSON.stringify(body));
+}
+
+/** Reads a JSON object from a request body. Anything else reads as an empty object. */
+function readJson(text: string): Record<string, unknown> {
+  try {
+    const value: unknown = JSON.parse(text || "{}");
+    return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
+}
+
+const server = createServer((req, res) => {
+  if (req.url === "/todos" && req.method === "GET") {
+    send(res, 200, listTodos());
+    return;
+  }
+  if (req.url === "/todos" && req.method === "POST") {
+    let text = "";
+    req.on("data", (chunk) => {
+      text += chunk;
+    });
+    req.on("end", () => {
+      const { title } = readJson(text);
+      if (typeof title !== "string" || title.trim() === "") {
+        send(res, 400, { error: "A todo needs a title." });
+        return;
+      }
+      send(res, 201, addTodo(title.trim()));
+    });
+    return;
+  }
+  send(res, 404, { error: "There is nothing at that address." });
+});
+
+server.listen(port, () => {
+  console.log(`The todo service is listening on http://localhost:${port}`);
+});

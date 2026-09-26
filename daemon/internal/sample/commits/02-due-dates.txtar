@@ -1,0 +1,123 @@
+Add due dates to todos
+
+A todo can have a due date, and the list says when each one is due, such as "tomorrow" or
+"2 days late". The date helper has no tests yet.
+-- README.md --
+# marshal-sample
+
+A small todo service to try Marshal on. It is safe to try things on: Marshal made this copy for
+you, nothing else uses it, and removing the project from Marshal never deletes it.
+
+## Run it
+
+It needs Node.js 22.18 or newer, and nothing else to install.
+
+    npm run dev
+
+The server listens on http://localhost:3000. It keeps the todos in memory, so they dissapear
+when the server stops.
+
+## What it does
+
+- `GET /todos` lists the todos, with a label such as "tomorrow" for the ones that have a due date.
+- `POST /todos` adds one. Send `{"title": "Buy milk"}`, or `{"title": "Buy milk", "due": "2026-10-01"}`.
+
+## Things to try
+
+- Add a health check endpoint.
+- Fix the typo in this README.
+- Write tests for the date helper in `src/dates.ts`.
+-- src/dates.ts --
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Whole days from today until a due day such as "2026-10-01": 0 for today, less than 0 when late. */
+export function daysUntil(due: string, today: Date = new Date()): number {
+  const [year, month, day] = due.split("-").map(Number);
+  const end = Date.UTC(year, month - 1, day);
+  const start = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+  return Math.round((end - start) / DAY_MS);
+}
+
+/** A short label for a due day, such as "today", "tomorrow", "in 3 days", or "2 days late". */
+export function dueLabel(due: string, today: Date = new Date()): string {
+  const days = daysUntil(due, today);
+  if (days === 0) return "today";
+  if (days === 1) return "tomorrow";
+  if (days > 1) return `in ${days} days`;
+  if (days === -1) return "1 day late";
+  return `${-days} days late`;
+}
+-- src/todos.ts --
+import { dueLabel } from "./dates.ts";
+
+export type Todo = {
+  id: number;
+  title: string;
+  done: boolean;
+  /** The day the todo is due, such as "2026-10-01". */
+  due?: string;
+};
+
+const todos: Todo[] = [];
+let nextId = 1;
+
+/** Every todo, oldest first, with a label for the ones that have a due date. */
+export function listTodos(today: Date = new Date()): (Todo & { dueLabel?: string })[] {
+  return todos.map((todo) =>
+    todo.due ? { ...todo, dueLabel: dueLabel(todo.due, today) } : todo,
+  );
+}
+
+/** Adds a todo and returns it. */
+export function addTodo(title: string, due?: string): Todo {
+  const todo: Todo = { id: nextId++, title, done: false, due };
+  todos.push(todo);
+  return todo;
+}
+-- src/server.ts --
+import { createServer, type ServerResponse } from "node:http";
+import { addTodo, listTodos } from "./todos.ts";
+
+const port = Number(process.env.PORT ?? 3000);
+
+function send(res: ServerResponse, status: number, body: unknown): void {
+  res.writeHead(status, { "content-type": "application/json" });
+  res.end(JSON.stringify(body));
+}
+
+/** Reads a JSON object from a request body. Anything else reads as an empty object. */
+function readJson(text: string): Record<string, unknown> {
+  try {
+    const value: unknown = JSON.parse(text || "{}");
+    return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
+}
+
+const server = createServer((req, res) => {
+  if (req.url === "/todos" && req.method === "GET") {
+    send(res, 200, listTodos());
+    return;
+  }
+  if (req.url === "/todos" && req.method === "POST") {
+    let text = "";
+    req.on("data", (chunk) => {
+      text += chunk;
+    });
+    req.on("end", () => {
+      const { title, due } = readJson(text);
+      if (typeof title !== "string" || title.trim() === "") {
+        send(res, 400, { error: "A todo needs a title." });
+        return;
+      }
+      send(res, 201, addTodo(title.trim(), typeof due === "string" ? due : undefined));
+    });
+    return;
+  }
+  send(res, 404, { error: "There is nothing at that address." });
+});
+
+server.listen(port, () => {
+  console.log(`The todo service is listening on http://localhost:${port}`);
+});
