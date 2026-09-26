@@ -12,6 +12,9 @@ import (
 // cleans worktrees up, and closing a card in Phase 1 has no separate "clean up now" step, since
 // there is no card-remove route yet either (see the report).
 func (m *Manager) Stop(ctx context.Context, cardID string) error {
+	// A stop that arrives while the card's view is being switched waits for the switch, and then
+	// ends the session it made.
+	defer m.viewLocks.Lock(cardID)()
 	ls, err := m.live(cardID)
 	if err != nil {
 		return err

@@ -15,29 +15,66 @@ import (
 	"github.com/khanblair/marshal/daemon/internal/store/db"
 )
 
-// Start starts a card's session: it makes the worktree, starts the agent process, and persists the
-// session row. A card that already has a live session in this process is refused. A card whose
-// sessions row exists but is not live (a previous crash left it behind, since a card has at most
-// one session row for its whole life) is resumed instead of refused, because a second insert would
-// violate the row's unique card id.
+// Start starts or resumes a card's session. A card that has never had one gets a worktree, a
+// fresh agent process, and a session row. A card whose session is asleep, stopped, or running but
+// with no process in this daemon is resumed through its saved agent session id instead, so Stop, a
+// move back to Backlog, and Sleep never strand a card (docs/architecture.md 5.1, and the owner's
+// decision of 2026-09-26). A card a pause holds is not restarted at all: Start releases the hold,
+// which is all a paused card needs while its agent is still running. A card whose agent is already
+// running and is not paused is refused.
+//
+// A resume that cannot happen moves the card to needs you with a plain sentence, exactly as a
+// resume after a restart does (see resumeRow).
 func (m *Manager) Start(ctx context.Context, cardID string) (protocol.Card, error) {
+	card, err := m.projects.Card(ctx, cardID)
+	if err != nil {
+		return protocol.Card{}, err
+	}
+	if card.Paused {
+		return m.startHeld(ctx, card)
+	}
 	if err := m.reserve(cardID); err != nil {
 		return protocol.Card{}, err
 	}
 	defer m.release(cardID)
+	return m.startOrResume(ctx, cardID)
+}
 
+// startOrResume is the shared tail of Start: resume the session row a card already has, whatever
+// state that row is in, and start a fresh session only for a card that has never had one. Every
+// other insert would break the row's unique card id, and every state it can be in is one a person
+// can meaningfully continue. The caller holds the card's reservation.
+func (m *Manager) startOrResume(ctx context.Context, cardID string) (protocol.Card, error) {
 	row, err := m.store.Queries().GetSessionByCard(ctx, cardID)
 	switch {
-	case err == nil && row.State == string(protocol.SessionStateStopped):
-		return protocol.Card{}, protocol.Refused(
-			"This card already had a session, and it has stopped. Starting it again is not supported yet.").
-			With("cardId", cardID)
 	case err == nil:
 		return m.resumeRow(ctx, row)
 	case !store.IsNotFound(err):
 		return protocol.Card{}, fmt.Errorf("look for an existing session of card %s: %w", cardID, err)
 	}
 	return m.startFresh(ctx, cardID)
+}
+
+// startHeld is Start's path for a card a pause holds. The pause is cleared first. When the agent
+// process never stopped, releasing the hold is all there is to do and the message the pause was
+// holding is delivered; when there is no live process (a sleeping or stopped session, or one left
+// over from an earlier run), the card's own session is resumed through its saved id.
+func (m *Manager) startHeld(ctx context.Context, card protocol.Card) (protocol.Card, error) {
+	no := false
+	released, err := m.projects.SetHold(ctx, card.ID, &no, nil)
+	if err != nil {
+		return protocol.Card{}, err
+	}
+	if m.liveOf(card.ID) != nil {
+		m.deliverHeld(card.ID)
+		m.log.Info("released a card's pause", "card_id", card.ID)
+		return released, nil
+	}
+	if err := m.reserve(card.ID); err != nil {
+		return protocol.Card{}, err
+	}
+	defer m.release(card.ID)
+	return m.startOrResume(ctx, card.ID)
 }
 
 // startFresh is Start's path for a card that has never had a session: it builds the worktree,
@@ -68,7 +105,14 @@ func (m *Manager) startFresh(ctx context.Context, cardID string) (protocol.Card,
 func (m *Manager) makeWorktree(ctx context.Context, project protocol.Project, card protocol.Card) (path, branch string, err error) {
 	branch = gitx.CardBranchName(project.ID, card.Number, card.Title)
 	path = filepath.Join(projects.WorktreesDir(m.cfg.DataDir, project.ID), card.ID)
-	spec := gitx.WorktreeSpec{Path: path, Branch: branch, Base: project.DefaultBranch}
+	// A fork starts from the branch of the card it came from, so its work continues that card's
+	// work instead of starting again from the project's default branch. An empty answer means the
+	// default branch: a card that is not a fork, or a fork whose source is gone.
+	base := project.DefaultBranch
+	if forkBase := m.projects.ForkBase(ctx, project, card.ID); forkBase != "" {
+		base = forkBase
+	}
+	spec := gitx.WorktreeSpec{Path: path, Branch: branch, Base: base}
 	if project.IsMonorepo {
 		spec.Sparse = project.Packages
 	}
@@ -110,14 +154,6 @@ func (m *Manager) undoWorktree(project protocol.Project, path, branch, cardID st
 // its whole life, so there is nothing to share, and Registry.New already documents "every call
 // makes a new one".
 func (m *Manager) startAgent(ctx context.Context, card protocol.Card, path string) (startedAgent, error) {
-	agent, err := m.registry.New(card.Agent)
-	if err != nil {
-		if errors.Is(err, agents.ErrUnknownKind) {
-			return startedAgent{},
-				protocol.Unsupported("Marshal does not have that agent ready to run yet.").With("agent", string(card.Agent))
-		}
-		return startedAgent{}, fmt.Errorf("make an agent for card %s: %w", card.ID, err)
-	}
 	spec := agents.StartSpec{
 		Cwd: path, Model: card.Model, Thinking: thinkingOrEmpty(card.Thinking), PermissionMode: string(card.PermissionMode),
 		// Instructions (role instructions, project memory, board awareness: architecture section 7)
@@ -125,11 +161,32 @@ func (m *Manager) startAgent(ctx context.Context, card protocol.Card, path strin
 		// that would fill them do not exist yet.
 		Instructions: "", Label: card.ID,
 	}
+	return m.launch(ctx, cardOwner(card), card.Agent, spec)
+}
+
+// launch makes an agent of a kind and starts a session with the spec, for a card or for a chat.
+func (m *Manager) launch(ctx context.Context, o owner, kind protocol.AgentKind, spec agents.StartSpec) (startedAgent, error) {
+	agent, err := m.newAgent(o, kind)
+	if err != nil {
+		return startedAgent{}, err
+	}
 	handle, err := agent.Start(ctx, spec)
 	if err != nil {
-		return startedAgent{}, startFailure(card.ID, err)
+		return startedAgent{}, startFailure(o, err)
 	}
 	return startedAgent{agent: agent, handle: handle}, nil
+}
+
+// newAgent makes the agent for a kind, with a plain sentence for a kind that has no adapter yet.
+func (m *Manager) newAgent(o owner, kind protocol.AgentKind) (agents.Agent, error) {
+	agent, err := m.registry.New(kind)
+	if err != nil {
+		if errors.Is(err, agents.ErrUnknownKind) {
+			return nil, protocol.Unsupported("Marshal does not have that agent ready to run yet.").With("agent", string(kind))
+		}
+		return nil, fmt.Errorf("make an agent for %s %s: %w", o.noun(), o.key(), err)
+	}
+	return agent, nil
 }
 
 // registerNewSession inserts a session row for a freshly started agent, moves the card to
@@ -140,12 +197,12 @@ func (m *Manager) registerNewSession(ctx context.Context, card protocol.Card, sa
 	if err != nil {
 		return protocol.Card{}, fmt.Errorf("make a session id: %w", err)
 	}
-	params := db.CreateSessionParams{
+	params := db.CreateCardSessionParams{
 		ID: rowID, CardID: card.ID, AgentKind: string(card.Agent), AgentSessionID: sa.handle.ID,
 		State: string(protocol.SessionStateAwake), Model: sa.handle.Model, Thinking: sa.handle.Thinking,
 		PermissionMode: sa.handle.PermissionMode, LastActiveAt: now.UnixMilli(), CreatedAt: now.UnixMilli(), UpdatedAt: now.UnixMilli(),
 	}
-	if err := m.store.Write(ctx, func(q *db.Queries) error { return q.CreateSession(ctx, params) }); err != nil {
+	if err := m.store.Write(ctx, func(q *db.Queries) error { return q.CreateCardSession(ctx, params) }); err != nil {
 		return protocol.Card{}, fmt.Errorf("save the session of card %s: %w", card.ID, err)
 	}
 	updated, err := m.projects.SetState(ctx, card.ID, protocol.CardStateWorking)
@@ -155,32 +212,51 @@ func (m *Manager) registerNewSession(ctx context.Context, card protocol.Card, sa
 	return m.finishRegistering(updated, rowID, sa)
 }
 
-// finishRegistering builds a live session, registers it, publishes that it is awake, and starts
-// its pump. Shared by a fresh start and a resume.
+// finishRegistering builds a card's live session, registers it, publishes that it is awake, and
+// starts its pump. Shared by a fresh start and a resume.
 func (m *Manager) finishRegistering(card protocol.Card, rowID string, sa startedAgent) (protocol.Card, error) {
-	ls, err := m.newLiveSession(card, rowID, sa)
-	if err != nil {
+	if _, err := m.register(cardOwner(card), rowID, sa); err != nil {
 		return protocol.Card{}, err
+	}
+	return card, nil
+}
+
+// register builds a live session for an owner, makes it live, publishes that it is awake, and
+// starts its pump. A card's session and a chat's both come through here.
+func (m *Manager) register(o owner, rowID string, sa startedAgent) (*liveSession, error) {
+	ls, err := m.newLiveSession(o, rowID, sa)
+	if err != nil {
+		// Nothing owns the agent yet, so it is ended here, or it would run with nobody to stop it.
+		m.stopUnregistered(sa)
+		return nil, err
 	}
 	if err := m.goLive(ls); err != nil {
-		return protocol.Card{}, err
+		return nil, err
 	}
 	m.publishState(ls, protocol.SessionStateAwake, "")
-	return card, nil
+	return ls, nil
 }
 
 // messageAgentWontStart is what a person is told when an agent program could not be started. The
 // adapters have no shared error for "the program is missing or broken", so any start failure that
 // is not one the API layer recognizes reads this way, and the real cause goes to the log.
-const messageAgentWontStart = "Marshal could not start the agent for this card. " +
-	"Check that the agent is installed and that you are signed in to it, then try again."
+const (
+	messageAgentWontStart = "Marshal could not start the agent for this card. " +
+		"Check that the agent is installed and that you are signed in to it, then try again."
+	messageChatAgentWontStart = "Marshal could not start the agent for this chat. " +
+		"Check that the agent is installed and that you are signed in to it, then try again."
+)
 
 // startFailure keeps the errors that the API layer already turns into their own sentence (a sign-in
 // that is needed, a timeout) and gives every other failure to start one plain sentence.
-func startFailure(cardID string, err error) error {
+func startFailure(o owner, err error) error {
 	var signIn *agents.AuthRequiredError
 	if errors.As(err, &signIn) || errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
-		return fmt.Errorf("start the agent for card %s: %w", cardID, err)
+		return fmt.Errorf("start the agent for %s %s: %w", o.noun(), o.key(), err)
 	}
-	return protocol.Unavailable(messageAgentWontStart).With("cardId", cardID).WithCause(err)
+	message := messageAgentWontStart
+	if o.isChat() {
+		message = messageChatAgentWontStart
+	}
+	return o.about(protocol.Unavailable(message)).WithCause(err)
 }

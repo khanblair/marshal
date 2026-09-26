@@ -12,10 +12,12 @@ import (
 )
 
 // RestoreAll is called once by cmd/marshald after the store and bus are ready. In ResumeModeAuto
-// it resumes every session that was starting, awake, or working when the daemon last stopped,
-// right away. In ResumeModeManual it only logs how many are waiting; a person resumes one later
-// with Resume. It never blocks past one resumeTimeout per row: the caller runs it in its own
-// goroutine so a slow or stuck agent program never holds up the health endpoint.
+// it resumes every session that was starting, awake, working, or left half-woken when the daemon
+// last stopped, right away. A session that was asleep stays asleep: sleep is a person's decision,
+// and only a person resumes it (Wake, or Start). In ResumeModeManual it only logs how many are
+// waiting; a person resumes one later with Resume. It never blocks past one resumeTimeout per row:
+// the caller runs it in its own goroutine so a slow or stuck agent program never holds up the
+// health endpoint.
 func (m *Manager) RestoreAll(ctx context.Context) error {
 	rows, err := m.store.Queries().ListResumableSessions(ctx)
 	if err != nil {
@@ -47,8 +49,10 @@ func (m *Manager) restoreRow(ctx context.Context, row db.Session) error {
 	return err
 }
 
-// Resume resumes one card's session explicitly, for a later API route to expose as a "resume"
-// button, and for RestoreAll's own auto-mode loop.
+// Resume resumes one card's session explicitly, for the "resume" route that recovers a session a
+// restart left waiting, and for RestoreAll's own auto-mode loop. A session that has stopped is
+// refused here: nothing is waiting to be recovered, and Start is the route that continues a
+// stopped session.
 func (m *Manager) Resume(ctx context.Context, cardID string) error {
 	if err := m.reserve(cardID); err != nil {
 		return err
@@ -62,7 +66,7 @@ func (m *Manager) Resume(ctx context.Context, cardID string) error {
 		return fmt.Errorf("look up the session of card %s: %w", cardID, err)
 	}
 	if row.State == string(protocol.SessionStateStopped) {
-		return protocol.Refused("This card's session has stopped and cannot be resumed.").With("cardId", cardID)
+		return protocol.Refused(messageSessionStopped).With("cardId", cardID)
 	}
 	_, err = m.resumeRow(ctx, row)
 	return err
@@ -85,17 +89,16 @@ func (m *Manager) resumeRow(ctx context.Context, row db.Session) (protocol.Card,
 	if path == "" {
 		return m.failResume(ctx, row, errors.New("this card has no recorded worktree to resume in"))
 	}
-	agent, err := m.registry.New(protocol.AgentKind(row.AgentKind))
+	// The session resumes in the view it was left in: a card that was in the terminal view when its
+	// process ended, by a restart, a sleep, or a person's press, comes back in the terminal.
+	view := protocol.CardViewMode(row.ViewMode)
+	agent, err := m.agentFor(protocol.AgentKind(row.AgentKind), view)
 	if err != nil {
 		return m.failResume(ctx, row, err)
 	}
 	rctx, cancel := context.WithTimeout(ctx, resumeTimeout)
 	defer cancel()
-	spec := agents.StartSpec{
-		Cwd: path, Model: card.Model, Thinking: thinkingOrEmpty(card.Thinking), PermissionMode: string(card.PermissionMode),
-		Instructions: "", Label: card.ID,
-	}
-	handle, err := agent.Resume(rctx, row.AgentSessionID, spec)
+	handle, err := agent.Resume(rctx, row.AgentSessionID, resumeSpec(card, path))
 	if err != nil {
 		if ctx.Err() != nil {
 			// The caller's own context ended (the daemon is shutting down, most likely), not the
@@ -105,7 +108,16 @@ func (m *Manager) resumeRow(ctx context.Context, row db.Session) (protocol.Card,
 		}
 		return m.failResume(ctx, row, err)
 	}
-	return m.registerResumedSession(ctx, card, row, startedAgent{agent: agent, handle: handle})
+	return m.registerResumedSession(ctx, card, row, startedAgent{agent: agent, handle: handle, view: view})
+}
+
+// resumeSpec is how a card's agent is asked to resume its session: in the card's worktree, with the
+// settings the card has now.
+func resumeSpec(card protocol.Card, path string) agents.StartSpec {
+	return agents.StartSpec{
+		Cwd: path, Model: card.Model, Thinking: thinkingOrEmpty(card.Thinking), PermissionMode: string(card.PermissionMode),
+		Instructions: "", Label: card.ID,
+	}
 }
 
 // failResume records that a resume really failed: the row is marked stopped (nothing is left
@@ -132,9 +144,7 @@ func (m *Manager) failResume(ctx context.Context, row db.Session, cause error) (
 	// Starting a fresh session for a card that already had one is not built yet, so the sentence
 	// does not offer it.
 	reason := "Marshal could not pick this session back up. The card now needs you."
-	m.bus.Publish(string(protocol.CardTopic(row.CardID)), string(protocol.EventTypeSessionStateChanged),
-		protocol.SessionStateChangedEventData{CardID: row.CardID, SessionID: row.ID, State: protocol.SessionStateStopped, Reason: reason},
-		true)
+	m.publishSessionState(row.CardID, row.ID, protocol.SessionStateStopped, reason)
 	m.log.Warn("a session could not be resumed", "card_id", row.CardID, "error", cause)
 	return card, protocol.Refused(reason).With("cardId", row.CardID).WithCause(cause)
 }
