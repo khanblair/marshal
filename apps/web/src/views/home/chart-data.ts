@@ -1,4 +1,5 @@
 import type { AxisTick, ChartSeries } from "@marshal/ui";
+import type { DailyStats } from "~/mock/types";
 
 /*
  * The numbers behind the two Home charts. The design has no history, so past
@@ -35,6 +36,15 @@ const CARDS_SPREAD = 5;
 const WEEKEND_DAY_STEP = 6;
 const WEEKEND_ADJUST = -1;
 const WEEKDAY_ADJUST = 1;
+
+/**
+ * Cards finished on each day, oldest first, read from the daemon's own stored numbers (section
+ * S19a) rather than made up: `stats.days` always holds the widest range the syncer asked for, so
+ * this takes the trailing `range` days of it.
+ */
+export function finishedFromStats(stats: DailyStats, range: number): number[] {
+  return stats.days.slice(-range).map((day) => day.cardsFinished);
+}
 
 /** Cards finished on each day, oldest first. Today's value is the real count of merges. */
 export function finishedPerDay(days: ChartDays, mergedToday: number): number[] {

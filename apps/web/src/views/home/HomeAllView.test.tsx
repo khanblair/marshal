@@ -139,6 +139,11 @@ describe("Recent activity page", () => {
     M.S.feed.unshift({ id: "f-new", kind: "merge", text: "#1 merged", pid: "api", ts: M.now() });
     expect(screen.getAllByRole("listitem")).toHaveLength(before + 1);
   });
+
+  it("has no Load more button while S20 is on the mock: there is no further page to load", () => {
+    render(() => <HomeAllView />);
+    expect(screen.queryByRole("button", { name: "Load more" })).not.toBeInTheDocument();
+  });
 });
 
 describe("CI health page", () => {

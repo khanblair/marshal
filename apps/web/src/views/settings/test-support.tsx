@@ -2,7 +2,7 @@ import { render } from "@solidjs/testing-library";
 import { batch } from "solid-js";
 import { unwrap } from "solid-js/store";
 import { M, type State } from "~/mock";
-import { createTestMarshal } from "~/testing/test-store";
+import { createTestMarshal, MOCK_PERSON } from "~/testing/test-store";
 import { SettingsView } from "./SettingsView";
 
 /** The store fields the settings page reads or writes. */
@@ -39,6 +39,8 @@ const pristine = unwrap(
     storage: null,
     viewport: { w: DESKTOP_WIDTH_PX, h: 900 },
     applyTheme: () => {},
+    // The settings screens are tested on the mock's person; the daemon's own is tested beside them.
+    sections: MOCK_PERSON,
   }).S,
 );
 

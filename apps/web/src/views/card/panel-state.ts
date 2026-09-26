@@ -1,5 +1,5 @@
 import { createStore } from "solid-js/store";
-import type { Attachment } from "~/mock";
+import type { Attachment, DiffFile } from "~/mock";
 
 /**
  * Everything the card panel remembers about the open card while you switch tabs: the
@@ -21,6 +21,8 @@ interface PanelState {
   /** Paths of the expanded diff files, or null until the user expands or collapses one. */
   openFiles: string[] | null;
   loaded: Record<string, boolean>;
+  /** A file's hunks once loaded (section S11): the daemon's own, fetched when the file was opened. */
+  diffHunks: Record<string, DiffFile["hunks"]>;
   noteEdit: boolean;
   noteDraft: string;
 }
@@ -39,6 +41,7 @@ const initialState = (): PanelState => ({
   more: false,
   openFiles: null,
   loaded: {},
+  diffHunks: {},
   noteEdit: false,
   noteDraft: "",
 });

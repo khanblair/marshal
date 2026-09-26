@@ -173,6 +173,23 @@ describe("charts", { timeout: SLOW_TEST_MS }, () => {
     expect(container.querySelectorAll("figure")).toHaveLength(2);
   });
 
+  it("draws the daemon's own stored numbers once they answer, not the made-up history", () => {
+    M.S.stats = {
+      range: 90,
+      days: Array.from({ length: 90 }, (_, i) => ({
+        day: 0,
+        cardsFinished: i >= 83 ? i - 82 : 0,
+        merges: 0,
+        ciFailures: 0,
+        costMicros: 0,
+      })),
+      projects: [],
+    };
+    render(() => <HomeView />);
+    const bars = screen.getByRole("img", { name: "28 cards finished in the last 7 days" });
+    expect(bars.querySelectorAll("path")).toHaveLength(7);
+  });
+
   it("lists the projects in the legend, with the daily limit last", () => {
     render(() => <HomeView />);
     const legend = screen.getByText("Daily limit").parentElement;

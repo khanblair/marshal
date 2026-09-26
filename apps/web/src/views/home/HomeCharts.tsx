@@ -7,6 +7,7 @@ import {
   type SegmentOption,
 } from "@marshal/ui";
 import { createMemo } from "solid-js";
+import { isDaemon } from "~/data/sections";
 import { M } from "~/mock";
 import {
   barSummary,
@@ -15,6 +16,7 @@ import {
   costSeries,
   dateTicks,
   dollarLabel,
+  finishedFromStats,
   finishedPerDay,
 } from "./chart-data";
 import { mergedTodayCount } from "./home-actions";
@@ -40,7 +42,17 @@ export function HomeCharts() {
     dayMs: M.D,
     range: M.S.dashRange,
   }));
-  const finished = createMemo(() => finishedPerDay(days(), mergedTodayCount()));
+  // Once section S19a is switched, the chart is always the daemon's own stored numbers, in
+  // `M.S.stats.days` — zeros before the first load answers, never the seeded, made-up history
+  // (see chart-data.ts), which stays only for a store where S19a is still on the mock.
+  const finished = createMemo(() => {
+    if (isDaemon("S19a")) {
+      return M.S.stats.days.length > 0
+        ? finishedFromStats(M.S.stats, days().range)
+        : new Array<number>(days().range).fill(0);
+    }
+    return finishedPerDay(days(), mergedTodayCount());
+  });
   const series = createMemo(() =>
     costSeries(
       days(),

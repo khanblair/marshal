@@ -2,13 +2,14 @@ import { cleanup, fireEvent, render, screen, within } from "@solidjs/testing-lib
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { M } from "~/mock";
 import { type CardKey, cardNumber } from "~/mock/card-key";
+import { prototypeCards } from "~/testing/prototype-cards";
 import { ListView } from "./ListView";
 
 vi.hoisted(() => {
   window.location.hash = "#nosim";
 });
 
-const seed = JSON.parse(JSON.stringify(M.S.cards));
+const seed = prototypeCards();
 const DEFAULT_COLS = { ...M.S.listCols };
 const DESKTOP_PX = 1440;
 const TABLET_PX = 820;

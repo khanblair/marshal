@@ -29,28 +29,40 @@ export function createProfileDraft() {
     cannotSave,
     pairing,
     showPairingCode: () => setPairing(true),
-    /** Up to two initials of the name being typed; the saved name when it is empty. */
-    initials: (): string =>
-      (fields().name || saved().name)
+    /**
+     * Up to two initials of the name being typed; the saved name when it is empty. Until something
+     * is typed they are the daemon's own, when it made them.
+     */
+    initials: (): string => {
+      if (!edited() && M.S.profile.initials) return M.S.profile.initials;
+      return (fields().name || saved().name)
         .split(/\s+/)
         .map((word) => word[0] || "")
         .join("")
         .slice(0, MAX_INITIALS)
-        .toUpperCase(),
+        .toUpperCase();
+    },
     edit(key: keyof ProfileFields, value: string): void {
       setEdited({ ...fields(), [key]: value });
     },
     save(): void {
       if (cannotSave()) return;
       const next = fields();
+      // What was typed since the save began is kept: only a form that still holds what was sent is cleared.
+      const clear = (): void => {
+        if (edited() && sameFields(fields(), next)) setEdited(null);
+      };
       batch(() => {
-        Object.assign(M.S.profile, {
-          name: next.name.trim(),
-          email: next.email.trim(),
-          tz: next.tz,
-        });
-        setEdited(null);
-        M.toast("Profile saved");
+        // The mock saves at once. The daemon answers later, and refuses in its own words, so the form
+        // keeps what was typed until it says yes.
+        const saved = M.saveProfile({ name: next.name, email: next.email, tz: next.tz });
+        if (typeof saved === "boolean") {
+          if (saved) clear();
+        } else {
+          void saved.then((ok) => {
+            if (ok) clear();
+          });
+        }
       });
     },
   };

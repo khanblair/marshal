@@ -1,3 +1,4 @@
+import type { DailyStats } from "~/mock/types";
 import {
   barSummary,
   barTips,
@@ -5,6 +6,7 @@ import {
   costSeries,
   dateTicks,
   dollarLabel,
+  finishedFromStats,
   finishedPerDay,
   seeded,
   tickIndexes,
@@ -68,6 +70,31 @@ describe("finishedPerDay", () => {
       expect(got.at(-1)).toBe(4);
     });
   }
+});
+
+describe("finishedFromStats", () => {
+  const dailyStats = (days: number[]): DailyStats => ({
+    range: 90,
+    days: days.map((cardsFinished, i) => ({
+      day: T0 - (days.length - 1 - i) * DAY,
+      cardsFinished,
+      merges: 0,
+      ciFailures: 0,
+      costMicros: 0,
+    })),
+    projects: [],
+  });
+
+  it("reads cardsFinished straight off the stored days, oldest first", () => {
+    const stats = dailyStats([1, 2, 3, 4, 5, 6, 7]);
+    expect(finishedFromStats(stats, 7)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+  });
+
+  it("takes only the trailing range out of the widest stored series", () => {
+    const stats = dailyStats(Array.from({ length: 90 }, (_, i) => i));
+    expect(finishedFromStats(stats, 7)).toEqual([83, 84, 85, 86, 87, 88, 89]);
+    expect(finishedFromStats(stats, 30)).toHaveLength(30);
+  });
 });
 
 describe("costSeries", () => {

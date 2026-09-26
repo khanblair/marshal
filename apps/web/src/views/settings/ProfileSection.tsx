@@ -13,6 +13,15 @@ const TIME_ZONES = [
   "Asia/Singapore",
 ];
 
+/**
+ * The zones to offer: the six the screen has, and the one the person already has when it is not
+ * among them (the daemon takes any zone) or when they have none yet, which a new daemon starts with.
+ */
+function zoneOptions(current: string): readonly (string | { value: string; label: string })[] {
+  if (current === "") return [{ value: "", label: "Not set" }, ...TIME_ZONES];
+  return TIME_ZONES.includes(current) ? TIME_ZONES : [current, ...TIME_ZONES];
+}
+
 const SUBHEADING = "mt-2 mb-0 text-subtitle leading-5.5 font-semibold";
 
 function TailnetIdentity() {
@@ -41,11 +50,15 @@ export function ProfileSection(props: { profile: ProfileDraft }) {
       }}
     >
       <div class="flex flex-wrap items-center gap-4">
-        <Avatar size={64} bordered aria-label="Your avatar" initials={props.profile.initials()} />
+        <Avatar
+          size={64}
+          bordered
+          aria-label="Your avatar"
+          initials={props.profile.initials()}
+          src={M.S.profile.avatar ?? undefined}
+        />
         <div class="flex flex-wrap gap-2">
-          <Button onClick={() => M.toast("Choose an image to use as your avatar")}>
-            Upload image
-          </Button>
+          <Button onClick={() => M.chooseAvatar()}>Upload image</Button>
           <span class="self-center text-small text-secondary">
             Without an image, Marshal shows your initials.
           </span>
@@ -74,7 +87,7 @@ export function ProfileSection(props: { profile: ProfileDraft }) {
         <Field label="Time zone" hint="Briefs and schedules run in this time zone.">
           <Select
             class="px-2.5!"
-            options={TIME_ZONES}
+            options={zoneOptions(fields().tz)}
             value={fields().tz}
             onChange={(e) => props.profile.edit("tz", e.currentTarget.value)}
           />
