@@ -154,7 +154,7 @@ func TestProjectRefusals(t *testing.T) {
 			"That repository is already a project in Marshal."},
 		{"no source", http.MethodPost, "/v1/projects", `{"path":"/x"}`,
 			http.StatusBadRequest, protocol.ErrorCodeInvalidArgument,
-			"Choose whether to add a folder or clone a repository."},
+			"Choose whether to add a folder, clone a repository, or use the sample project."},
 		{"a folder with no path", http.MethodPost, "/v1/projects", `{"source":"folder"}`,
 			http.StatusBadRequest, protocol.ErrorCodeInvalidArgument, "Choose the folder of the repository."},
 		{"a clone with no address", http.MethodPost, "/v1/projects", `{"source":"clone","dest":"/x"}`,
