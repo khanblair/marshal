@@ -135,10 +135,25 @@ func (s *Store) Queries() *db.Queries { return s.reads }
 func (s *Store) Read(ctx context.Context, fn func(q *db.Queries) error) error {
 	tx, err := s.reader.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
-		return fmt.Errorf("begin a read: %w", err)
+		return fmt.Errorf("begin a read: %w", contextError(ctx, err))
 	}
 	defer func() { _ = tx.Rollback() }()
-	return fn(db.New(tx))
+	return contextError(ctx, fn(db.New(tx)))
+}
+
+// contextError keeps the error a caller's own context caused, so a request the client hung up on is
+// not reported as a failure of the daemon. SQLite reports a read that its context cancelled as its
+// own "interrupted" code, which does not match context.Canceled by itself: the API layer logs
+// context.Canceled at debug and everything else as an internal error, so without this a person
+// closing a tab would put an ERROR line in the daemon's log.
+func contextError(ctx context.Context, err error) error {
+	if err == nil {
+		return nil
+	}
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return fmt.Errorf("%w (%w)", ctxErr, err)
+	}
+	return err
 }
 
 // Write runs fn in one transaction on the writer. It commits when fn returns nil and rolls back
@@ -148,7 +163,7 @@ func (s *Store) Read(ctx context.Context, fn func(q *db.Queries) error) error {
 func (s *Store) Write(ctx context.Context, fn func(q *db.Queries) error) error {
 	tx, err := s.writer.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("begin a write: %w", err)
+		return fmt.Errorf("begin a write: %w", contextError(ctx, err))
 	}
 	committed := false
 	defer func() {

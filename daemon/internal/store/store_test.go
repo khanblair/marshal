@@ -342,3 +342,52 @@ func TestDataSurvivesReopen(t *testing.T) {
 		t.Errorf("GetSetting after reopen = %q, %v", value, err)
 	}
 }
+
+// A read whose context ends reports the context's own error, not the driver's own code. The API
+// layer logs context.Canceled at debug and anything else as an internal failure, so without this a
+// person closing a tab while a read was running would put an ERROR line in the daemon's log.
+func TestAReadWhoseContextEndsReadsAsCancelled(t *testing.T) {
+	st := openAt(t, filepath.Join(t.TempDir(), "marshal.db"))
+	ctx, cancel := context.WithCancel(context.Background())
+
+	err := st.Read(ctx, func(q *db.Queries) error {
+		// The client hangs up while the read is running.
+		cancel()
+		_, err := q.ListProjects(ctx)
+		return err
+	})
+	if err == nil {
+		t.Fatal("a read that was cancelled returned nothing")
+	}
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("error = %v, want it to read as context.Canceled", err)
+	}
+}
+
+// The same for a read that cannot even start, and for a write.
+func TestAReadThatCannotStartReadsAsCancelled(t *testing.T) {
+	st := openAt(t, filepath.Join(t.TempDir(), "marshal.db"))
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	if err := st.Read(ctx, func(*db.Queries) error { return nil }); !errors.Is(err, context.Canceled) {
+		t.Errorf("Read = %v, want context.Canceled", err)
+	}
+	if err := st.Write(ctx, func(*db.Queries) error { return nil }); !errors.Is(err, context.Canceled) {
+		t.Errorf("Write = %v, want context.Canceled", err)
+	}
+}
+
+// A read whose context is fine keeps its own error exactly as it was, so errors.Is on the store's
+// own sentinels still works.
+func TestAReadErrorIsUnchangedWhenTheContextIsFine(t *testing.T) {
+	st := openAt(t, filepath.Join(t.TempDir(), "marshal.db"))
+	boom := errors.New("the query failed")
+	err := st.Read(testContext(t), func(*db.Queries) error { return boom })
+	if !errors.Is(err, boom) {
+		t.Errorf("error = %v, want the caller's own error", err)
+	}
+	if err.Error() != "the query failed" {
+		t.Errorf("error = %q, want it unchanged", err.Error())
+	}
+}
