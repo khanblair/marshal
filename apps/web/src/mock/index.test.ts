@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from "vitest";
+import { wireCard } from "~/testing/fake-cards";
 import { createFakeDaemon } from "~/testing/fake-daemon";
 import { PROTOTYPE_PROJECTS } from "~/testing/projects";
 import type { Card, CardView, MsgView, State } from ".";
@@ -41,6 +42,8 @@ const API = [
   "chatById",
   "chatSend",
   "chatsOf",
+  "chooseAvatar",
+  "endTour",
   "clearFilters",
   "closeCard",
   "closeDialog",
@@ -73,6 +76,9 @@ const API = [
   "isAwake",
   "keepAllAwake",
   "keepAwake",
+  "loadActivityPage",
+  "loadCardDiff",
+  "loadFileHunks",
   "mobile",
   "money",
   "moveCard",
@@ -86,6 +92,7 @@ const API = [
   "pause",
   "pendingApproval",
   "person",
+  "meId",
   "pin",
   "proj",
   "quickAdd",
@@ -99,8 +106,11 @@ const API = [
   "renameChat",
   "renameProject",
   "saveProject",
+  "saveProfile",
+  "setOnboardingStep",
   "requestBypass",
   "resetFirstLaunch",
+  "retryChat",
   "runChecks",
   "savePlan",
   "saveView",
@@ -117,7 +127,12 @@ const API = [
   "sleep",
   "sleepAll",
   "start",
+  "startSearch",
   "startTour",
+  "stopSession",
+  "terminalKey",
+  "terminalSend",
+  "terminalText",
   "thinkSupported",
   "toast",
   "toggleHideDone",
@@ -137,7 +152,12 @@ describe("index.ts boot", () => {
     Reflect.deleteProperty(window, "M");
     window.location.hash = "#nosim";
     // The boot builds the real data layer from the page's own `fetch` and `WebSocket`; a daemon in memory answers them.
-    const daemon = createFakeDaemon({ projects: PROTOTYPE_PROJECTS });
+    // One card on the daemon, so the boot has a card to draw whether S5a reads the mock or the
+    // daemon: the store types and the view models are what this suite is about.
+    const daemon = createFakeDaemon({
+      projects: PROTOTYPE_PROJECTS,
+      cards: [wireCard({ projectId: "api", number: 41, title: "Fix token refresh on login" })],
+    });
     vi.stubGlobal("fetch", daemon.fetch);
     vi.stubGlobal("WebSocket", daemon.sockets.Impl);
   });
@@ -188,9 +208,23 @@ describe("index.ts boot", () => {
       "now",
       "cardLabelOf",
       "saveProject",
+      "saveProfile",
+      "chooseAvatar",
+      "endTour",
+      "setOnboardingStep",
+      "meId",
       "signIn",
       "reconnect",
       "agentOptions",
+      "loadActivityPage",
+      "loadCardDiff",
+      "loadFileHunks",
+      "startSearch",
+      "stopSession",
+      "retryChat",
+      "terminalKey",
+      "terminalSend",
+      "terminalText",
     ];
     const proto = loadPrototype("#nosim").keys.filter((k) => !dropped.includes(k));
     expect([...proto, ...added].sort()).toEqual([...API].sort());

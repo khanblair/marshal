@@ -25,6 +25,13 @@ export const person = (ctx: Ctx, id: string): Person | undefined =>
   ctx.S.people.find((p) => p.id === id);
 
 /**
+ * The id that names the person using the app as a comment's author and as who ticked a checklist
+ * item. The mock's person is `ada`; once the profile is the daemon's (S2a) it is the daemon's own id,
+ * which is also what `person` finds in the users list.
+ */
+export const meId = (ctx: Ctx): string => ctx.S.profile.id ?? "ada";
+
+/**
  * The label of a card for text that can be read among cards of other projects: the project name
  * and the number, such as `api-gateway #41`.
  */

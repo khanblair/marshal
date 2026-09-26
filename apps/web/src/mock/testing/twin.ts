@@ -4,8 +4,9 @@
  * cards by key (`api#41`); `proto-shape.ts` translates to the prototype's numbers.
  */
 import { expect, vi } from "vitest";
+import { sectionStatus } from "~/data/sections";
 import { forgetProject } from "~/sync/projects";
-import { contextOf, createTestMarshal } from "~/testing/test-store";
+import { contextOf, createTestMarshal, MOCK_PERSON_SECTIONS } from "~/testing/test-store";
 import { applyTheme } from "../dom/theme";
 import type { Marshal } from "../marshal";
 import { createProtoShape, withoutOrphans } from "./proto-shape";
@@ -65,6 +66,21 @@ export function makeTwin(hash = "#nosim"): Twin {
     storage: window.localStorage,
     viewport: { w: window.innerWidth, h: window.innerHeight },
     applyTheme,
+    // The twin compares the mock against the prototype, so it pins the sections it exercises to the
+    // mock: the mock still exists (it is deleted in Phase 13) and this suite is what guards it. Its
+    // cards, their hold controls, their chat and activity, the project chats, and the Home feed are
+    // the mock's own, whatever the register says.
+    sections: {
+      ...sectionStatus,
+      S5a: "mock",
+      S7c: "mock",
+      S8a: "mock",
+      S10: "mock",
+      S17: "mock",
+      S20: "mock",
+      // The person too: the prototype's people, saved views, and profile are the mock's own.
+      ...MOCK_PERSON_SECTIONS,
+    },
   });
   // The prototype applies the theme and is ready as soon as it loads; index.ts does this for the port.
   applyTheme(port.S);

@@ -8,6 +8,7 @@
 import { createData } from "~/data";
 import type { KeyValueStore } from "~/data/storage";
 import { attachToPage } from "./attach";
+import { pickImage } from "./dom/file-picker";
 import { applyTheme } from "./dom/theme";
 import { createMarshal, type Marshal } from "./marshal";
 
@@ -27,6 +28,7 @@ function boot(): Marshal {
       storage,
       viewport: { w: window.innerWidth, h: window.innerHeight },
       applyTheme,
+      pickImage,
       // Vite forwards `/v1` to the dev daemon, so the address is the page's own. Only the dev build
       // asks the dev server for the daemon's token.
       data: createData({ baseUrl: "", storage, dev: import.meta.env.DEV }),

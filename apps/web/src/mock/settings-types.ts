@@ -60,6 +60,10 @@ interface Device {
   last: number;
 }
 export interface Profile {
+  /** The daemon's id for the person. The mock's profile has none. */
+  id?: string;
+  /** The initials the daemon made from the name. The mock's profile has none: the screens work them out. */
+  initials?: string;
   name: string;
   email: string;
   tz: string;

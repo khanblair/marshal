@@ -47,10 +47,14 @@ function projectFields(project: Json): Json {
   return rest;
 }
 
-/** The whole state without the list the port keeps beyond the prototype's fields (`agents`, the daemon's catalog). Anything else is left as it is. */
+/**
+ * The whole state without what the port keeps beyond the prototype's fields: `agents`, the daemon's
+ * catalog, and `stats`, the stored Home numbers (`sync/home-stats.ts`). Anything else is left as it
+ * is.
+ */
 function withoutPortOnly(value: unknown): unknown {
   if (!isObject(value) || !Array.isArray(value.cards) || !("agents" in value)) return value;
-  const { agents: _daemon, ...rest } = value;
+  const { agents: _daemon, stats: _numbers, ...rest } = value;
   return rest;
 }
 

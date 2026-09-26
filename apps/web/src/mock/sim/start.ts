@@ -1,5 +1,6 @@
+import { isDaemon } from "~/data/sections";
 import type { CardKey } from "../card-key";
-import type { Ctx } from "../context";
+import { type Ctx, sectionsOf } from "../context";
 import { later } from "../engine";
 import { ciFailure } from "./ci-failure";
 import { script41, script46, scriptMerge35 } from "./scripts";
@@ -18,6 +19,10 @@ const CI_FAILURE_CARD_ID: CardKey = "api#40";
  */
 export function startSimulation(ctx: Ctx, hash: string): void {
   if (/nosim/.test(hash)) return;
+  // The scripted cards, the merge, the CI failure, and the tick all write to the mock's own cards.
+  // Once S5a is on the daemon those cards are the daemon's, and a simulation writing to them would
+  // be the app making up state the daemon owns, so nothing is started at all.
+  if (isDaemon("S5a", sectionsOf(ctx.env))) return;
   if (!/n41/.test(hash)) later(SCRIPT41_START_MS, () => script41(ctx));
   if (!/n46/.test(hash)) later(SCRIPT46_START_MS, () => script46(ctx));
   if (!/nm/.test(hash)) later(MERGE35_START_MS, () => scriptMerge35(ctx));

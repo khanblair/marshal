@@ -9,6 +9,7 @@ import type {
   Chat,
   Check,
   Column,
+  DailyStats,
   Dialog,
   FeedItem,
   Filter,
@@ -110,6 +111,8 @@ export interface State {
   obStep: number;
   tour: { step: number } | null;
   feed: FeedItem[];
+  /** The stored numbers the Home charts draw. Empty until `sync/home-stats.ts` answers. */
+  stats: DailyStats;
   split: ViewKey[];
   dashRange: number;
   vh: number;

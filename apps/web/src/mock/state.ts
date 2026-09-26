@@ -1,5 +1,6 @@
 import type { Seed } from "./seed";
 import type { State } from "./state-types";
+import type { SortSpec } from "./types";
 
 export interface StateOptions {
   vw: number;
@@ -7,7 +8,31 @@ export interface StateOptions {
   onboarded: boolean;
   /** Midnight today, where the calendar opens. */
   today: number;
+  /** True when the saved views are the daemon's (S6a): the prototype's seeded ones are then not the store's. */
+  savedViewsOnDaemon?: boolean;
 }
+
+/** The List's columns before anyone chose. The daemon keeps only the columns a person changed. */
+export const DEFAULT_LIST_COLS: Readonly<Record<string, boolean>> = {
+  id: true,
+  title: true,
+  state: true,
+  role: true,
+  agent: true,
+  model: true,
+  branch: true,
+  ci: true,
+  cost: true,
+  upd: true,
+  pkg: false,
+  think: false,
+};
+
+/** How the Agents table and the List are sorted before anyone chose. */
+export const DEFAULT_SORT: Readonly<{ agents: SortSpec; list: SortSpec }> = {
+  agents: { k: "state", dir: 1 },
+  list: { k: "id", dir: -1 },
+};
 
 /** Per-project defaults for the three seeded projects. */
 const projectState = () =>
@@ -69,21 +94,8 @@ const uiState = () =>
     sleep: { idle: 15, warn: 2, channel: "In app only", restore: "Auto-restore on startup" },
     settingsSection: "general",
     roleSel: "Worker",
-    listCols: {
-      id: true,
-      title: true,
-      state: true,
-      role: true,
-      agent: true,
-      model: true,
-      branch: true,
-      ci: true,
-      cost: true,
-      upd: true,
-      pkg: false,
-      think: false,
-    },
-    sort: { agents: { k: "state", dir: 1 }, list: { k: "id", dir: -1 } },
+    listCols: { ...DEFAULT_LIST_COLS },
+    sort: { agents: { ...DEFAULT_SORT.agents }, list: { ...DEFAULT_SORT.list } },
     calMode: "month",
     announce: "",
     obStep: 0,
@@ -106,8 +118,14 @@ export function initialState(seed: Seed, opts: StateOptions): State {
     // Agents come from the daemon too (`sync/agents.ts`).
     agents: [],
     ...projectState(),
+    // The prototype's saved views are its own: on the daemon they are the daemon's, and the client's
+    // own "All cards" (`ensureProjectState`) is all a project has until they are loaded.
+    ...(opts.savedViewsOnDaemon ? { savedViews: {}, savedView: {} } : {}),
     ...uiState(),
     ...seed,
+    // The Home numbers come from the daemon (`sync/home-stats.ts`); there are none until it answers,
+    // so a chart draws the range the screen asked for with every day at zero.
+    stats: { range: 7, days: [], projects: [] },
     chatOpen: {},
     chatQuery: {},
     archOpen: {},

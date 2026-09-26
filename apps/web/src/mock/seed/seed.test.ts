@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PROTOTYPE_PROJECTS } from "~/testing/projects";
-import { createTestContext } from "~/testing/test-store";
+import {
+  createTestContext,
+  MOCK_CARDS_AND_HISTORY,
+  MOCK_PERSON_SECTIONS,
+} from "~/testing/test-store";
 import type { Env } from "../context";
 import { createIds } from "../ids";
 import { createProtoShape } from "../testing/proto-shape";
@@ -14,6 +18,9 @@ const env = (): Env => ({
   storage: window.localStorage,
   viewport: { w: window.innerWidth, h: window.innerHeight },
   applyTheme: () => {},
+  // This suite proves the seed the reservoir draws from, so the Home feed stays on the mock too,
+  // whatever the register says.
+  sections: { ...MOCK_CARDS_AND_HISTORY, ...MOCK_PERSON_SECTIONS, S17: "mock", S20: "mock" },
 });
 
 describe("seed", () => {

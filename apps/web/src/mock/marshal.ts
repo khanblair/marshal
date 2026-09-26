@@ -1,6 +1,19 @@
+import { isDaemon } from "~/data/sections";
 import { startSync } from "~/sync";
+import * as cardWrites from "~/sync/card-actions";
+import * as cardHold from "~/sync/card-hold";
+import { sendToCard } from "~/sync/card-session";
+import * as cardView from "~/sync/card-view";
+import * as chatWrites from "~/sync/chat-actions";
+import { retryChat, sendToChat } from "~/sync/chat-session";
 import * as connection from "~/sync/connection-actions";
+import { loadCardDiff, loadFileHunks } from "~/sync/diff";
+import { homeActivityPage } from "~/sync/home-feed";
+import * as onboardingWrites from "~/sync/onboarding-actions";
+import * as profileWrites from "~/sync/profile-actions";
 import * as projects from "~/sync/project-actions";
+import * as savedViews from "~/sync/saved-views";
+import { createPaletteSearch } from "~/sync/search";
 import * as approvals from "./actions/approvals";
 import * as cardCreate from "./actions/card-create";
 import * as cards from "./actions/cards";
@@ -32,7 +45,7 @@ import {
   tone,
   VIEWS,
 } from "./constants";
-import { type Ctx, createContext, type Env } from "./context";
+import { type Ctx, createContext, type Env, sectionsOf } from "./context";
 import { deco } from "./deco";
 import { decoMsgs } from "./deco-msgs";
 import { dragStart } from "./dom/drag";
@@ -42,7 +55,7 @@ import { diffFor } from "./seed/diffs";
 import { filesFor } from "./seed/files";
 import * as q from "./selectors";
 import { startSimulation } from "./sim/start";
-import type { AgentInfo } from "./types";
+import type { AgentInfo, Mode } from "./types";
 
 /** Keyboard navigation model the board, list, agents, and timeline views write for the shell. */
 interface NavModel {
@@ -61,6 +74,7 @@ function queries(ctx: Ctx) {
     agentOptions: agents.agentOptions,
     thinkSupported: agents.thinkSupported,
     person: q.person,
+    meId: q.meId,
     cardsOf: q.cardsOf,
     needs: q.needs,
     awake: q.awake,
@@ -74,10 +88,38 @@ function queries(ctx: Ctx) {
     deco,
     decoMsgs,
     commands,
+    startSearch: createPaletteSearch,
+    loadActivityPage: homeActivityPage,
+    loadCardDiff,
+    loadFileHunks,
+    // The terminal view's decoded, escape-stripped text (section S9): empty for a mock-only card,
+    // or a real one nothing has ever applied to.
+    terminalText: cardView.terminalTextOf,
   });
 }
 
 function appActions(ctx: Ctx) {
+  // The profile (S2a) and the saved views (S6a) are the daemon's once their sections are switched,
+  // and each is switched on its own, so a store can have one on the daemon and the other on the mock.
+  const table = sectionsOf(ctx.env);
+  const profileOnDaemon = isDaemon("S2a", table);
+  const viewsOnDaemon = isDaemon("S6a", table);
+  // The first-launch screens and the tour save their progress on the daemon once S31a is switched.
+  const onboardingOnDaemon = isDaemon("S31a", table);
+  // The terminal view's own switch, section S9: a card is the daemon's only once its own `daemonId`
+  // is set (S5a), so `setMode` still falls back to the mock's timeout-based switch for a card the
+  // mock made, or when nothing is open at all, exactly the pattern every other split action here
+  // uses, just decided per call instead of once per store (the mock's own switch has no card of its
+  // own to check against `viewOnDaemon`, S.mode being global to whichever card is open).
+  const viewOnDaemon = isDaemon("S9", table);
+  const setMode = (c: Ctx, mode: Mode): void => {
+    const card = c.S.openId ? q.card(c, c.S.openId) : undefined;
+    if (viewOnDaemon && card?.daemonId) {
+      void cardView.switchView(c, card.id, mode);
+      return;
+    }
+    navigation.setMode(c, mode);
+  };
   return bindActions(ctx, {
     set,
     toast,
@@ -88,11 +130,21 @@ function appActions(ctx: Ctx) {
     openCard: navigation.openCard,
     closeCard: navigation.closeCard,
     setTab: navigation.setTab,
-    setMode: navigation.setMode,
+    setMode,
     setViewport: navigation.setViewport,
-    finishOnboarding: onboarding.finishOnboarding,
-    resetFirstLaunch: onboarding.resetFirstLaunch,
-    startTour: onboarding.startTour,
+    terminalSend: cardView.sendTerminalText,
+    terminalKey: cardView.sendTerminalKey,
+    finishOnboarding: onboardingOnDaemon
+      ? onboardingWrites.finishOnboarding
+      : onboarding.finishOnboarding,
+    resetFirstLaunch: onboardingOnDaemon
+      ? onboardingWrites.resetFirstLaunch
+      : onboarding.resetFirstLaunch,
+    startTour: onboardingOnDaemon ? onboardingWrites.startTour : onboarding.startTour,
+    setOnboardingStep: onboardingOnDaemon
+      ? onboardingWrites.setOnboardingStep
+      : onboarding.setOnboardingStep,
+    endTour: onboardingOnDaemon ? onboardingWrites.endTour : onboarding.endTour,
     setTheme: settings.setTheme,
     runChecks: settings.runChecks,
     simulateCiFailure: settings.simulateCiFailure,
@@ -100,7 +152,9 @@ function appActions(ctx: Ctx) {
     removeFilter: filters.removeFilter,
     clearFilters: filters.clearFilters,
     applyView: filters.applyView,
-    saveView: filters.saveView,
+    saveView: viewsOnDaemon ? savedViews.saveView : filters.saveView,
+    saveProfile: profileOnDaemon ? profileWrites.saveProfile : settings.saveProfile,
+    chooseAvatar: profileOnDaemon ? profileWrites.chooseAvatar : settings.chooseAvatar,
     addProject: projects.addProject,
     renameProject: projects.renameProject,
     saveProject: projects.saveProject,
@@ -111,26 +165,35 @@ function appActions(ctx: Ctx) {
 }
 
 function cardActions(ctx: Ctx) {
+  // The cards are the daemon's once section S5a is switched, so these writes go to it; while the
+  // section is still on the mock they are the mock's own. The phase that deletes the mock removes
+  // the other branch. `newCard` (the New card dialog's draft) stays on the mock for good: it is a
+  // draft before a card exists at all.
+  const onDaemon = isDaemon("S5a", sectionsOf(ctx.env));
+  // The session hold (pause, sleep, wake, pin) is its own section, S7c, switched on its own
+  // schedule: a card can be the daemon's (S5a) before its hold controls are.
+  const holdOnDaemon = isDaemon("S7c", sectionsOf(ctx.env));
   return bindActions(ctx, {
     dragStart,
-    moveCard: cards.moveCard,
-    fork: cards.fork,
-    deleteCard: cards.deleteCard,
-    rename: cards.rename,
-    setSetting: cards.setSetting,
+    moveCard: onDaemon ? cardWrites.moveCard : cards.moveCard,
+    fork: onDaemon ? cardWrites.fork : cards.fork,
+    deleteCard: onDaemon ? cardWrites.deleteCard : cards.deleteCard,
+    rename: onDaemon ? cardWrites.rename : cards.rename,
+    setSetting: onDaemon ? cardWrites.setSetting : cards.setSetting,
     requestBypass: cards.requestBypass,
     turnOffBypass: cards.turnOffBypass,
-    quickAdd: cardCreate.quickAdd,
+    quickAdd: onDaemon ? cardWrites.quickAdd : cardCreate.quickAdd,
     newCard: cardCreate.newCard,
-    createCard: cardCreate.createCard,
-    start: sessions.start,
-    pause: sessions.pause,
-    sleep: sessions.sleep,
-    wake: sessions.wake,
-    pin: sessions.pin,
-    keepAwake: sessions.keepAwake,
-    sleepAll: sessions.sleepAll,
-    keepAllAwake: sessions.keepAllAwake,
+    createCard: onDaemon ? cardWrites.createCard : cardCreate.createCard,
+    start: onDaemon ? cardWrites.start : sessions.start,
+    pause: holdOnDaemon ? cardHold.pause : sessions.pause,
+    sleep: holdOnDaemon ? cardHold.sleep : sessions.sleep,
+    wake: holdOnDaemon ? cardHold.wake : sessions.wake,
+    pin: holdOnDaemon ? cardHold.pin : sessions.pin,
+    stopSession: holdOnDaemon ? cardHold.stopSession : sessions.stopSession,
+    keepAwake: holdOnDaemon ? cardHold.keepAwake : sessions.keepAwake,
+    sleepAll: holdOnDaemon ? cardHold.sleepAll : sessions.sleepAll,
+    keepAllAwake: holdOnDaemon ? cardHold.keepAllAwake : sessions.keepAllAwake,
     dismissNotice: sessions.dismissNotice,
     toggleItem: checklists.toggleItem,
     addItem: checklists.addItem,
@@ -145,6 +208,9 @@ function cardActions(ctx: Ctx) {
 }
 
 function chatActions(ctx: Ctx) {
+  // The project chats are their own section, S17: the daemon keeps them and their messages once it
+  // is switched, and `openChat` (which chat the pane shows) stays the screen's own state.
+  const onDaemon = isDaemon("S17", sectionsOf(ctx.env));
   return bindActions(ctx, {
     approve: approvals.approve,
     deny: approvals.deny,
@@ -153,13 +219,21 @@ function chatActions(ctx: Ctx) {
     editPlan: approvals.editPlan,
     savePlan: approvals.savePlan,
     toggleTool: approvals.toggleTool,
-    send: messages.send,
-    chatSend: chats.chatSend,
+    // The chat is its own section: a card that is the daemon's can still have the mock's chat, and
+    // the other way round, so the send is chosen by the chat's section and not the card's.
+    send: isDaemon("S8a", sectionsOf(ctx.env))
+      ? (target: Ctx, id: CardKey, text: string) => {
+          const api = target.env.data?.api;
+          if (api) void sendToCard(target, api, id, text);
+        }
+      : messages.send,
+    chatSend: onDaemon ? sendToChat : chats.chatSend,
     openChat: chats.openChat,
-    newChat: chats.newChat,
-    renameChat: chats.renameChat,
-    archiveChat: chats.archiveChat,
-    deleteChat: chats.deleteChat,
+    newChat: onDaemon ? chatWrites.newChat : chats.newChat,
+    renameChat: onDaemon ? chatWrites.renameChat : chats.renameChat,
+    archiveChat: onDaemon ? chatWrites.archiveChat : chats.archiveChat,
+    deleteChat: onDaemon ? chatWrites.deleteChat : chats.deleteChat,
+    retryChat,
   });
 }
 

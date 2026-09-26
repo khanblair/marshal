@@ -76,6 +76,21 @@ const DIFF_41: DiffFile[] = [
   { path: "go.sum", add: 1240, del: 0, large: true, hunks: [] },
 ];
 
+/**
+ * What "Load diff" shows for the mock's large file: the first lines of a generated go.sum. The
+ * large file has no hunks of its own, since a real one would be too long to ship as seed data.
+ */
+export const LARGE_FILE_SAMPLE: DiffFile["hunks"] = [
+  {
+    h: "@@ -0,0 +1,1240 @@",
+    lines: [
+      ["+", 1, "cloud.google.com/go v0.115.0 h1:CnFSK6Xo3lDYRoBKEcAtia6VSC837/ZkJuRduSFnr14="],
+      ["+", 2, "google.golang.org/grpc v1.66.0 h1:DibZuoBznOxbDQxRINckZcUvnCEvrW9pcWIE2yF9r1c="],
+      ["+", 3, "..."],
+    ],
+  },
+];
+
 const DIFFS: Record<CardKey, DiffFile[]> = { "api#41": DIFF_41 };
 
 /** The card's diff: a hand-written one for #41, a small generated one for the others. */

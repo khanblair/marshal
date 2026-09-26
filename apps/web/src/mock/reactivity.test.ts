@@ -1,10 +1,16 @@
 import { createEffect, createMemo, createRoot } from "solid-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestMarshal } from "~/testing/test-store";
+import { createTestMarshal, MOCK_CARDS_AND_HISTORY } from "~/testing/test-store";
 import type { Marshal } from "./marshal";
 
 const make = (hash = "#nosim"): Marshal =>
-  createTestMarshal({ hash, storage: null, viewport: { w: 1440, h: 900 }, applyTheme: () => {} });
+  createTestMarshal({
+    hash,
+    storage: null,
+    viewport: { w: 1440, h: 900 },
+    applyTheme: () => {},
+    sections: MOCK_CARDS_AND_HISTORY,
+  });
 
 /** Runs `read` in an effect and records every value it produced. */
 function track<T>(read: () => T): { values: T[]; dispose: () => void } {
@@ -30,8 +36,10 @@ describe("reactivity contract", () => {
     vi.useRealTimers();
   });
 
-  it("re-runs an effect reading M.S.cards[0].doing when an action changes it", () => {
-    const seen = track(() => M.S.cards[0]?.doing);
+  it("re-runs an effect reading a card's doing when an action changes it", () => {
+    // The card is named by its key, not by its place in the store: a store whose cards came from the
+    // daemon keeps them in the daemon's own order, and this test is about the effect re-running.
+    const seen = track(() => M.card("api#41")?.doing);
     expect(seen.values).toEqual(["Running auth tests"]);
     M.moveCard("api#41", "backlog");
     expect(seen.values).toEqual(["Running auth tests", ""]);

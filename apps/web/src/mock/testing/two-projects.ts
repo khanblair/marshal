@@ -3,10 +3,15 @@
  * that mixes up a card's number and its key shows the wrong card. The projects arrive through the
  * mirror, as the daemon's would, and the cards through `quickAdd`, so the numbers come from the
  * per-project counter and the seed is not touched.
+ *
+ * The cards are the daemon's now, so each project is put in both places it is needed: the store,
+ * where the views read it, and the fake daemon, which is what the quick adds are written to.
  */
 
+import { toDaemonProject } from "~/data/mappers/project";
 import { applyProject, applyProjectRemoved } from "~/sync/projects";
-import { daemonProject } from "~/testing/projects";
+import type { FakeDaemon } from "~/testing/fake-daemon";
+import { wireProject } from "~/testing/projects";
 import { contextOf } from "~/testing/test-store";
 import { type CardKey, cardKey } from "../card-key";
 import type { Marshal } from "../marshal";
@@ -26,19 +31,31 @@ export interface TwoProjects {
 const ALPHA_TITLE = "Alpha login form";
 const BETA_TITLE = "Beta billing export";
 
-function addProjectWithCards(M: Marshal, name: string, title: string): string {
-  const pid = name;
-  applyProject(contextOf(M), daemonProject({ id: pid, path: `~/code/${name}` }));
-  // Each new project starts at 1, so the twelfth card is number 12 whatever else exists.
-  for (let n = 1; n < SHARED_NUMBER; n++) M.quickAdd(pid, "backlog", `${name} filler ${n}`);
-  M.quickAdd(pid, "backlog", title);
-  return pid;
+/**
+ * Adds one project to the store and to the daemon, then fills its board with cards 1 to 12 through
+ * the daemon's own create route, so the numbers come from the daemon's per-project counter.
+ */
+async function addProjectWithCards(
+  M: Marshal,
+  d: FakeDaemon,
+  name: string,
+  title: string,
+): Promise<string> {
+  const project = wireProject({ id: name, path: `~/code/${name}` });
+  applyProject(contextOf(M), toDaemonProject(project));
+  d.projects.push(project);
+  // Each new project starts empty, so the twelfth card is number 12 whatever else exists.
+  for (let n = 1; n < SHARED_NUMBER; n++) {
+    await M.quickAdd(name, "backlog", `${name} filler ${n}`);
+  }
+  await M.quickAdd(name, "backlog", title);
+  return name;
 }
 
-/** Adds alpha-service and beta-service to the store, each with cards 1 to 12 in Backlog. */
-export function addTwoProjects(M: Marshal): TwoProjects {
-  const alpha = addProjectWithCards(M, "alpha-service", ALPHA_TITLE);
-  const beta = addProjectWithCards(M, "beta-service", BETA_TITLE);
+/** Adds alpha-service and beta-service, each with cards 1 to 12 in Backlog. */
+export async function addTwoProjects(M: Marshal, d: FakeDaemon): Promise<TwoProjects> {
+  const alpha = await addProjectWithCards(M, d, "alpha-service", ALPHA_TITLE);
+  const beta = await addProjectWithCards(M, d, "beta-service", BETA_TITLE);
   return {
     alpha,
     beta,
@@ -47,8 +64,18 @@ export function addTwoProjects(M: Marshal): TwoProjects {
   };
 }
 
-/** Takes the fixture's projects out again, with their cards. */
-export function removeTwoProjects(M: Marshal, two: TwoProjects): void {
+/**
+ * Takes the fixture's projects out again, with their cards, from the store and from the daemon, so
+ * the next test starts with neither of them anywhere. The daemon's own arrays are spliced in place,
+ * because its router answers from those arrays, not from copies.
+ */
+export function removeTwoProjects(M: Marshal, d: FakeDaemon, two: TwoProjects): void {
   applyProjectRemoved(contextOf(M), two.alpha);
   applyProjectRemoved(contextOf(M), two.beta);
+  for (const pid of [two.alpha, two.beta]) {
+    const at = d.projects.findIndex((project) => project.id === pid);
+    if (at >= 0) d.projects.splice(at, 1);
+  }
+  const mine = (projectId: string): boolean => projectId === two.alpha || projectId === two.beta;
+  d.cards.splice(0, d.cards.length, ...d.cards.filter((card) => !mine(card.projectId)));
 }

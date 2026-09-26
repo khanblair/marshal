@@ -1,5 +1,6 @@
 /* Domain model of the fake daemon. Shapes match design/store.js exactly. */
 
+import type { CardViewMode, SessionState } from "@marshal/protocol";
 import type { CardKey } from "./card-key";
 
 export type Status =
@@ -89,8 +90,14 @@ export interface Comment {
 }
 
 export interface Card {
-  /** The card's key, `<projectId>#<number>`. It is the same in every map, message, and route. */
+  /** The card's key, `<projectId>#<number>`. It is the same in every map, message, and message. */
   id: CardKey;
+  /**
+   * The daemon's own opaque id for this card, which the card routes take (`/v1/cards/{id}`). The
+   * store is keyed by the key, so the two are kept apart: a route given a key answers not_found. A
+   * card the mock made has none, because it never reaches the daemon.
+   */
+  daemonId?: string;
   /** The number within its project, which is what the label `#41` shows. */
   n: number;
   p: string;
@@ -106,6 +113,19 @@ export interface Card {
   cost: number;
   doing: string;
   reason: string;
+  /**
+   * The stored state of the card's session, as the daemon sends it (section S7c). It is undefined on
+   * a card the mock made, which has no session of its own, and null on a daemon card that never had
+   * one. `asleep` and `waking` below are its two flags for the screens, and "awake" is read from it
+   * on a daemon card (`isAwake`).
+   */
+  session?: SessionState | null;
+  /**
+   * Which view the card opens in (section S9), as the daemon stores it: undefined on a card the
+   * mock made, which has no stored view of its own (the mock's own switch, `S.mode`, is global to
+   * whichever card is open, not stored per card).
+   */
+  viewMode?: CardViewMode;
   asleep: boolean;
   pinned: boolean;
   bypass: boolean;
@@ -143,6 +163,12 @@ export interface AgentMsg {
 }
 export interface ToolMsg {
   id: string;
+  /**
+   * The agent's own id for the call, which its updates carry. A daemon chat's tool line has one, so
+   * an update finds the line whether it was read from the stored history or drawn from an event; the
+   * line's own `id` is the stored message's, which is what its detail is read with.
+   */
+  call?: string;
   k: "tool";
   icon: string;
   action: string;
@@ -246,6 +272,13 @@ export interface Chat {
   last: number;
   archived: boolean;
   fresh?: boolean;
+  /**
+   * Where the read of a daemon chat's history stands (section S17): `loading` while it is being read,
+   * and `failed` when it could not be, with the daemon's own sentence in `historyError`. Both are
+   * absent on a chat the mock made and once the history is in.
+   */
+  history?: "loading" | "failed";
+  historyError?: string;
 }
 
 type FeedKind = "brief" | "merge" | "schedule" | "approval" | "plan" | "ci" | "tool";
@@ -257,6 +290,35 @@ export interface FeedItem {
   ts: number;
   cardId?: CardKey;
   job?: string;
+}
+
+/**
+ * One day's stored Home numbers, as `daily_stats` holds them (docs/backend-checklist.md B2.3). The
+ * charts read these rather than summing cards. Times are milliseconds; money is micro-dollars.
+ */
+export interface DailyStat {
+  /** Midnight at the start of the day, in the daemon's own clock. */
+  day: number;
+  cardsFinished: number;
+  merges: number;
+  ciFailures: number;
+  costMicros: number;
+}
+
+/** One project's own days, which is what a cost line per project draws. */
+export interface ProjectDailyStats {
+  projectId: string;
+  days: DailyStat[];
+}
+
+/** The stored numbers behind the two Home charts, over the range the screen asked for. */
+export interface DailyStats {
+  /** 7, 30, or 90 days. */
+  range: number;
+  /** One row per day of the range, oldest first, with every project added together. */
+  days: DailyStat[];
+  /** The same days per project. */
+  projects: ProjectDailyStats[];
 }
 
 export interface SleepNotice {
@@ -337,6 +399,8 @@ export interface Filter {
   v: string;
 }
 export interface SavedView {
+  /** The daemon's id for the view. The mock's own views and the client-side "All cards" have none. */
+  id?: string;
   name: string;
   f: Filter[];
   swim: SwimKey;
