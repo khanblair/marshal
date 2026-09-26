@@ -31,24 +31,27 @@ function checksCount(card: Card): string {
   return `${done + checks.filter((k) => k.st === "passed").length}/${total}`;
 }
 
-function countOf(card: Card, key: CardTab): string | number | undefined {
+function countOf(card: Card, key: CardTab, diffCount: number): string | number | undefined {
   const counts: Partial<Record<CardTab, string | number>> = {
     comments: card.comments.length,
     activity: (M.S.act[card.id] ?? []).length,
-    diff: M.diffFor(card).length,
+    diff: diffCount,
     checks: checksCount(card),
   };
   const count = counts[key];
   return count === "" || count === 0 ? undefined : count;
 }
 
-/** The seven tabs with their counts. Read it inside a memo. */
-export function cardTabs(card: Card): CardTabInfo[] {
+/**
+ * The seven tabs with their counts. Read it inside a memo. The Diff count is given, since it
+ * comes from the card's diff (section S11), which the card panel fetches.
+ */
+export function cardTabs(card: Card, diffCount: number): CardTabInfo[] {
   const failed = (M.S.checks[card.id] ?? []).some((k) => k.st === "failed");
   return TAB_LABELS.map(([key, label]) => ({
     key,
     label,
-    count: countOf(card, key),
+    count: countOf(card, key, diffCount),
     failed: key === "checks" && failed,
   }));
 }

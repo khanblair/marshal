@@ -31,29 +31,14 @@ const LINE_LOOKS: Record<DiffSign, Pick<DiffLineView, "bgClass" | "gutterClass" 
   " ": { bgClass: "bg-transparent", gutterClass: "bg-transparent", textClass: "text-primary" },
 };
 
-const LARGE_FILE_LAST_LINE = 3;
-
-/** What "Load diff" shows for a large file: the first lines of a generated go.sum. */
-const LARGE_FILE_HUNK: DiffFile["hunks"] = [
-  {
-    h: "@@ -0,0 +1,1240 @@",
-    lines: [
-      ["+", 1, "cloud.google.com/go v0.115.0 h1:CnFSK6Xo3lDYRoBKEcAtia6VSC837/ZkJuRduSFnr14="],
-      ["+", 2, "google.golang.org/grpc v1.66.0 h1:DibZuoBznOxbDQxRINckZcUvnCEvrW9pcWIE2yF9r1c="],
-      ["+", LARGE_FILE_LAST_LINE, "..."],
-    ],
-  },
-];
-
 const signText = (sign: DiffSign): string => {
   if (sign === " ") return "";
   return sign === "-" ? MINUS : "+";
 };
 
-/** Hunks ready to draw. A large file only has lines once the user loaded it. */
-export function hunkViews(file: DiffFile, loaded: boolean): DiffHunkView[] {
-  const hunks = file.large && loaded ? LARGE_FILE_HUNK : file.hunks;
-  return hunks.map((hunk) => ({
+/** Hunks ready to draw: exactly the lines the file has, whatever its size. */
+export function hunkViews(file: DiffFile): DiffHunkView[] {
+  return file.hunks.map((hunk) => ({
     header: hunk.h,
     lines: hunk.lines.map(([sign, n, text]) => ({
       n,
@@ -88,3 +73,23 @@ export function toggled(open: ReadonlySet<string>, path: string): string[] {
 }
 
 export const allOpen = (diff: readonly DiffFile[]): string[] => diff.map((file) => file.path);
+
+/** The space between two files in the list: `gap-2.5`, which is 10 px. */
+export const FILE_GAP_PX = 10;
+/** A closed file: its header is `min-h-9` (36 px) inside a 1 px border on each side. */
+const CLOSED_FILE_PX = 38;
+/** One line of a hunk, or a hunk's header: `leading-5`. */
+const LINE_PX = 20;
+/** An open file is at least this many lines tall: the notice of a large one, or a short hunk. */
+const MIN_OPEN_LINES = 3;
+
+/**
+ * How tall a file's row is thought to be until it is drawn and measured: closed, or open and as
+ * tall as the lines it has now. The list draws only the files near the screen, and it places every
+ * other one by this.
+ */
+export function estimateFileHeight(open: boolean, hunks: DiffFile["hunks"]): number {
+  if (!open) return CLOSED_FILE_PX;
+  const lines = hunks.reduce((count, hunk) => count + 1 + hunk.lines.length, 0);
+  return CLOSED_FILE_PX + Math.max(lines, MIN_OPEN_LINES) * LINE_PX;
+}

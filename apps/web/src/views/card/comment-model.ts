@@ -24,8 +24,6 @@ export interface CommentView {
   mine: boolean;
 }
 
-/** The signed-in user. Only their own comments can be deleted. */
-const ME = "ada";
 const INITIALS_MAX = 2;
 
 export const initialsOf = (name: string): string =>
@@ -60,7 +58,8 @@ function commentView(card: Card, comment: Comment): CommentView {
       .filter((att) => att.kind === "image")
       .map((att) => ({ name: att.name, src: att.src ?? "" })),
     files: comment.att.filter((att) => att.kind !== "image").map(fileView),
-    mine: comment.author === ME,
+    // Only the signed-in user's own comments can be deleted.
+    mine: comment.author === M.meId(),
   };
 }
 

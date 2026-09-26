@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DiffFile } from "~/mock";
-import { allOpen, hunkViews, openPaths, toggled } from "./diff-model";
+import { allOpen, estimateFileHeight, hunkViews, openPaths, toggled } from "./diff-model";
 
 const file = (path: string, large = false): DiffFile => ({
   path,
@@ -45,7 +45,7 @@ describe("toggled and allOpen", () => {
 
 describe("hunkViews", () => {
   it("colors each line by its sign and uses the minus sign character", () => {
-    const [hunk] = hunkViews(file("a.go"), false);
+    const [hunk] = hunkViews(file("a.go"));
     expect(hunk?.header).toBe("@@ -1,3 +1,4 @@");
     expect(hunk?.lines.map((line) => line.sign)).toEqual(["", "−", "+"]);
     expect(hunk?.lines.map((line) => line.bgClass)).toEqual([
@@ -61,11 +61,29 @@ describe("hunkViews", () => {
     });
   });
 
-  it("shows the sample lines only after a large file is loaded", () => {
+  it("draws exactly the lines a file has, large or not", () => {
     const large = file("go.sum", true);
-    expect(hunkViews(large, false)[0]?.header).toBe("@@ -1,3 +1,4 @@");
-    const loaded = hunkViews(large, true);
-    expect(loaded[0]?.header).toBe("@@ -0,0 +1,1240 @@");
-    expect(loaded[0]?.lines).toHaveLength(3);
+    expect(hunkViews(large)[0]?.header).toBe("@@ -1,3 +1,4 @@");
+    expect(hunkViews(large)[0]?.lines).toHaveLength(3);
+    expect(hunkViews({ ...large, hunks: [] })).toEqual([]);
+  });
+});
+
+describe("estimateFileHeight", () => {
+  const hunks = file("a.go").hunks;
+
+  it("is the height of the header for a closed file, whatever it holds", () => {
+    expect(estimateFileHeight(false, [])).toBe(38);
+    expect(estimateFileHeight(false, hunks)).toBe(38);
+  });
+
+  it("adds a line for the hunk's header and one for each of its lines when the file is open", () => {
+    // One hunk of three lines is four lines of 20 px under the 38 px header.
+    expect(estimateFileHeight(true, hunks)).toBe(38 + 4 * 20);
+    expect(estimateFileHeight(true, [...hunks, ...hunks])).toBe(38 + 8 * 20);
+  });
+
+  it("gives an open file that has no lines yet room for its notice or its first hunk", () => {
+    expect(estimateFileHeight(true, [])).toBe(38 + 3 * 20);
   });
 });
