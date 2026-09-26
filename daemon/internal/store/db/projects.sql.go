@@ -9,6 +9,77 @@ import (
 	"context"
 )
 
+const addCardLabel = `-- name: AddCardLabel :exec
+INSERT INTO card_labels (card_id, label_id) VALUES (?, ?)
+`
+
+type AddCardLabelParams struct {
+	CardID  string
+	LabelID string
+}
+
+func (q *Queries) AddCardLabel(ctx context.Context, arg AddCardLabelParams) error {
+	_, err := q.db.ExecContext(ctx, addCardLabel, arg.CardID, arg.LabelID)
+	return err
+}
+
+const clearCardLabels = `-- name: ClearCardLabels :exec
+DELETE FROM card_labels WHERE card_id = ?
+`
+
+func (q *Queries) ClearCardLabels(ctx context.Context, cardID string) error {
+	_, err := q.db.ExecContext(ctx, clearCardLabels, cardID)
+	return err
+}
+
+const countCardsByState = `-- name: CountCardsByState :many
+SELECT project_id, state, CAST(COUNT(*) AS INTEGER) AS cards
+FROM cards
+GROUP BY project_id, state
+`
+
+type CountCardsByStateRow struct {
+	ProjectID string
+	State     string
+	Cards     int64
+}
+
+func (q *Queries) CountCardsByState(ctx context.Context) ([]CountCardsByStateRow, error) {
+	rows, err := q.db.QueryContext(ctx, countCardsByState)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []CountCardsByStateRow{}
+	for rows.Next() {
+		var i CountCardsByStateRow
+		if err := rows.Scan(&i.ProjectID, &i.State, &i.Cards); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const countCardsFinishedSince = `-- name: CountCardsFinishedSince :one
+SELECT CAST(COUNT(*) AS INTEGER) AS cards
+FROM cards
+WHERE state = 'done' AND updated_at >= ?
+`
+
+func (q *Queries) CountCardsFinishedSince(ctx context.Context, updatedAt int64) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countCardsFinishedSince, updatedAt)
+	var cards int64
+	err := row.Scan(&cards)
+	return cards, err
+}
+
 const countNeedsByProject = `-- name: CountNeedsByProject :many
 SELECT project_id, CAST(COUNT(*) AS INTEGER) AS needs
 FROM cards
@@ -73,8 +144,8 @@ func (q *Queries) CreateBoard(ctx context.Context, arg CreateBoardParams) error 
 const createCard = `-- name: CreateCard :exec
 INSERT INTO cards (
     id, project_id, number, board_id, title, body, state, agent_kind, model, thinking,
-    permission_mode, created_by, created_at, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    permission_mode, role, package, created_by, created_at, updated_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateCardParams struct {
@@ -89,6 +160,8 @@ type CreateCardParams struct {
 	Model          string
 	Thinking       string
 	PermissionMode string
+	Role           string
+	Package        string
 	CreatedBy      string
 	CreatedAt      int64
 	UpdatedAt      int64
@@ -107,9 +180,34 @@ func (q *Queries) CreateCard(ctx context.Context, arg CreateCardParams) error {
 		arg.Model,
 		arg.Thinking,
 		arg.PermissionMode,
+		arg.Role,
+		arg.Package,
 		arg.CreatedBy,
 		arg.CreatedAt,
 		arg.UpdatedAt,
+	)
+	return err
+}
+
+const createLabel = `-- name: CreateLabel :exec
+INSERT INTO labels (id, project_id, name, color, created_at) VALUES (?, ?, ?, ?, ?)
+`
+
+type CreateLabelParams struct {
+	ID        string
+	ProjectID string
+	Name      string
+	Color     string
+	CreatedAt int64
+}
+
+func (q *Queries) CreateLabel(ctx context.Context, arg CreateLabelParams) error {
+	_, err := q.db.ExecContext(ctx, createLabel,
+		arg.ID,
+		arg.ProjectID,
+		arg.Name,
+		arg.Color,
+		arg.CreatedAt,
 	)
 	return err
 }
@@ -152,6 +250,30 @@ func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) er
 	return err
 }
 
+const deleteCard = `-- name: DeleteCard :execrows
+DELETE FROM cards WHERE id = ?
+`
+
+func (q *Queries) DeleteCard(ctx context.Context, id string) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteCard, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const deleteLabel = `-- name: DeleteLabel :execrows
+DELETE FROM labels WHERE id = ?
+`
+
+func (q *Queries) DeleteLabel(ctx context.Context, id string) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteLabel, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const deleteProject = `-- name: DeleteProject :execrows
 DELETE FROM projects WHERE id = ?
 `
@@ -176,7 +298,7 @@ func (q *Queries) GetBoardByProject(ctx context.Context, projectID string) (Boar
 }
 
 const getCard = `-- name: GetCard :one
-SELECT id, project_id, number, board_id, title, body, state, role_id, agent_kind, model, thinking, permission_mode, branch, worktree_path, pinned, created_by, created_at, updated_at FROM cards WHERE id = ?
+SELECT id, project_id, number, board_id, title, body, state, role_id, agent_kind, model, thinking, permission_mode, branch, worktree_path, pinned, created_by, created_at, updated_at, role, package, planned_start, planned_end, due, actual_start, actual_end, pull_request_number, pull_request_url, ci_state, context_used, needs_reason_kind, needs_reason_text, needs_since, doing_now, paused, forked_from FROM cards WHERE id = ?
 `
 
 func (q *Queries) GetCard(ctx context.Context, id string) (Card, error) {
@@ -201,12 +323,29 @@ func (q *Queries) GetCard(ctx context.Context, id string) (Card, error) {
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Role,
+		&i.Package,
+		&i.PlannedStart,
+		&i.PlannedEnd,
+		&i.Due,
+		&i.ActualStart,
+		&i.ActualEnd,
+		&i.PullRequestNumber,
+		&i.PullRequestUrl,
+		&i.CiState,
+		&i.ContextUsed,
+		&i.NeedsReasonKind,
+		&i.NeedsReasonText,
+		&i.NeedsSince,
+		&i.DoingNow,
+		&i.Paused,
+		&i.ForkedFrom,
 	)
 	return i, err
 }
 
 const getCardByKey = `-- name: GetCardByKey :one
-SELECT id, project_id, number, board_id, title, body, state, role_id, agent_kind, model, thinking, permission_mode, branch, worktree_path, pinned, created_by, created_at, updated_at FROM cards WHERE project_id = ? AND number = ?
+SELECT id, project_id, number, board_id, title, body, state, role_id, agent_kind, model, thinking, permission_mode, branch, worktree_path, pinned, created_by, created_at, updated_at, role, package, planned_start, planned_end, due, actual_start, actual_end, pull_request_number, pull_request_url, ci_state, context_used, needs_reason_kind, needs_reason_text, needs_since, doing_now, paused, forked_from FROM cards WHERE project_id = ? AND number = ?
 `
 
 type GetCardByKeyParams struct {
@@ -236,6 +375,52 @@ func (q *Queries) GetCardByKey(ctx context.Context, arg GetCardByKeyParams) (Car
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Role,
+		&i.Package,
+		&i.PlannedStart,
+		&i.PlannedEnd,
+		&i.Due,
+		&i.ActualStart,
+		&i.ActualEnd,
+		&i.PullRequestNumber,
+		&i.PullRequestUrl,
+		&i.CiState,
+		&i.ContextUsed,
+		&i.NeedsReasonKind,
+		&i.NeedsReasonText,
+		&i.NeedsSince,
+		&i.DoingNow,
+		&i.Paused,
+		&i.ForkedFrom,
+	)
+	return i, err
+}
+
+const getCardForkedFrom = `-- name: GetCardForkedFrom :one
+SELECT forked_from FROM cards WHERE id = ?
+`
+
+// The card a fork came from, for the session manager when it makes the worktree.
+func (q *Queries) GetCardForkedFrom(ctx context.Context, id string) (string, error) {
+	row := q.db.QueryRowContext(ctx, getCardForkedFrom, id)
+	var forked_from string
+	err := row.Scan(&forked_from)
+	return forked_from, err
+}
+
+const getLabel = `-- name: GetLabel :one
+SELECT id, project_id, name, color, created_at FROM labels WHERE id = ?
+`
+
+func (q *Queries) GetLabel(ctx context.Context, id string) (Label, error) {
+	row := q.db.QueryRowContext(ctx, getLabel, id)
+	var i Label
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Name,
+		&i.Color,
+		&i.CreatedAt,
 	)
 	return i, err
 }
@@ -315,8 +500,57 @@ func (q *Queries) ListCardBranches(ctx context.Context, projectID string) ([]str
 	return items, nil
 }
 
+const listCardLabelsByProject = `-- name: ListCardLabelsByProject :many
+SELECT card_labels.card_id AS card_id, labels.id AS label_id, labels.project_id AS project_id,
+       labels.name AS name, labels.color AS color, labels.created_at AS created_at
+FROM card_labels
+JOIN labels ON labels.id = card_labels.label_id
+WHERE labels.project_id = ?
+ORDER BY labels.name
+`
+
+type ListCardLabelsByProjectRow struct {
+	CardID    string
+	LabelID   string
+	ProjectID string
+	Name      string
+	Color     string
+	CreatedAt int64
+}
+
+// Every label on every card of a project, so a board can be built without a query per card.
+func (q *Queries) ListCardLabelsByProject(ctx context.Context, projectID string) ([]ListCardLabelsByProjectRow, error) {
+	rows, err := q.db.QueryContext(ctx, listCardLabelsByProject, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListCardLabelsByProjectRow{}
+	for rows.Next() {
+		var i ListCardLabelsByProjectRow
+		if err := rows.Scan(
+			&i.CardID,
+			&i.LabelID,
+			&i.ProjectID,
+			&i.Name,
+			&i.Color,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listCardsByProject = `-- name: ListCardsByProject :many
-SELECT id, project_id, number, board_id, title, body, state, role_id, agent_kind, model, thinking, permission_mode, branch, worktree_path, pinned, created_by, created_at, updated_at FROM cards WHERE project_id = ? ORDER BY number
+SELECT id, project_id, number, board_id, title, body, state, role_id, agent_kind, model, thinking, permission_mode, branch, worktree_path, pinned, created_by, created_at, updated_at, role, package, planned_start, planned_end, due, actual_start, actual_end, pull_request_number, pull_request_url, ci_state, context_used, needs_reason_kind, needs_reason_text, needs_since, doing_now, paused, forked_from FROM cards WHERE project_id = ? ORDER BY number
 `
 
 func (q *Queries) ListCardsByProject(ctx context.Context, projectID string) ([]Card, error) {
@@ -347,6 +581,228 @@ func (q *Queries) ListCardsByProject(ctx context.Context, projectID string) ([]C
 			&i.CreatedBy,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Role,
+			&i.Package,
+			&i.PlannedStart,
+			&i.PlannedEnd,
+			&i.Due,
+			&i.ActualStart,
+			&i.ActualEnd,
+			&i.PullRequestNumber,
+			&i.PullRequestUrl,
+			&i.CiState,
+			&i.ContextUsed,
+			&i.NeedsReasonKind,
+			&i.NeedsReasonText,
+			&i.NeedsSince,
+			&i.DoingNow,
+			&i.Paused,
+			&i.ForkedFrom,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCardsNeedingYou = `-- name: ListCardsNeedingYou :many
+SELECT cards.id, cards.project_id, cards.number, cards.board_id, cards.title, cards.body, cards.state, cards.role_id, cards.agent_kind, cards.model, cards.thinking, cards.permission_mode, cards.branch, cards.worktree_path, cards.pinned, cards.created_by, cards.created_at, cards.updated_at, cards.role, cards.package, cards.planned_start, cards.planned_end, cards.due, cards.actual_start, cards.actual_end, cards.pull_request_number, cards.pull_request_url, cards.ci_state, cards.context_used, cards.needs_reason_kind, cards.needs_reason_text, cards.needs_since, cards.doing_now, cards.paused, cards.forked_from, projects.name AS project_name
+FROM cards
+JOIN projects ON projects.id = cards.project_id
+WHERE cards.state = 'needs'
+ORDER BY COALESCE(cards.needs_since, cards.updated_at), cards.id
+`
+
+type ListCardsNeedingYouRow struct {
+	ID                string
+	ProjectID         string
+	Number            int64
+	BoardID           string
+	Title             string
+	Body              string
+	State             string
+	RoleID            string
+	AgentKind         string
+	Model             string
+	Thinking          string
+	PermissionMode    string
+	Branch            string
+	WorktreePath      string
+	Pinned            int64
+	CreatedBy         string
+	CreatedAt         int64
+	UpdatedAt         int64
+	Role              string
+	Package           string
+	PlannedStart      *int64
+	PlannedEnd        *int64
+	Due               *int64
+	ActualStart       *int64
+	ActualEnd         *int64
+	PullRequestNumber *int64
+	PullRequestUrl    string
+	CiState           string
+	ContextUsed       int64
+	NeedsReasonKind   string
+	NeedsReasonText   string
+	NeedsSince        *int64
+	DoingNow          string
+	Paused            int64
+	ForkedFrom        string
+	ProjectName       string
+}
+
+// Home's needs-you list. Ordered by how long the card has waited, longest first.
+func (q *Queries) ListCardsNeedingYou(ctx context.Context) ([]ListCardsNeedingYouRow, error) {
+	rows, err := q.db.QueryContext(ctx, listCardsNeedingYou)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListCardsNeedingYouRow{}
+	for rows.Next() {
+		var i ListCardsNeedingYouRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Number,
+			&i.BoardID,
+			&i.Title,
+			&i.Body,
+			&i.State,
+			&i.RoleID,
+			&i.AgentKind,
+			&i.Model,
+			&i.Thinking,
+			&i.PermissionMode,
+			&i.Branch,
+			&i.WorktreePath,
+			&i.Pinned,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Role,
+			&i.Package,
+			&i.PlannedStart,
+			&i.PlannedEnd,
+			&i.Due,
+			&i.ActualStart,
+			&i.ActualEnd,
+			&i.PullRequestNumber,
+			&i.PullRequestUrl,
+			&i.CiState,
+			&i.ContextUsed,
+			&i.NeedsReasonKind,
+			&i.NeedsReasonText,
+			&i.NeedsSince,
+			&i.DoingNow,
+			&i.Paused,
+			&i.ForkedFrom,
+			&i.ProjectName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCardsWithLabel = `-- name: ListCardsWithLabel :many
+SELECT card_id FROM card_labels WHERE label_id = ? ORDER BY card_id
+`
+
+// The cards that carry a label, before the label is deleted.
+func (q *Queries) ListCardsWithLabel(ctx context.Context, labelID string) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listCardsWithLabel, labelID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var card_id string
+		if err := rows.Scan(&card_id); err != nil {
+			return nil, err
+		}
+		items = append(items, card_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLabelsByProject = `-- name: ListLabelsByProject :many
+SELECT id, project_id, name, color, created_at FROM labels WHERE project_id = ? ORDER BY name
+`
+
+func (q *Queries) ListLabelsByProject(ctx context.Context, projectID string) ([]Label, error) {
+	rows, err := q.db.QueryContext(ctx, listLabelsByProject, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Label{}
+	for rows.Next() {
+		var i Label
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Name,
+			&i.Color,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLabelsForCard = `-- name: ListLabelsForCard :many
+SELECT labels.id, labels.project_id, labels.name, labels.color, labels.created_at FROM labels
+JOIN card_labels ON card_labels.label_id = labels.id
+WHERE card_labels.card_id = ?
+ORDER BY labels.name
+`
+
+func (q *Queries) ListLabelsForCard(ctx context.Context, cardID string) ([]Label, error) {
+	rows, err := q.db.QueryContext(ctx, listLabelsForCard, cardID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Label{}
+	for rows.Next() {
+		var i Label
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Name,
+			&i.Color,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -428,6 +884,128 @@ func (q *Queries) ReserveCardNumber(ctx context.Context, id string) (int64, erro
 	return column_1, err
 }
 
+const setCardForkFields = `-- name: SetCardForkFields :execrows
+UPDATE cards SET forked_from = ?, doing_now = ?, updated_at = ? WHERE id = ?
+`
+
+type SetCardForkFieldsParams struct {
+	ForkedFrom string
+	DoingNow   string
+	UpdatedAt  int64
+	ID         string
+}
+
+// Records where a card came from, so its branch starts from that card's latest commit, and the
+// "doing now" line it shows until it starts. Both are set as the card is created, which is why
+// they are not part of the plain insert that every card goes through.
+func (q *Queries) SetCardForkFields(ctx context.Context, arg SetCardForkFieldsParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, setCardForkFields,
+		arg.ForkedFrom,
+		arg.DoingNow,
+		arg.UpdatedAt,
+		arg.ID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const setNextCardNumber = `-- name: SetNextCardNumber :exec
+UPDATE projects SET next_card_number = ? WHERE id = ? AND next_card_number < ?
+`
+
+type SetNextCardNumberParams struct {
+	NextCardNumber   int64
+	ID               string
+	NextCardNumber_2 int64
+}
+
+// Moves a project's card counter past a number a fixture wrote, so the next card a person adds
+// does not take a number that is already on the board. It never moves the counter backwards.
+func (q *Queries) SetNextCardNumber(ctx context.Context, arg SetNextCardNumberParams) error {
+	_, err := q.db.ExecContext(ctx, setNextCardNumber, arg.NextCardNumber, arg.ID, arg.NextCardNumber_2)
+	return err
+}
+
+const updateCardFields = `-- name: UpdateCardFields :execrows
+UPDATE cards
+SET number = ?, state = ?, title = ?, body = ?, agent_kind = ?, model = ?, thinking = ?, permission_mode = ?,
+    role = ?, package = ?, planned_start = ?, planned_end = ?, due = ?, actual_start = ?,
+    actual_end = ?, pull_request_number = ?, pull_request_url = ?, ci_state = ?,
+    context_used = ?, needs_reason_kind = ?, needs_reason_text = ?, needs_since = ?,
+    doing_now = ?, paused = ?, pinned = ?, updated_at = ?
+WHERE id = ?
+`
+
+type UpdateCardFieldsParams struct {
+	Number            int64
+	State             string
+	Title             string
+	Body              string
+	AgentKind         string
+	Model             string
+	Thinking          string
+	PermissionMode    string
+	Role              string
+	Package           string
+	PlannedStart      *int64
+	PlannedEnd        *int64
+	Due               *int64
+	ActualStart       *int64
+	ActualEnd         *int64
+	PullRequestNumber *int64
+	PullRequestUrl    string
+	CiState           string
+	ContextUsed       int64
+	NeedsReasonKind   string
+	NeedsReasonText   string
+	NeedsSince        *int64
+	DoingNow          string
+	Paused            int64
+	Pinned            int64
+	UpdatedAt         int64
+	ID                string
+}
+
+// Writes the fields a person can change on a card. Every value is passed as it should end up, so
+// a caller that leaves one alone passes what it read.
+func (q *Queries) UpdateCardFields(ctx context.Context, arg UpdateCardFieldsParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, updateCardFields,
+		arg.Number,
+		arg.State,
+		arg.Title,
+		arg.Body,
+		arg.AgentKind,
+		arg.Model,
+		arg.Thinking,
+		arg.PermissionMode,
+		arg.Role,
+		arg.Package,
+		arg.PlannedStart,
+		arg.PlannedEnd,
+		arg.Due,
+		arg.ActualStart,
+		arg.ActualEnd,
+		arg.PullRequestNumber,
+		arg.PullRequestUrl,
+		arg.CiState,
+		arg.ContextUsed,
+		arg.NeedsReasonKind,
+		arg.NeedsReasonText,
+		arg.NeedsSince,
+		arg.DoingNow,
+		arg.Paused,
+		arg.Pinned,
+		arg.UpdatedAt,
+		arg.ID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const updateCardState = `-- name: UpdateCardState :execrows
 UPDATE cards SET state = ?, updated_at = ? WHERE id = ?
 `
@@ -464,6 +1042,24 @@ func (q *Queries) UpdateCardWorktree(ctx context.Context, arg UpdateCardWorktree
 		arg.UpdatedAt,
 		arg.ID,
 	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const updateLabel = `-- name: UpdateLabel :execrows
+UPDATE labels SET name = ?, color = ? WHERE id = ?
+`
+
+type UpdateLabelParams struct {
+	Name  string
+	Color string
+	ID    string
+}
+
+func (q *Queries) UpdateLabel(ctx context.Context, arg UpdateLabelParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, updateLabel, arg.Name, arg.Color, arg.ID)
 	if err != nil {
 		return 0, err
 	}

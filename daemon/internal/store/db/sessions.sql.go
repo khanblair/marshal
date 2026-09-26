@@ -9,14 +9,14 @@ import (
 	"context"
 )
 
-const createSession = `-- name: CreateSession :exec
+const createCardSession = `-- name: CreateCardSession :exec
 INSERT INTO sessions (
     id, card_id, agent_kind, agent_session_id, state, model, thinking,
     permission_mode, last_active_at, created_at, updated_at
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
-type CreateSessionParams struct {
+type CreateCardSessionParams struct {
 	ID             string
 	CardID         string
 	AgentKind      string
@@ -30,10 +30,52 @@ type CreateSessionParams struct {
 	UpdatedAt      int64
 }
 
-func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) error {
-	_, err := q.db.ExecContext(ctx, createSession,
+// The insert the session manager makes for a card, with the chat side left NULL.
+func (q *Queries) CreateCardSession(ctx context.Context, arg CreateCardSessionParams) error {
+	_, err := q.db.ExecContext(ctx, createCardSession,
 		arg.ID,
 		arg.CardID,
+		arg.AgentKind,
+		arg.AgentSessionID,
+		arg.State,
+		arg.Model,
+		arg.Thinking,
+		arg.PermissionMode,
+		arg.LastActiveAt,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+	)
+	return err
+}
+
+const createChatSession = `-- name: CreateChatSession :exec
+INSERT INTO sessions (
+    id, chat_id, agent_kind, agent_session_id, state, model, thinking,
+    permission_mode, last_active_at, created_at, updated_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type CreateChatSessionParams struct {
+	ID             string
+	ChatID         *string
+	AgentKind      string
+	AgentSessionID string
+	State          string
+	Model          string
+	Thinking       string
+	PermissionMode string
+	LastActiveAt   int64
+	CreatedAt      int64
+	UpdatedAt      int64
+}
+
+// The insert the chats service makes when a chat is created, with the card side left NULL. A chat's
+// own session row exists from the moment the chat does; the session manager resumes it when the
+// chat is opened (slice C).
+func (q *Queries) CreateChatSession(ctx context.Context, arg CreateChatSessionParams) error {
+	_, err := q.db.ExecContext(ctx, createChatSession,
+		arg.ID,
+		arg.ChatID,
 		arg.AgentKind,
 		arg.AgentSessionID,
 		arg.State,
@@ -60,7 +102,7 @@ func (q *Queries) DeleteSession(ctx context.Context, id string) (int64, error) {
 }
 
 const getSession = `-- name: GetSession :one
-SELECT id, card_id, agent_kind, agent_session_id, state, model, thinking, permission_mode, last_active_at, created_at, updated_at FROM sessions WHERE id = ?
+SELECT id, card_id, chat_id, agent_kind, agent_session_id, state, model, thinking, permission_mode, last_active_at, created_at, updated_at, view_mode FROM sessions WHERE id = ?
 `
 
 func (q *Queries) GetSession(ctx context.Context, id string) (Session, error) {
@@ -69,6 +111,7 @@ func (q *Queries) GetSession(ctx context.Context, id string) (Session, error) {
 	err := row.Scan(
 		&i.ID,
 		&i.CardID,
+		&i.ChatID,
 		&i.AgentKind,
 		&i.AgentSessionID,
 		&i.State,
@@ -78,20 +121,25 @@ func (q *Queries) GetSession(ctx context.Context, id string) (Session, error) {
 		&i.LastActiveAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ViewMode,
 	)
 	return i, err
 }
 
 const getSessionByCard = `-- name: GetSessionByCard :one
-SELECT id, card_id, agent_kind, agent_session_id, state, model, thinking, permission_mode, last_active_at, created_at, updated_at FROM sessions WHERE card_id = ?
+SELECT id, card_id, chat_id, agent_kind, agent_session_id, state, model, thinking, permission_mode, last_active_at, created_at, updated_at, view_mode FROM sessions WHERE card_id = ? AND card_id <> ''
 `
 
+// The second term is not redundant. A chat's session stores ” as its card, so without it an empty
+// card id would find a chat's session; and the index on card_id is partial (WHERE card_id <> ”),
+// which SQLite only uses when the query carries that same term.
 func (q *Queries) GetSessionByCard(ctx context.Context, cardID string) (Session, error) {
 	row := q.db.QueryRowContext(ctx, getSessionByCard, cardID)
 	var i Session
 	err := row.Scan(
 		&i.ID,
 		&i.CardID,
+		&i.ChatID,
 		&i.AgentKind,
 		&i.AgentSessionID,
 		&i.State,
@@ -101,17 +149,88 @@ func (q *Queries) GetSessionByCard(ctx context.Context, cardID string) (Session,
 		&i.LastActiveAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ViewMode,
 	)
 	return i, err
 }
 
-const listResumableSessions = `-- name: ListResumableSessions :many
-SELECT id, card_id, agent_kind, agent_session_id, state, model, thinking, permission_mode, last_active_at, created_at, updated_at FROM sessions WHERE state IN ('starting', 'awake', 'working') ORDER BY card_id
+const getSessionByChat = `-- name: GetSessionByChat :one
+SELECT id, card_id, chat_id, agent_kind, agent_session_id, state, model, thinking, permission_mode, last_active_at, created_at, updated_at, view_mode FROM sessions WHERE chat_id = ?
 `
 
-// The states a live session can be in while the daemon runs, in Phase 1: the other states in
-// protocol.SessionStateValues (waiting-approval, sleep-warning, asleep, waking) belong to later
-// phases and nothing writes them yet.
+func (q *Queries) GetSessionByChat(ctx context.Context, chatID *string) (Session, error) {
+	row := q.db.QueryRowContext(ctx, getSessionByChat, chatID)
+	var i Session
+	err := row.Scan(
+		&i.ID,
+		&i.CardID,
+		&i.ChatID,
+		&i.AgentKind,
+		&i.AgentSessionID,
+		&i.State,
+		&i.Model,
+		&i.Thinking,
+		&i.PermissionMode,
+		&i.LastActiveAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ViewMode,
+	)
+	return i, err
+}
+
+const listCardSessionStatesByProject = `-- name: ListCardSessionStatesByProject :many
+SELECT sessions.card_id AS card_id, sessions.state AS state, sessions.view_mode AS view_mode
+FROM sessions
+JOIN cards ON cards.id = sessions.card_id
+WHERE cards.project_id = ?
+`
+
+type ListCardSessionStatesByProjectRow struct {
+	CardID   string
+	State    string
+	ViewMode string
+}
+
+// The stored state and view of every card session of one project, for the session and viewMode
+// fields of the wire card, so a board reads them all at once. A chat's session belongs to no card
+// and is not joined.
+func (q *Queries) ListCardSessionStatesByProject(ctx context.Context, projectID string) ([]ListCardSessionStatesByProjectRow, error) {
+	rows, err := q.db.QueryContext(ctx, listCardSessionStatesByProject, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListCardSessionStatesByProjectRow{}
+	for rows.Next() {
+		var i ListCardSessionStatesByProjectRow
+		if err := rows.Scan(&i.CardID, &i.State, &i.ViewMode); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listResumableSessions = `-- name: ListResumableSessions :many
+SELECT id, card_id, chat_id, agent_kind, agent_session_id, state, model, thinking, permission_mode, last_active_at, created_at, updated_at, view_mode FROM sessions
+WHERE card_id <> '' AND state IN ('starting', 'awake', 'working', 'waking')
+ORDER BY card_id
+`
+
+// The card sessions that still need a resume after a restart. 'asleep' is deliberately not one of
+// the states: sleep is a person's decision (B2.15), and only a person wakes it. 'waking' is one of
+// them, because a daemon that stopped in the middle of a wake left nothing running and the card
+// would otherwise be stranded as waking forever. Nothing writes 'waiting-approval' or
+// 'sleep-warning' yet (Phase 3 and Phase 5). A chat's session is never in this list: it starts on
+// demand, so its next message resumes it through its saved id, and a chat that nobody opens starts
+// nothing at restart.
 func (q *Queries) ListResumableSessions(ctx context.Context) ([]Session, error) {
 	rows, err := q.db.QueryContext(ctx, listResumableSessions)
 	if err != nil {
@@ -124,6 +243,7 @@ func (q *Queries) ListResumableSessions(ctx context.Context) ([]Session, error) 
 		if err := rows.Scan(
 			&i.ID,
 			&i.CardID,
+			&i.ChatID,
 			&i.AgentKind,
 			&i.AgentSessionID,
 			&i.State,
@@ -133,6 +253,7 @@ func (q *Queries) ListResumableSessions(ctx context.Context) ([]Session, error) 
 			&i.LastActiveAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ViewMode,
 		); err != nil {
 			return nil, err
 		}
@@ -149,8 +270,10 @@ func (q *Queries) ListResumableSessions(ctx context.Context) ([]Session, error) 
 
 const updateSessionRuntime = `-- name: UpdateSessionRuntime :execrows
 UPDATE sessions
-SET state = ?, agent_session_id = ?, last_active_at = ?, updated_at = ?
-WHERE id = ?
+SET state = ?1, agent_session_id = ?2,
+    last_active_at = ?3, updated_at = ?4,
+    view_mode = CASE WHEN ?1 = 'stopped' THEN 'chat' ELSE view_mode END
+WHERE id = ?5
 `
 
 type UpdateSessionRuntimeParams struct {
@@ -161,6 +284,9 @@ type UpdateSessionRuntimeParams struct {
 	ID             string
 }
 
+// A session that stops is back in the chat view: nothing runs for it, and the next start of the card
+// resumes it in the structured mode. Every way a session ends goes through this one write, so the
+// rule is stated here once. The other states keep the view the session is in.
 func (q *Queries) UpdateSessionRuntime(ctx context.Context, arg UpdateSessionRuntimeParams) (int64, error) {
 	result, err := q.db.ExecContext(ctx, updateSessionRuntime,
 		arg.State,
@@ -169,6 +295,28 @@ func (q *Queries) UpdateSessionRuntime(ctx context.Context, arg UpdateSessionRun
 		arg.UpdatedAt,
 		arg.ID,
 	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const updateSessionView = `-- name: UpdateSessionView :execrows
+UPDATE sessions
+SET view_mode = ?, updated_at = ?
+WHERE id = ?
+`
+
+type UpdateSessionViewParams struct {
+	ViewMode  string
+	UpdatedAt int64
+	ID        string
+}
+
+// The view switch: the session now runs in this mode. The session manager writes it after the new
+// process has started and before the old one is forgotten, so a restart resumes what is running.
+func (q *Queries) UpdateSessionView(ctx context.Context, arg UpdateSessionViewParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, updateSessionView, arg.ViewMode, arg.UpdatedAt, arg.ID)
 	if err != nil {
 		return 0, err
 	}

@@ -2,6 +2,7 @@ package store
 
 import (
 	"bytes"
+	"database/sql"
 	"io/fs"
 	"log/slog"
 	"path/filepath"
@@ -10,6 +11,8 @@ import (
 	"strings"
 	"testing"
 	"testing/fstest"
+
+	"github.com/khanblair/marshal/daemon/internal/store/db"
 )
 
 var migrationName = regexp.MustCompile(`^(\d{4})_[a-z0-9_]+\.sql$`)
@@ -175,6 +178,148 @@ func TestMigrationFileNames(t *testing.T) {
 			t.Errorf("%s repeats or goes back past version %d", name, last)
 		}
 		last = version
+	}
+}
+
+// migrationsThrough returns the embedded migrations up to and including maxVersion, so a test can
+// apply an earlier schema, put data in it, then apply the rest and check the data survived.
+func migrationsThrough(t *testing.T, maxVersion int) fs.FS {
+	t.Helper()
+	all := embeddedFiles(t)
+	names, err := fs.Glob(all, "*.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	partial := fstest.MapFS{}
+	for _, name := range names {
+		match := migrationName.FindStringSubmatch(name)
+		if match == nil {
+			t.Fatalf("%s is not named NNNN_words.sql", name)
+		}
+		version, _ := strconv.Atoi(match[1])
+		if version > maxVersion {
+			continue
+		}
+		data, err := fs.ReadFile(all, name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		partial[name] = &fstest.MapFile{Data: data}
+	}
+	return partial
+}
+
+// TestMigration0007KeepsSessionEventsWhenSessionsIsRebuilt proves the risk 0007_chats.sql's own
+// comment calls out: rebuilding `sessions` (to drop the NOT NULL on card_id) drops a table that
+// `session_events` points at with ON DELETE CASCADE. A database that already has history in it
+// when it upgrades must not lose that history to the rebuild.
+func TestMigration0007KeepsSessionEventsWhenSessionsIsRebuilt(t *testing.T) {
+	ctx := testContext(t)
+	path := filepath.Join(t.TempDir(), "marshal.db")
+	log := slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
+
+	writer, err := openPool(ctx, dsn(path, false), writers)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = writer.Close() }()
+
+	// Land the database on the schema exactly as it was before 0007, then populate it: a project, a
+	// board, a card, a card-owned session, and one event of the history that session recorded.
+	if err := migrate(ctx, writer, migrationsThrough(t, 6), log); err != nil {
+		t.Fatalf("apply migrations through 0006: %v", err)
+	}
+	now := int64(1700000000000)
+	exec := func(query string, args ...any) {
+		t.Helper()
+		if _, err := writer.ExecContext(ctx, query, args...); err != nil {
+			t.Fatalf("seed %q: %v", query, err)
+		}
+	}
+	exec(`INSERT INTO projects (id, name, repo_path, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`,
+		"proj1", "Small repo", "/tmp/small-repo", now, now)
+	exec(`INSERT INTO boards (id, project_id, columns_json) VALUES (?, ?, ?)`,
+		"board1", "proj1", "[]")
+	exec(`INSERT INTO cards (id, project_id, number, board_id, title, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		"card1", "proj1", 1, "board1", "Add a health check", now, now)
+	exec(`INSERT INTO sessions (id, card_id, agent_kind, last_active_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
+		"session1", "card1", "claude", now, now, now)
+	exec(`INSERT INTO session_events (id, card_id, session_id, seq, kind, summary, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		"event1", "card1", "session1", 1, "user", "wait for the pause", now)
+
+	// Now bring the database fully up to date: 0007 rebuilds sessions underneath the event just
+	// seeded, and 0008 runs after it.
+	if err := migrate(ctx, writer, embeddedFiles(t), log); err != nil {
+		t.Fatalf("apply the remaining migrations: %v", err)
+	}
+
+	var cardID, chatID sql.NullString
+	row := writer.QueryRowContext(ctx, "SELECT card_id, chat_id FROM sessions WHERE id = ?", "session1")
+	if err := row.Scan(&cardID, &chatID); err != nil {
+		t.Fatalf("session1 did not survive the rebuild: %v", err)
+	}
+	if !cardID.Valid || cardID.String != "card1" {
+		t.Errorf("session1.card_id after the rebuild = %+v, want card1", cardID)
+	}
+	if chatID.Valid {
+		t.Errorf("session1.chat_id after the rebuild = %+v, want NULL", chatID)
+	}
+
+	var sessionID, summary string
+	row = writer.QueryRowContext(ctx, "SELECT session_id, summary FROM session_events WHERE id = ?", "event1")
+	if err := row.Scan(&sessionID, &summary); err != nil {
+		t.Fatalf("event1 did not survive the sessions rebuild (foreign key cascade wiped it): %v", err)
+	}
+	if sessionID != "session1" || summary != "wait for the pause" {
+		t.Errorf("event1 after the rebuild = {session_id: %s, summary: %s}, want session1 / unchanged", sessionID, summary)
+	}
+
+	var count int
+	row = writer.QueryRowContext(ctx, "SELECT count(*) FROM session_events")
+	if err := row.Scan(&count); err != nil || count != 1 {
+		t.Errorf("session_events row count after the rebuild = %d (err %v), want exactly the 1 seeded", count, err)
+	}
+}
+
+// TestSessionsCardCascadeDeleteTrigger proves the trigger 0007_chats.sql adds in place of the
+// native foreign key it removed from sessions.card_id (a plain FK cannot coexist with the
+// empty-string sentinel a chat-owned session stores there): deleting a card must still take its
+// session with it, the same guarantee the old REFERENCES ... ON DELETE CASCADE gave.
+func TestSessionsCardCascadeDeleteTrigger(t *testing.T) {
+	ctx := testContext(t)
+	s := openAt(t, filepath.Join(t.TempDir(), "marshal.db"))
+	now := int64(1700000000000)
+	exec := func(query string, args ...any) {
+		t.Helper()
+		if _, err := s.writer.ExecContext(ctx, query, args...); err != nil {
+			t.Fatalf("seed %q: %v", query, err)
+		}
+	}
+	exec(`INSERT INTO projects (id, name, repo_path, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`,
+		"proj1", "Small repo", "/tmp/small-repo", now, now)
+	exec(`INSERT INTO boards (id, project_id, columns_json) VALUES (?, ?, ?)`, "board1", "proj1", "[]")
+	exec(`INSERT INTO cards (id, project_id, number, board_id, title, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		"card1", "proj1", 1, "board1", "Add a health check", now, now)
+	exec(`INSERT INTO sessions (id, card_id, agent_kind, last_active_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
+		"session1", "card1", "claude", now, now, now)
+	exec(`INSERT INTO session_events (id, card_id, session_id, seq, kind, summary, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		"event1", "card1", "session1", 1, "user", "hello", now)
+
+	if err := s.Write(ctx, func(q *db.Queries) error {
+		_, err := q.DeleteCard(ctx, "card1")
+		return err
+	}); err != nil {
+		t.Fatalf("DeleteCard: %v", err)
+	}
+
+	var count int
+	row := s.reader.QueryRowContext(ctx, "SELECT count(*) FROM sessions WHERE id = ?", "session1")
+	if err := row.Scan(&count); err != nil || count != 0 {
+		t.Errorf("sessions row count for the deleted card's session = %d (err %v), want 0", count, err)
+	}
+	row = s.reader.QueryRowContext(ctx, "SELECT count(*) FROM session_events WHERE id = ?", "event1")
+	if err := row.Scan(&count); err != nil || count != 0 {
+		t.Errorf("session_events row count for the deleted card's session = %d (err %v), want 0", count, err)
 	}
 }
 

@@ -38,7 +38,7 @@ func (q *Queries) CreateDevice(ctx context.Context, arg CreateDeviceParams) erro
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (id, name, email, avatar_path, time_zone, tailnet_identity, created_at, updated_at)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, name, email, avatar_path, time_zone, tailnet_identity, created_at, updated_at
+RETURNING id, name, email, avatar_path, time_zone, tailnet_identity, created_at, updated_at, avatar_updated_at
 `
 
 type CreateUserParams struct {
@@ -73,6 +73,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.TailnetIdentity,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AvatarUpdatedAt,
 	)
 	return i, err
 }
@@ -98,7 +99,7 @@ func (q *Queries) GetActiveDeviceByTokenHash(ctx context.Context, tokenHash stri
 }
 
 const getOwner = `-- name: GetOwner :one
-SELECT id, name, email, avatar_path, time_zone, tailnet_identity, created_at, updated_at FROM users ORDER BY created_at, id LIMIT 1
+SELECT id, name, email, avatar_path, time_zone, tailnet_identity, created_at, updated_at, avatar_updated_at FROM users ORDER BY created_at, id LIMIT 1
 `
 
 func (q *Queries) GetOwner(ctx context.Context) (User, error) {
@@ -113,6 +114,7 @@ func (q *Queries) GetOwner(ctx context.Context) (User, error) {
 		&i.TailnetIdentity,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AvatarUpdatedAt,
 	)
 	return i, err
 }

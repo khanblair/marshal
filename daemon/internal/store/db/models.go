@@ -4,6 +4,18 @@
 
 package db
 
+type Activity struct {
+	ID          string
+	Seq         int64
+	ProjectID   string
+	Kind        string
+	SubjectKind string
+	SubjectID   string
+	SubjectKey  string
+	Summary     string
+	CreatedAt   int64
+}
+
 type Board struct {
 	ID          string
 	ProjectID   string
@@ -11,24 +23,71 @@ type Board struct {
 }
 
 type Card struct {
+	ID                string
+	ProjectID         string
+	Number            int64
+	BoardID           string
+	Title             string
+	Body              string
+	State             string
+	RoleID            string
+	AgentKind         string
+	Model             string
+	Thinking          string
+	PermissionMode    string
+	Branch            string
+	WorktreePath      string
+	Pinned            int64
+	CreatedBy         string
+	CreatedAt         int64
+	UpdatedAt         int64
+	Role              string
+	Package           string
+	PlannedStart      *int64
+	PlannedEnd        *int64
+	Due               *int64
+	ActualStart       *int64
+	ActualEnd         *int64
+	PullRequestNumber *int64
+	PullRequestUrl    string
+	CiState           string
+	ContextUsed       int64
+	NeedsReasonKind   string
+	NeedsReasonText   string
+	NeedsSince        *int64
+	DoingNow          string
+	Paused            int64
+	ForkedFrom        string
+}
+
+type CardLabel struct {
+	CardID  string
+	LabelID string
+}
+
+type Chat struct {
 	ID             string
 	ProjectID      string
-	Number         int64
-	BoardID        string
 	Title          string
-	Body           string
-	State          string
-	RoleID         string
+	TargetKind     string
+	TargetID       string
 	AgentKind      string
 	Model          string
 	Thinking       string
 	PermissionMode string
-	Branch         string
-	WorktreePath   string
-	Pinned         int64
-	CreatedBy      string
+	ArchivedAt     *int64
+	LastActiveAt   int64
 	CreatedAt      int64
 	UpdatedAt      int64
+}
+
+type DailyStat struct {
+	Day           int64
+	ProjectID     string
+	CardsFinished int64
+	Merges        int64
+	CiFailures    int64
+	CostMicros    int64
 }
 
 type Device struct {
@@ -40,6 +99,14 @@ type Device struct {
 	PairedAt   int64
 	LastSeenAt *int64
 	RevokedAt  *int64
+}
+
+type Label struct {
+	ID        string
+	ProjectID string
+	Name      string
+	Color     string
+	CreatedAt int64
 }
 
 type Project struct {
@@ -57,9 +124,33 @@ type Project struct {
 	UpdatedAt      int64
 }
 
+type ProjectPreference struct {
+	UserID             string
+	ProjectID          string
+	LastView           string
+	FiltersJSON        string
+	Query              string
+	Swimlane           string
+	CollapsedLanesJSON string
+	ShowAllDone        int64
+	SavedViewID        *string
+	UpdatedAt          int64
+}
+
+type SavedView struct {
+	ID          string
+	ProjectID   string
+	Name        string
+	FiltersJSON string
+	Swimlane    string
+	CreatedAt   int64
+	UpdatedAt   int64
+}
+
 type Session struct {
 	ID             string
 	CardID         string
+	ChatID         *string
 	AgentKind      string
 	AgentSessionID string
 	State          string
@@ -69,6 +160,21 @@ type Session struct {
 	LastActiveAt   int64
 	CreatedAt      int64
 	UpdatedAt      int64
+	ViewMode       string
+}
+
+type SessionEvent struct {
+	ID         string
+	CardID     string
+	ChatID     *string
+	SessionID  string
+	Seq        int64
+	Kind       string
+	State      string
+	Summary    string
+	DetailJSON string
+	LogRef     string
+	CreatedAt  int64
 }
 
 type Setting struct {
@@ -85,12 +191,22 @@ type User struct {
 	TailnetIdentity string
 	CreatedAt       int64
 	UpdatedAt       int64
+	AvatarUpdatedAt *int64
+}
+
+type UserPreference struct {
+	UserID          string
+	Theme           string
+	ListColumnsJSON string
+	SortJSON        string
+	UpdatedAt       int64
 }
 
 type UserProgress struct {
-	UserID           string
-	OnboardingStep   int64
-	OnboardingDoneAt *int64
-	TutorialDoneAt   *int64
-	TutorialSkipped  int64
+	UserID            string
+	OnboardingStep    int64
+	OnboardingDoneAt  *int64
+	TutorialDoneAt    *int64
+	TutorialSkipped   int64
+	OnboardingSkipped int64
 }
