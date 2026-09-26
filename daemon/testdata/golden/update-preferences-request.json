@@ -1,0 +1,30 @@
+{
+  "theme": "light",
+  "listColumns": {
+    "think": true
+  },
+  "sort": {
+    "agents": {
+      "key": "state",
+      "direction": "asc"
+    }
+  },
+  "projects": {
+    "mobile": {
+      "lastView": "timeline",
+      "filters": [
+        {
+          "key": "label",
+          "value": "ui"
+        }
+      ],
+      "query": "",
+      "swimlane": "package",
+      "collapsedLanes": [
+        "package:packages/api-client"
+      ],
+      "showAllDone": false,
+      "savedViewId": ""
+    }
+  }
+}

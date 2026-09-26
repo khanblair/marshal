@@ -1,0 +1,16 @@
+{
+  "title": "Add a health check endpoint",
+  "agent": "claude",
+  "permissionMode": "auto-edits",
+  "role": "Implementer",
+  "package": "packages/api",
+  "labels": [
+    "01M3C107JB04106105A"
+  ],
+  "plannedStart": {
+    "at": "2026-09-30T12:00:00.000Z"
+  },
+  "due": {
+    "clear": true
+  }
+}

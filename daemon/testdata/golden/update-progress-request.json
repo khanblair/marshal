@@ -1,0 +1,9 @@
+{
+  "onboarding": {
+    "step": 3,
+    "status": "done"
+  },
+  "tutorial": {
+    "status": "pending"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "users": [
+    {
+      "id": "01M3C107JB041061050R3GG2U1",
+      "name": "Ada Okafor",
+      "initials": "AO",
+      "avatarUrl": "/v1/users/01M3C107JB041061050R3GG2U1/avatar?v=1759233600000"
+    },
+    {
+      "id": "01M3C107JB041061050R3GG2U2",
+      "name": "Sam Reyes",
+      "initials": "SR",
+      "avatarUrl": null
+    }
+  ],
+  "serverTime": "2026-09-30T12:00:00.000Z"
+}
