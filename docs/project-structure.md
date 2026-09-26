@@ -40,7 +40,9 @@ marshal/
   LICENSE                       (planned)
   .github/
     workflows/
-      ci.yml                    Format, lint, smells, tests, and budgets on every pull request, on all three platforms
+      ci.yml                    On every pull request and push to main: the light checks first (generated files, format, lint, types, smells, contrast), then tests with coverage floors, build, and budgets on all three platforms, then the browser suite on Linux
+      e2e-macos.yml             The browser suite on macOS, after ci passes on main (never on a pull request)
+      nightly-agent-smoke.yml   The real agent CLIs through one small card each, nightly. Off until turned on with a repository variable; needs a self-hosted Mac with the CLIs signed in
       nightly.yml               Real agent smoke tests against pinned CLI versions (planned)
       release.yml               Build, sign, and publish installers and daemon packages (planned)
     pull_request_template.md    What changed, why, how it was tested, budget impact, smells
@@ -106,6 +108,7 @@ daemon/
     marshald/
       main.go                   Daemon entry point: flags, config, start modules, and the dev fixture (--fixture prototype) before sessions are restored
       output.go                 Writes lines to the terminal
+      terminals.go              Registers the PTY adapter so a card can switch to the terminal view, and its interactive command per agent
     marshal/
       main.go                   Command line tool entry point
       output.go                 Writes lines to the terminal
@@ -133,8 +136,10 @@ daemon/
       events.go                 Event, event batch, hello, resync, and the WebSocket subprotocol names
       topics.go                 Topics, their constructors, and the parser
       project.go                Project, its source, and the create, update, and remove request bodies
-      project_events.go         Payloads of project.created, project.updated, and project.removed
-      card.go                   Card, board snapshot, and the create-card request
+      project_events.go         Payloads of project.created, project.updated, project.removed, card.created, card.updated, card.moved, card.deleted, and label.updated
+      card.go                   Card, board snapshot, the create-card request, the update-card request, the move request, and the date change
+      label.go                  A project's labels: the label, its snapshot, and the create and update requests
+      home.go                   The Home dashboard answer: the needs-you and awake lists and the tile counts
       agents.go                 The agent catalog: agents, models, capabilities, and their statuses
       auth.go                   WhoAmI and the device kinds
       conventions_test.go       Checks the package's own source against the rules (no bare time.Time, server time, enum lists)
@@ -144,9 +149,11 @@ daemon/
       fixtures.go               Fixture repositories, copied to temp folders and committed for tests
       golden.go                 Golden files shared with the app's tests
       stubagent.go              Builds tools/stub-agent once per test process and returns the path of the program
+      terminalhelper.go         Builds the small program the terminal tests run in a pseudo-terminal as the "CLI"
 
     fixture/
-      fixture.go                LoadPrototype: makes the prototype's three projects (api, web, mobile) from the repos in testdata, safe to run on every start
+      fixture.go                LoadPrototype: makes the prototype's three projects (api, web, mobile) from the repos in testdata, and writes their cards, safe to run on every start
+      cards.go                  The prototype's 29 cards as a data table, and the loader that writes them and their labels
       repo.go                   Makes each project's Git repository in <data>/fixtures (a copy, one commit with a fixed identity and date), and finds testdata/repos at run time
       *_test.go                 Tests against a real store and real Git: repeat loads, missing pieces, broken folders, Git missing, and the fixed identity
 
@@ -188,6 +195,16 @@ daemon/
       routes_projects.go        Projects: list, create, read, rename, edit, remove, the board, and creating a card
       routes_cards.go           Cards: read, start, send a message, stop, resume
       routes_agents.go          Agents: list and refresh
+      routes_me.go              The person: profile, avatar (the upload and the image), users list, progress, preferences, and the dev-only reset of first launch
+      routes_saved_views.go     A project's saved views: list, save, change, delete
+      routes_hold.go            Session hold: pause, unpause, sleep, wake, pin, unpin (the rules in architecture.md 5.1)
+      routes_view.go            The chat/terminal switch (POST /v1/cards/{id}/view)
+      routes_history.go         A card's paged chat and activity history, and a chat's
+      routes_diff.go            A card's changed files, and one file's hunks
+      routes_labels.go          A project's labels: list, create, rename, recolor, delete
+      routes_chats.go           A project's chats: list, create, rename, archive, restore, delete, and send a message
+      routes_dashboard.go       Home: the dashboard and the activity stream
+      routes_search.go          Search over projects, cards, and chats for the palette
       route_errors.go           Turns the errors the services leave as plain Go errors (an agent that needs a sign-in, a branch left over, no agent running) into plain sentences
       auth.go                   Bearer token checks for every protected route
       whoami.go                 GET /v1/auth/whoami
@@ -203,9 +220,12 @@ daemon/
       requestid.go              A per-request id for the access log
       statuswriter.go           Remembers the status code a handler wrote
       stream.go                 GET /v1/events: the upgrade, the hello, and the reader and writer goroutines
+      stream_client.go          Decodes the client's frames: hello, and the three terminal messages
+      stream_terminal.go        Serves a card's terminal on the stream: input, resize, and the snapshot
       stream_hub.go             One stream's connection, its private queue, and how a stuck client is cut
       stream_pump.go            Batches events for one stream and writes them as frames
       stream_origin.go          The origin check for the upgrade
+      hijack.go                 Takes the connection over for the upgrade, and gives it back
       *_test.go                 Tests against a real server on a free port with a real store, bus, projects module, and session manager over the stub agent, and the event stream through a real WebSocket client
 
     events/
@@ -214,6 +234,44 @@ daemon/
       filter.go                 Topic filters (exact topics or all), and the helper that filters a replay
       subscription.go           One subscriber: bounded queues, drop rules for slow ones, one goroutine
       queue.go                  The growing first-in first-out list behind the queues and the ring
+
+    accounts/
+      service.go                Profile, preferences, and progress: the module the person's routes call
+      profile.go                Read and edit the profile; the initials and the avatar URL on the wire
+      avatar.go                 The avatar upload: the kind read from the bytes, the stored file, and its version
+      preferences.go            Screen preferences, merged field by field, and the me.updated event
+      progress.go               Onboarding and tutorial progress, and the dev-only reset of first launch
+
+    cardhistory/
+      service.go                The read routes over the history index: a card's chat and activity, paged
+
+    chats/
+      service.go                A project's chats: create, list, rename, archive, restore, delete, and send a message
+
+    dashboard/
+      service.go                The home dashboard: needs you, tiles, and the coming-up list
+      mapping.go                Rows to the dashboard's wire shapes
+      subscriber.go             Publishes activity.created on the home topic as the history index grows
+
+    diff/
+      service.go                A card's changed files with counts, and one file's hunks, over internal/gitx
+
+    history/
+      history.go                Append and page the session history index, and the cursor
+      wire.go                   History rows to the wire message and activity types
+      kinds.go                  The kind and state vocabularies, and the mapping from an agent event to a record
+      agents.go                 The narrow interface the session manager records through, so a failure never stops the pump
+      doc.go                    Package comment
+
+    keyedlock/
+      keyedlock.go              A map of locks by key: two calls for one key run one after the other, different keys do not wait
+
+    sample/
+      sample.go                 The sample repository that ships in the daemon: write it once, and refuse a second
+
+    search/
+      search.go                 Search over projects, cards, and chats, through the services and with no index
+      match.go                  The matching and ranking rules, and the per-kind cuts
 
     projects/
       service.go                Projects module interface and wiring
@@ -225,7 +283,16 @@ daemon/
       cardstate.go              Card state machine and allowed moves
       detect.go                 Language, dev command, and monorepo detection
       monorepo.go               Monorepo package detection
-      mapping.go                Store rows to wire types
+      card_labels.go            Loading the labels of one card, or of every card on a board
+      fork.go                   Forking a card, and the branch a fork's branch starts from
+      labels.go                 The labels of a project: create, list, rename, recolor, delete
+      saved_views.go            A project's saved views: list, save under a name (a used name replaces), change, delete
+      move.go                   The manual-move rules of architecture.md 6.1, and the move itself
+      remove_card.go            Deleting one card: its session, worktree, branch, logs, and row
+      hold.go                   Pause, unpause, pin, and unpin: the card's own fields, published as card.updated
+      sample.go                 The sample project source: POST /v1/projects with source "sample"
+      update.go                 Editing the fields of a card that a request sets
+      mapping.go                Store rows to wire types, including every card's labels
       paths.go                  Worktree and branch paths for a project
       locks.go                  Per-project locks so two creates cannot race
       defaults.go               Card defaults
@@ -246,6 +313,14 @@ daemon/
       log.go                    Session logs to disk: JSON-lines segments, rotation, and the flush timer
       ring.go                   The bounded in-memory ring of recent log entries
       events.go                 Agent event to a typed log line, and to the session.output/session.tool_call wire payloads
+      states.go                 The stored session states, and the card's own flags read from session rows
+      hold.go                   Session hold: pause, sleep, wake, and pin on a live session (architecture.md 5.1)
+      chat.go                   A project chat's own session: start, resume, send, stop, and its settings
+      terminal.go               A card's terminal: input, resize, and the screen a viewer paints (live-only output)
+      view.go                   Switching a card between the chat view and the terminal view, and its refusals
+      recorder.go               Writes the history index as events happen, with failures logged and swallowed
+      owner.go                  cardOwner and chatOwner: one session's owner, a card or a chat
+      seed.go                   A stop-safe seed for ids, derived from the data folder
       project_hooks.go          StopProjectSessions: a removed project stops its own sessions and no other
       *_test.go                 Tests with a fake agents.Agent and, once, the real stub agent through agents/acp
 
@@ -334,6 +409,8 @@ daemon/
         0001_init.sql           Settings, users, devices, and user_progress
         0002_projects.sql       Projects and cards
         0003_sessions.sql       Sessions
+        0004_cards.sql          The card fields the screens show, and the labels and card_labels tables
+        0005_forks.sql          The card a fork came from, so its branch starts from that card's commit
                                 Each later module adds its own numbered file for its own tables.
       queries/                  SQL by area, one file each
         settings.sql            Settings: get and set
@@ -411,9 +488,6 @@ moves out of this block when it is built.
         adapter.go              Built-in agent adapter
 
   internal/comments/            Comments, attachments, mentions, and links
-  internal/chats/               Chats, and their auto titles
-  internal/accounts/            Profile, paired devices, onboarding progress
-  internal/dashboard/           Daily stats and the activity stream
   internal/harness/             Control loop around every agent
   internal/providers/           Model providers, rate limits, usage, pricing
   internal/integrator/          The merge queue
@@ -668,6 +742,7 @@ SegmentedControl, Badge, Tag, Menu, MenuItem, MenuLabel, MenuSeparator, Skeleton
 SkeletonRow, SkeletonCard, SkeletonGroup, Toast, ToastRegion, EmptyState, ErrorState, NoResults,
 NotConnected, NeedsBadge, CountBubble, Callout, ChoiceCard, Field, IconLabel, Kbd, Avatar,
 PhoneList, PhoneRowTitle, PhoneRowMeta, ProgressBar, SortHeader, TableShell, TableRow, TableCell,
+VirtualList, `virtual-window`,
 `_Details`, `_RetryCountdown`, `cx`, `table-sort`, `types`), `layout/` (Dialog, Sheet, Scrim,
 NavItem, DayHeading, ConnectionLost, OfflineBanner, SignIn, `focus-trap`, `_ScreenFrame`),
 `board/` (CiStatus, StatusLabel), `card/` (DiffStat), `chat/` (Composer, JumpToLatest),
@@ -966,7 +1041,10 @@ scripts/
   gen-protocol.mjs              Generates packages/protocol from the Go types with tygo, adds the <Type>Values arrays, then formats it
   smells.mjs                    Runs all smell tools (Biome, golangci-lint, knip, jscpd) and the file length check
   budgets.mjs                   Web build size, then the daemon's idle memory and processor use
-  check.mjs                     Runs everything CI runs, in order
+  check.mjs                     Runs everything CI runs, in order (eleven steps, the light ones first)
+  check-generated.mjs           Checks that a second pnpm gen changes nothing, or (in CI) that the generated files match what Git holds
+  coverage.mjs                  Checks the daemon's test coverage per package against the floors in docs/code-standards.md
+  agent-smoke.mjs               Runs the real agent CLIs (or, with --stub, the stub agent) through one small card each on a throwaway daemon
   e2e-daemon.mjs                Runs the built dev daemon for the end-to-end tests, on port 47811 with a data folder of its own
 ```
 

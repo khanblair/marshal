@@ -231,7 +231,7 @@ Rules:
 | Budget tests | Run on every pull request. Over budget fails the build. |
 
 - New code comes with tests. Bug fixes come with a test that fails before the fix.
-- Coverage floor: 70% for daemon modules, 60% for UI packages. Critical modules (`harness`, `security`, `integrator`, `session`) aim for 85%.
+- Coverage floor: 70% for daemon modules, 60% for UI packages. Critical modules (`harness`, `security`, `integrator`, `session`) aim for 85%. CI enforces the floors: `scripts/coverage.mjs` checks each daemon package against them after the tests run (a package that is below its floor today is listed there with the number it must not fall below), and the web app's and UI package's vitest configs fail the test run below theirs.
 - Tests must be fast and reliable. A flaky test is a bug and gets fixed or removed within a week.
 - Test names describe behavior: `TestSleepSkipsWorkingSessions`, `it("shows a banner in bypass mode")`.
 
@@ -296,7 +296,7 @@ Rules:
 4. **Never edit generated code.** Change the source and run the generator.
 5. **Keep the structure true.** When you add, move, rename, or delete a file, update `project-structure.md` and add a row to the file changes log in `progress-tracker.md`.
 6. **Never touch** migrations that have already been merged, CI secrets, or release config, unless the task says so.
-7. **Run `pnpm check`** (format, lint, code smells, tests, budgets) before saying a task is done. Do not add new code smells. If your task touches code that already has a smell, you may fix it only if it is small and inside the task's scope. Otherwise, add a note to `progress-tracker.md`.
+7. **Do not run the full `pnpm check` on the owner's machine unless the owner asks.** It is heavy, and CI runs it on every pull request. Do not start a process to check your work by hand either (no daemon, no smoke script, no dev server, no browser). Before saying a task is done, run only the fast checks for what you touched: format and lint on the changed files, the typecheck of the workspace, and the fast unit tests of the changed files (see `development.md`, the section on `pnpm check`). Do not add new code smells. If your task touches code that already has a smell, you may fix it only if it is small and inside the task's scope. Otherwise, add a note to `progress-tracker.md`.
 8. **Update the tracker** at the end: task status, what was done, and any open questions.
 9. **Ask when unsure.** A short question is cheaper than a wrong change.
 

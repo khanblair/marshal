@@ -121,7 +121,7 @@ The browser gets the dev token from the Vite dev server, so there is nothing to 
 | `MARSHAL_LOG_LEVEL` | `debug` | `debug`, `info`, `warn`, or `error` |
 | `MARSHAL_FIXTURE` | none | Load a fixture on start (or pass `--fixture`). The only one is `prototype`: the three projects the prototype shows, `api-gateway`, `web-dashboard`, and `mobile-app`, as real Git repositories under `<data>/fixtures`. It is safe on every start, and it loads in dev mode only (a normal install ignores it). `pnpm dev` passes it. See below |
 
-With `MARSHAL_FIXTURE=prototype` the daemon makes the repositories from `daemon/testdata/repos` (`small-repo` twice, `monorepo` once), gives each one a single commit with a fixed author and date, and adds them as the projects `api`, `web`, and `mobile`. A project that already exists is left alone. The fixture finds `daemon/testdata/repos` from the checkout the daemon was built from, so run a daemon built from a checkout (`pnpm dev` does). If it cannot load, the daemon logs a warning and starts without it. The project language and packages are what detection finds in those repositories (for example `JavaScript` for the two small ones), not the hand-picked labels of the mock data.
+With `MARSHAL_FIXTURE=prototype` the daemon makes the repositories from `daemon/testdata/repos` (`small-repo` twice, `monorepo` once), gives each one a single commit with a fixed author and date, and adds them as the projects `api`, `web`, and `mobile`. It also writes the prototype's 29 cards (11 in `api`, 9 in `web`, 9 in `mobile`) with their numbers, states, labels, dates, pull requests, CI states, and needs-you reasons, and a session row for each of the 20 cards that has started, so the screens look as they do in the prototype. **Those sessions have no agent process behind them, and a daemon with a fixture loaded does not restore sessions on start**, so nothing runs until a person starts a card themselves. A project that already exists is left alone. The fixture finds `daemon/testdata/repos` from the checkout the daemon was built from, so run a daemon built from a checkout (`pnpm dev` does). If it cannot load, the daemon logs a warning and starts without it. The project language and packages are what detection finds in those repositories (for example `JavaScript` for the two small ones), not the hand-picked labels of the mock data.
 
 ### 3.6 Using real agents and models
 
@@ -195,11 +195,21 @@ Add `--dev` to any of these to manage the dev daemon's own, separate service ins
 | `pnpm budgets` | Measure the web build size, then the built daemon's idle RAM and CPU (run `pnpm build` first). `MARSHAL_BUDGET_IDLE` sets how long the daemon idles: 10 seconds by default, 60 in CI. |
 | `pnpm smells` | Code smell checks on changed code (see `code-standards.md` section 12) |
 | `pnpm smells:all` | Code smell checks on the whole repo |
-| `pnpm check` | Everything CI runs, in order: `gen`, format check, lint (including Go), type check, code smells, token contrast, all unit tests (Go with `-race`), the build (daemon, stub agent, web), and the budgets |
+| `pnpm check` | The heavy full gate; CI runs it on every pull request, so run it locally only when you decide to. Everything CI's non-browser jobs run, in order: `gen`, format check, lint (including Go), type check, code smells, token contrast, all unit tests (Go with `-race`), the build (daemon, stub agent, web), and the budgets |
 | `pnpm build` | Build for your OS: the daemon and the command line tool into `dist/bin/`, the stub agent, and the web UI |
 | `pnpm hooks:replay <provider> <case>` | Replay a recorded webhook through the daemon |
 
-**Run `pnpm check` before opening a pull request.** It runs the same checks as CI.
+**CI runs these checks on every pull request, so you do not have to run `pnpm check` first.** It is heavy: it uses every core for several minutes. Run it on your own machine only when you want the answer before you push. **AI agents never run it on the owner's machine unless the owner asks, and they start no process to check work by hand (no daemon, no smoke script, no dev server, no browser). They verify with the fast checks only: the typecheck of the workspace they changed, `biome check` on the files they changed, `golangci-lint` on the packages they changed, and the fast unit tests of the files they changed (`go test -race -run <TestName> ./internal/<pkg>/`, vitest with file filters and `--maxWorkers=4`).
+
+**Where the full gate runs.** `pnpm check` and CI (`.github/workflows/ci.yml`) run the same steps, split differently:
+
+| | `pnpm check` (your machine, on request) | GitHub CI |
+|---|---|---|
+| Light steps (generated files, format, lint, type check, code smells, token contrast) | First, one after another, on your OS | First, in the `lint` job on Linux only, so a small mistake stops the run before the slow jobs |
+| Generated files | Runs `pnpm gen` a second time and fails if it changes anything (works on an uncommitted tree) | Runs `pnpm gen`, then fails if the generated files differ from what Git holds |
+| Tests, coverage floors, build, budgets | After the light steps, on your OS. The budgets watch the idle daemon for 10 seconds. | In the `check` job on macOS, Linux, and Windows, once `lint` passes. The budgets watch for 60 seconds. |
+| Browser suite (`pnpm test:e2e`) | Not part of `pnpm check` | The `e2e` job on Linux after `check`; then `e2e-macos.yml` on macOS after `ci` passes on `main` (never on a pull request) |
+| Real agent smoke test | Not part of `pnpm check` | `nightly-agent-smoke.yml`, off until you turn it on (see its header) |
 
 Two commands this section used to list do not exist yet: `pnpm test:agents` (a real-agent smoke test; no real agent is started by any automated test) and `pnpm marshal <command>` (run the built CLI directly, as `dist/bin/marshal status --dev`).
 
