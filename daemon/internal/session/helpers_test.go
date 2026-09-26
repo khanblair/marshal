@@ -76,7 +76,12 @@ func newEnv(t *testing.T, mutate ...func(*session.Config)) *env {
 	t.Cleanup(bus.Close)
 	git := testutil.Git()
 	dataDir := filepath.Join(dir, "data")
-	proj, err := projects.New(projects.Deps{Store: st, Bus: bus, Git: git, DataDir: dataDir}, projects.WithLocalClones(true))
+	states, err := session.NewStoredStates(st)
+	if err != nil {
+		t.Fatalf("make the session states: %v", err)
+	}
+	proj, err := projects.New(projects.Deps{Store: st, Bus: bus, Git: git, DataDir: dataDir},
+		projects.WithLocalClones(true), projects.WithSessionStates(states))
 	if err != nil {
 		t.Fatalf("make the projects service: %v", err)
 	}

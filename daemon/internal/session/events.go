@@ -134,6 +134,13 @@ type logFailed struct {
 	Detail  string `json:"detail,omitempty"`
 }
 
+// logTerminalOutput is a piece of what a terminal printed. The bytes are raw, so they are written as
+// base64 (the way encoding/json writes a byte slice), not as text that could split a character.
+type logTerminalOutput struct {
+	logCommon
+	Data []byte `json:"data"`
+}
+
 type logExited struct {
 	logCommon
 	Code int    `json:"code"`
@@ -180,6 +187,8 @@ func logValue(common logCommon, ev agents.AgentEvent) any {
 		return logFailed{common, e.Message, e.Detail}
 	case agents.Exited:
 		return logExited{common, e.Code, errText(e.Err)}
+	case agents.TerminalOutput:
+		return logTerminalOutput{common, e.Data}
 	default:
 		return common
 	}

@@ -107,7 +107,11 @@ func TestStartOnADanglingRowResumesInsteadOfRefusing(t *testing.T) {
 	}
 }
 
-func TestStartOnAStoppedRowIsRefused(t *testing.T) {
+// A card whose session has stopped is continued by Start, through the same session row and the
+// same agent session id, instead of being refused: Stop must never strand a card (the owner's
+// decision of 2026-09-26, architecture.md 5.1). The rest of the hold rules, and the check that the
+// conversation really carries on, are in hold_test.go.
+func TestStartOnAStoppedRowResumesTheSameSession(t *testing.T) {
 	e := newEnv(t)
 	t.Cleanup(func() { _ = e.mgr.Close() })
 	project := e.project(t, "small-repo")
@@ -118,9 +122,28 @@ func TestStartOnAStoppedRowIsRefused(t *testing.T) {
 	if err := e.mgr.Stop(context.Background(), card.ID); err != nil {
 		t.Fatalf("Stop: %v", err)
 	}
+	before, err := e.store.Queries().GetSessionByCard(context.Background(), card.ID)
+	if err != nil {
+		t.Fatalf("GetSessionByCard: %v", err)
+	}
 
-	_, err := e.mgr.Start(context.Background(), card.ID)
-	_ = wantCode(t, err, protocol.ErrorCodeRefused)
+	updated, err := e.mgr.Start(context.Background(), card.ID)
+	if err != nil {
+		t.Fatalf("Start on a stopped row: %v", err)
+	}
+	if updated.State != protocol.CardStateWorking {
+		t.Errorf("card state = %s, want %s", updated.State, protocol.CardStateWorking)
+	}
+	after, err := e.store.Queries().GetSessionByCard(context.Background(), card.ID)
+	if err != nil {
+		t.Fatalf("GetSessionByCard: %v", err)
+	}
+	if after.ID != before.ID || after.AgentSessionID != before.AgentSessionID {
+		t.Errorf("the row after the start = %+v, want the same session %+v resumed", after, before)
+	}
+	if after.State != string(protocol.SessionStateAwake) {
+		t.Errorf("session state = %s, want %s", after.State, protocol.SessionStateAwake)
+	}
 }
 
 func TestSendWithNoLiveSessionIsRefused(t *testing.T) {
@@ -628,144 +651,5 @@ func TestNewManagerValidatesItsConfig(t *testing.T) {
 	_, err := session.NewManager(e.store, e.bus, e.proj, e.registry, e.git, session.Config{DataDir: "relative/path"})
 	if err == nil {
 		t.Error("NewManager with a relative data folder should fail")
-	}
-}
-
-func TestAFailedQueuedDeliveryReleasesTheTurn(t *testing.T) {
-	e := newEnv(t)
-	t.Cleanup(func() { _ = e.mgr.Close() })
-	e.agent.hold = make(chan struct{})
-	t.Cleanup(func() { close(e.agent.hold) }) // registered after Close, so it runs first
-	project := e.project(t, "small-repo")
-	card := e.card(t, project.ID, "Add a health check")
-	if _, err := e.mgr.Start(context.Background(), card.ID); err != nil {
-		t.Fatalf("Start: %v", err)
-	}
-	if err := e.mgr.Send(context.Background(), card.ID, "first"); err != nil {
-		t.Fatalf("Send: %v", err)
-	}
-	if err := e.mgr.Send(context.Background(), card.ID, "second"); err != nil {
-		t.Fatalf("Send(second): %v", err)
-	}
-	e.agent.setSendErr(errors.New("cannot deliver right now"))
-	e.agent.hold <- struct{}{} // let the first turn finish; onTurnEnded tries and fails to deliver "second"
-
-	awake := e.untilType(t, protocol.EventTypeSessionStateChanged)
-	if data, _ := awake.Data.(protocol.SessionStateChangedEventData); data.State != protocol.SessionStateAwake {
-		t.Fatalf("state after the first turn ended = %+v, want awake even though delivery failed", awake.Data)
-	}
-	// onTurnEnded publishes "awake" before it tries to deliver the queued message, so give that
-	// attempt a moment to actually run (and fail) before resetting sendErr: otherwise the reset
-	// can win a race against the pump's own delivery attempt and this would test nothing.
-	time.Sleep(50 * time.Millisecond)
-	e.agent.setSendErr(nil)
-	// The failed delivery must still release the turn, so an ordinary send is accepted directly
-	// (not queued behind a message that will never be delivered): a "working" event follows at
-	// once, which only happens for a direct send, never for one that was merely queued.
-	if err := e.mgr.Send(context.Background(), card.ID, "third"); err != nil {
-		t.Errorf("Send after a failed queued delivery: %v", err)
-	}
-	working := e.untilType(t, protocol.EventTypeSessionStateChanged)
-	if data, _ := working.Data.(protocol.SessionStateChangedEventData); data.State != protocol.SessionStateWorking {
-		t.Errorf("state after the third send = %+v, want working (the turn must have been released)", working.Data)
-	}
-}
-
-// TestSendMarksTheSessionWorkingBeforeAskingTheAgent proves Send writes "working" before it calls
-// agent.Send, not after: a fast turn (a real agent, or the stub at full speed) can otherwise reach
-// the pump's onTurnEnded, which writes "awake", before Send's own goroutine gets back to writing
-// "working", leaving the row stuck on "working" for a session that is actually idle. The fake
-// agent's beforeSend hook runs synchronously inside Send itself, before it decides anything, so
-// this checks the ordering directly instead of trying to win a real race.
-func TestSendMarksTheSessionWorkingBeforeAskingTheAgent(t *testing.T) {
-	e := newEnv(t)
-	t.Cleanup(func() { _ = e.mgr.Close() })
-	project := e.project(t, "small-repo")
-	card := e.card(t, project.ID, "Add a health check")
-	if _, err := e.mgr.Start(context.Background(), card.ID); err != nil {
-		t.Fatalf("Start: %v", err)
-	}
-
-	var stateAtSend string
-	e.agent.beforeSend = func() {
-		row, err := e.store.Queries().GetSessionByCard(context.Background(), card.ID)
-		if err != nil {
-			t.Errorf("GetSessionByCard inside beforeSend: %v", err)
-			return
-		}
-		stateAtSend = row.State
-	}
-	if err := e.mgr.Send(context.Background(), card.ID, "hello"); err != nil {
-		t.Fatalf("Send: %v", err)
-	}
-	if stateAtSend != string(protocol.SessionStateWorking) {
-		t.Errorf("session state at the moment agent.Send was called = %q, want %q", stateAtSend, protocol.SessionStateWorking)
-	}
-}
-
-// TestStopDuringATurnDoesNotResurrectTheSession proves that a TurnEnded which arrives because of
-// Stop's own graceful cancel (a real adapter, per docs/architecture.md 4.1's Interrupt rule, can
-// end an in-flight turn with TurnEnded(cancelled) before the process actually exits) cannot undo
-// what Stop already wrote: the row must stay "stopped", never bounce back to "awake", and no
-// queued message may be delivered to a session that is on its way out.
-func TestStopDuringATurnDoesNotResurrectTheSession(t *testing.T) {
-	e := newEnv(t)
-	t.Cleanup(func() { _ = e.mgr.Close() })
-	e.agent.hold = make(chan struct{})
-	t.Cleanup(func() { close(e.agent.hold) })
-	project := e.project(t, "small-repo")
-	card := e.card(t, project.ID, "Add a health check")
-	if _, err := e.mgr.Start(context.Background(), card.ID); err != nil {
-		t.Fatalf("Start: %v", err)
-	}
-	if err := e.mgr.Send(context.Background(), card.ID, "first"); err != nil {
-		t.Fatalf("Send: %v", err)
-	}
-	if err := e.mgr.Send(context.Background(), card.ID, "queued behind the held turn"); err != nil {
-		t.Fatalf("Send(queued): %v", err)
-	}
-
-	// The turn is held open (blocked inside the fake's runTurn) when Stop is called: the fake
-	// agent's Stop (see fakeAgent.Stop) sees the session busy and queues TurnEnded(cancelled)
-	// before Exited, exactly mirroring a real adapter's graceful stop.
-	if err := e.mgr.Stop(context.Background(), card.ID); err != nil {
-		t.Fatalf("Stop: %v", err)
-	}
-	row, err := e.store.Queries().GetSessionByCard(context.Background(), card.ID)
-	if err != nil {
-		t.Fatalf("GetSessionByCard: %v", err)
-	}
-	if row.State != string(protocol.SessionStateStopped) {
-		t.Fatalf("session row state right after Stop = %s, want stopped", row.State)
-	}
-
-	// Exactly three events were published before the held turn was ever released: awake (Start),
-	// working (the first Send), and stopped (Stop itself, synchronously, before it returned).
-	// Draining exactly these lets the check after prove nothing else follows.
-	wantStates := []protocol.SessionState{protocol.SessionStateAwake, protocol.SessionStateWorking, protocol.SessionStateStopped}
-	for _, want := range wantStates {
-		ev := e.untilType(t, protocol.EventTypeSessionStateChanged)
-		if data, _ := ev.Data.(protocol.SessionStateChangedEventData); data.State != want {
-			t.Fatalf("state = %+v, want %s", ev.Data, want)
-		}
-	}
-
-	// The pump is draining TurnEnded(cancelled) and Exited concurrently with this goroutine now;
-	// poll for a while to prove the row never gets rewritten back to awake, and that no further
-	// event (in particular, no "working" for the queued message being wrongly delivered) follows.
-	deadline := time.Now().Add(200 * time.Millisecond)
-	for time.Now().Before(deadline) {
-		row, err := e.store.Queries().GetSessionByCard(context.Background(), card.ID)
-		if err != nil {
-			t.Fatalf("GetSessionByCard: %v", err)
-		}
-		if row.State != string(protocol.SessionStateStopped) {
-			t.Fatalf("session row state = %s while the pump drained a stopped session, want it to stay stopped", row.State)
-		}
-		select {
-		case ev := <-e.sub.C():
-			t.Fatalf("an event arrived after stopped, want none: %+v", ev)
-		default:
-		}
 	}
 }

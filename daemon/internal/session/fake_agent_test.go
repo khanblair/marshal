@@ -37,6 +37,9 @@ type fakeAgent struct {
 	// fake decides busy or not, so a test can observe exactly what the caller (the Manager) had
 	// already done by the time it asked the agent to start a turn.
 	beforeSend func()
+	// specs is every StartSpec a Start or a Resume was given, in order, so a test can check where
+	// and with what settings the manager asked for a process.
+	specs []agents.StartSpec
 }
 
 // fakeSession is one session a fakeAgent is running.
@@ -62,6 +65,7 @@ func (a *fakeAgent) Start(_ context.Context, spec agents.StartSpec) (agents.Sess
 	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	a.specs = append(a.specs, spec)
 	if a.startErr != nil {
 		return agents.SessionHandle{}, a.startErr
 	}
@@ -74,6 +78,7 @@ func (a *fakeAgent) Start(_ context.Context, spec agents.StartSpec) (agents.Sess
 func (a *fakeAgent) Resume(_ context.Context, sessionID string, spec agents.StartSpec) (agents.SessionHandle, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	a.specs = append(a.specs, spec)
 	if a.resumeErr != nil {
 		return agents.SessionHandle{}, a.resumeErr
 	}
@@ -145,6 +150,13 @@ func (a *fakeAgent) runTurn(s *fakeSession, msg agents.UserMessage) {
 	s.mu.Lock()
 	s.busy = false
 	s.mu.Unlock()
+}
+
+// startSpecs copies the specs the fake was asked to start or resume a process with.
+func (a *fakeAgent) startSpecs() []agents.StartSpec {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return append([]agents.StartSpec(nil), a.specs...)
 }
 
 // setSendErr changes what Send returns for every session, safe to call while a pump goroutine may

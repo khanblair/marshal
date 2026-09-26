@@ -58,14 +58,29 @@ func (*stubbedAgent) Capabilities() agents.Capabilities { return agents.Capabili
 func TestGoLiveStopsTheAgentWhenTheManagerIsAlreadyClosed(t *testing.T) {
 	agent := &stubbedAgent{}
 	m := &Manager{log: slog.New(slog.DiscardHandler), closed: true}
-	ls := &liveSession{cardID: "card-1", agent: agent, handle: agents.SessionHandle{ID: "sess-1"}}
+	diskLog, err := newSessionLog(t.TempDir(), "sess-1", 1024)
+	if err != nil {
+		t.Fatalf("newSessionLog: %v", err)
+	}
+	ls := &liveSession{
+		owner: owner{cardID: "card-1"}, agent: agent, handle: agents.SessionHandle{ID: "sess-1"}, diskLog: diskLog,
+	}
 
-	err := m.goLive(ls)
+	err = m.goLive(ls)
 	if err == nil {
 		t.Fatal("goLive on an already-closed manager should return an error")
 	}
 	if !agent.stopped {
 		t.Error("goLive should stop the agent it was about to register")
+	}
+	// No pump will ever run for the session, so goLive closes its log itself: a second close is the
+	// no-op that proves it was already closed, and the flush goroutine is gone (the package's
+	// leak check would fail the run otherwise).
+	diskLog.mu.Lock()
+	closed := diskLog.closed
+	diskLog.mu.Unlock()
+	if !closed {
+		t.Error("goLive left the log of a session that never went live open")
 	}
 }
 

@@ -6,6 +6,8 @@ import (
 	"log/slog"
 	"path/filepath"
 	"time"
+
+	"github.com/khanblair/marshal/daemon/internal/agents"
 )
 
 // Default sizes and times, all configurable through Config.
@@ -49,6 +51,17 @@ type Config struct {
 	// DataDir is Marshal's own data folder, as a full path. Session logs go under
 	// <DataDir>/logs/sessions/<session id>/.
 	DataDir string
+	// History stores the typed history and activity of every session this manager runs (migration
+	// 0006), so a card's chat can be paged rather than replayed from a log file. Left unset, the
+	// manager writes to the store it already has; set it to share the history module's own store,
+	// which is what reads a card's history back.
+	History HistoryRecorder
+	// Terminals makes the agent that runs a card's CLI in a pseudo-terminal, for the terminal view
+	// (docs/architecture.md 4.3), by the same kinds as the registry the manager starts chat sessions
+	// through. Every agent it makes must also be an agents.Terminal, as the PTY adapter is. A kind
+	// with no factory here has no terminal view, and asking for one is refused with a plain sentence
+	// before anything is stopped. Left nil, no card has a terminal view.
+	Terminals *agents.Registry
 	// ResumeMode says how RestoreAll treats sessions left over from the last run. The default is
 	// ResumeModeAuto.
 	ResumeMode ResumeMode
