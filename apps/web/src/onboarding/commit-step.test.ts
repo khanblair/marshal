@@ -70,11 +70,11 @@ describe("commitStep on the project screen", () => {
   const created = () => daemon.bodies("POST /v1/projects");
   const names = () => synced.S.projects.map((p) => p.name);
 
-  it("starts on Pick a folder, so a screen the person did not touch adds nothing", () => {
-    expect(draft.source).toBe("folder");
+  it("starts on the sample, so a screen the person did not touch adds the sample", async () => {
+    expect(draft.source).toBe("sample");
     commitStep(3, draft, synced);
-    expect(created()).toEqual([]);
-    expect(names()).toEqual([]);
+    await vi.waitFor(() => expect(names()).toContain("marshal-sample"));
+    expect(created()).toEqual([{ source: "sample" }]);
   });
 
   it("adds a project from a folder, keeping the typed path", async () => {

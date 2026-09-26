@@ -87,7 +87,10 @@ export const KEY_FIELDS: readonly { id: KeyId; label: string }[] = [
   { id: "gemini", label: "Gemini API key" },
 ];
 
-export type ProjectSource = "folder" | "github";
+export type ProjectSource = "folder" | "github" | "sample";
+
+/** The design starts the project screen on the sample, which is the one that needs nothing typed. */
+export const DEFAULT_PROJECT_SOURCE: ProjectSource = "sample";
 
 export const SOURCE_CHOICES: readonly {
   id: ProjectSource;
@@ -102,6 +105,12 @@ export const SOURCE_CHOICES: readonly {
     desc: "A repository already on this computer",
   },
   { id: "github", label: "Clone from GitHub", icon: "github", desc: "Paste a repository URL" },
+  {
+    id: "sample",
+    label: "Use a sample project",
+    icon: "flask-conical",
+    desc: "Try Marshal on a small sample repository",
+  },
 ];
 
 export const PAIRING_CODE = "4K7-Q2M";

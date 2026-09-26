@@ -31,8 +31,9 @@ export function createOnboardingFlow() {
 
   const step = (): number => M.S.obStep;
   const isLast = (): boolean => step() === LAST_STEP;
+  /** Moves to a screen. The step is saved, so a second device opens the onboarding here. */
   const go = (target: number): void => {
-    M.set({ obStep: target });
+    M.setOnboardingStep(target);
     focusContinue(FOCUS_AFTER_STEP_MS);
   };
 
@@ -50,7 +51,7 @@ export function createOnboardingFlow() {
       continueButton = el;
     },
     back: (): void => go(step() - 1),
-    skip: (): void => (isLast() ? M.finishOnboarding() : go(step() + 1)),
+    skip: (): void => (isLast() ? M.finishOnboarding("skipped") : go(step() + 1)),
     next: (): void => {
       if (step() === PROFILE_STEP && !draft.name.trim()) {
         setTried(true);
@@ -58,7 +59,7 @@ export function createOnboardingFlow() {
       }
       setTried(false);
       commitStep(step(), draft, M);
-      if (isLast()) M.finishOnboarding();
+      if (isLast()) M.finishOnboarding("done");
       else go(step() + 1);
     },
   };

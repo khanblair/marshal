@@ -68,8 +68,9 @@ export function createTourController() {
     for (const timer of timers) clearTimeout(timer);
   });
 
-  const end = (): void => {
-    M.set({ tour: null });
+  /** How the tour ended: `skipped` from Skip and Escape, `done` from finishing the last step. */
+  const end = (status: "done" | "skipped"): void => {
+    M.endTour(status);
     M.toast(TOUR_ENDED_MESSAGE);
   };
 
@@ -78,7 +79,7 @@ export function createTourController() {
     const target = M.S.tour.step + delta;
     if (target < 0) return;
     if (target >= TOUR_STEPS.length) {
-      end();
+      end("done");
       return;
     }
     M.set({ tour: { step: target } });
@@ -90,7 +91,7 @@ export function createTourController() {
     );
   };
 
-  listenForKeys({ escape: end, enter: () => move(1) });
+  listenForKeys({ escape: () => end("skipped"), enter: () => move(1) });
 
   return {
     rect,
@@ -103,7 +104,7 @@ export function createTourController() {
     },
     back: (): void => move(-1),
     next: (): void => move(1),
-    skip: end,
+    skip: (): void => end("skipped"),
   };
 }
 

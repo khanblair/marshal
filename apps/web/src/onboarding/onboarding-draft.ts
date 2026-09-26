@@ -1,4 +1,9 @@
-import type { ChatAppId, KeyId, ProjectSource } from "./onboarding-data";
+import {
+  type ChatAppId,
+  DEFAULT_PROJECT_SOURCE,
+  type KeyId,
+  type ProjectSource,
+} from "./onboarding-data";
 
 /** Everything typed or chosen on the five screens. It is only applied to the store on Continue. */
 export interface OnboardingDraft {
@@ -20,7 +25,7 @@ export function initialDraft(): OnboardingDraft {
     tz: "Europe/London",
     avatarChosen: false,
     keys: { anthropic: "", openai: "", gemini: "" },
-    source: "folder",
+    source: DEFAULT_PROJECT_SOURCE,
     path: "",
     url: "",
     chatApps: { telegram: false, discord: false },

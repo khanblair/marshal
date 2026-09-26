@@ -36,14 +36,14 @@ describe("repoNameOf", () => {
 });
 
 describe("initialDraft", () => {
-  it("starts empty, on Pick a folder and the London time zone", () => {
+  it("starts empty, on the sample project and the London time zone", () => {
     expect(initialDraft()).toEqual({
       name: "",
       email: "",
       tz: "Europe/London",
       avatarChosen: false,
       keys: { anthropic: "", openai: "", gemini: "" },
-      source: "folder",
+      source: "sample",
       path: "",
       url: "",
       chatApps: { telegram: false, discord: false },

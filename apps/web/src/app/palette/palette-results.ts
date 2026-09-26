@@ -1,4 +1,5 @@
 import type { Marshal } from "~/mock";
+import { cleanQuery, type PaletteHits } from "~/sync/search";
 
 /** One row of the palette: the store's command shape. */
 export type PaletteCommand = ReturnType<Marshal["commands"]>[number];
@@ -26,10 +27,37 @@ function withNeedsGroup(M: Marshal, all: PaletteCommand[]): PaletteCommand[] {
   return all.filter((x) => x.group !== "Cards").concat(regrouped);
 }
 
-/** What the palette shows for a query: filtered, grouped, and capped at 60 rows. */
-export function paletteResults(M: Marshal, query: string): PaletteCommand[] {
+/**
+ * With the daemon's answer to the query: the actions that match, then the daemon's projects, cards,
+ * and chats in place of the store's own project and card rows, then the settings that match. The
+ * daemon's rows are not filtered again: the daemon has matched them (a card's `api#41` is in its
+ * key, which its row does not show).
+ */
+function withHits(all: PaletteCommand[], q: string, hits: PaletteHits): PaletteCommand[] {
+  const own = matching(
+    all.filter((x) => x.group !== "Projects" && x.group !== "Cards"),
+    q,
+  );
+  const actions = own.filter((x) => x.group === "Actions");
+  const settings = own.filter((x) => x.group !== "Actions");
+  return [...actions, ...hits.projects, ...hits.cards, ...hits.chats, ...settings];
+}
+
+/**
+ * What the palette shows for a query: filtered, grouped, and capped at 60 rows. `hits` is the
+ * daemon's answer, used only when it answers this very query; while the answer is on its way, or
+ * when there is none (the daemon is away, or the request failed), the palette searches what the
+ * store holds, as it does with no daemon at all.
+ */
+export function paletteResults(
+  M: Marshal,
+  query: string,
+  hits: PaletteHits | null = null,
+): PaletteCommand[] {
   const all = M.commands();
   const q = query.trim().toLowerCase();
+  const answered = q !== "" && hits !== null && hits.query === cleanQuery(query);
+  if (answered) return withHits(all, q, hits).slice(0, MAX_RESULTS);
   const found = q ? matching(all, q) : withNeedsGroup(M, matching(all, q));
   return found.slice(0, MAX_RESULTS);
 }

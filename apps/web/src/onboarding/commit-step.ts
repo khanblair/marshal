@@ -30,8 +30,16 @@ async function addFirstProject(m: Store, request: CreateProjectRequest): Promise
   if ("error" in result) m.toast(result.error);
 }
 
-/** Adds the project the person named, from a folder or a URL. An empty field adds nothing. */
+/**
+ * Adds the project the person named, from a folder or a URL, or the sample. An empty field adds
+ * nothing. The sample is the daemon's own repository: the request names only the source, and the
+ * daemon answers with the sample it already has (`409 conflict`) when it is in Marshal.
+ */
 function commitProject(m: Store, draft: OnboardingDraft): void {
+  if (draft.source === "sample") {
+    void addFirstProject(m, { source: "sample" });
+    return;
+  }
   const value = (draft.source === "folder" ? draft.path : draft.url).trim();
   const name = repoNameOf(value);
   if (!value || !name) return;

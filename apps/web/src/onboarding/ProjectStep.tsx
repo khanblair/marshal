@@ -8,7 +8,9 @@ import type { StepProps } from "./StepProps";
 export function ProjectStep(props: StepProps) {
   return (
     <>
-      <StepIntro>Each project is one repository with one board.</StepIntro>
+      <StepIntro>
+        Each project is one repository with one board. The sample project is safe to try things on.
+      </StepIntro>
       <div
         role="radiogroup"
         aria-label="How to add your first project"

@@ -293,19 +293,19 @@ describe("Onboarding agents screen", () => {
 describe("Onboarding project screen", () => {
   beforeEach(() => goTo(3));
 
-  it("offers a folder or a GitHub clone only, and starts on the folder with its field", () => {
+  it("offers the sample, a folder, and a GitHub clone, and starts on the sample", () => {
     render(() => <Onboarding />);
     const choices = screen.getAllByRole("radio").map((radio) => radio.textContent);
     expect(choices).toEqual([
       "Pick a folderA repository already on this computer",
       "Clone from GitHubPaste a repository URL",
+      "Use a sample projectTry Marshal on a small sample repository",
     ]);
-    expect(screen.getByRole("radio", { name: /Pick a folder/ })).toHaveAttribute(
+    expect(screen.getByRole("radio", { name: /Use a sample project/ })).toHaveAttribute(
       "aria-checked",
       "true",
     );
-    expect(screen.queryByRole("radio", { name: /sample/i })).toBeNull();
-    expect(screen.getByPlaceholderText("~/code/my-repo")).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText("~/code/my-repo")).toBeNull();
     expect(screen.queryByText("Repository URL")).toBeNull();
   });
 
@@ -327,9 +327,17 @@ describe("Onboarding project screen", () => {
     expect(add).toHaveBeenCalledWith({ source: "folder", path: "~/code/orbit", name: "orbit" });
   });
 
-  it("adds nothing on Continue while the folder is left empty", () => {
+  it("adds the sample project on Continue, which is the choice it starts on", () => {
+    const add = vi.spyOn(M, "addProject").mockResolvedValue({ id: "marshal-sample" });
+    render(() => <Onboarding />);
+    click("Continue");
+    expect(add).toHaveBeenCalledWith({ source: "sample" });
+  });
+
+  it("adds nothing on Continue while a chosen folder is left empty", () => {
     const add = vi.spyOn(M, "addProject").mockResolvedValue({ id: "orbit" });
     render(() => <Onboarding />);
+    click(/Pick a folder/, "radio");
     click("Continue");
     expect(add).not.toHaveBeenCalled();
   });
