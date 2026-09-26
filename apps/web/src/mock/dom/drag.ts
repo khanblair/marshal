@@ -1,8 +1,10 @@
 import { batch } from "solid-js";
+import { isDaemon } from "~/data/sections";
+import { moveCard as moveCardOnDaemon } from "~/sync/card-actions";
 import { moveCard } from "../actions/cards";
 import type { CardKey } from "../card-key";
 import { colOf, isColumn } from "../constants";
-import type { Ctx } from "../context";
+import { type Ctx, sectionsOf } from "../context";
 import { set } from "../engine";
 import { card, isMobile } from "../selectors";
 
@@ -63,7 +65,11 @@ function onEnd(s: DragSession): void {
   const to = s.ctx.S.dropCol;
   set(s.ctx, { dragId: null, dropCol: null });
   const c = card(s.ctx, s.id);
-  if (c && to && isColumn(to) && to !== colOf(c.state)) moveCard(s.ctx, s.id, to);
+  if (c && to && isColumn(to) && to !== colOf(c.state)) {
+    // The daemon owns the cards once section S5a is switched; until then the mock's own move runs.
+    const move = isDaemon("S5a", sectionsOf(s.ctx.env)) ? moveCardOnDaemon : moveCard;
+    move(s.ctx, s.id, to);
+  }
   setTimeout(() => {
     s.ctx.flags.suppressClick = false;
   }, CLICK_GUARD_MS);

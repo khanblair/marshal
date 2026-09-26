@@ -3,11 +3,8 @@ import type { CardKey } from "../card-key";
 import type { Ctx } from "../context";
 import { addAct, confirm, toast } from "../engine";
 import { takeCk } from "../ids";
-import { card } from "../selectors";
+import { card, meId } from "../selectors";
 import type { Checklist } from "../types";
-
-/** The signed-in user; checked items record who checked them. */
-const ME = "ada";
 
 const listOf = (ctx: Ctx, cid: CardKey, lid: string): Checklist | undefined =>
   card(ctx, cid)?.checklists.find((x) => x.id === lid);
@@ -16,7 +13,7 @@ export function toggleItem(ctx: Ctx, cid: CardKey, lid: string, iid: string): vo
   const it = listOf(ctx, cid, lid)?.items.find((x) => x.id === iid);
   if (!it) return;
   it.done = !it.done;
-  it.by = it.done ? ME : null;
+  it.by = it.done ? meId(ctx) : null;
   it.doneAt = Date.now();
   addAct(ctx, cid, {
     kind: "tool",

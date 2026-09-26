@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { sectionStatus } from "~/data/sections";
 import type { KeyValueStore } from "~/data/storage";
 import { createTestMarshal } from "~/testing/test-store";
 import { FIXED_TIME, makeTwin, SLOW_TEST_MS, type Twin } from "../testing/twin";
@@ -122,6 +123,9 @@ describe("onboarding and tour", { timeout: SLOW_TEST_MS }, () => {
       storage,
       viewport: { w: 1440, h: 900 },
       applyTheme: () => {},
+      // These two tests are the mock's own first-launch screens, remembered in localStorage, so they
+      // pin S31a to the mock the way the twin does, rather than letting the daemon's progress decide.
+      sections: { ...sectionStatus, S31a: "mock" },
     });
 
   it("skips onboarding once it was finished before", () => {

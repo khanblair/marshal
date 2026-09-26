@@ -1,3 +1,4 @@
+import { hasLiveSession } from "~/data/mappers/card";
 import type { Card, CiState, Column, Status, ToneKind, ViewKey } from "./types";
 
 export const MINUTE_MS = 60_000;
@@ -94,6 +95,13 @@ export const VIEWS: readonly ViewInfo[] = [
   { key: "calendar", label: "Calendar", icon: "calendar" },
 ];
 
-/** A card has a live agent session unless it is in backlog, done, or asleep. */
+/**
+ * A card has a live agent session. A daemon card says so itself: its session is in a state that has
+ * a running agent (`hasLiveSession`), which is what the daemon's own awake count counts. A card the
+ * mock made has no session, so the prototype's rule stands for it: everything but backlog, done, and
+ * asleep.
+ */
 export const isAwake = (c: Card): boolean =>
-  c.state !== "backlog" && c.state !== "done" && !c.asleep;
+  c.session !== undefined
+    ? hasLiveSession(c.session)
+    : c.state !== "backlog" && c.state !== "done" && !c.asleep;

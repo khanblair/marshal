@@ -1,7 +1,10 @@
 import { batch } from "solid-js";
+import { isDaemon } from "~/data/sections";
+import { fork as forkOnDaemon } from "~/sync/card-actions";
+import { startTour as startTourOnDaemon } from "~/sync/onboarding-actions";
 import { type CardKey, cardLabel } from "../card-key";
 import { STATUS, tone, VIEWS } from "../constants";
-import type { Ctx } from "../context";
+import { type Ctx, sectionsOf } from "../context";
 import { set, toast } from "../engine";
 import { card, cardLabelOf, pendingApproval } from "../selectors";
 import { approve } from "./approvals";
@@ -42,6 +45,10 @@ const SETTINGS: [section: string, label: string][] = [
 
 /** Command runs change several fields at once, so each applies as one update. */
 const cmd = (c: Command): Command => ({ ...c, run: () => batch(c.run) });
+
+/** Replaying the tour sets the daemon's own tutorial back to pending once S31a is switched. */
+const startTourCommand = (ctx: Ctx): void =>
+  isDaemon("S31a", sectionsOf(ctx.env)) ? startTourOnDaemon(ctx) : startTour(ctx);
 
 function generalCommands(ctx: Ctx): Command[] {
   const { S } = ctx;
@@ -84,7 +91,7 @@ function generalCommands(ctx: Ctx): Command[] {
         set(ctx, { newChatOpen: true });
       },
     },
-    { group: "Actions", label: "Replay tour", icon: "map", run: () => startTour(ctx) },
+    { group: "Actions", label: "Replay tour", icon: "map", run: () => startTourCommand(ctx) },
   ];
 }
 
@@ -110,7 +117,8 @@ function openCardCommands(ctx: Ctx): Command[] {
       group: "Actions",
       label: `Fork ${cardLabel(c)}`,
       icon: "git-fork",
-      run: () => fork(ctx, c.id),
+      // The daemon owns the cards once section S5a is switched; until then the mock's own fork runs.
+      run: () => (isDaemon("S5a", sectionsOf(ctx.env)) ? forkOnDaemon : fork)(ctx, c.id),
     },
   ];
   if (pendingApproval(ctx, c.id)) {

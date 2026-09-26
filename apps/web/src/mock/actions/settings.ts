@@ -19,6 +19,25 @@ export function setTheme(ctx: Ctx, theme: Theme): void {
   ctx.env.applyTheme(ctx.S);
 }
 
+/** Saves the Profile form. It is the mock's own until the profile is the daemon's (S2a), so it cannot be refused. */
+export function saveProfile(
+  ctx: Ctx,
+  fields: { name: string; email: string; tz: string },
+): boolean {
+  Object.assign(ctx.S.profile, {
+    name: fields.name.trim(),
+    email: fields.email.trim(),
+    tz: fields.tz,
+  });
+  toast(ctx, "Profile saved");
+  return true;
+}
+
+/** The Upload image button of the Profile screen. The mock has no picker: it says what the button is for. */
+export function chooseAvatar(ctx: Ctx): void {
+  toast(ctx, "Choose an image to use as your avatar");
+}
+
 /** Checks finish one after another; the first fails while the card's CI is failing. */
 const FIRST_CHECK_MS = 1500;
 const NEXT_CHECK_MS = 900;

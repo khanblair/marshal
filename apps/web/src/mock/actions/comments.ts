@@ -3,10 +3,9 @@ import { isAwake } from "../constants";
 import type { Ctx } from "../context";
 import { addAct, later, live, toast } from "../engine";
 import { takeCk } from "../ids";
-import { card, person } from "../selectors";
+import { card, meId, person } from "../selectors";
 import type { Attachment, Comment } from "../types";
 
-const ME = "ada";
 /** An awake agent reads a new comment after this long... */
 const READ_MS = 1200;
 /** ...and answers a question or a mention this long after reading it. */
@@ -42,7 +41,7 @@ export function addComment(ctx: Ctx, cid: CardKey, text: string, att?: Attachmen
   if (!c || (!text.trim() && !att?.length)) return;
   const cm = live<Comment>({
     id: `co${takeCk(ctx.ids)}`,
-    author: ME,
+    author: meId(ctx),
     text: text.trim(),
     ts: Date.now(),
     att: [...(att || []), ...linksIn(text)],

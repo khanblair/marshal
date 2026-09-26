@@ -2,13 +2,13 @@ import type { AgentCatalog } from "@marshal/protocol";
 import { describe, expect, it } from "vitest";
 import { applyAgentCatalog } from "~/sync/agents";
 import { GOLDEN_CATALOG, wireAgent, wireCatalog } from "~/testing/agents";
-import { contextOf, createTestMarshal } from "~/testing/test-store";
+import { contextOf, createTestMarshal, MOCK_CARDS } from "~/testing/test-store";
 import { agentOptions, defaultAgent, defaultAgentOf, defaultModel, thinkSupported } from "./agents";
 import type { Card } from "./types";
 
 /** A store whose catalog is the golden one: Claude Code supported, Gemini CLI untested, Codex missing. */
 function storeWith(catalog?: AgentCatalog) {
-  const M = createTestMarshal({ hash: "#nosim" });
+  const M = createTestMarshal({ hash: "#nosim", sections: MOCK_CARDS });
   const ctx = contextOf(M);
   if (catalog) applyAgentCatalog(ctx, catalog);
   return { M, ctx };

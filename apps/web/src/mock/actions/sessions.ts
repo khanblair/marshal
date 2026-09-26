@@ -149,6 +149,19 @@ export function keepAllAwake(ctx: Ctx): void {
   toast(ctx, `Kept ${n.cards.length} cards awake`);
 }
 
+/**
+ * The Agents view's Stop: the mock draws it as a pause (of a working card) and a sleep together,
+ * with one toast. The daemon path asks for the same two things in `sync/card-hold.ts`.
+ */
+export function stopSession(ctx: Ctx, id: CardKey): void {
+  const c = card(ctx, id);
+  if (!c) return;
+  c.paused = c.state === "working";
+  c.asleep = true;
+  c.doing = "";
+  toast(ctx, "Session stopped");
+}
+
 export function dismissNotice(ctx: Ctx, id: string): void {
   ctx.S.notices = ctx.S.notices.filter((n) => n.id !== id);
 }

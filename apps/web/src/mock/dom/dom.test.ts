@@ -1,12 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestMarshal } from "~/testing/test-store";
+import { createTestMarshal, MOCK_CARDS } from "~/testing/test-store";
 import type { CardKey } from "../card-key";
 import type { Marshal } from "../marshal";
 import { applyTheme, watchSystemTheme } from "./theme";
 import { watchResize } from "./viewport";
 
 const make = (w = 1440): Marshal =>
-  createTestMarshal({ hash: "#nosim", storage: null, viewport: { w, h: 900 }, applyTheme });
+  createTestMarshal({
+    hash: "#nosim",
+    storage: null,
+    viewport: { w, h: 900 },
+    applyTheme,
+    sections: MOCK_CARDS,
+  });
 
 function pointer(type: string, x: number, y: number, init: PointerEventInit = {}): PointerEvent {
   return new PointerEvent(type, { clientX: x, clientY: y, button: 0, bubbles: true, ...init });

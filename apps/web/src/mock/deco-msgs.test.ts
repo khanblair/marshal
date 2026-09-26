@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestMarshal } from "~/testing/test-store";
+import { createTestMarshal, MOCK_HISTORY } from "~/testing/test-store";
 import type { CardKey } from "./card-key";
 import type { MsgView } from "./deco-msgs";
 import type { Marshal } from "./marshal";
@@ -10,6 +10,7 @@ const make = (): Marshal =>
     storage: null,
     viewport: { w: 1440, h: 900 },
     applyTheme: () => {},
+    sections: MOCK_HISTORY,
   });
 
 const views = (M: Marshal, id: CardKey): MsgView[] => M.decoMsgs(M.S.chat[id] ?? [], id);

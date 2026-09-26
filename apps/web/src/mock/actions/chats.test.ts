@@ -67,11 +67,12 @@ describe("project chats", { timeout: SLOW_TEST_MS }, () => {
     t.play(6000, 200);
   });
 
-  it("says nothing is blocked in a project without waiting cards", () => {
+  it("says nothing is blocked in a project without waiting cards", async () => {
     // A project the daemon just sent has no cards, so this is the port alone (the prototype cannot add one this way).
     applyProject(contextOf(t.port), daemonProject({ id: "billing", path: "~/code/billing" }));
-    const chat = t.port.newChat("billing", "");
-    t.port.chatSend("billing", chat.id, "What is blocked?");
+    // The mock answers at once; on the daemon a new chat is answered by it, which is why this awaits.
+    const chat = await t.port.newChat("billing", "");
+    t.port.chatSend("billing", chat?.id ?? "", "What is blocked?");
     vi.advanceTimersByTime(1000);
     expect(t.port.S.chats.billing?.[0]?.msgs.at(-1)).toMatchObject({
       text: "Nothing is blocked right now.",
@@ -90,8 +91,9 @@ describe("project chats", { timeout: SLOW_TEST_MS }, () => {
     t.play(9000, 100);
   });
 
-  it("returns the new chat as a live store object", () => {
-    const chat = t.port.newChat("web");
+  it("returns the new chat as a live store object", async () => {
+    const chat = await t.port.newChat("web");
+    if (!chat) throw new Error("the mock always makes the chat");
     chat.title = "Renamed through the returned object";
     expect(t.port.chatById("web", chat.id)?.title).toBe("Renamed through the returned object");
   });

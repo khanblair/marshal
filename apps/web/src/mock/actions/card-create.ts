@@ -31,8 +31,26 @@ export function insertCard(ctx: Ctx, c: Card, chat: Msg[] = [], act: Activity[] 
   return item;
 }
 
+/**
+ * What a board lane adds to a card created inside it: the fields the lanes group cards by. The
+ * daemon's own quick add takes the same shape, so a card made in a lane is one request either way
+ * and nothing is patched in after the card exists.
+ */
+export interface LaneExtra {
+  role?: string;
+  agent?: string;
+  pkg?: string | null;
+  model?: string;
+}
+
 /** The board's inline "Add card". Planning and working columns start the session right away. */
-export function quickAdd(ctx: Ctx, pid: string, col: Column, title: string): void {
+export function quickAdd(
+  ctx: Ctx,
+  pid: string,
+  col: Column,
+  title: string,
+  lane: LaneExtra = {},
+): void {
   if (!title?.trim()) return;
   const c = insertCard(
     ctx,
@@ -44,6 +62,7 @@ export function quickAdd(ctx: Ctx, pid: string, col: Column, title: string): voi
       ...NEW_CARD_SPAN,
       perm: col === "planning" ? "Plan only" : "Auto-accept edits",
       members: ["ada"],
+      ...lane,
     }),
   );
   if (col === "planning" || col === "working") startSession(ctx, c, col);
