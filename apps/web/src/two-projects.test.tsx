@@ -1,9 +1,10 @@
 import { cleanup, render, screen } from "@solidjs/testing-library";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildNotices } from "~/app/notices/notice-list";
 import { paletteResults } from "~/app/palette/palette-results";
 import { type Card, M } from "~/mock";
 import { cardKey, cardLabel } from "~/mock/card-key";
+import { checksFor } from "~/mock/seed/checks";
 import { addTwoProjects, removeTwoProjects, type TwoProjects } from "~/mock/testing/two-projects";
 import { BoardView } from "~/views/board/BoardView";
 import { defaultNote, noteText, saveNote } from "~/views/card/card-note";
@@ -15,8 +16,31 @@ import { ListView } from "~/views/list/ListView";
 import { dependencyLines, spanOf } from "~/views/timeline/timeline-geometry";
 import { barTip, planMove } from "~/views/timeline/timeline-model";
 
-vi.hoisted(() => {
+/*
+ * The store and the fake daemon it follows are built here, before any import runs, because the
+ * views read the one store `~/mock` hands out: it has to be made with the section table that puts
+ * the cards on the daemon, and with a daemon to answer the writes the fixture makes. The daemon
+ * holds the prototype's own api cards, so a card added to api still continues that project's
+ * numbering.
+ */
+const host = await vi.hoisted(async () => {
   window.location.hash = "#nosim";
+  const { createFakeDaemon } = await import("~/testing/fake-daemon");
+  const { wireCard } = await import("~/testing/fake-cards");
+  const { prototypeCards } = await import("~/testing/prototype-cards");
+  const { PROTOTYPE_PROJECTS } = await import("~/testing/projects");
+  const { createTestMarshal, DAEMON_CARDS, MOCK_HISTORY } = await import("~/testing/test-store");
+  const cards = prototypeCards()
+    .filter((card) => card.p === "api")
+    .map((card) => wireCard({ projectId: card.p, number: card.n, title: card.title }));
+  const daemon = createFakeDaemon({ projects: PROTOTYPE_PROJECTS, cards });
+  // The cards are the daemon's and their chat and activity, and the project chats, are still the
+  // mock's, which is a state the register really has while the sections switch one at a time.
+  window.M = createTestMarshal({
+    data: daemon.data,
+    sections: { ...DAEMON_CARDS, ...MOCK_HISTORY, S17: "mock" },
+  });
+  return { daemon };
 });
 
 /*
@@ -36,19 +60,44 @@ let savedFeed: typeof M.S.feed;
 const alpha = (): Card => M.card(two.alphaCard) as Card;
 const beta = (): Card => M.card(two.betaCard) as Card;
 
-beforeEach(() => {
+/**
+ * Waits until the app has stopped asking for boards: the stream's first Resync makes it load once
+ * more after `ready`, and that snapshot landing on top of a card a test just made would put the
+ * card back the way the daemon had it before the change.
+ */
+async function settled(): Promise<void> {
+  let last = -1;
+  await vi.waitFor(() => {
+    const loads = host.daemon.routes().filter((route) => route.endsWith("/board")).length;
+    const steady = loads > 0 && loads === last;
+    last = loads;
+    expect(steady).toBe(true);
+  });
+}
+
+beforeAll(async () => {
+  await host.daemon.connect();
+  await vi.waitFor(() => expect(M.S.ready).toBe(true));
+  await settled();
+});
+
+afterAll(() => {
+  host.daemon.data.stop();
+});
+
+beforeEach(async () => {
   vi.useFakeTimers();
   savedNotices = M.S.notices;
   savedFeed = M.S.feed;
   M.setViewport(DESKTOP_PX, HEIGHT_PX);
-  two = addTwoProjects(M);
+  two = await addTwoProjects(M, host.daemon);
   M.set({ openId: null, focusId: null, dialog: null, toasts: [], notices: [], feed: [] });
 });
 
 afterEach(() => {
   cleanup();
   vi.clearAllTimers();
-  removeTwoProjects(M, two);
+  removeTwoProjects(M, host.daemon, two);
   M.set({ openId: null, focusId: null, dragId: null, notices: savedNotices, feed: savedFeed });
   vi.useRealTimers();
 });
@@ -62,11 +111,11 @@ describe("card numbers and keys", () => {
     expect(twelves.sort()).toEqual([two.alphaCard, two.betaCard].sort());
   });
 
-  it("continues the numbering of a seeded project, not a global counter", () => {
-    M.quickAdd("api", "backlog", "Next api card");
-    expect(M.S.cards.at(-1)?.id).toBe("api#47");
-    M.quickAdd(two.alpha, "backlog", "Next alpha card");
-    expect(M.S.cards.at(-1)?.id).toBe(cardKey(two.alpha, 13));
+  it("continues the numbering of a seeded project, not a global counter", async () => {
+    // The daemon answers the key it numbered the card with. The store keeps its cards sorted, so
+    // the newest one is not the last of `S.cards` the way the mock's own quick add left it.
+    expect(await M.quickAdd("api", "backlog", "Next api card")).toBe("api#47");
+    expect(await M.quickAdd(two.alpha, "backlog", "Next alpha card")).toBe(cardKey(two.alpha, 13));
   });
 
   it("finds each card by its own key and no card by a key of another project", () => {
@@ -138,6 +187,9 @@ describe("what a card owns", () => {
     expect(M.S.act[two.betaCard] ?? []).toHaveLength(0);
     expect(beta().state).toBe("backlog");
 
+    // Acceptance checks are still the mock's own: a card the daemon made has none in the store, so
+    // each card is given the checks the mock's own create path would have written for it.
+    for (const card of [alpha(), beta()]) M.S.checks[card.id] = checksFor(card);
     M.runChecks(two.alphaCard);
     expect(M.S.checks[two.alphaCard]?.some((k) => k.st === "running")).toBe(true);
     expect(M.S.checks[two.betaCard]?.every((k) => k.st === "pending")).toBe(true);
@@ -148,31 +200,31 @@ describe("what a card owns", () => {
     expect(M.S.notes?.[two.betaCard]).toBeUndefined();
   });
 
-  it("moves the dragged card and no other, and dims only that card", () => {
+  it("moves the dragged card and no other, and dims only that card", async () => {
     M.set({ dragId: two.alphaCard });
     expect(M.deco(alpha()).dragging).toBe(true);
     expect(M.deco(beta()).dragging).toBe(false);
-    M.moveCard(two.alphaCard, "working");
+    await M.moveCard(two.alphaCard, "working");
     expect(alpha().state).toBe("working");
     expect(beta().state).toBe("backlog");
-    M.moveCard(two.betaCard, "planning");
+    await M.moveCard(two.betaCard, "planning");
     expect(alpha().state).toBe("working");
     expect(beta().state).toBe("planning");
   });
 
-  it("deletes one card and leaves the other with everything it has", () => {
+  it("deletes one card and leaves the other with everything it has", async () => {
     M.send(two.betaCard, "Ping beta");
     M.openCard(two.betaCard);
-    M.deleteCard(two.alphaCard);
+    await M.deleteCard(two.alphaCard);
     M.S.dialog?.run();
-    expect(M.card(two.alphaCard)).toBeUndefined();
+    await vi.waitFor(() => expect(M.card(two.alphaCard)).toBeUndefined());
     expect(M.S.chat[two.alphaCard]).toBeUndefined();
     expect(beta().title).toBe(BETA_TITLE);
     expect(M.S.chat[two.betaCard]?.some((m) => m.k === "user")).toBe(true);
     expect(M.S.openId).toBe(two.betaCard);
-    M.deleteCard(two.betaCard);
+    await M.deleteCard(two.betaCard);
     M.S.dialog?.run();
-    expect(M.S.openId).toBeNull();
+    await vi.waitFor(() => expect(M.S.openId).toBeNull());
   });
 });
 
@@ -297,7 +349,8 @@ describe("Home", () => {
   });
 
   it("names the project in the label of each awake card", () => {
-    for (const c of [alpha(), beta()]) c.state = "working";
+    // A daemon card is awake when its session runs an agent, whatever column it is in.
+    for (const c of [alpha(), beta()]) Object.assign(c, { state: "working", session: "working" });
     const awake = awakeCards();
     expect(awake.map((c) => c.id)).toEqual(expect.arrayContaining([two.alphaCard, two.betaCard]));
     expect(M.cardLabelOf(alpha())).toBe("alpha-service #12");
@@ -337,13 +390,13 @@ describe("dependencies and the timeline", () => {
 });
 
 describe("chats", () => {
-  it("points a chat at one card and lists only the cards of its own project", () => {
-    for (const c of [alpha(), beta()]) c.state = "working";
+  it("points a chat at one card and lists only the cards of its own project", async () => {
+    for (const c of [alpha(), beta()]) Object.assign(c, { state: "working", session: "working" });
     const targets = newChatTargets(two.alpha).map((option) => option.value);
     expect(targets).toContain(two.alphaCard);
     expect(targets).not.toContain(two.betaCard);
-    const chat = M.newChat(two.beta, two.betaCard);
-    expect(chat.target).toBe(two.betaCard);
-    expect(targetLabel(chat.target)).toBe(`#12 ${beta().agent}`);
+    const chat = await M.newChat(two.beta, two.betaCard);
+    expect(chat?.target).toBe(two.betaCard);
+    expect(targetLabel(chat?.target ?? "")).toBe(`#12 ${beta().agent}`);
   });
 });

@@ -1,11 +1,38 @@
 import { attachToPage } from "~/mock/attach";
 import { applyTheme } from "~/mock/dom/theme";
 import type { Marshal } from "~/mock/marshal";
-import { createTestMarshal } from "./test-store";
+import { createTestMarshal, MOCK_HISTORY, MOCK_PERSON_SECTIONS } from "./test-store";
 
 /** The shared store of a test file: like the browser's, with the prototype's projects and no daemon. */
 function createSharedStore(): Marshal {
-  const M = createTestMarshal({ storage: window.localStorage, applyTheme });
+  // The shared store is a mock store: it has the prototype's projects, no daemon, and the mock's own
+  // chat and activity, whatever the register says. A test that wants the daemon's history builds its
+  // own store and installs it, the way `daemon-cards-store.ts` does.
+  //
+  // S20 is pinned to mock here regardless of the register: once it is switched, the reservoir
+  // (sync/reservoir.ts) stops handing `S.feed` the mock's own activity, on the assumption a live
+  // daemon syncer fills it instead — which this store, having no daemon, never does. The person
+  // (S2a, S6a, and S32) is pinned for the same reason: the prototype's people, its seeded saved
+  // views, and its profile are the mock's own, and no daemon fills them in their place.
+  //
+  // S17 (the project chats) is pinned for the reservoir's sake too: once it is switched, the
+  // reservoir stops handing `S.chats` the mock's own chats, and this store has no daemon to fill
+  // them. S7c (pause, sleep, wake, and pin) and S9 (the terminal view's switch) are pinned because
+  // their actions ask the daemon: with no daemon they can only say "not connected", and the tests of
+  // the views that press them exercise the mock's own. The daemon's path is tested against
+  // `daemon-cards-store.ts`.
+  const M = createTestMarshal({
+    storage: window.localStorage,
+    applyTheme,
+    sections: {
+      ...MOCK_HISTORY,
+      ...MOCK_PERSON_SECTIONS,
+      S17: "mock",
+      S20: "mock",
+      S7c: "mock",
+      S9: "mock",
+    },
+  });
   M.S.ready = true;
   return attachToPage(M);
 }
