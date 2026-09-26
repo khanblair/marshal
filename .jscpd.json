@@ -16,7 +16,10 @@
     "**/*_test.go",
     "**/testdata/**",
     "packages/tokens/src/themes.ts",
-    "apps/web/src/mock/seed/**"
+    "apps/web/src/mock/seed/**",
+    "daemon/internal/store/db/**",
+    "packages/protocol/src/generated/**",
+    "packages/ui/src/index.ts"
   ],
   "format": ["typescript", "tsx", "javascript", "css", "go"]
 }

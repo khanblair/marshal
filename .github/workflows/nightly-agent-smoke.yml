@@ -1,0 +1,47 @@
+name: nightly agent smoke test
+
+# Runs the real agent CLIs (Claude Code, Codex, Gemini CLI) through one small card each, to catch a
+# CLI update that breaks the adapters. It is the only place a real agent is ever run: no unit test
+# and no builder does. It is OFF until you turn it on, and it spends a few cents of each account.
+#
+# Why it needs your own machine: the daemon passes an agent only a short list of environment
+# variables (`daemon/internal/proc/env.go`), so an API key held as a GitHub secret never reaches the
+# CLI, and a hosted runner has no signed-in CLI. Use a self-hosted runner on a Mac where the CLIs
+# are installed and signed in (GitHub: Settings, Actions, Runners, New self-hosted runner).
+#
+# To turn it on: Settings, Secrets and variables, Actions, Variables:
+#   RUN_NIGHTLY_AGENT_SMOKE = true          turns the nightly run on
+#   NIGHTLY_AGENTS          = claude,codex  which agents to test (default: claude)
+#   NIGHTLY_RUNNER          = ["self-hosted","macOS"]   the runner labels, as JSON (this is the default)
+# To turn it off: delete the RUN_NIGHTLY_AGENT_SMOKE variable or set it to false. Or delete this
+# file, or "Disable workflow" in the Actions tab. To run it once by hand: Run workflow.
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    name: agent smoke test
+    if: github.event_name == 'workflow_dispatch' || vars.RUN_NIGHTLY_AGENT_SMOKE == 'true'
+    runs-on: ${{ fromJSON(vars.NIGHTLY_RUNNER || '["self-hosted","macOS"]') }}
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: daemon/go.mod
+          cache-dependency-path: |
+            daemon/go.sum
+            tools/*/go.sum
+      - run: pnpm setup:tools
+      - run: pnpm gen
+      - run: pnpm --filter daemon build
+      # The versions of the CLIs are the ones installed on the runner, and the report prints each.
+      - run: node scripts/agent-smoke.mjs --agents "${{ vars.NIGHTLY_AGENTS || 'claude' }}"

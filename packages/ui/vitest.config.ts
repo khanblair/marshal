@@ -17,6 +17,9 @@ export default defineConfig({
       provider: "v8",
       include: ["src/**/*.{ts,tsx}"],
       exclude: ["src/**/*.test.{ts,tsx}", "src/test-setup.ts"],
+      reporter: ["text-summary"],
+      // The floor for UI packages in docs/code-standards.md section 6. `vitest run --coverage` fails below it.
+      thresholds: { lines: 60, statements: 60, functions: 60, branches: 60 },
     },
   },
 });

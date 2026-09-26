@@ -7,7 +7,7 @@
     "dev": "node ../scripts/go-tool.mjs air -c .air.toml",
     "dev:reset": "node ../scripts/go-tool.mjs go run ./cmd/marshal dev reset",
     "build": "node ../scripts/go-tool.mjs go build -o ../dist/bin/ ./cmd/...",
-    "test": "node ../scripts/go-tool.mjs go test -race ./...",
+    "test": "node ../scripts/go-tool.mjs go test -race -covermode=atomic -coverprofile=coverage.out ./...",
     "lint:go": "node ../scripts/go-tool.mjs golangci-lint run ./...",
     "format:go": "node ../scripts/go-tool.mjs golangci-lint fmt ./...",
     "format:check:go": "node ../scripts/go-tool.mjs golangci-lint fmt --diff ./..."

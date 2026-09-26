@@ -54,3 +54,5 @@ Thumbs.db
 .claude/settings.local.json
 .claude/*.local.*
 .superpowers/
+# Added by code-review-graph
+.code-review-graph/

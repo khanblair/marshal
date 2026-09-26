@@ -6,8 +6,43 @@ on:
     branches: [main]
 
 jobs:
+  # The light checks run first, on one Linux runner, so a formatting, type, or generated-file
+  # problem stops the run before the slow jobs (and the macOS and Windows minutes) are spent.
+  lint:
+    name: light checks (generated files, format, lint, types, smells, contrast)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: daemon/go.mod
+          cache-dependency-path: |
+            daemon/go.sum
+            tools/*/go.sum
+      - uses: actions/cache@v4
+        with:
+          path: .tools
+          key: go-tools-${{ runner.os }}-${{ hashFiles('scripts/setup-tools.mjs') }}
+      - run: pnpm setup:tools
+      - run: pnpm gen
+      # Generated files must be committed as `pnpm gen` makes them.
+      - run: node scripts/check-generated.mjs --committed
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm smells
+      - run: pnpm --filter @marshal/tokens check:contrast
+
+  # The slow checks, on all three systems, once the light ones have passed.
   check:
     name: check (${{ matrix.os }})
+    needs: lint
     strategy:
       fail-fast: false
       matrix:
@@ -33,12 +68,10 @@ jobs:
           key: go-tools-${{ runner.os }}-${{ hashFiles('scripts/setup-tools.mjs') }}
       - run: pnpm setup:tools
       - run: pnpm gen
-      - run: pnpm format:check
-      - run: pnpm lint
-      - run: pnpm typecheck
-      - run: pnpm smells
-      - run: pnpm --filter @marshal/tokens check:contrast
+      # The daemon's tests write its coverage profile, and the web app and UI package tests fail
+      # when they are below their floors. The next step checks the daemon against its floors.
       - run: pnpm test
+      - run: node scripts/coverage.mjs
       - run: pnpm build
       # The budget says to watch the idle daemon for 60 seconds.
       - run: pnpm budgets

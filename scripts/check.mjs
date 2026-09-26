@@ -11,13 +11,16 @@ const keepGoing = process.argv.includes("--keep-going");
 const useShell = process.platform === "win32";
 
 const STEPS = [
+  // The light steps come first, so a simple mistake stops the run before the slow ones start.
   ["generate tokens and ui index", "pnpm", ["gen"]],
+  ["generated files are repeatable", "node", ["scripts/check-generated.mjs"]],
   ["format check", "pnpm", ["format:check"]],
   ["lint", "pnpm", ["lint"]],
   ["type check", "pnpm", ["typecheck"]],
   ["code smells", "pnpm", ["smells"]],
   ["token contrast", "pnpm", ["--filter", "@marshal/tokens", "check:contrast"]],
   ["unit tests", "pnpm", ["test"]],
+  ["coverage floors", "node", ["scripts/coverage.mjs"]],
   ["build", "pnpm", ["build"]],
   ["budgets", "pnpm", ["budgets"]],
 ];

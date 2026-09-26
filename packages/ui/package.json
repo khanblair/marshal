@@ -9,7 +9,7 @@
   "scripts": {
     "gen": "node scripts/gen-index.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run --coverage"
   },
   "dependencies": {
     "lucide-solid": "0.460.0"
