@@ -240,9 +240,25 @@ Rules:
 
 **What Phase 1 builds (B1.9 to B1.11):** the session manager (`internal/session`) only ever moves a session between **Starting**, **Awake**, **Working**, and **Stopped**, and only ever moves a card between Backlog, Working, and Needs you (section 6). A card gets at most one session for its whole life: chats, which need many sessions per project, are a later phase. **WaitingApproval**, **SleepWarning**, **Asleep**, and **Waking**, section 5.2's sleep and wake, pause, pin, and the awake limit are Phase 3 and Phase 5 (B3.1, B3.4, B5.6); nothing writes those states or runs that flow yet.
 
+**What Phase 2 adds (decided 2026-09-26, slice G of `backend-checklist.md`):** the four controls a person presses. **Sleep** stops the agent process, keeps the session id, and writes **Asleep**. **Wake** resumes that session through its saved id and writes **Waking**, then **Awake**. **Pause** holds a Working card between turns: the turn that is running finishes, the card stays put, and a message sent meanwhile waits until the person resumes. **Pin** keeps a card from sleeping. **Start** on a card whose session is asleep, stopped, or paused resumes the same session, so **Stop** and a move back to Backlog never strand a card. If the agent cannot resume, the card moves to Needs you with a plain sentence, as a failed resume after a restart does. Everything automatic stays in Phase 5: the idle timer, the sleep warning and its notice, the awake limit, keep awake, and sleep all. The rules a person's press must meet, taken from `mock/actions/sessions.ts`: a Working card that is not paused does not sleep ("Working cards don't sleep. Pause the card first."); a card that needs the person stays awake ("This card is waiting on you, so it stays awake."); a card with no awake session cannot sleep ("This card has no awake session."); only a Working card can be paused ("Only working cards can be paused."). The card carries `paused` and `pinned`, and the session state carries asleep and waking.
+
+**The session state is on the wire.** The wire `Card` carries `session`: the state of the card's session as it was last stored (`starting`, `awake`, `working`, `asleep`, `waking`, `stopped`, and the rest of the list in section 11.5), and `null` for a card that has never had a session. It is always sent and never left out, so a client that loads the board after a page reload or a daemon restart knows which cards are asleep or waking. It is read from the stored session rows and not from what the manager holds in memory (`session.StoredStates`; the projects module never reads the sessions table, section 3), and the manager writes each state to the row before it announces it, so the states survive a restart: a card put to sleep reads asleep when the daemon is back, and one that was awake reads awake until the restore of section 5.3 resumes it. Every change to a session's state is announced once on each of two topics: `session.state_changed` on the card's own topic, for an open card, and `card.updated` with the card as it now is on the project topic, which is the only topic the board and Home's awake list follow.
+
+A refused press answers `422` with code `refused`, `details.reason` set to the stable reason below, and the plain message, and it leaves the card and the session exactly as they were, the same shape a refused drag uses (section 6.1). The routes are `POST /v1/cards/{id}/pause`, `/unpause`, `/sleep`, `/wake`, `/pin`, and `/unpin`.
+
+| Rule | `details.reason` | Message |
+|---|---|---|
+| Pause of a card that is not Working | `pause_not_working` | Only working cards can be paused. |
+| Sleep of a Working card that is not paused | `sleep_working` | Working cards don't sleep. Pause the card first. |
+| Sleep of a card that is waiting on a person | `sleep_needs_you` | This card is waiting on you, so it stays awake. |
+| Sleep of a card with no awake session | `sleep_no_session` | This card has no awake session. |
+| Sleep of a paused card whose pause is still holding a message | `sleep_holding_messages` | This card has a message waiting for you to resume it. Resume the card first. |
+
+Three things follow from the same rules. A message sent to a sleeping card wakes it, which is the state diagram's **Asleep → Waking: Message or trigger** and what the card panel's own words say; waking it that way also releases the pause that let it sleep, because the person has just asked the card to work. The Wake call itself leaves the pause where it was, and **Start** (or `/unpause`) is what releases it. And a pause that is still holding a message cannot be slept, because the queue lives in memory with the live session: stopping the process would lose the person's message.
+
 ### 5.2 Sleep and wake
 
-None of this runs yet: it is Phase 5 (B5.6). Phase 1 has no idle timer, no sleep warning, and no graceful stop except a person explicitly stopping a card's session.
+The part a person triggers by hand (sleep, wake, pause, pin) runs from Phase 2 and is described at the end of section 5.1. The automatic part shown below (the idle timer, the sleep warning, and the awake limit) is Phase 5 (B5.6): until then there is no idle timer and no sleep warning.
 
 ```mermaid
 sequenceDiagram
@@ -264,7 +280,7 @@ sequenceDiagram
 
 ### 5.3 Restore after reboot
 
-On daemon start, the session manager reads every session row that is starting, awake, or working (not stopped, and not the Phase 3 and Phase 5 states section 5.1 marks as not built yet, since nothing writes them). Depending on the user's resume setting, it either resumes all of them right away (auto, the default), or leaves them exactly as they are and logs how many are waiting (manual); resuming one card at a time by hand is `Manager.Resume`, reachable as `POST /v1/cards/{id}/resume`. It never starts a fresh session in place of a lost one without telling the user. If resume fails, the card moves to Needs you and the session row is marked stopped, since nothing is left running for it; starting the card fresh from there is a feature Phase 1 does not build.
+On daemon start, the session manager reads every session row that is starting, awake, working, or was left half-woken (waking), and not stopped and not asleep: a row that reads asleep is a person's decision, and only a person wakes it. Depending on the user's resume setting, it either resumes all of them right away (auto, the default), or leaves them exactly as they are and logs how many are waiting (manual); resuming one card at a time by hand is `Manager.Resume`, reachable as `POST /v1/cards/{id}/resume`. It never starts a fresh session in place of a lost one without telling the user. If resume fails, the card moves to Needs you and the session row is marked stopped, since nothing is left running for it; from there `POST /v1/cards/{id}/start` continues the same session through its saved id (section 5.1), and the card panel's Waking state follows the `session.state_changed` event. A chat's session (section 16.2) is never in this list: it starts when the chat's first message is sent and is resumed by the message after that, so a chat nobody speaks to starts nothing at restart. When the daemon stops, the process of every chat that is talking ends and its row is written asleep, which is what it is, because nothing would resume it.
 
 ---
 
@@ -290,6 +306,32 @@ stateDiagram-v2
 Columns on the board map to these states. Merging shows inside the Ready to merge column with its own indicator.
 
 **Who moves cards:** only the `projects` module changes a card's state, in response to events from other modules. Manual drags are also sent to `projects` and checked against allowed moves.
+
+### 6.1 Manual moves
+
+A person can drag a card to another column, or use the card's menu. `POST /v1/cards/{id}/move` with the target state carries it out. The daemon decides. The app may pre-check with the same rules to show a drop as refused early, but it never moves a card on its own authority: a refused move answers `422` with code `refused`, `details.reason` set to the stable reason below, and the plain message. The app snaps the card back and shows the message. Moving a card to the column it is already in does nothing and answers `200`. The rules are checked in this order, and the first one that applies wins:
+
+| Order | Rule | `details.reason` | Message |
+|---|---|---|---|
+| 1 | The card is in Done | `move_from_done` | Done cards are merged. Fork the card to keep working on it. |
+| 2 | The target is Done | `move_to_done` | Cards move to Done by themselves after they merge. |
+| 3 | The target is Needs you | `move_to_needs` | Cards move to Needs you by themselves when an agent is waiting on you. |
+| 4 | The target is In review, and the card has no pull request, or is in Backlog or Planning | `move_needs_pull_request` | In review needs an open pull request. The agent opens one when the work is ready. |
+| 5 | The target is Ready to merge, and the card is not in In review | `move_needs_review` | Ready to merge needs an approved review and passing checks. |
+| 6 | The target is Ready to merge, and the card's checks have not passed | `move_checks_not_passed` | Checks haven't passed on this card yet, so it can't be ready to merge. |
+| 7 | The card is being merged | `move_card_merging` | The Integrator is merging this card. Wait for the merge to finish. |
+
+What an allowed move does:
+
+| From and to | Effect |
+|---|---|
+| Backlog to Working or Planning | Starts the card's session (the same as `POST /v1/cards/{id}/start`, with the target as the start state). If the card already has a session that is asleep or stopped, it resumes that session instead |
+| Any column to Backlog | Puts the card's session to sleep (as Sleep in section 5.1 does) and keeps its worktree and branch. The sleep rules do not refuse it, because the person asked: a running turn is interrupted first, and the pause flag and the "doing now" line are cleared. Moving out of Backlog later resumes it |
+| In review to Working | The card's "doing now" line becomes "Addressing review comments" |
+| Planning to Working | The card's "doing now" line becomes "Starting without a plan" |
+| Any other allowed move | Only the state changes, and `card.moved` is published |
+
+In Phase 2 nothing opens a pull request or runs checks, so a card reaches In review or Ready to merge by hand only when it already carries a pull request link and a CI state, which only the prototype fixture gives it. Every other card is refused by rules 4, 5, or 6. Real pull requests and CI runs arrive in Phases 5 and 6. The rules are written now so that the reason codes, the messages, and the tests are in place before the features that satisfy them.
 
 ---
 
@@ -376,7 +418,7 @@ All app state lives in one SQLite database. Large data lives on disk and is refe
 |---|---|---|
 | `projects` | Managed repos | id, name, repo_path, default_branch, is_monorepo, settings_json |
 | `boards` | One per project | id, project_id (unique), columns_json |
-| `saved_views` | Filters and swimlanes | id, board_id, name, filter_json, swimlane_by |
+| `saved_views` | A project's named filters and swimlane (0010). The name is unique in its project, and a view saved again keeps its id. | id, project_id, name, filters_json, swimlane, created_at, updated_at |
 | `cards` | Tasks | id, board_id, title, body, state, role_id, template_id, parent_id, branch, worktree_path, pinned, created_by |
 | `card_links` | Dependencies | card_id, depends_on_card_id |
 | `checklists` | Named checklists on cards | id, card_id, name, position, required, people_only, hide_checked |
@@ -391,7 +433,7 @@ All app state lives in one SQLite database. Large data lives on disk and is refe
 | `chats` | Project chats | id, project_id, title, target_kind (orchestrator, role, or card), target_id, archived_at, created_at, last_active_at |
 | `activity` | Home dashboard activity stream | id, project_id, kind, subject_kind, subject_id, summary, created_at |
 | `daily_stats` | Pre-computed dashboard numbers | day, project_id, cards_finished, merges, ci_failures, cost_micros |
-| `session_events` | Index of activity | id, session_id, kind, summary, log_ref, created_at |
+| `session_events` | Index of activity, and the stored history of a card's chat and of a project chat | id, card_id or chat_id (exactly one is set), session_id, seq, kind, state, summary, detail_json, log_ref, created_at |
 | `checkpoints` | Code restore points | id, card_id, git_ref, label, created_at |
 | `roles` | Role templates | id, name, is_starter, spec_json |
 | `role_overrides` | Per-project role changes | role_id, project_id, spec_json |
@@ -408,9 +450,11 @@ All app state lives in one SQLite database. Large data lives on disk and is refe
 | `approvals` | Pending and past approvals | id, session_id, request_json, decision, decided_by |
 | `audit_log` | Every agent action | id, session_id, actor, action, target, detail_json, created_at |
 | `notices` | Notifications | id, kind, priority, group_key, body, read_at |
-| `users` | People. In solo use, one row for the owner. | id, name, email, avatar_path, time_zone, tailnet_identity, created_at, updated_at |
+| `users` | People. In solo use, one row for the owner. `avatar_path` is a file name in `<data>/avatars`, and `avatar_updated_at` (0010) versions its address. | id, name, email, avatar_path, avatar_updated_at, time_zone, tailnet_identity, created_at, updated_at |
 | `devices` | Paired devices | id, user_id, name, kind (web, desktop, mobile, cli, or dev), token_hash, paired_at, last_seen_at, revoked_at |
-| `user_progress` | Onboarding and tutorial state | user_id, onboarding_step, onboarding_done_at, tutorial_done_at, tutorial_skipped |
+| `user_progress` | Onboarding and tutorial state. A done time with the skipped flag set is a skip. There is no row until the first change, and no row reads as pending at step 0. | user_id, onboarding_step, onboarding_done_at, onboarding_skipped (0010), tutorial_done_at, tutorial_skipped |
+| `user_preferences` | The screen preferences that follow a person between devices (decision D2). No row until the first change. | user_id, theme, list_columns_json, sort_json, updated_at |
+| `project_preferences` | One project's preferences for one person: the view it opens in, filters, search, swimlane, folded lanes, whether Done shows every card, and the saved view in use. The row goes with its project, and a saved view that is deleted clears the link. | user_id, project_id, last_view, filters_json, query, swimlane, collapsed_lanes_json, show_all_done, saved_view_id, updated_at |
 | `memberships` | User roles per project | user_id, project_id, role |
 | `mcp_servers` | Configured MCP servers | id, name, transport_json, health, last_checked_at |
 | `skills` | Installed skills | id, name, path, source |
@@ -434,14 +478,14 @@ Migrations live in `daemon/internal/store/migrations` and run on daemon start. E
 
 ### 11.1 HTTP
 
-Versioned under `/v1`. JSON in and out. The table is the whole design; **the routes built today, at the end of Phase 1, are** `GET /v1/health`, `GET /v1/auth/whoami`, the project routes (`GET`, `POST /v1/projects`, `GET`, `PATCH`, `DELETE /v1/projects/{id}`, `GET /v1/projects/{id}/board`), the card routes (`POST /v1/projects/{id}/cards`, `GET /v1/cards/{id}`, `POST /v1/cards/{id}/start`, `/messages`, `/stop`, `/resume`), `GET /v1/agents`, `POST /v1/agents/refresh`, and the `GET /v1/events` stream. Every other row is planned. The single source of truth for what is registered is `daemon/internal/api/routes.go` (`domainRoutes`), and a test fails when a route is added there without joining the token check.
+Versioned under `/v1`. JSON in and out. The table is the whole design; **the routes built today are** the Phase 1 set — `GET /v1/health`, `GET /v1/auth/whoami`, the project routes (`GET`, `POST /v1/projects`, `GET`, `PATCH`, `DELETE /v1/projects/{id}`, `GET /v1/projects/{id}/board`), the card routes (`POST /v1/projects/{id}/cards`, `GET /v1/cards/{id}`, `POST /v1/cards/{id}/start`, `/messages`, `/stop`, `/resume`), `GET /v1/agents`, `POST /v1/agents/refresh`, and the `GET /v1/events` stream — plus, from Phase 2, `POST /v1/cards/{id}/move` (the rules in section 6.1), `PATCH` and `DELETE /v1/cards/{id}` (edit and delete), the four label routes (`GET` and `POST /v1/projects/{id}/labels`, `PATCH` and `DELETE /v1/labels/{id}`), `POST /v1/cards/{id}/fork`, `GET /v1/home/dashboard`, `GET /v1/home/activity` (paged, section 11.2's `activity.created`), the six session hold routes (`POST /v1/cards/{id}/pause`, `/unpause`, `/sleep`, `/wake`, `/pin`, `/unpin`, the rules in section 5.1), the chat/terminal switch (`POST /v1/cards/{id}/view`, section 4.3), the three history routes (`GET /v1/cards/{id}/messages`, `/messages/{messageId}`, `/activity`), the two diff routes (`GET /v1/cards/{id}/diff`, `/diff/{path...}`), the nine chat routes (`GET` and `POST /v1/projects/{id}/chats`, `PATCH /v1/chats/{id}`, `/archive`, `/restore`, `DELETE /v1/chats/{id}`, `POST /v1/chats/{id}/messages`, and the chat's history, `GET /v1/chats/{id}/messages` and `/messages/{messageId}`), `GET /v1/search?q=` (projects, cards, and chats, below the table), the routes of the person (`GET` and `PATCH /v1/me`, `POST` and `DELETE /v1/me/avatar`, `GET /v1/users`, `GET /v1/users/{id}/avatar`, `GET` and `PATCH /v1/me/progress`, `GET` and `PATCH /v1/me/preferences`), the four saved view routes (`GET` and `POST /v1/projects/{id}/saved-views`, `PATCH` and `DELETE /v1/saved-views/{id}`), and, on a dev daemon only, `POST /v1/dev/reset-first-launch`. The rest of this table is planned. The single source of truth for what is registered is `daemon/internal/api/routes.go` (`domainRoutes`), and a test fails when a route is added there without joining the token check.
 
 Examples:
 
 | Method and path | Action |
 |---|---|
 | `GET /v1/projects` | List projects with badges |
-| `POST /v1/projects` | Create a project from a folder or a GitHub clone |
+| `POST /v1/projects` | Create a project from a folder, a GitHub clone, or the sample project (`source` is `folder`, `clone`, or `sample`) |
 | `GET /v1/projects/{id}` | Read one project |
 | `PATCH /v1/projects/{id}` | Rename or edit a project |
 | `DELETE /v1/projects/{id}` | Remove a project from Marshal. Never deletes the repo. |
@@ -450,10 +494,11 @@ Examples:
 | `PATCH /v1/chats/{id}` | Rename a chat |
 | `POST /v1/chats/{id}/archive`, `/restore` | Archive or restore a chat |
 | `DELETE /v1/chats/{id}` | Delete a chat |
-| `POST /v1/chats/{id}/messages` | Send a message in a chat |
-| `GET /v1/me`, `PATCH /v1/me` | Read or edit the profile |
+| `POST /v1/chats/{id}/messages` | Send a message into the chat's own session, with the body of a card's message. The first message starts the session in the project's repository folder, with the settings the chat was made with, and names a chat that is still "New chat" after the first six words of the message; a later message resumes a session that slept or was left by a restart. An archived chat is refused (`422`, reason `chat_archived`), and so is a chat whose earlier conversation the agent can no longer pick up (reason `chat_cannot_resume`): Marshal does not start a new conversation in its place. The answer comes on the event stream, on `chat:<id>`. Like starting a card, it can take a minute or more (Phase 2) |
+| `GET /v1/chats/{id}/messages`, `GET /v1/chats/{id}/messages/{messageId}` | A chat's messages, paged newest first, and one message with its tool detail, under the same wire types as a card's (Phase 2) |
+| `GET /v1/me`, `PATCH /v1/me` | Read or edit the profile: name (never empty), email, and time zone (an IANA name). A field that is not sent is left alone, and the empty string clears an email or a time zone. The answer is the `Profile`, with `initials` and `avatarUrl` (Phase 2) |
 | `GET /v1/me/devices`, `DELETE /v1/me/devices/{id}` | List or remove paired devices |
-| `PATCH /v1/me/progress` | Save onboarding and tutorial progress |
+| `GET /v1/me/progress`, `PATCH /v1/me/progress` | Read or save onboarding and tutorial progress, per user: the screen onboarding is on, and a status of `pending`, `done`, or `skipped` for each. Skipping and finishing both stamp the time, and `pending` replays. A device that opens Marshal resumes where another left off (Phase 2) |
 | `GET /v1/home/dashboard?range=` | Dashboard: needs you, tiles, charts, coming up, awake agents, CI health |
 | `GET /v1/home/activity?cursor=` | Activity stream, paged |
 | `GET /v1/projects/{id}/board` | Board with cards |
@@ -463,8 +508,17 @@ Examples:
 | `POST /v1/cards/{id}/messages` | Send a message into the card's session. The answer comes on the event stream. |
 | `POST /v1/cards/{id}/stop` | Stop the card's agent. Its worktree and branch stay. |
 | `POST /v1/cards/{id}/resume` | Start the agent of a card again with the session it had, when a restart left that session waiting (section 5.3) |
-| `POST /v1/cards/{id}/view` | Switch between chat and terminal view |
-| `POST /v1/cards/{id}/sleep`, `/wake`, `/pin` | Session control |
+| `PATCH /v1/cards/{id}`, `DELETE /v1/cards/{id}` | Edit a card's title, body, agent settings, labels, package, and dates, or delete it (stops the session, removes the worktree, branch, and logs, and warns first about unmerged work) (Phase 2) |
+| `POST /v1/cards/{id}/move` | Move a card by hand, checked by the rules in section 6.1 (Phase 2) |
+| `GET /v1/cards/{id}/messages`, `GET /v1/cards/{id}/activity` | The card's chat history and activity, paged, with typed items (Phase 2) |
+| `GET` and `POST /v1/projects/{id}/labels`, `PATCH` and `DELETE /v1/labels/{id}` | A project's managed labels, each with a name and a color from the fixed set (Phase 2) |
+| `GET` and `POST /v1/projects/{id}/saved-views`, `PATCH` and `DELETE /v1/saved-views/{id}` | Saved views: filters and swimlane (Phase 2) |
+| `GET /v1/me/preferences`, `PATCH /v1/me/preferences` | Screen preferences that follow the user between devices: theme, List columns, the two tables' sort, and per project the last view, filters, search text, swimlane, folded lanes, whether Done shows every card, and the saved view in use. A change merges: List columns by key, sorts by table, projects by id and by field, so a device that changes one thing never resets another. Layout stays on the device (decision D2). A project or a saved view that does not exist is not found, and a saved view of another project is refused (Phase 2) |
+| `POST /v1/me/avatar`, `DELETE /v1/me/avatar` | Avatar upload and removal. The upload body is the image itself, not JSON: its `Content-Type` must be `image/png`, `image/jpeg`, or `image/webp`, the bytes must be that kind of image (the daemon checks them, and never decodes or resizes), and it is at most 2 MiB. The route is registered without the JSON body rules, and still needs the token. Both answer with the new `Profile`; removing an avatar that is not there is not an error (Phase 2) |
+| `GET /v1/users`, `GET /v1/users/{id}/avatar` | The users list for member pickers (solo use lists the owner only, decision D10), and one user's avatar image, served with its own type, `X-Content-Type-Options: nosniff`, and a version in `?v=` that lets a client keep it for a year. It needs the token like every other route, so a client fetches it with the `Authorization` header and shows the bytes; a bare `<img>` cannot. A user with no avatar is not found (Phase 2) |
+| `POST /v1/dev/reset-first-launch` | Dev mode only: onboarding goes back to its first screen and the tour to pending, as on a first launch. On a normal daemon the address does not exist (Phase 2) |
+| `POST /v1/cards/{id}/view` | Switch a card's agent between the chat view and the terminal view: it stops the current process and resumes the same session id in the other mode (section 4.3). The refusals keep the daemon's sentences with stable reasons (`view_no_agent`, `view_turn_running`, `view_holding_messages`, `view_no_terminal`, `view_switching`, `view_terminal_active`, `view_cannot_resume`), and asking for the view the card is already in changes nothing (Phase 2) |
+| `POST /v1/cards/{id}/pause`, `/unpause`, `/sleep`, `/wake`, `/pin`, `/unpin` | Session hold: the four controls a person presses and the two calls that undo a pause and a pin, with the refusals in section 5.1 (Phase 2) |
 | `POST /v1/cards/{id}/checkpoints/{cp}/restore` | Restore a checkpoint |
 | `POST /v1/cards/{id}/fork` | Fork a card |
 | `POST /v1/cards/{id}/checklists`, `PATCH` and `DELETE /v1/checklists/{id}` | Create, edit, and delete checklists |
@@ -473,24 +527,32 @@ Examples:
 | `POST /v1/comments/{id}/attachments` | Upload a file or image |
 | `PUT /v1/cards/{id}/members` | Set the people on a card |
 | `POST /v1/approvals/{id}` | Approve or deny |
-| `GET /v1/cards/{id}/diff` | Current diff |
+| `GET /v1/cards/{id}/diff` | The changed files with counts, without hunks. One file's hunks load when it is opened, and a large file stays collapsed until asked (Phase 2) |
 | `GET /v1/agents` | List the agents this machine can start, from the answer the daemon keeps |
 | `POST /v1/agents/refresh` | Look for the installed agents again |
-| `GET /v1/search?q=` | Search sessions and notes |
+| `GET /v1/search?q=` | Search projects, cards, and chats, grouped by kind (Phase 2), and past sessions and notes (Phase 7) |
 | `POST /v1/integrations/{id}/test` | Test an integration: sign-in, permissions, and webhook delivery |
 | `POST /v1/providers/{id}/test` | Test a provider API key with a tiny request |
 | `POST /v1/mcp-servers/{id}/test` | Test an MCP server connection |
 | `POST /hooks/{provider}` | Webhooks (the only routes exposed through Funnel) |
 
-Starting a card and resuming one can take a minute or more, because the daemon makes a worktree and then starts the agent, which has its own start time limit. Those two routes get up to three minutes to answer, and a client should wait at least that long. If the client goes away first, the daemon undoes what it made, so no worktree is left behind.
+Starting a card and resuming one can take a minute or more, because the daemon makes a worktree and then starts the agent, which has its own start time limit. Waking a card and sending a chat its first message start an agent too, without a worktree. Those four routes get up to three minutes to answer, and a client should wait at least that long. If the client goes away first, the daemon undoes what it made, so no worktree is left behind.
+
+**Search** (`daemon/internal/search`, `GET /v1/search?q=`). One request answers every kind: `{query, projects, cards, chats, totals, serverTime}`, each list best match first and cut to 8 (`SearchHitsPerKind`), each `totals` count the number that matched before the cut, and no list ever `null`. A project hit carries its id, name, folder, and language; a card hit its id, key (`api#41`), number, title, column, and its project's id and name; a chat hit its id, title, last-active time, and its project's id and name, so the palette can show a row and open it from the hit alone. The query is trimmed and each run of spaces made one (the answer's `query` is that form, so a client that types ahead can drop an answer that is not its latest); an empty query matches nothing and is answered `200` with three empty lists; a query over 200 characters (`MaxSearchQueryChars`) or that is not valid text is refused `400 invalid_argument` with a sentence. Matching ignores case and finds a word anywhere in a field. A thing matches when every word of the query matches one of its fields: a project by name, id, or folder; a card by title, description, or key; a chat by title (archived chats are not searched, as they stay behind the Archived toggle). Ranking puts the field first (a title over a description), then how the word sits in it (the whole text, its start, the start of a word, inside a word), and ties go to the most recently changed. A word that reads as a card number is matched against the number first: `#41` finds card 41 of every project ahead of anything else and, while it is typed, the cards whose number starts with 41; `api#41` names one card; bare digits find that number ahead of titles that hold them. The search keeps no index and owns no table: it reads through the projects and chats services on every request (the projects, then each project's cards and live chats), so it is never behind, and it takes about 3 ms over 3 projects with 100 cards and 15 chats (measured through HTTP by `TestSearchIsQuickOnABigBoard`), so no index is kept. The query is never written to the log.
+
+**The sample project** (`daemon/internal/sample`, `POST /v1/projects` with `{"source":"sample"}`). The sample is a small todo service in TypeScript with a README that says it is safe to try things on and a short two-commit history, embedded in the daemon, so it needs no network and no checkout of Marshal. The first request writes it to `<data>/sample/marshal-sample` on branch `main` and adds that folder like any other, so a card on it starts with the stub agent as on any project; the project's id and name are `marshal-sample` unless the request names it. The commits are made with a fixed identity (`Marshal <sample@marshal.invalid>`), fixed dates, and none of the person's Git settings, so the sample needs no Git identity on the machine, records nobody's, and is the same repository commit for commit everywhere; nothing is written into its Git configuration, so the person's own commits there carry their own name. There is one sample folder. While its project is in Marshal a second request is refused `409 conflict` with the sentence "The sample project is already in Marshal." and the project's id in `details.projectId`, so the app can open the one there is. Removing the project never deletes the folder, so asking again adds the same folder back with whatever was done in it. A folder in that place that is not a repository is left alone and the request is refused `409` with a sentence that names the folder, never its path.
 
 ### 11.2 WebSocket
 
 One stream at `/v1/events`. Clients subscribe to topics (a project, a card, the home view). Output is batched every 16 to 50 milliseconds (25 by default, `defaultFlushInterval` in `internal/api/limits.go`).
 
-Main event types. **The ones the daemon publishes today are** `project.created`, `project.updated`, `project.removed`, `card.created`, `card.updated`, `card.moved`, `session.state_changed`, `session.output`, and `session.tool_call`. The rest are defined and reserved: `chat.created`, `chat.updated`, `chat.archived`, `chat.deleted`, `activity.created`, `card.members_changed`, `checklist.updated`, `comment.created`, `comment.read_by_agent`, `approval.requested`, `approval.resolved`, `ci.updated`, `quality.checked`, `merge.progress`, `notice.created`, `usage.updated`, `budget.warning`. The full list, with the type each one carries, is `daemon/internal/protocol/event_types.go`.
+Main event types. **The ones the daemon publishes today are** `project.created`, `project.updated`, `project.removed`, `card.created`, `card.updated`, `card.moved`, `session.state_changed`, `session.output`, and `session.tool_call`. The rest are defined and reserved: `chat.created`, `chat.updated`, `chat.archived`, `chat.deleted`, `activity.created`, `card.members_changed`, `checklist.updated`, `comment.created`, `comment.read_by_agent`, `approval.requested`, `approval.resolved`, `ci.updated`, `quality.checked`, `merge.progress`, `notice.created`, `usage.updated`, `budget.warning`. Phase 2 publishes the reserved `chat.*` and `activity.created` events and adds `card.deleted`, `label.updated`, `session.terminal_output`, `me.updated`, and `saved_view.updated`, and a new topic `me` beside `home`, `project:<id>`, `card:<id>`, and `chat:<id>`, so that preferences and the profile follow the user between devices. Terminal output is not part of the replayed history (the replay ring is shared by every topic and would push card events out); a client that reconnects asks for the terminal's snapshot instead. The full list, with the type each one carries, is `daemon/internal/protocol/event_types.go`.
+
+**The terminal channel** (section 4.3). A card whose agent runs in the terminal view publishes what it prints as `session.terminal_output` on `card:<id>`: base64 raw bytes, escape sequences included, joined into pieces of at most 16 KiB. These events are **live only**: they take a sequence number like any event but are never kept in the replay ring, because output that is replayed late or twice draws the wrong screen, and because a chatty program's bytes would push card events out of the shared ring. An app that opens the terminal view, reconnects, or gets a resync frame asks for the recent screen with the client message `terminal.snapshot`, and the daemon answers a `terminal.screen` frame: the last part of the output (up to 256 KiB), the view's size, and `throughSeq`, the number of the newest output event the screen includes. The app paints that, then applies only output events whose number is higher. The app types with `terminal.input` (text, or a named key the phone's keyboard lacks: `enter`, `esc`, `tab`, `shift-tab`, `backspace`, `delete`, the four arrows, `home`, `end`, `page-up`, `page-down`, and `ctrl-c`, `ctrl-d`, `ctrl-l`, `ctrl-z`), and sends the view's size with `terminal.resize` (1 to 500 columns, 1 to 200 rows). One `terminal.input` carries at most 8 KiB. The three messages are accepted only for a card whose topic the connection follows: one for a card it does not follow is an error that ends the connection, and one for a card that is not in the terminal view is answered with a `terminal.refused` frame that leaves the connection open (reason `terminal_not_active`); input the program is not reading is dropped with reason `terminal_busy`.
 
 Frames, topics, sequence numbers, and re-sync are in section 11.5.
+
+**State today (2026-09-26).** All sixteen Phase 2 sections are switched in `apps/web/src/data/sections.ts` (S9, the terminal view, is last: the client renders the daemon's output as decoded, escape-stripped plain text rather than a real terminal emulator, a bundle-budget decision made without a build; see `phase-02-report.md`), and their events now actually publish: `card.deleted` (`internal/projects/remove_card.go`), `label.updated` (`internal/projects/labels.go`), `chat.created`, `chat.updated`, `chat.archived` (used for both archive and restore — the payload's `archivedAt` tells them apart), and `chat.deleted` (`internal/chats/service.go`), and `activity.created` on the `home` topic (`internal/dashboard/subscriber.go`). A card in the terminal view publishes `session.terminal_output` live only on `card:<id>` from `internal/session`, never into the replay ring (the terminal rule above), and the three terminal client messages are served by the stream (`internal/api/stream_terminal.go`). `me.updated` and `saved_view.updated` publish from slice E (`internal/accounts`, `internal/projects/saved_views.go`). `me.updated` is on the new `me` topic, which has no id and takes no `me:<id>`, and carries the profile, the preferences, and the progress as they now are, whichever of them changed, so applying it twice changes nothing; it is published after a change to the profile, the avatar, the preferences, or the progress, and after the dev reset, and never for a change that changed nothing. `saved_view.updated` is on the project's topic and carries the project's saved views as they now are, after a save, a change, or a delete. A saved view that is deleted while a person has it in use clears that person's `savedViewId` in the database without a `me.updated`, so a client that holds a saved view id that is missing from a list it is sent drops it. Both are critical events, and both use the replay ring like every other topic. `card.moved`, published by a manual move as well as by a session change, now carries the new card fields. The session hold routes (section 5.1) add no event type of their own: a pause writes the card's own `paused` field and publishes `card.updated`, a pin does the same for `pinned`, a sleep publishes `session.state_changed` with `asleep`, and a wake publishes it with `waking` and then `awake`. Every session state change, from these routes or from a turn starting, a turn ending, a start, or an exit, also publishes `card.updated` on the project topic with the card's new `session` field (section 5.1), so Home's awake list and the board hear it; that event is critical, like the state change it follows, and is sent once for each change. **A project chat's session** (slice C, `internal/session/chat.go`) publishes the same three events, `session.state_changed`, `session.output`, and `session.tool_call`, with the same payloads on the topic `chat:<id>`, each carrying `chatId`. `cardId` stays in the payload as an empty string, so its type is the same for both kinds of session. A chat has no card, so nothing about a chat's session is published on a project topic except the chats module's own `chat.updated`, which the first message sends when it names the chat, and every message sends when it moves the chat to the top of the list.
 
 ### 11.3 Shared types
 
@@ -588,6 +650,12 @@ Each list is defined once in Go. It becomes a TypeScript union type and a readon
 | `ActivityKind` | `file`, `command`, `test`, `tool`, `approval` |
 | `CIState` | `queued`, `running`, `passed`, `failed`, `cancelled` |
 | `CardViewMode` | `chat`, `terminal` |
+| `Theme` | `light`, `dark`, `system` |
+| `ProjectView` | `chat`, `agents`, `board`, `list`, `timeline`, `calendar` |
+| `Swimlane` | `none`, `role`, `agent`, `package`, `label` |
+| `FilterKey` | `status`, `role`, `agent`, `model`, `label`, `package` |
+| `SortDirection` | `asc`, `desc` |
+| `ProgressStatus` | `pending`, `done`, `skipped` |
 
 `ErrorCode`, `EventType`, `TopicKind`, and `ResyncReason` are lists too. A Go test fails if a const block and its `<Type>Values()` function differ, or if a list is missing from the golden file `enums.json`.
 
@@ -603,7 +671,7 @@ The WebSocket carries frames as JSON text.
 
 An event is `{ seq, topic, type, at, data }`. `data` is the payload, read by `type`. In TypeScript it is `unknown` until the client has checked `type`.
 
-- **Topics** are `home`, `project:<projectId>`, `card:<cardId>`, and `chat:<chatId>`. Go has one constructor for each and `ParseTopic`, which also checks the shape of the id.
+- **Topics** are `home`, `me`, `project:<projectId>`, `card:<cardId>`, and `chat:<chatId>`. `home` and `me` have no id. Go has one constructor for each and `ParseTopic`, which also checks the shape of the id.
 - **Epoch.** The daemon makes a new random id each time it starts.
 - **Seq.** Inside an epoch, `seq` grows by one for every event the daemon publishes, on any topic. A client that follows only some topics sees increasing numbers with gaps, and that is normal. Events with a `seq` the client has already applied are ignored, because a replay may repeat them.
 - **Frames.** A client tells `EventBatch` from `Resync` by its keys (`events` or `reason`). The generated type `ServerFrame` is the union of the two.
@@ -752,10 +820,13 @@ The daemon watches the vault with file system events and re-indexes changed file
 
 ### 16.2 Chats
 
-- A chat has its own lasting session, stored in `sessions` with `chat_id` set. It follows the same sleep, wake, and resume rules as cards, and counts toward the awake limits.
-- **Archive** puts the session to sleep and hides the chat from the main list. **Restore** reverses that.
+- A chat has its own lasting session, stored in `sessions` with `chat_id` set. It follows the same sleep, wake, and resume rules as cards, and counts toward the awake limits (Phase 5, B5.6; the awake count of the sidebar badge is about cards).
+- The chat and its session row are made together, in state `starting`, with no agent behind it. **Nothing runs until the first message is sent.** That message starts the agent in the project's own repository folder (a chat has no worktree and no branch), with the agent, model, thinking mode, and permission mode the chat was made with, and every later message goes into the same process. A message sent while a turn is running is queued, like a card's, up to the same limit. A chat that was put to sleep, or that the daemon's stopping left without a process, is resumed by its next message through the agent's saved session id, announced as `waking` and then `awake`. If the agent cannot resume, the message is refused with `chat_cannot_resume` and the row reads `stopped`: a new conversation is never started in its place without telling the person, and the sentence says to start a new chat. An agent that exits on its own leaves the row `stopped` and says so on the chat's topic; there is no card to move to Needs you.
+- The chat's messages (the person's, the agent's, its tool calls) are stored in `session_events` with `chat_id` set, numbered from 1 in each chat, and are read back paged through `GET /v1/chats/{id}/messages`, with the same message kinds as a card's chat. Deleting a chat deletes them.
+- Sending to a chat that is archived is refused with `chat_archived`; restoring it lets its next message wake the session.
+- **Archive** puts the session to sleep (the process ends, the agent's session id is kept, the row reads `asleep`) and hides the chat from the main list. **Restore** reverses that; the session stays asleep until the next message.
 - **Delete** stops the session and removes the chat and its logs. Cards created from the chat stay on the board, with a note that the chat was deleted.
-- New chats get a short title from their first message, written by a cheap model. Users can rename at any time.
+- New chats get a short title from their first message, written by a cheap model. Users can rename at any time. Until a model provider exists (Phase 4, B4.7), the daemon names a chat that is still called "New chat" after the first six words of its first message, the way the app's own chat did: the punctuation that ends a sentence is taken off the end, and the first letter is a capital. A chat that already has another name, whether a person gave it at creation or renamed it before the first message, keeps it.
 
 ### 16.3 Dashboard
 
@@ -766,6 +837,8 @@ The daemon watches the vault with file system events and re-indexes changed file
 
 - In solo use there is one user, the owner, created during onboarding.
 - Onboarding and tutorial progress are saved per user, so they resume where the user left off on any device.
+- The profile (name, email, time zone), the avatar, and the screen preferences of decision D2 belong to the user as well, and follow them between devices through the `me` topic. The avatar is a file in `<data>/avatars`, under a new name for every upload.
+- Saved views are a project's, not a person's, like its labels. Which saved view a person has in use, and the filters they left on a board, are theirs.
 
 
 ---

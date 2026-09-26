@@ -94,8 +94,8 @@ The prototype exposes 116 members on `M`. Each one appears in exactly one row.
 | Members | Kind | Module and storage | API and events | Task |
 |---|---|---|---|---|
 | `start` | Daemon | `session`; `sessions` | `POST /v1/cards/{id}/start`; `session.state_changed`, `card.moved` | 1.9 |
-| `pause` | Daemon | `session`, `harness`; `sessions` | New `POST /v1/cards/{id}/pause` and `/resume`. Only Working cards pause. Working cards cannot sleep until paused. (N4) | none, added |
-| `sleep`, `wake`, `pin` | Daemon | `session`; `sessions`, `cards` | `POST /v1/cards/{id}/sleep`, `/wake`, `/pin`, with the refusal rules from `mock/actions/sessions.ts` (N4) | 5.10 |
+| `pause` | Daemon | `session`, `harness`; `sessions` | New `POST /v1/cards/{id}/pause` (and a call to undo it; the existing `/resume` is the restart-recovery route). Only Working cards pause. Working cards cannot sleep until paused. (N4) | 2.27 |
+| `sleep`, `wake`, `pin` | Daemon | `session`; `sessions`, `cards` | `POST /v1/cards/{id}/sleep`, `/wake`, `/pin`, with the refusal rules from `mock/actions/sessions.ts` (N4) | 2.27 (moved from 5.10 on 2026-09-26; the idle timer stays in 5.10) |
 | `keepAwake`, `keepAllAwake`, `sleepAll`, `dismissNotice` | Daemon | `session`, `notify`; `notices` | New `POST /v1/notices/{id}/actions` for keep awake (with a length of time), sleep now, keep all, and sleep all, and a dismiss call; `notice.created`, `notice.updated` (N5) | 5.10 |
 
 ### 2.8 Chat view, plans, and approvals
@@ -261,7 +261,7 @@ Each entry is a numbered task in `build-plan.md`, marked (prototype), that inclu
 | N1 | Card fields with no home: labels, package, due date, start and end dates, pull request link, context used, needs-you reason, "doing now" | Add them to the data model, the API, and the generated types. Labels are a managed list per project, each with a name and a color from a fixed set of color tokens, chosen on the card. | 2 (build plan task 2.18) |
 | N2 | The rules for manual moves are not written down | Write the allowed-move matrix and the refusal messages from `mock/actions/cards.ts` into `architecture.md` section 6. The daemon enforces them and returns a stable reason code and a plain message. | 2 (build plan task 2.19) |
 | N3 | No API to rename or delete a card | Add `PATCH` and `DELETE /v1/cards/{id}`. Delete asks for confirmation, stops the session, removes the worktree, comments, and attachments, and warns about unmerged work. | 2 (build plan task 2.19) |
-| N4 | "Pause" has no meaning in the docs | Define pause as holding a Working card between turns. A working card cannot sleep until it is paused. Add pause and resume calls and a session flag. The sleep refusal rules (needs you stays awake, no awake session) come from `mock/actions/sessions.ts`. | 5 (build plan task 5.16) |
+| N4 | "Pause" has no meaning in the docs | Define pause as holding a Working card between turns. A working card cannot sleep until it is paused. Add pause and resume calls and a session flag. The sleep refusal rules (needs you stays awake, no awake session) come from `mock/actions/sessions.ts`. | 2 (build plan task 2.27, moved from 5.16 on 2026-09-26) |
 | N5 | Sleep reminder actions have no API | Add notice actions: keep awake for a set time (the prototype uses 15 minutes), sleep now, keep all, sleep all, and dismiss. The keep-awake time becomes a setting. | 5 (build plan task 5.17) |
 | N6 | Plan approve, reject, and edit have no API | Add plan calls and a `plan.updated` event. Define the plan's parts: steps, files, risks, and checks. | 5 (build plan task 5.18) |
 | N7 | Approvals asked in a project chat and on a card are one approval | Keep one row in `approvals`, and send its events to every chat and card that shows it. | 3 (build plan task 3.11) |
@@ -277,7 +277,7 @@ Each entry is a numbered task in `build-plan.md`, marked (prototype), that inclu
 | N17 | Vocabulary for the Home feed and notices, and the view-all pages | Fix the lists of feed kinds and notice kinds in the protocol. Add paged, filtered activity and CI lists. | 2 (build plan task 2.22) |
 | N18 | Settings have no create, edit, or delete calls (only connection tests are listed) | Add calls for roles (create, duplicate, edit, delete, reset, per-project override, import, export), provider keys (save, remove, test), integrations (connect, disconnect, test), schedules (create, edit, delete, enable, run now), limits, and settings. | 3 to 8 (build plan tasks 4.10, 5.19, 6.11, 8.10) |
 | N19 | The agents and models are a fixed list | Add `GET /v1/agents` with kind, version, status (supported, untested, missing), models, and capabilities including thinking support. The UI lists come from it. | 1 (build plan task 1.14) |
-| N20 | Saved views have a table but no API | Add the saved view calls. | 2 (build plan task 2.23) |
+| N20 | Saved views are in the data model but no migration creates the table yet, and there is no API | Add the table and the saved view calls. | 2 (build plan task 2.23) |
 | N21 | The calendar has no single data call | Add a calendar call for a date range that returns events, scheduled jobs, briefs, and due cards. | 8 (build plan task 8.9) |
 | N22 | Duplicate detection has no API | Add a call that returns similar cards for a draft title and body. | 10 (build plan task 10.15) |
 | N23 | Search covers sessions and notes only | Extend search to projects, cards, and chats for the command palette. | 2 (build plan task 2.24) |
