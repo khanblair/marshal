@@ -1,13 +1,14 @@
 import { cleanup, fireEvent, render, screen, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { M } from "~/mock";
+import { prototypeCards } from "~/testing/prototype-cards";
 import { RemoveProjectDialog } from "./RemoveProjectDialog";
 
 vi.hoisted(() => {
   window.location.hash = "#nosim";
 });
 
-const seedCards = JSON.parse(JSON.stringify(M.S.cards));
+const seedCards = prototypeCards();
 const DESKTOP_PX = 1440;
 const PHONE_PX = 390;
 const HEIGHT_PX = 900;

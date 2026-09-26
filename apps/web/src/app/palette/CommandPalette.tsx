@@ -1,5 +1,14 @@
 import { cx, FOCUS_DELAY_MS, Scrim } from "@marshal/ui";
-import { createMemo, createSignal, Index, onCleanup, onMount, Show } from "solid-js";
+import {
+  createEffect,
+  createMemo,
+  createSignal,
+  Index,
+  on,
+  onCleanup,
+  onMount,
+  Show,
+} from "solid-js";
 import { M } from "~/mock";
 import { modKey } from "../shell-layout";
 import { PaletteOption } from "./PaletteOption";
@@ -33,9 +42,14 @@ function PaletteBody() {
   let list: HTMLDivElement | undefined;
   const [query, setQuery] = createSignal("");
   const [sel, setSel] = createSignal(0);
-  const results = createMemo(() => paletteResults(M, query()));
+  // The daemon's answer to the typed query, when there is one. Until it lands, and whenever there is
+  // none, the palette searches what the store holds. The session stops when the palette closes.
+  const search = M.startSearch();
+  const results = createMemo(() => paletteResults(M, query(), search.hits()));
   const shown = () => Math.min(sel(), Math.max(0, results().length - 1));
   useFocusReturn(() => input);
+  // A new answer changes the rows, so the selection goes back to the top, as it does while typing.
+  createEffect(on(search.hits, () => setSel(0), { defer: true }));
 
   const onKeyDown = (e: KeyboardEvent): void => {
     if (e.key === "ArrowDown" || e.key === "ArrowUp") {
@@ -70,6 +84,7 @@ function PaletteBody() {
           onInput={(value) => {
             setQuery(value);
             setSel(0);
+            search.ask(value);
           }}
           onKeyDown={onKeyDown}
           onClose={closePalette}

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { M } from "~/mock";
+import type { PaletteHits } from "~/sync/search";
 import { paletteResults, scrollOptionIntoView, stepSelection } from "./palette-results";
 
 vi.hoisted(() => {
@@ -59,6 +60,85 @@ describe("paletteResults", () => {
     expect(paletteResults(M, "command")).toHaveLength(60);
     expect(paletteResults(M, "")).toHaveLength(60);
     vi.restoreAllMocks();
+  });
+});
+
+/** A row the daemon's answer made: the palette's own command shape, with nothing it can run. */
+const row = (group: string, label: string, over: Record<string, unknown> = {}) => ({
+  group,
+  label,
+  icon: "plus",
+  run: () => {},
+  ...over,
+});
+
+const answer = (query: string, over: Partial<PaletteHits> = {}): PaletteHits => ({
+  query,
+  projects: [row("Projects", "api-gateway", { hint: "Go" })],
+  cards: [row("Cards", "api-gateway #41 Fix token refresh on login", { card: "api#41" })],
+  chats: [row("Chats", "Token rotation question", { hint: "api-gateway" })],
+  ...over,
+});
+
+describe("paletteResults with the daemon's answer", () => {
+  it("shows the matching actions, then the daemon's projects, cards, and chats, then the settings", () => {
+    const list = paletteResults(M, "a", answer("a"));
+    expect(groups(list)).toEqual(["Actions", "Projects", "Cards", "Chats", "Settings"]);
+  });
+
+  it("puts the daemon's rows in place of the store's own project and card rows", () => {
+    const list = paletteResults(M, "api", answer("api"));
+    expect(list.filter((x) => x.group === "Projects").map((x) => x.label)).toEqual(["api-gateway"]);
+    expect(list.filter((x) => x.group === "Cards").map((x) => x.label)).toEqual([
+      "api-gateway #41 Fix token refresh on login",
+    ]);
+    // The store has more api cards than the one row: those are the store's, and they are not shown.
+    expect(list.filter((x) => x.group === "Cards")).toHaveLength(1);
+  });
+
+  it("does not filter the daemon's rows again, since it matched them by fields the row does not show", () => {
+    const list = paletteResults(M, "api#41", answer("api#41"));
+    expect(list.map((x) => x.label)).toContain("api-gateway #41 Fix token refresh on login");
+  });
+
+  it("keeps the order the daemon gave, best match first, inside each kind", () => {
+    const hits = answer("x", {
+      cards: [row("Cards", "second best"), row("Cards", "best"), row("Cards", "worst")],
+    });
+    const cards = paletteResults(M, "x", hits).filter((x) => x.group === "Cards");
+    expect(cards.map((x) => x.label)).toEqual(["second best", "best", "worst"]);
+  });
+
+  it("ignores an answer to another query, and searches the store as it would with no answer", () => {
+    const stale = answer("ap");
+    expect(paletteResults(M, "api", stale).map((x) => x.label)).toEqual(
+      paletteResults(M, "api").map((x) => x.label),
+    );
+    expect(paletteResults(M, "api", stale).some((x) => x.group === "Chats")).toBe(false);
+  });
+
+  it("reads the answer's query the way the daemon writes it: trimmed, with the spaces collapsed", () => {
+    const hits = answer("rate limiting");
+    expect(paletteResults(M, "  rate    limiting ", hits).some((x) => x.group === "Chats")).toBe(
+      true,
+    );
+    expect(paletteResults(M, "Rate limiting", hits).some((x) => x.group === "Chats")).toBe(false);
+  });
+
+  it("uses no answer for a blank query, which lists the palette's own commands", () => {
+    const blank = paletteResults(M, "  ", answer(""));
+    expect(groups(blank)).toEqual(["Actions", "Projects", "Settings", "Cards that need you"]);
+  });
+
+  it("still shows at most 60 rows", () => {
+    const many = (group: string) =>
+      Array.from({ length: 40 }, (_, i) => row(group, `${group} ${i}`));
+    const hits = answer("x", {
+      projects: many("Projects"),
+      cards: many("Cards"),
+      chats: many("Chats"),
+    });
+    expect(paletteResults(M, "x", hits).length).toBeLessThanOrEqual(60);
   });
 });
 

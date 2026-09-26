@@ -1,12 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { M } from "~/mock";
+import { prototypeCards } from "~/testing/prototype-cards";
 import { removeModel } from "./remove-project";
 
 vi.hoisted(() => {
   window.location.hash = "#nosim";
 });
 
-const seedCards = JSON.parse(JSON.stringify(M.S.cards));
+const seedCards = prototypeCards();
 afterEach(() => {
   M.S.cards = structuredClone(seedCards);
 });

@@ -1,3 +1,5 @@
+// First, so the store `~/mock` builds is the one that follows a fake daemon (S5a is the daemon's).
+import { daemon, resetDaemonCards, resetStoreCards } from "~/testing/daemon-cards-store";
 import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { M } from "~/mock";
@@ -7,7 +9,6 @@ vi.hoisted(() => {
   window.location.hash = "#nosim";
 });
 
-const seedCards = JSON.parse(JSON.stringify(M.S.cards));
 const DESKTOP_PX = 1440;
 const PHONE_PX = 390;
 const HEIGHT_PX = 900;
@@ -15,6 +16,8 @@ const FOCUS_MS = 20;
 
 beforeEach(() => {
   vi.useFakeTimers();
+  // The card a test deletes is really removed from the daemon, so it is put back for the next one.
+  resetDaemonCards();
   M.setViewport(DESKTOP_PX, HEIGHT_PX);
   M.set({ dialog: null, toasts: [] });
 });
@@ -22,7 +25,7 @@ afterEach(() => {
   cleanup();
   vi.useRealTimers();
   M.set({ dialog: null, toasts: [] });
-  M.S.cards = structuredClone(seedCards);
+  resetStoreCards();
 });
 
 const dialog = () => screen.getByRole("alertdialog");
@@ -126,12 +129,14 @@ describe("ConfirmDialog", () => {
     expect(M.S.toasts.map((t) => t.msg)).toContain("Bypass turned on");
   });
 
-  it("is the delete confirmation for a card", () => {
+  it("is the delete confirmation for a card", async () => {
     M.deleteCard("api#41");
     render(() => <ConfirmDialog />);
     expect(screen.getByRole("heading", { name: "Delete card" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Delete card" }));
-    expect(M.card("api#41")).toBeUndefined();
+    // The daemon is asked, so the card leaves the store once its answer is in, and the daemon too.
+    await vi.waitFor(() => expect(M.card("api#41")).toBeUndefined());
+    expect(daemon.cards.find((card) => card.key === "api#41")).toBeUndefined();
   });
 
   it("is a bottom sheet on a phone", () => {

@@ -1,3 +1,5 @@
+// First, so the store `~/mock` builds is the one that follows a fake daemon (S5a is the daemon's).
+import { daemon, resetDaemonCards, resetStoreCards } from "~/testing/daemon-cards-store";
 import { cleanup, fireEvent, render, screen, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { M } from "~/mock";
@@ -9,7 +11,6 @@ vi.hoisted(() => {
   window.location.hash = "#nosim";
 });
 
-const seedCards = JSON.parse(JSON.stringify(M.S.cards));
 const DESKTOP_PX = 1440;
 const PHONE_PX = 390;
 const HEIGHT_PX = 900;
@@ -17,6 +18,8 @@ const FOCUS_MS = 20;
 
 beforeEach(() => {
   vi.useFakeTimers();
+  // The cards a test creates are really created on the daemon, so it starts each test with its 29.
+  resetDaemonCards();
   M.setViewport(DESKTOP_PX, HEIGHT_PX);
   M.go("project", "api", "board");
   M.set({ newCard: null, openId: null, toasts: [] });
@@ -25,7 +28,7 @@ afterEach(() => {
   cleanup();
   vi.useRealTimers();
   M.set({ newCard: null, openId: null, toasts: [] });
-  M.S.cards = structuredClone(seedCards);
+  resetStoreCards();
 });
 
 const titleField = () => screen.getByRole("textbox", { name: "Title" });
@@ -128,14 +131,19 @@ describe("NewCardDialog", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("creates the card, closes, and toasts with an Open action", () => {
+  it("creates the card, closes, and toasts with an Open action", async () => {
     M.newCard();
     render(() => <NewCardDialog />);
     const before = M.S.cards.length;
     fireEvent.input(titleField(), { target: { value: "Brand new thing" } });
     fireEvent.submit(screen.getByRole("dialog"));
-    expect(M.S.cards.length).toBe(before + 1);
-    expect(M.S.cards.at(-1)?.title).toBe("Brand new thing");
+    // The daemon owns the new card's number and puts it in the store when it answers.
+    await vi.waitFor(() => expect(M.S.cards).toHaveLength(before + 1));
+    expect(daemon.routes()).toContain("POST /v1/projects/api/cards");
+    expect(M.S.cards.find((card) => card.title === "Brand new thing")).toMatchObject({
+      title: "Brand new thing",
+      p: "api",
+    });
     expect(M.S.newCard).toBeNull();
     expect(M.S.toasts.map((t) => t.msg)).toContain("Card created");
   });
@@ -220,13 +228,22 @@ describe("NewCardDialog with the daemon's agents", () => {
     expect(screen.queryByText(warning)).toBeNull();
   });
 
-  it("lets an untested agent be chosen, and the card it makes gets that agent's first model", () => {
+  it("lets an untested agent be chosen, and the card it makes names that agent", async () => {
     M.newCard();
     render(() => <NewCardDialog />);
     fireEvent.change(combo("Agent"), { target: { value: "Gemini CLI" } });
     fireEvent.input(titleField(), { target: { value: "Try the untested agent" } });
     fireEvent.submit(screen.getByRole("dialog"));
-    expect(M.S.cards.at(-1)).toMatchObject({ agent: "Gemini CLI", model: "gemini-2.5-pro" });
+    await vi.waitFor(() =>
+      expect(M.S.cards.find((card) => card.title === "Try the untested agent")).toBeDefined(),
+    );
+    // The card carries the agent and that agent's own default model, which is what the dialog
+    // sends and what the mock's dialog wrote: an agent with no model of its own would leave the
+    // card panel's model picker blank, which is not what the prototype showed.
+    expect(M.S.cards.find((card) => card.title === "Try the untested agent")).toMatchObject({
+      agent: "Gemini CLI",
+      model: "gemini-2.5-pro",
+    });
   });
 
   it("shows no notes when every agent can be used", () => {

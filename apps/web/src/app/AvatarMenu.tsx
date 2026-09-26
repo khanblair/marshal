@@ -21,6 +21,7 @@ const ITEMS: readonly AvatarItem[] = [
 ];
 
 const initials = (): string =>
+  M.S.profile.initials ||
   M.S.profile.name
     .split(/\s+/)
     .map((word) => word[0])
@@ -41,7 +42,13 @@ export function AvatarMenu() {
         aria-expanded={open()}
         class="size-9 inline-flex items-center justify-center border-none rounded-full bg-transparent p-0 hover:bg-surface-hover"
       >
-        <Avatar size={28} bordered initials={initials()} class="text-caption!" />
+        <Avatar
+          size={28}
+          bordered
+          initials={initials()}
+          src={M.S.profile.avatar ?? undefined}
+          class="text-caption!"
+        />
       </button>
       <Show when={open()}>
         <Scrim tone="clear" fixed class="z-[190]" onClick={closeMenu} />
