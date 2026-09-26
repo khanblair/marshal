@@ -6,7 +6,7 @@ import { golden } from "~/data/testing/golden";
 import { createContext } from "~/mock/context";
 import { feed, notice } from "~/mock/engine";
 import { daemonProject, PROTOTYPE_PROJECTS } from "~/testing/projects";
-import { testEnv } from "~/testing/test-store";
+import { MOCK_CARDS, MOCK_PERSON_SECTIONS, testEnv } from "~/testing/test-store";
 import {
   applyProject,
   applyProjectRemoved,
@@ -16,7 +16,15 @@ import {
 } from "./projects";
 
 /** A store with nothing from the daemon yet, as the app has before its first answer. */
-const emptyStore = () => createContext(testEnv({ hash: "#nosim" }));
+// The reservoir is the mock's own machinery, so these tests say out loud that S5a, S17, and S20 are
+// on the mock and keep testing it whatever the register says.
+const emptyStore = () =>
+  createContext(
+    testEnv({
+      hash: "#nosim",
+      sections: { ...MOCK_CARDS, ...MOCK_PERSON_SECTIONS, S17: "mock", S20: "mock" },
+    }),
+  );
 const prototype = PROTOTYPE_PROJECTS.map(toDaemonProject);
 const only = (...ids: string[]) => prototype.filter((p) => ids.includes(p.id));
 const cardProjects = (ctx: ReturnType<typeof emptyStore>) => [

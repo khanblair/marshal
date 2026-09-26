@@ -1,13 +1,15 @@
 import { unwrap } from "solid-js/store";
+import { isDaemon } from "~/data/sections";
 import { parseCardKey } from "~/mock/card-key";
-import type { Ctx } from "~/mock/context";
+import { type Ctx, sectionsOf } from "~/mock/context";
 import type { Card, Chat, FeedItem, Notice } from "~/mock/types";
 
 /**
  * The mock records that belong to a project the daemon does not have. Cards, chats, notices, and
  * feed items are still mock (sections S5a, S17, S20, and S23), but they must never show for a
  * project that does not exist (backend-checklist.md 2.3, rules 1 and 2). They wait here, out of
- * `M.S`, and come back when their project arrives.
+ * `M.S`, and come back when their project arrives. A section that is switched stops using the
+ * reservoir entirely: the cards (S5a) and the feed (S20) are the daemon's from then on.
  */
 export interface Reservoir {
   cards: Card[];
@@ -67,12 +69,24 @@ function exchange<T>(shown: readonly T[], hidden: T[], keep: (item: T) => boolea
 export function reconcileMock(ctx: Ctx): void {
   const { S, hidden } = ctx;
   const present = new Set(S.projects.map((project) => project.id));
-  const cards = exchange(S.cards, hidden.cards, (card) => present.has(card.p));
+  // Once S5a is on the daemon the cards are the daemon's, and the mock's own 29 stay in the
+  // reservoir for good: a project existing is no longer a reason to draw them. Everything else
+  // here (chats, notices, feed) still belongs to its own section.
+  const cards = isDaemon("S5a", sectionsOf(ctx.env))
+    ? null
+    : exchange(S.cards, hidden.cards, (card) => present.has(card.p));
   if (cards) S.cards = cards;
   const notices = exchange(S.notices, hidden.notices, (notice) => noticeShows(present, notice));
   if (notices) S.notices = notices;
-  const feed = exchange(S.feed, hidden.feed, (item) => feedShows(present, item));
+  // Once S20 is on the daemon the feed is the daemon's own stored stream, and the mock's items stay
+  // in the reservoir for good: a project existing is no longer a reason to draw them.
+  const feed = isDaemon("S20", sectionsOf(ctx.env))
+    ? null
+    : exchange(S.feed, hidden.feed, (item) => feedShows(present, item));
   if (feed) S.feed = feed;
+  // Once S17 is on the daemon the chats are the daemon's, and the mock's own stay in the reservoir
+  // for good: a project existing is no longer a reason to draw them, the same rule as S5a and S20.
+  if (isDaemon("S17", sectionsOf(ctx.env))) return;
   for (const pid of Object.keys(S.chats)) {
     const list = S.chats[pid];
     if (present.has(pid) || !list) continue;
