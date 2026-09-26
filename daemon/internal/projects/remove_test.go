@@ -43,6 +43,16 @@ type fakeSessions struct {
 	err error
 }
 
+func (f fakeSessions) StopCardSession(_ context.Context, cardID string) error {
+	f.log.add("stop the session of " + cardID)
+	return f.err
+}
+
+func (f fakeSessions) RemoveCardLogs(_ context.Context, cardID string) error {
+	f.log.add("remove the logs of " + cardID)
+	return nil
+}
+
 func (f fakeSessions) StopProjectSessions(_ context.Context, projectID string) error {
 	f.log.add("stop sessions of " + projectID)
 	return f.err

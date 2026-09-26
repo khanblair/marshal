@@ -70,20 +70,47 @@ type Cards interface {
 	Board(ctx context.Context, projectID string) (protocol.BoardSnapshot, error)
 	// SetState moves a card to a state. Which moves are allowed is decided by the caller for now.
 	SetState(ctx context.Context, id string, state protocol.CardState) (protocol.Card, error)
+	// MoveCard moves a card by hand, checked by the rules of architecture.md section 6.1.
+	MoveCard(ctx context.Context, id string, in protocol.MoveCardRequest) (protocol.Card, error)
+	// UpdateCard changes the fields of a card that the request sets, and leaves the rest alone.
+	UpdateCard(ctx context.Context, id string, in protocol.UpdateCardRequest) (protocol.Card, error)
+	// DeleteCard removes a card, its worktree, its branch, and its session logs.
+	DeleteCard(ctx context.Context, id string) error
+	// ForkCard adds a card that starts from this card's latest commit.
+	ForkCard(ctx context.Context, id string) (protocol.Card, error)
 	// SetWorktree records the worktree folder and branch that were made for a card.
 	SetWorktree(ctx context.Context, id, path, branch string) (protocol.Card, error)
+}
+
+// Labels is what the API layer needs to manage a project's labels (decision D3).
+type Labels interface {
+	// Labels returns a project's labels, by name.
+	Labels(ctx context.Context, projectID string) (protocol.LabelSnapshot, error)
+	// CreateLabel adds a label to a project.
+	CreateLabel(ctx context.Context, projectID string, in protocol.CreateLabelRequest) (protocol.Label, error)
+	// UpdateLabel renames a label, recolors it, or both.
+	UpdateLabel(ctx context.Context, id string, in protocol.UpdateLabelRequest) (protocol.Label, error)
+	// DeleteLabel removes a label from its project and from every card that carried it.
+	DeleteLabel(ctx context.Context, id string) error
 }
 
 var (
 	_ Projects = (*Service)(nil)
 	_ Cards    = (*Service)(nil)
+	_ Labels   = (*Service)(nil)
 )
 
-// SessionStopper stops the agent sessions of a project. The session manager implements it. The
-// service calls it first when a project is removed, so nothing runs in a worktree that is about to
-// go.
+// SessionStopper stops agent sessions and removes their logs. The session manager implements it,
+// because it owns where session logs live. The service calls it before it removes a project or a
+// card, so nothing runs in a worktree that is about to go and no log folder is left behind.
 type SessionStopper interface {
+	// StopProjectSessions stops every live session of a project.
 	StopProjectSessions(ctx context.Context, projectID string) error
+	// StopCardSession stops one card's session. A card with no live session is not an error.
+	StopCardSession(ctx context.Context, cardID string) error
+	// RemoveCardLogs deletes a card's session log folder. A card that never had a session is not
+	// an error.
+	RemoveCardLogs(ctx context.Context, cardID string) error
 }
 
 // MemoryRemover deletes a project's memory folder. The memory module implements it. It is called
@@ -96,6 +123,27 @@ type MemoryRemover interface {
 // implements it, and the number becomes the "awake" badge. Until it exists the badge is 0.
 type AwakeCounter interface {
 	AwakeCards(ctx context.Context, projectID string) (int, error)
+}
+
+// SessionInfo is what the wire card carries of its session: the state the session was last stored in,
+// and the view its agent runs in.
+type SessionInfo struct {
+	// State is the stored state of the session.
+	State protocol.SessionState
+	// View is the view the session runs in, chat or terminal (docs/architecture.md 4.3).
+	View protocol.CardViewMode
+}
+
+// SessionStates reads the stored state and view of cards' sessions, for the `session` and `viewMode`
+// fields of the wire card. The session module implements it (session.StoredStates), because it owns
+// the sessions table and this module never reads it (docs/architecture.md section 3). A card that
+// never had a session is left out of the answer.
+type SessionStates interface {
+	// CardSession is the state and view of one card's session, and nil when the card has none.
+	CardSession(ctx context.Context, cardID string) (*SessionInfo, error)
+	// ProjectSessions are the states and views of the sessions of a project's cards, by card id, read
+	// at once so a board does not ask once per card.
+	ProjectSessions(ctx context.Context, projectID string) (map[string]SessionInfo, error)
 }
 
 // Deps are the parts the service is built from.
@@ -123,6 +171,7 @@ type Service struct {
 	sessions SessionStopper
 	memory   MemoryRemover
 	awake    AwakeCounter
+	states   SessionStates
 	// allowLocalClone lets a clone come from a folder on this machine. Only dev mode sets it.
 	allowLocalClone bool
 
@@ -168,6 +217,16 @@ func WithAwakeCounter(counter AwakeCounter) Option {
 	return func(s *Service) { s.awake = counter }
 }
 
+// WithSessionStates sets where a card's session state comes from. The default says no card has
+// a session, so every card sends a null session.
+func WithSessionStates(states SessionStates) Option {
+	return func(s *Service) {
+		if states != nil {
+			s.states = states
+		}
+	}
+}
+
 // WithLocalClones lets a project be cloned from a folder or a file:// address on this machine.
 // Only dev mode and tests turn it on, because it reads any repository on the machine.
 func WithLocalClones(allow bool) Option {
@@ -193,6 +252,7 @@ func New(deps Deps, opts ...Option) (*Service, error) {
 		sessions: noSessions{},
 		memory:   noMemory{},
 		awake:    noAwake{},
+		states:   noSessionStates{},
 	}
 	for _, opt := range opts {
 		opt(s)
