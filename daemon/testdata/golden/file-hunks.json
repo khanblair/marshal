@@ -1,0 +1,43 @@
+{
+  "path": "internal/auth/refresh.go",
+  "status": "modified",
+  "hunks": [
+    {
+      "header": "@@ -41,5 +41,8 @@ type Client struct",
+      "lines": [
+        {
+          "kind": "context",
+          "oldLine": 41,
+          "newLine": 41,
+          "text": "type Client struct {"
+        },
+        {
+          "kind": "removed",
+          "oldLine": 42,
+          "newLine": 0,
+          "text": "\thttp *http.Client"
+        },
+        {
+          "kind": "added",
+          "oldLine": 0,
+          "newLine": 42,
+          "text": "\thttp     *http.Client"
+        },
+        {
+          "kind": "added",
+          "oldLine": 0,
+          "newLine": 43,
+          "text": "\tgroup    singleflight.Group"
+        },
+        {
+          "kind": "context",
+          "oldLine": 43,
+          "newLine": 44,
+          "text": "}"
+        }
+      ]
+    }
+  ],
+  "truncated": false,
+  "serverTime": "2026-09-30T12:00:00.000Z"
+}

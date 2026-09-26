@@ -1,0 +1,34 @@
+{
+  "projectId": "api",
+  "views": [
+    {
+      "id": "01M3C107JB041061050R3GG2V1",
+      "projectId": "api",
+      "name": "Needs me",
+      "filters": [
+        {
+          "key": "status",
+          "value": "needs"
+        }
+      ],
+      "swimlane": "none",
+      "createdAt": "2026-09-28T12:00:00.000Z",
+      "updatedAt": "2026-09-30T11:00:00.000Z"
+    },
+    {
+      "id": "01M3C107JB041061050R3GG2V2",
+      "projectId": "api",
+      "name": "Claude Code by role",
+      "filters": [
+        {
+          "key": "agent",
+          "value": "Claude Code"
+        }
+      ],
+      "swimlane": "role",
+      "createdAt": "2026-09-30T11:30:00.000Z",
+      "updatedAt": "2026-09-30T11:30:00.000Z"
+    }
+  ],
+  "serverTime": "2026-09-30T12:00:00.000Z"
+}

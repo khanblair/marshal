@@ -1,0 +1,116 @@
+{
+  "type": "events",
+  "epoch": "01M3C0ZZZZ000000000000000A",
+  "events": [
+    {
+      "seq": 1,
+      "topic": "me",
+      "type": "me.updated",
+      "at": "2026-09-30T12:00:00.020Z",
+      "data": {
+        "profile": {
+          "id": "01M3C107JB041061050R3GG2U1",
+          "name": "Ada Okafor",
+          "email": "ada@example.com",
+          "initials": "AO",
+          "timeZone": "Europe/London",
+          "avatarUrl": "/v1/users/01M3C107JB041061050R3GG2U1/avatar?v=1759233600000",
+          "tailnetIdentity": "",
+          "createdAt": "2026-09-27T12:00:00.000Z",
+          "updatedAt": "2026-09-30T12:00:00.000Z"
+        },
+        "preferences": {
+          "theme": "dark",
+          "listColumns": {
+            "cost": false,
+            "pkg": true
+          },
+          "sort": {
+            "agents": null,
+            "list": {
+              "key": "id",
+              "direction": "desc"
+            }
+          },
+          "projects": {
+            "api": {
+              "lastView": "list",
+              "filters": [
+                {
+                  "key": "status",
+                  "value": "needs"
+                }
+              ],
+              "query": "cache",
+              "swimlane": "role",
+              "collapsedLanes": [
+                "role:Tester"
+              ],
+              "showAllDone": true,
+              "savedViewId": "01M3C107JB041061050R3GG2V1"
+            },
+            "web": {
+              "lastView": "board",
+              "filters": [],
+              "query": "",
+              "swimlane": "none",
+              "collapsedLanes": [],
+              "showAllDone": false,
+              "savedViewId": null
+            }
+          }
+        },
+        "progress": {
+          "onboarding": {
+            "status": "pending",
+            "step": 2,
+            "finishedAt": null
+          },
+          "tutorial": {
+            "status": "skipped",
+            "finishedAt": "2026-09-30T11:00:00.000Z"
+          }
+        }
+      }
+    },
+    {
+      "seq": 2,
+      "topic": "project:api",
+      "type": "saved_view.updated",
+      "at": "2026-09-30T12:00:00.040Z",
+      "data": {
+        "projectId": "api",
+        "views": [
+          {
+            "id": "01M3C107JB041061050R3GG2V1",
+            "projectId": "api",
+            "name": "Needs me",
+            "filters": [
+              {
+                "key": "status",
+                "value": "needs"
+              }
+            ],
+            "swimlane": "none",
+            "createdAt": "2026-09-28T12:00:00.000Z",
+            "updatedAt": "2026-09-30T11:00:00.000Z"
+          },
+          {
+            "id": "01M3C107JB041061050R3GG2V2",
+            "projectId": "api",
+            "name": "Claude Code by role",
+            "filters": [
+              {
+                "key": "agent",
+                "value": "Claude Code"
+              }
+            ],
+            "swimlane": "role",
+            "createdAt": "2026-09-30T11:30:00.000Z",
+            "updatedAt": "2026-09-30T11:30:00.000Z"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "name": "UI work",
+  "filters": [
+    {
+      "key": "label",
+      "value": "ui"
+    }
+  ],
+  "swimlane": "agent"
+}

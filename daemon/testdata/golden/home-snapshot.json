@@ -1,0 +1,42 @@
+{
+  "needs": [
+    {
+      "cardId": "01M3C107JB041061050R3GG28A",
+      "key": "web-dashboard#12",
+      "number": 12,
+      "projectId": "web-dashboard",
+      "projectName": "web-dashboard",
+      "title": "Add a health check endpoint",
+      "reason": {
+        "kind": "plan-ready",
+        "text": "The plan is ready for review."
+      },
+      "waitingSince": "2026-09-30T12:00:00.000Z",
+      "role": "Implementer"
+    }
+  ],
+  "awake": [
+    {
+      "cardId": "01M3C107JB041061050R3GG28A",
+      "key": "web-dashboard#12",
+      "number": 12,
+      "projectId": "web-dashboard",
+      "projectName": "web-dashboard",
+      "title": "Add a health check endpoint",
+      "state": "working",
+      "session": "working",
+      "doingNow": "Writing the handler",
+      "pinned": true,
+      "paused": false,
+      "contextUsed": 42,
+      "awakeSince": "2026-09-30T12:00:00.000Z"
+    }
+  ],
+  "tiles": {
+    "needs": 1,
+    "working": 1,
+    "mergedToday": 3
+  },
+  "stats": null,
+  "serverTime": "2026-09-30T12:00:00.000Z"
+}

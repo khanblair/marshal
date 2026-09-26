@@ -1,0 +1,36 @@
+{
+  "items": [
+    {
+      "id": "01M3C107JB041061050R3GG28A",
+      "kind": "merge",
+      "text": "#110 Fix flaky login e2e test merged into main",
+      "projectId": "web",
+      "at": "2026-09-30T12:00:00.000Z",
+      "cardId": "01M3C107JB041061050R3GG28B",
+      "cardKey": "web#110",
+      "jobId": ""
+    },
+    {
+      "id": "01M3C107JB041061050R3GG28C",
+      "kind": "brief",
+      "text": "Morning brief is ready",
+      "projectId": null,
+      "at": "2026-09-30T09:00:00.000Z",
+      "cardId": "",
+      "cardKey": "",
+      "jobId": "s1"
+    },
+    {
+      "id": "01M3C107JB041061050R3GG28D",
+      "kind": "ci",
+      "text": "CI passed on marshal/39-slog",
+      "projectId": "api",
+      "at": "2026-09-30T08:30:00.000Z",
+      "cardId": "01M3C107JB041061050R3GG28E",
+      "cardKey": "api#39",
+      "jobId": ""
+    }
+  ],
+  "nextCursor": "eyJzZXEiOjF9",
+  "serverTime": "2026-09-30T12:00:00.000Z"
+}

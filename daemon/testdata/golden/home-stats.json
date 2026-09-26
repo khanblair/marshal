@@ -1,0 +1,166 @@
+{
+  "range": 7,
+  "from": "2026-09-24T00:00:00.000Z",
+  "to": "2026-09-30T00:00:00.000Z",
+  "days": [
+    {
+      "day": "2026-09-24T00:00:00.000Z",
+      "cardsFinished": 2,
+      "merges": 2,
+      "ciFailures": 0,
+      "costMicros": 0
+    },
+    {
+      "day": "2026-09-25T00:00:00.000Z",
+      "cardsFinished": 3,
+      "merges": 3,
+      "ciFailures": 0,
+      "costMicros": 0
+    },
+    {
+      "day": "2026-09-26T00:00:00.000Z",
+      "cardsFinished": 1,
+      "merges": 1,
+      "ciFailures": 1,
+      "costMicros": 0
+    },
+    {
+      "day": "2026-09-27T00:00:00.000Z",
+      "cardsFinished": 4,
+      "merges": 3,
+      "ciFailures": 0,
+      "costMicros": 0
+    },
+    {
+      "day": "2026-09-28T00:00:00.000Z",
+      "cardsFinished": 2,
+      "merges": 2,
+      "ciFailures": 0,
+      "costMicros": 0
+    },
+    {
+      "day": "2026-09-29T00:00:00.000Z",
+      "cardsFinished": 5,
+      "merges": 4,
+      "ciFailures": 2,
+      "costMicros": 0
+    },
+    {
+      "day": "2026-09-30T00:00:00.000Z",
+      "cardsFinished": 3,
+      "merges": 3,
+      "ciFailures": 0,
+      "costMicros": 0
+    }
+  ],
+  "projects": [
+    {
+      "projectId": "api",
+      "days": [
+        {
+          "day": "2026-09-24T00:00:00.000Z",
+          "cardsFinished": 1,
+          "merges": 1,
+          "ciFailures": 0,
+          "costMicros": 0
+        },
+        {
+          "day": "2026-09-25T00:00:00.000Z",
+          "cardsFinished": 2,
+          "merges": 2,
+          "ciFailures": 0,
+          "costMicros": 0
+        },
+        {
+          "day": "2026-09-26T00:00:00.000Z",
+          "cardsFinished": 0,
+          "merges": 0,
+          "ciFailures": 1,
+          "costMicros": 0
+        },
+        {
+          "day": "2026-09-27T00:00:00.000Z",
+          "cardsFinished": 2,
+          "merges": 2,
+          "ciFailures": 0,
+          "costMicros": 0
+        },
+        {
+          "day": "2026-09-28T00:00:00.000Z",
+          "cardsFinished": 1,
+          "merges": 1,
+          "ciFailures": 0,
+          "costMicros": 0
+        },
+        {
+          "day": "2026-09-29T00:00:00.000Z",
+          "cardsFinished": 3,
+          "merges": 2,
+          "ciFailures": 2,
+          "costMicros": 0
+        },
+        {
+          "day": "2026-09-30T00:00:00.000Z",
+          "cardsFinished": 1,
+          "merges": 1,
+          "ciFailures": 0,
+          "costMicros": 0
+        }
+      ]
+    },
+    {
+      "projectId": "web",
+      "days": [
+        {
+          "day": "2026-09-24T00:00:00.000Z",
+          "cardsFinished": 1,
+          "merges": 1,
+          "ciFailures": 0,
+          "costMicros": 0
+        },
+        {
+          "day": "2026-09-25T00:00:00.000Z",
+          "cardsFinished": 1,
+          "merges": 1,
+          "ciFailures": 0,
+          "costMicros": 0
+        },
+        {
+          "day": "2026-09-26T00:00:00.000Z",
+          "cardsFinished": 1,
+          "merges": 1,
+          "ciFailures": 0,
+          "costMicros": 0
+        },
+        {
+          "day": "2026-09-27T00:00:00.000Z",
+          "cardsFinished": 2,
+          "merges": 1,
+          "ciFailures": 0,
+          "costMicros": 0
+        },
+        {
+          "day": "2026-09-28T00:00:00.000Z",
+          "cardsFinished": 1,
+          "merges": 1,
+          "ciFailures": 0,
+          "costMicros": 0
+        },
+        {
+          "day": "2026-09-29T00:00:00.000Z",
+          "cardsFinished": 2,
+          "merges": 2,
+          "ciFailures": 0,
+          "costMicros": 0
+        },
+        {
+          "day": "2026-09-30T00:00:00.000Z",
+          "cardsFinished": 2,
+          "merges": 2,
+          "ciFailures": 0,
+          "costMicros": 0
+        }
+      ]
+    }
+  ]
+}

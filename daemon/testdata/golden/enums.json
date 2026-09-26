@@ -6,6 +6,12 @@
     "tool",
     "approval"
   ],
+  "ActivityState": [
+    "ok",
+    "running",
+    "failed",
+    "waiting"
+  ],
   "AgentKind": [
     "claude",
     "gemini",
@@ -38,12 +44,53 @@
     "chat",
     "terminal"
   ],
+  "ChatApprovalState": [
+    "waiting",
+    "approved",
+    "denied"
+  ],
+  "ChatMessageKind": [
+    "user",
+    "agent",
+    "tool",
+    "system",
+    "diff",
+    "plan",
+    "approval",
+    "card"
+  ],
+  "ChatPlanState": [
+    "waiting",
+    "approved",
+    "rejected",
+    "edited"
+  ],
+  "ChatRefusalReason": [
+    "chat_archived",
+    "chat_cannot_resume"
+  ],
+  "ChatTargetKind": [
+    "orchestrator",
+    "role",
+    "card"
+  ],
   "DeviceKind": [
     "web",
     "desktop",
     "mobile",
     "cli",
     "dev"
+  ],
+  "DiffFileStatus": [
+    "added",
+    "modified",
+    "deleted",
+    "renamed"
+  ],
+  "DiffLineKind": [
+    "context",
+    "added",
+    "removed"
   ],
   "ErrorCode": [
     "invalid_argument",
@@ -69,6 +116,10 @@
     "card.created",
     "card.updated",
     "card.moved",
+    "card.deleted",
+    "label.updated",
+    "saved_view.updated",
+    "me.updated",
     "card.members_changed",
     "checklist.updated",
     "comment.created",
@@ -76,6 +127,7 @@
     "session.state_changed",
     "session.output",
     "session.tool_call",
+    "session.terminal_output",
     "approval.requested",
     "approval.resolved",
     "ci.updated",
@@ -94,11 +146,57 @@
     "ci",
     "tool"
   ],
+  "FilterKey": [
+    "status",
+    "role",
+    "agent",
+    "model",
+    "label",
+    "package"
+  ],
   "FrameType": [
     "hello",
     "events",
     "resync",
-    "error"
+    "error",
+    "terminal.input",
+    "terminal.resize",
+    "terminal.snapshot",
+    "terminal.screen",
+    "terminal.refused"
+  ],
+  "HoldRefusalReason": [
+    "pause_not_working",
+    "sleep_working",
+    "sleep_needs_you",
+    "sleep_no_session",
+    "sleep_holding_messages"
+  ],
+  "LabelColor": [
+    "slate",
+    "blue",
+    "green",
+    "amber",
+    "red",
+    "purple"
+  ],
+  "MoveRefusalReason": [
+    "move_from_done",
+    "move_to_done",
+    "move_to_needs",
+    "move_needs_pull_request",
+    "move_needs_review",
+    "move_checks_not_passed",
+    "move_card_merging"
+  ],
+  "NeedsReasonKind": [
+    "plan-ready",
+    "approval-needed",
+    "stuck",
+    "limit",
+    "ci-failed",
+    "conflict",
+    "question"
   ],
   "NoticeKind": [
     "sleep",
@@ -114,9 +212,23 @@
     "full-auto",
     "bypass"
   ],
+  "ProgressStatus": [
+    "pending",
+    "done",
+    "skipped"
+  ],
   "ProjectSource": [
     "folder",
-    "clone"
+    "clone",
+    "sample"
+  ],
+  "ProjectView": [
+    "chat",
+    "agents",
+    "board",
+    "list",
+    "timeline",
+    "calendar"
   ],
   "ResyncReason": [
     "epoch-changed",
@@ -133,6 +245,46 @@
     "waking",
     "stopped"
   ],
+  "SortDirection": [
+    "asc",
+    "desc"
+  ],
+  "Swimlane": [
+    "none",
+    "role",
+    "agent",
+    "package",
+    "label"
+  ],
+  "TerminalKey": [
+    "enter",
+    "esc",
+    "tab",
+    "shift-tab",
+    "backspace",
+    "delete",
+    "up",
+    "down",
+    "left",
+    "right",
+    "home",
+    "end",
+    "page-up",
+    "page-down",
+    "ctrl-c",
+    "ctrl-d",
+    "ctrl-l",
+    "ctrl-z"
+  ],
+  "TerminalRefusalReason": [
+    "terminal_not_active",
+    "terminal_busy"
+  ],
+  "Theme": [
+    "light",
+    "dark",
+    "system"
+  ],
   "ThinkingMode": [
     "low",
     "medium",
@@ -143,6 +295,16 @@
     "home",
     "project",
     "card",
-    "chat"
+    "chat",
+    "me"
+  ],
+  "ViewRefusalReason": [
+    "view_no_agent",
+    "view_turn_running",
+    "view_holding_messages",
+    "view_no_terminal",
+    "view_switching",
+    "view_terminal_active",
+    "view_cannot_resume"
   ]
 }

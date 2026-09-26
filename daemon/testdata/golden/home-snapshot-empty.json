@@ -1,0 +1,11 @@
+{
+  "needs": [],
+  "awake": [],
+  "tiles": {
+    "needs": 0,
+    "working": 0,
+    "mergedToday": 0
+  },
+  "stats": null,
+  "serverTime": "2026-09-30T12:00:00.000Z"
+}

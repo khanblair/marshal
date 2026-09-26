@@ -1,0 +1,41 @@
+{
+  "theme": "dark",
+  "listColumns": {
+    "cost": false,
+    "pkg": true
+  },
+  "sort": {
+    "agents": null,
+    "list": {
+      "key": "id",
+      "direction": "desc"
+    }
+  },
+  "projects": {
+    "api": {
+      "lastView": "list",
+      "filters": [
+        {
+          "key": "status",
+          "value": "needs"
+        }
+      ],
+      "query": "cache",
+      "swimlane": "role",
+      "collapsedLanes": [
+        "role:Tester"
+      ],
+      "showAllDone": true,
+      "savedViewId": "01M3C107JB041061050R3GG2V1"
+    },
+    "web": {
+      "lastView": "board",
+      "filters": [],
+      "query": "",
+      "swimlane": "none",
+      "collapsedLanes": [],
+      "showAllDone": false,
+      "savedViewId": null
+    }
+  }
+}

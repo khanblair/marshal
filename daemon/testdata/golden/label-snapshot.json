@@ -1,0 +1,20 @@
+{
+  "projectId": "web-dashboard",
+  "labels": [
+    {
+      "id": "01M3C107JB041061050R3GG28B",
+      "projectId": "web-dashboard",
+      "name": "backend",
+      "color": "blue",
+      "createdAt": "2026-09-30T12:00:00.000Z"
+    },
+    {
+      "id": "01M3C107JB041061050R3GG28C",
+      "projectId": "web-dashboard",
+      "name": "urgent",
+      "color": "red",
+      "createdAt": "2026-09-30T12:00:00.000Z"
+    }
+  ],
+  "serverTime": "2026-09-30T12:00:00.000Z"
+}

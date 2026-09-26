@@ -1,0 +1,46 @@
+{
+  "query": "token",
+  "projects": [
+    {
+      "projectId": "token-service",
+      "name": "token-service",
+      "path": "/home/ada/code/token-service",
+      "language": "Go"
+    }
+  ],
+  "cards": [
+    {
+      "cardId": "01M3C107JB041061050R3GG28A",
+      "key": "api#41",
+      "number": 41,
+      "title": "Refresh the token before it expires",
+      "state": "working",
+      "projectId": "api",
+      "projectName": "api-gateway"
+    },
+    {
+      "cardId": "01M3C107JB041061050R3GG28B",
+      "key": "web#7",
+      "number": 7,
+      "title": "Show the session timeout",
+      "state": "backlog",
+      "projectId": "web",
+      "projectName": "web-dashboard"
+    }
+  ],
+  "chats": [
+    {
+      "chatId": "01M3C107JB041061050R3GG281",
+      "title": "Token rotation question",
+      "projectId": "api",
+      "projectName": "api-gateway",
+      "lastActiveAt": "2026-09-30T10:00:00.000Z"
+    }
+  ],
+  "totals": {
+    "projects": 1,
+    "cards": 11,
+    "chats": 1
+  },
+  "serverTime": "2026-09-30T12:00:00.000Z"
+}
