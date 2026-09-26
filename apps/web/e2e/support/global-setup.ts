@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { finishFirstLaunch } from "./daemon-api";
 import { DATA_DIR, VITE_PORT } from "./e2e-env";
 
 /**
@@ -8,6 +9,10 @@ import { DATA_DIR, VITE_PORT } from "./e2e-env";
  * proxies to it (port 47801) with its real token, so the specs would add and remove projects there.
  * The Vite server of this run reads its token from this run's data folder, so the two tokens must
  * match: if they do not, stop before a single spec runs.
+ *
+ * The daemon is made new each run, so its first launch is pending and would put the first-launch
+ * screens in every spec's way. End it once here, as a person who skipped it does. The one spec that
+ * walks those screens puts the first launch back itself.
  */
 export default async function globalSetup(): Promise<void> {
   const expected = readFileSync(join(DATA_DIR, "dev-token"), "utf8").trim();
@@ -20,4 +25,5 @@ export default async function globalSetup(): Promise<void> {
         "dev token, so it points at another daemon. Stop it and run the tests again.",
     );
   }
+  await finishFirstLaunch();
 }

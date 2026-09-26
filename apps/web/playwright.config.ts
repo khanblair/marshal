@@ -3,6 +3,8 @@ import { DAEMON_ORIGIN, DAEMON_PORT, DATA_DIR, VITE_PORT } from "./e2e/support/e
 
 /** The one spec that stops and starts the daemon, so it must not run beside the others. */
 const LIFECYCLE_SPEC = /daemon-lifecycle\.spec\.ts/;
+/** The one spec that puts the first launch back to the start, so it runs alone, after everything else. */
+const ONBOARDING_SPEC = /daemon-onboarding\.spec\.ts/;
 const SERVER_START_MS = 60_000;
 const DAEMON_STOP_MS = 10_000;
 
@@ -21,9 +23,17 @@ export default defineConfig({
   globalSetup: "./e2e/support/global-setup.ts",
   use: { baseURL: `http://localhost:${VITE_PORT}` },
   projects: [
-    { name: "app", testIgnore: LIFECYCLE_SPEC },
+    { name: "app", testIgnore: [LIFECYCLE_SPEC, ONBOARDING_SPEC] },
     // Stopping the daemon would break every other spec that is running, so this one runs alone, after them.
     { name: "lifecycle", testMatch: LIFECYCLE_SPEC, dependencies: ["app"], fullyParallel: false },
+    // The first launch is this person's alone: putting it back would show those screens to every other
+    // spec, so this one runs last, when nothing else is open.
+    {
+      name: "onboarding",
+      testMatch: ONBOARDING_SPEC,
+      dependencies: ["app", "lifecycle"],
+      fullyParallel: false,
+    },
   ],
   webServer: [
     {

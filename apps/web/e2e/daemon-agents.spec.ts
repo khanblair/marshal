@@ -57,6 +57,51 @@ async function expectThinking(page: Page, offered: boolean): Promise<void> {
   await expect(page.getByRole("combobox", { name: "Thinking mode" })).toHaveCount(offered ? 1 : 0);
 }
 
+/** The open card's own value for a setting, read from the store the panel draws from. */
+const settingOf = (page: Page, key: "agent" | "model"): Promise<string> =>
+  page.evaluate((which) => {
+    const store = window.M;
+    const card = store?.S.cards.find((one) => one.id === store.S.openId);
+    return card ? card[which] : "";
+  }, key);
+
+/**
+ * Waits until the open card really carries this setting. A setting change is a request now, so the
+ * select shows the person's pick before the daemon has answered, and an assertion made in between
+ * would read the card as it was.
+ */
+async function saved(page: Page, key: "agent" | "model", value: string): Promise<void> {
+  await expect.poll(() => settingOf(page, key)).toBe(value);
+}
+
+/**
+ * Picks a value in a setting select and waits until the card has it. The panel refuses a second
+ * change to the same card while the first is still being saved (it says so, and that rule is not
+ * what this spec is about), so a pick that did not land is made once more.
+ */
+/** How long a single pick is given to reach the store before it is asked for again. */
+const SETTLE_MS = 2000;
+/** How many times a pick is asked for when the panel's own rule refused the one before it. */
+const CHOOSE_ATTEMPTS = 3;
+
+async function choose(
+  page: Page,
+  label: string,
+  key: "agent" | "model",
+  value: string,
+): Promise<void> {
+  for (let attempt = 0; attempt < CHOOSE_ATTEMPTS; attempt += 1) {
+    await page.getByRole("combobox", { name: label }).selectOption(value);
+    try {
+      await expect.poll(() => settingOf(page, key), { timeout: SETTLE_MS }).toBe(value);
+      return;
+    } catch {
+      // Still saving the last change: ask for this one again.
+    }
+  }
+  expect(await settingOf(page, key)).toBe(value);
+}
+
 async function checkPickerListsCatalog({ page, size, theme }: Case, agents: WireAgent[]) {
   const problems = await openApp(page, size, { theme });
   await openNewCard(page);
@@ -79,13 +124,15 @@ async function checkModelsFollowAgent({ page, size, theme }: Case, agents: WireA
   await expectThinking(page, offersThinking(second, second.models[0]?.id ?? ""));
 
   for (const agent of agents) {
-    await page.getByRole("combobox", { name: "Agent" }).selectOption(agent.name);
+    // The agent carries the model that agent starts its cards on, so both land together.
+    await choose(page, "Agent", "agent", agent.name);
+    await saved(page, "model", agent.models[0]?.id ?? "");
     expect(await optionTexts(page, "Model")).toEqual(agent.models.map((m) => m.id));
     await expect(page.getByRole("combobox", { name: "Model" })).toHaveValue(
       agent.models[0]?.id ?? "",
     );
     for (const model of agent.models) {
-      await page.getByRole("combobox", { name: "Model" }).selectOption(model.id);
+      await choose(page, "Model", "model", model.id);
       await expectThinking(page, offersThinking(agent, model.id));
     }
   }
@@ -98,7 +145,7 @@ async function checkThinkingFollowsModel({ page, size, theme }: Case) {
   await createCardWith(page, BUILT_IN, `Thinking e2e ${size.width} ${theme}`);
   expect(await optionTexts(page, "Model")).toEqual(BUILT_IN_MODELS);
   for (const model of BUILT_IN_MODELS) {
-    await page.getByRole("combobox", { name: "Model" }).selectOption(model);
+    await choose(page, "Model", "model", model);
     await expectThinking(page, !BUILT_IN_WITHOUT_THINKING.includes(model));
   }
   await expectCleanScreen(page, problems, theme);

@@ -40,7 +40,7 @@ export interface Problems {
 }
 
 /** Starts collecting page errors and console errors. Call it before the page loads. */
-export function watchProblems(page: Page, allow: readonly RegExp[] = []): Problems {
+function watchProblems(page: Page, allow: readonly RegExp[] = []): Problems {
   const seen: string[] = [];
   page.on("pageerror", (error) => seen.push(`page error: ${error.message}`));
   page.on("console", (message) => {
@@ -50,8 +50,11 @@ export function watchProblems(page: Page, allow: readonly RegExp[] = []): Proble
 }
 
 /**
- * Opens the app at a size and theme, past onboarding, and waits until it is online with the daemon's
- * data (`data-connection="online"` and `M.S.ready`). Returns what to check for console errors.
+ * Opens the app at a size and theme, and waits until it is online with the daemon's data
+ * (`data-connection="online"` and `M.S.ready`). Returns what to check for console errors.
+ *
+ * The first launch is the daemon's to remember now, and `global-setup` ended it once for the whole
+ * run, so a spec lands on those screens only when it puts the first launch back itself.
  */
 export async function openApp(
   page: Page,
@@ -61,7 +64,6 @@ export async function openApp(
   const problems = watchProblems(page, options.allow);
   await page.setViewportSize({ width: size.width, height: size.height });
   await page.emulateMedia({ colorScheme: options.theme ?? "light" });
-  await page.addInitScript(() => window.localStorage.setItem("marshal-proto-onboarded", "1"));
   await page.goto(options.url ?? "/#nosim");
   if (options.online === false) {
     await page.waitForFunction(() => Boolean(window.M?.S?.ready));
