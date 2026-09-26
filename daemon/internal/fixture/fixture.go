@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"log/slog"
 	"path/filepath"
+	"time"
 
 	"github.com/khanblair/marshal/daemon/internal/gitx"
 	"github.com/khanblair/marshal/daemon/internal/projects"
@@ -49,9 +50,9 @@ type seed struct {
 // detection finds in the repository, not the words the mock hand-picked.
 func prototypeSeeds() []seed {
 	return []seed{
-		{id: "api", name: "api-gateway", source: smallRepo},
-		{id: "web", name: "web-dashboard", source: smallRepo},
-		{id: "mobile", name: "mobile-app", source: monorepo},
+		{id: projectAPI, name: "api-gateway", source: smallRepo},
+		{id: projectWeb, name: "web-dashboard", source: smallRepo},
+		{id: projectMobile, name: "mobile-app", source: monorepo},
 	}
 }
 
@@ -75,22 +76,64 @@ func WithLogger(log *slog.Logger) Option {
 }
 
 // loader holds what one LoadPrototype call works with.
+// The prototype's three project ids, named once for the fixture's own code. The card table below
+// spells them as data.
+const (
+	projectAPI    = "api"
+	projectWeb    = "web"
+	projectMobile = "mobile"
+)
+
 type loader struct {
 	sourceDir string
 	log       *slog.Logger
 	git       *gitx.Git
 	dataDir   string
-	projects  projects.Projects
+	projects  Cards
+	// sessions seeds a session row for a card that should look awake. It may be nil.
+	sessions Sessions
+	// now is the clock the cards' dates are worked out from, so a test can fix them.
+	now func() time.Time
 }
 
-// LoadPrototype makes the three prototype projects (api, web, and mobile) in dataDir, and adds
-// them to the projects module. It is safe to call on every start: a project whose id already
-// exists is skipped without looking at its folder, and a fixture repository that is already made
-// is reused. It stops at the first problem and returns it: the caller decides whether that is
-// fatal, and a later call carries on from where this one stopped.
+// Cards is what the fixture needs beyond the projects interface: the card and label calls that
+// write the prototype's 29 cards. The projects service implements it.
+type Cards interface {
+	projects.Projects
+	// Board is how the fixture knows whether a project already has its cards.
+	Board(ctx context.Context, projectID string) (protocol.BoardSnapshot, error)
+	// Labels and CreateLabel make the labels the prototype's cards carry.
+	Labels(ctx context.Context, projectID string) (protocol.LabelSnapshot, error)
+	CreateLabel(ctx context.Context, projectID string, in protocol.CreateLabelRequest) (protocol.Label, error)
+	// CreateCard writes one card, with the fields the prototype's seed has.
+	CreateCard(ctx context.Context, projectID string, in projects.CardInput, opts ...projects.CardOption) (protocol.Card, error)
+	// SavedViews and CreateSavedView make the saved views the prototype's menu shows.
+	SavedViews(ctx context.Context, projectID string) (protocol.SavedViewListSnapshot, error)
+	CreateSavedView(ctx context.Context, projectID string, in protocol.CreateSavedViewRequest) (protocol.SavedView, bool, error)
+}
+
+// Sessions seeds a session row for a fixture card, without starting an agent. The session manager
+// implements it. The fixture uses it so the screens that draw sessions (Home's awake list, the
+// Agents view) look as they do in the prototype, without a process per card.
+type Sessions interface {
+	SeedSession(ctx context.Context, cardID string, state protocol.SessionState) error
+}
+
+// WithSessions sets who seeds a card's session. Without it, the fixture writes cards and no
+// sessions, which is what a test that does not care about sessions uses.
+func WithSessions(s Sessions) Option {
+	return func(l *loader) { l.sessions = s }
+}
+
+// LoadPrototype makes the three prototype projects (api, web, and mobile) in dataDir, adds them to
+// the projects module, and writes the prototype's 29 cards. It is safe to call on every start: a
+// project whose id already exists is skipped without looking at its folder, a project that already
+// has its cards is left alone, and a fixture repository that is already made is reused. It stops at
+// the first problem and returns it: the caller decides whether that is fatal, and a later call
+// carries on from where this one stopped.
 //
 // dataDir must be a full path.
-func LoadPrototype(ctx context.Context, dataDir string, svc projects.Projects, opts ...Option) error {
+func LoadPrototype(ctx context.Context, dataDir string, svc Cards, opts ...Option) error {
 	if !filepath.IsAbs(dataDir) {
 		return errors.New("the fixture needs the data folder as a full path")
 	}
@@ -102,11 +145,13 @@ func LoadPrototype(ctx context.Context, dataDir string, svc projects.Projects, o
 		git:      fixtureGit(),
 		dataDir:  filepath.Clean(dataDir),
 		projects: svc,
+		now:      time.Now,
 	}
 	for _, opt := range opts {
 		opt(l)
 	}
 	created, existing := 0, 0
+	cards, savedViews := 0, 0
 	for _, s := range prototypeSeeds() {
 		made, err := l.load(ctx, s)
 		if err != nil {
@@ -117,8 +162,19 @@ func LoadPrototype(ctx context.Context, dataDir string, svc projects.Projects, o
 		} else {
 			existing++
 		}
+		written, err := l.loadCards(ctx, s.id)
+		if err != nil {
+			return fmt.Errorf("load the fixture cards of %s: %w", s.id, err)
+		}
+		cards += written
+		views, err := l.loadSavedViews(ctx, s.id)
+		if err != nil {
+			return fmt.Errorf("load the fixture saved views of %s: %w", s.id, err)
+		}
+		savedViews += views
 	}
-	l.log.Info("prototype fixture ready", "created", created, "existing", existing)
+	l.log.Info("prototype fixture ready", "created", created, "existing", existing, "cards", cards,
+		"saved_views", savedViews)
 	return nil
 }
 

@@ -2,16 +2,10 @@ package testutil
 
 import (
 	"context"
-	"fmt"
-	"io"
 	"os"
 	"path/filepath"
-	"runtime"
-	"strings"
 	"sync"
 	"testing"
-
-	"github.com/khanblair/marshal/daemon/internal/proc"
 )
 
 // stubBuild is the one build of the stub agent that a test process makes. Every test in the
@@ -47,45 +41,10 @@ func CleanStubAgent() {
 	}
 }
 
-// buildStubAgent runs go build in the stub agent's module folder and returns the folder that holds
-// the result, and the path of the program.
+// buildStubAgent runs go build in the stub agent's own module folder and returns the folder that
+// holds the result, and the path of the program. It shares its build step with buildTerminalHelper
+// through buildGoBinary (buildgo.go): the two differ only in which package they build and what to
+// call the result.
 func buildStubAgent(ctx context.Context, moduleDir string) (dir, path string, err error) {
-	dir, err = os.MkdirTemp("", "marshal-stub-agent-")
-	if err != nil {
-		return "", "", fmt.Errorf("make a folder for the build: %w", err)
-	}
-	name := "stub-agent"
-	if runtime.GOOS == "windows" {
-		name += ".exe"
-	}
-	path = filepath.Join(dir, name)
-	build, err := proc.Start(ctx, proc.Spec{
-		Path: "go", Args: []string{"build", "-o", path, "."}, Dir: moduleDir,
-		Env: goEnvironment(os.Environ()),
-	})
-	if err != nil {
-		return dir, "", err
-	}
-	// go build prints nothing on success, and its complaints go to standard error.
-	_, _ = io.Copy(io.Discard, build.Stdout)
-	exit := build.Wait()
-	_ = build.Stdout.Close()
-	if exit.Err != nil {
-		return dir, "", fmt.Errorf("go build: %w\n%s", exit.Err, build.StderrTail())
-	}
-	return dir, path, nil
-}
-
-// goEnvironment picks what the Go tool needs from an environment: its own settings, and a
-// build that needs no C compiler, since the stub agent is pure Go. The child process helper hands
-// a program nothing else.
-func goEnvironment(environ []string) []string {
-	env := []string{"CGO_ENABLED=0"}
-	for _, entry := range environ {
-		name, _, _ := strings.Cut(entry, "=")
-		if strings.HasPrefix(name, "GO") || name == "XDG_CACHE_HOME" {
-			env = append(env, entry)
-		}
-	}
-	return env
+	return buildGoBinary(ctx, moduleDir, ".", "marshal-stub-agent-", "stub-agent")
 }
