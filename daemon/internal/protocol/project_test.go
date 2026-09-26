@@ -55,9 +55,13 @@ func sampleCard() protocol.Card {
 		Model:          "claude-sonnet-4-5",
 		Thinking:       &thinking,
 		PermissionMode: protocol.PermissionModeAutoEdits,
-		Branch:         "",
-		CreatedAt:      protocol.NewTimestamp(sampleTime),
-		UpdatedAt:      protocol.NewTimestamp(sampleTime.Add(time.Minute)),
+		// A list on the wire is never null, so a card with no labels sends [].
+		Labels: []protocol.Label{},
+		Branch: "",
+		// A card that has never had a session is in the chat view.
+		ViewMode:  protocol.CardViewModeChat,
+		CreatedAt: protocol.NewTimestamp(sampleTime),
+		UpdatedAt: protocol.NewTimestamp(sampleTime.Add(time.Minute)),
 	}
 }
 
@@ -146,6 +150,20 @@ func TestCardWithoutThinkingSendsNull(t *testing.T) {
 	}
 }
 
+func TestCardWithoutASessionSendsNull(t *testing.T) {
+	got, err := json.Marshal(sampleCard())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(got, &fields); err != nil {
+		t.Fatal(err)
+	}
+	if raw, ok := fields["session"]; !ok || string(raw) != "null" {
+		t.Errorf("session = %s (sent: %v), want null, always sent", raw, ok)
+	}
+}
+
 func TestBoardSnapshotGolden(t *testing.T) {
 	second := sampleCard()
 	second.ID, second.Number = "01M3C107JC0R3GG28A04106105", 13
@@ -153,6 +171,10 @@ func TestBoardSnapshotGolden(t *testing.T) {
 	second.Title, second.Body = "Fix the typo in the README", ""
 	second.State, second.Thinking = protocol.CardStateNeeds, nil
 	second.Branch = "marshal/web-dashboard-13-fix-the-typo"
+	// The second card's agent stopped on its own, which is what moved it to needs: its session
+	// reads stopped, where the first card has never had one and sends null.
+	stopped := protocol.SessionStateStopped
+	second.Session = &stopped
 	testutil.Golden(t, "board", protocol.BoardSnapshot{
 		ProjectID: sampleProjectID,
 		Columns: []protocol.CardState{
@@ -199,6 +221,10 @@ func encodeData(t *testing.T, v any) json.RawMessage {
 func TestProjectAndCardEventsGolden(t *testing.T) {
 	moved := sampleCard()
 	moved.State = protocol.CardStateNeeds
+	// A session state change is announced as card.updated with the card as it is now: here a
+	// paused working card that was put to sleep.
+	slept, asleep := sampleCard(), protocol.SessionStateAsleep
+	slept.State, slept.Paused, slept.Session = protocol.CardStateWorking, true, &asleep
 	event := func(seq uint64, topic protocol.Topic, typ protocol.EventType, data any) protocol.Event {
 		return protocol.Event{
 			Seq: seq, Topic: topic, Type: typ,
@@ -215,7 +241,7 @@ func TestProjectAndCardEventsGolden(t *testing.T) {
 			event(3, protocol.ProjectTopic(sampleProjectID), protocol.EventTypeCardCreated,
 				protocol.CardEventData{Card: sampleCard()}),
 			event(4, protocol.ProjectTopic(sampleProjectID), protocol.EventTypeCardUpdated,
-				protocol.CardEventData{Card: sampleCard()}),
+				protocol.CardEventData{Card: slept}),
 			event(5, protocol.ProjectTopic(sampleProjectID), protocol.EventTypeCardMoved,
 				protocol.CardMovedEventData{Card: moved, From: protocol.CardStateBacklog}),
 			event(6, protocol.HomeTopic, protocol.EventTypeProjectRemoved,

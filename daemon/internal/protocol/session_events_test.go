@@ -97,3 +97,35 @@ func TestSessionEventsGolden(t *testing.T) {
 		},
 	})
 }
+
+// A project chat's session sends the same three events on chat:<id>, each carrying chatId where a
+// card's carries cardId. cardId stays in the payload as an empty string, so its type does not
+// become optional for the clients that read a card's events.
+func TestChatSessionEventsGolden(t *testing.T) {
+	chatID := sampleChat().ID
+	event := func(seq uint64, typ protocol.EventType, data any) protocol.Event {
+		return protocol.Event{
+			Seq: seq, Topic: protocol.ChatTopic(chatID), Type: typ,
+			At:   protocol.NewTimestamp(sampleTime.Add(time.Duration(seq) * 20 * time.Millisecond)),
+			Data: encodeData(t, data),
+		}
+	}
+	testutil.Golden(t, "chat-session-events", protocol.EventBatch{
+		Epoch: "01M3C0ZZZZ000000000000000A",
+		Events: []protocol.Event{
+			event(1, protocol.EventTypeSessionStateChanged, protocol.SessionStateChangedEventData{
+				ChatID: chatID, SessionID: sampleSessionID, State: protocol.SessionStateWorking,
+			}),
+			event(2, protocol.EventTypeSessionOutput, protocol.SessionOutputEventData{
+				ChatID: chatID, Kind: "message", Text: "Nothing is blocked right now.",
+			}),
+			event(3, protocol.EventTypeSessionToolCall, protocol.SessionToolCallEventData{
+				ChatID: chatID, Kind: "tool_call",
+				ToolCall: protocol.AgentToolCall{ID: "call-1", Title: "List the cards", ToolKind: "other", Status: "in_progress"},
+			}),
+			event(4, protocol.EventTypeSessionStateChanged, protocol.SessionStateChangedEventData{
+				ChatID: chatID, SessionID: sampleSessionID, State: protocol.SessionStateAsleep,
+			}),
+		},
+	})
+}
