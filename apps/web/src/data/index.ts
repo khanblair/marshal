@@ -6,7 +6,7 @@ import { createDevTokenFetcher } from "./dev-token-client";
 import { createEventStream, type EventStream, type WebSocketCtor } from "./event-stream";
 import { watchPage } from "./page-signals";
 import type { KeyValueStore } from "./storage";
-import { toEventsUrl } from "./stream-frames";
+import { type Frame, toEventsUrl } from "./stream-frames";
 import type { Timers } from "./timers";
 import { createTokenStore, type TokenStore } from "./token";
 
@@ -33,6 +33,8 @@ export interface DataOptions {
   onBatch?: (events: WireEvent[], epoch: string) => void;
   /** Events were missed, so reload the snapshots. */
   onResync?: (frame: Resync) => void;
+  /** A card's terminal channel answered or refused (docs/architecture.md 11.2). */
+  onTerminalFrame?: (frame: Frame, cardId: string) => void;
 }
 
 /** Everything the app needs to talk to the daemon, built once and passed around. */
@@ -46,6 +48,8 @@ export interface Data {
   onEvents(listener: (events: WireEvent[], epoch: string) => void): () => void;
   /** Runs the function each time the stream says events were missed, so the snapshots must be loaded again. */
   onResync(listener: (frame: Resync) => void): () => void;
+  /** Runs the function for each `terminal.screen` or `terminal.refused` frame a card's channel gets. */
+  onTerminalFrame(listener: (frame: Frame, cardId: string) => void): () => void;
   /** Starts the connection: the first check, then the event stream. */
   start(): void;
   /** Stops the connection, the event stream, and every timer. */
@@ -82,6 +86,7 @@ export function createData(options: DataOptions): Data {
   const clock = createDaemonClock();
   const eventListeners = new Set<(events: WireEvent[], epoch: string) => void>();
   const resyncListeners = new Set<(frame: Resync) => void>();
+  const terminalListeners = new Set<(frame: Frame, cardId: string) => void>();
   // The client, the stream, and the connection report to each other, so the connection is made last.
   const link: { connection: Connection | null } = { connection: null };
   const api = createApiClient({
@@ -105,6 +110,10 @@ export function createData(options: DataOptions): Data {
       for (const listener of [...resyncListeners]) listener(frame);
     },
     onState: (state, detail) => link.connection?.streamState(state, detail),
+    onTerminalFrame: (frame, cardId) => {
+      options.onTerminalFrame?.(frame, cardId);
+      for (const listener of [...terminalListeners]) listener(frame, cardId);
+    },
   });
   const connection = createConnection({
     api,
@@ -130,6 +139,12 @@ export function createData(options: DataOptions): Data {
       resyncListeners.add(listener);
       return () => {
         resyncListeners.delete(listener);
+      };
+    },
+    onTerminalFrame: (listener) => {
+      terminalListeners.add(listener);
+      return () => {
+        terminalListeners.delete(listener);
       };
     },
     start: connection.start,

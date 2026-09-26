@@ -100,6 +100,33 @@ describe("createData", () => {
     expect(resynced).toHaveBeenCalledOnce();
   });
 
+  it("hands a card's terminal.screen and terminal.refused frames to its owner and every listener", async () => {
+    const { data, sockets } = setup();
+    const heard: [string, string][] = [];
+    const stop = data.onTerminalFrame((frame, cardId) => heard.push([frame.kind, cardId]));
+    data.start();
+    await flush();
+    sockets.last().accept();
+    const cardId = "01M3C107JB041061050R3GG28A";
+    sockets
+      .last()
+      .push({ type: "terminal.screen", cardId, cols: 120, rows: 32, throughSeq: 0, data: "" });
+    sockets.last().push({
+      type: "terminal.refused",
+      cardId,
+      error: { code: "refused", message: "nope", details: { reason: "terminal_busy" } },
+    });
+    expect(heard).toEqual([
+      ["terminal.screen", cardId],
+      ["terminal.refused", cardId],
+    ]);
+    stop();
+    sockets
+      .last()
+      .push({ type: "terminal.screen", cardId, cols: 120, rows: 32, throughSeq: 1, data: "" });
+    expect(heard).toHaveLength(2);
+  });
+
   it("learns the daemon's clock from the answers", async () => {
     const { data } = setup();
     vi.setSystemTime(new Date("2026-09-25T10:15:30.123Z"));

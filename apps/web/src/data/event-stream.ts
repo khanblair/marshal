@@ -1,5 +1,6 @@
 import {
   BearerSubprotocolPrefix,
+  type ClientFrame,
   FrameTypeResync,
   type Resync,
   ResyncReasonEpochChanged,
@@ -49,6 +50,12 @@ export interface EventStreamOptions {
   /** The daemon (or a new epoch) says that events were missed: reload the snapshots. */
   onResync: (frame: Resync) => void;
   onState: (state: StreamState, detail: StreamDetail) => void;
+  /**
+   * A card's terminal channel answered or refused (docs/architecture.md 11.2): a `terminal.screen`
+   * or a `terminal.refused` frame. `cardId` is read out of whichever one it is, so the owner never
+   * has to switch on `frame.kind` just to find it.
+   */
+  onTerminalFrame: (frame: Frame, cardId: string) => void;
 }
 
 export interface EventStream {
@@ -60,6 +67,12 @@ export interface EventStream {
   state(): StreamState;
   /** How many messages, or events in them, were left out because they could not be read. */
   ignoredFrames(): number;
+  /**
+   * Sends a card's terminal message (`terminal.input`, `terminal.resize`, or `terminal.snapshot`)
+   * over the current socket. A silent no-op while the socket is not open: there is nothing to
+   * resend later, since the daemon neither queues nor replays a terminal message either.
+   */
+  sendTerminal(frame: ClientFrame): void;
 }
 
 /** 500 ms, then 1 s, 2 s, and on up to 10 s, each moved by up to 20 percent either way. */
@@ -119,6 +132,11 @@ class Stream implements EventStream {
 
   ignoredFrames(): number {
     return this.ignored;
+  }
+
+  sendTerminal(frame: ClientFrame): void {
+    if (this.current !== "open") return;
+    this.socket?.send(JSON.stringify(frame));
   }
 
   private setState(next: StreamState): void {
@@ -214,6 +232,10 @@ class Stream implements EventStream {
         this.lastError = frame.error;
         this.options.onState(this.current, { attempts: this.attempts, error: this.lastError });
         break;
+      case "terminal.screen":
+      case "terminal.refused":
+        this.options.onTerminalFrame(frame, frame.frame.cardId);
+        break;
     }
   }
 
@@ -250,5 +272,6 @@ export function createEventStream(options: EventStreamOptions): EventStream {
     unsubscribe: (topics) => stream.unsubscribe(topics),
     state: () => stream.state(),
     ignoredFrames: () => stream.ignoredFrames(),
+    sendTerminal: (frame) => stream.sendTerminal(frame),
   };
 }

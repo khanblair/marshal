@@ -5,6 +5,7 @@ import {
   type StreamDetail,
   type StreamState,
 } from "../event-stream";
+import type { Frame } from "../stream-frames";
 import { fakeSockets } from "./fake-web-socket";
 import { golden } from "./golden";
 
@@ -23,6 +24,7 @@ export function setup(extra: Partial<EventStreamOptions> = {}) {
   const batches: { seqs: number[]; epoch: string }[] = [];
   const resyncs: Resync[] = [];
   const states: [StreamState, StreamDetail][] = [];
+  const terminalFrames: [Frame, string][] = [];
   const stream = createEventStream({
     url: STREAM_URL,
     getToken: () => TOKEN,
@@ -31,6 +33,7 @@ export function setup(extra: Partial<EventStreamOptions> = {}) {
     onBatch: (events, epoch) => batches.push({ seqs: events.map((e) => e.seq), epoch }),
     onResync: (frame) => resyncs.push(frame),
     onState: (state, detail) => states.push([state, detail]),
+    onTerminalFrame: (frame, cardId) => terminalFrames.push([frame, cardId]),
     ...extra,
   });
   /** Starts, accepts the connection, and puts the client at epoch A. */
@@ -40,7 +43,7 @@ export function setup(extra: Partial<EventStreamOptions> = {}) {
     sockets.last().push({ ...resyncFrame, epoch: EPOCH_A, seq: 40 });
     return sockets.last();
   };
-  return { stream, sockets, batches, resyncs, states, open };
+  return { stream, sockets, batches, resyncs, states, terminalFrames, open };
 }
 
 export const events = (epoch: string, ...seqs: number[]): EventBatch => ({

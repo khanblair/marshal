@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { toEventsUrl } from "./stream-frames";
+import { buildTerminalSnapshot, toEventsUrl } from "./stream-frames";
 import { fakeSockets } from "./testing/fake-web-socket";
 import {
   batchFrame,
@@ -12,6 +12,8 @@ import {
   setup,
   TOKEN,
 } from "./testing/stream-harness";
+
+const CARD_ID = "01M3C107JB041061050R3GG28A";
 
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
@@ -222,6 +224,47 @@ describe("frames", () => {
     });
     expect(batches[0]?.seqs).toEqual([41, 43]);
     expect(stream.ignoredFrames()).toBe(2);
+  });
+});
+
+describe("the terminal channel (docs/architecture.md 11.2)", () => {
+  it("dispatches a terminal.screen and a terminal.refused frame with the card id read out of them", () => {
+    const { open, terminalFrames } = setup();
+    const socket = open();
+    socket.push({
+      type: "terminal.screen",
+      cardId: CARD_ID,
+      cols: 120,
+      rows: 32,
+      throughSeq: 0,
+      data: "",
+    });
+    socket.push({
+      type: "terminal.refused",
+      cardId: CARD_ID,
+      error: { code: "refused", message: "nope", details: { reason: "terminal_busy" } },
+    });
+    expect(terminalFrames).toHaveLength(2);
+    expect(terminalFrames[0]?.[1]).toBe(CARD_ID);
+    expect(terminalFrames[0]?.[0]).toMatchObject({ kind: "terminal.screen" });
+    expect(terminalFrames[1]?.[1]).toBe(CARD_ID);
+    expect(terminalFrames[1]?.[0]).toMatchObject({ kind: "terminal.refused" });
+  });
+
+  it("sends a terminal message over the open socket, JSON-stringified", () => {
+    const { stream, open } = setup();
+    const socket = open();
+    stream.sendTerminal(buildTerminalSnapshot(CARD_ID));
+    expect(socket.hellos().at(-1)).toEqual(buildTerminalSnapshot(CARD_ID));
+  });
+
+  it("drops a terminal message silently while the socket is not open", () => {
+    const { stream, sockets } = setup();
+    stream.start();
+    const socket = sockets.last();
+    // Not accepted yet: the stream is still "connecting", not "open".
+    stream.sendTerminal(buildTerminalSnapshot(CARD_ID));
+    expect(socket.sent).toEqual([]);
   });
 });
 

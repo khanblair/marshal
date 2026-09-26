@@ -9,7 +9,7 @@ const FIRST_APP_CLOSE = 3000;
 const LAST_APP_CLOSE = 4999;
 
 /** A WebSocket that a test drives by hand. It records what was offered, sent, and closed. */
-class FakeWebSocket implements SocketLike {
+export class FakeWebSocket implements SocketLike {
   protocol = "";
   readyState = 0;
   onopen: ((event: Event) => void) | null = null;
@@ -83,13 +83,24 @@ export interface FakeSockets {
   last(): FakeWebSocket;
 }
 
+export interface FakeSocketsOptions {
+  /** Runs for every message a client sends (a `hello`, or one of a card's terminal messages), so a
+   * fake daemon in memory can answer it the way the real one does. Not called for a message a test
+   * pushes onto the socket itself. */
+  onSend?: (socket: FakeWebSocket, data: string) => void;
+}
+
 /** A fresh set of sockets for one test, so no state is shared between tests. */
-export function fakeSockets(): FakeSockets {
+export function fakeSockets(options: FakeSocketsOptions = {}): FakeSockets {
   const all: FakeWebSocket[] = [];
   class Made extends FakeWebSocket {
     constructor(url: string, protocols?: string | string[]) {
       super(url, protocols === undefined ? [] : [protocols].flat());
       all.push(this);
+    }
+    override send(data: string): void {
+      super.send(data);
+      options.onSend?.(this, data);
     }
   }
   return {

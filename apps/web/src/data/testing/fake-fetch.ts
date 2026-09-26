@@ -6,6 +6,8 @@ export interface FakeRequest {
   method: string;
   headers: Record<string, string>;
   body: string | null;
+  /** The body of a request that is not text, such as an uploaded image. */
+  raw?: BodyInit | null;
   signal: AbortSignal | null;
   credentials: RequestCredentials | undefined;
   cache: RequestCache | undefined;
@@ -68,6 +70,7 @@ export function fakeFetch(routes: Record<string, FakeHandler>): FakeFetch {
       method: init?.method ?? "GET",
       headers: readHeaders(init),
       body: typeof init?.body === "string" ? init.body : null,
+      raw: typeof init?.body === "string" ? null : (init?.body ?? null),
       signal: init?.signal ?? null,
       credentials: init?.credentials,
       cache: init?.cache,
