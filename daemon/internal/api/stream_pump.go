@@ -92,9 +92,10 @@ func (p *pump) begin(ctx context.Context, resume events.Resume) error {
 	return p.flush(ctx)
 }
 
-// run is the pump's loop. It takes events from the subscription, flushes on the timer, applies a
-// new Hello, and reports a subscriber that fell behind.
-func (p *pump) run(ctx context.Context, hellos <-chan protocol.Hello) error {
+// run is the pump's loop. It takes events from the subscription, flushes on the timer, applies the
+// client's later messages (a new Hello, or a terminal message), and reports a subscriber that fell
+// behind.
+func (p *pump) run(ctx context.Context, messages <-chan clientMessage) error {
 	for {
 		var err error
 		select {
@@ -104,8 +105,8 @@ func (p *pump) run(ctx context.Context, hellos <-chan protocol.Hello) error {
 			err = p.onEvent(ctx, ev, open)
 		case <-p.timer.C:
 			err = p.onTick(ctx)
-		case hello := <-hellos:
-			err = p.replace(ctx, hello)
+		case msg := <-messages:
+			err = p.onMessage(ctx, msg)
 		}
 		if err != nil {
 			return err

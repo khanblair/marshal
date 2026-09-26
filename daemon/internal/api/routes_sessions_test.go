@@ -62,8 +62,6 @@ func TestStartSendStopThroughHTTP(t *testing.T) {
 		{"stopping it again", base + "/stop", nil, "This card has no agent running."},
 		{"sending to it", base + "/messages", protocol.SendMessageRequest{Text: "hello?"}, "This card has no agent running."},
 		{"resuming it", base + "/resume", nil, "This card's session has stopped and cannot be resumed."},
-		{"starting it again", base + "/start", nil,
-			"This card already had a session, and it has stopped. Starting it again is not supported yet."},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -72,6 +70,17 @@ func TestStartSendStopThroughHTTP(t *testing.T) {
 				t.Errorf("message = %q\nwant      %q", got.Message, tc.message)
 			}
 		})
+	}
+
+	// Starting a card whose session has stopped continues that same session instead of refusing,
+	// so Stop never strands a card (B2.15, the owner's decision of 2026-09-26).
+	restarted := decode[protocol.Card](t, st.do(http.MethodPost, base+"/start", nil).want(t, http.StatusOK))
+	if restarted.State != protocol.CardStateWorking {
+		t.Errorf("the restarted card is %+v, want it working again", restarted)
+	}
+	stream.until(stateOf(card.ID, protocol.SessionStateAwake))
+	if got := decode[protocol.Card](t, st.do(http.MethodGet, base, nil).want(t, http.StatusOK)); got.Branch != running.Branch {
+		t.Errorf("the restarted card is on branch %q, want %q kept", got.Branch, running.Branch)
 	}
 }
 

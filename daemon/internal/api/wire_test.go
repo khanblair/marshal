@@ -214,6 +214,9 @@ type wire struct {
 	lastSeq uint64
 	queue   []protocol.Event
 	resyncs []protocol.Resync
+	// screens and refusals are the terminal frames that came, in order.
+	screens  []protocol.TerminalScreen
+	refusals []protocol.TerminalRefusal
 }
 
 const streamTimeout = 15 * time.Second
@@ -257,6 +260,9 @@ func (st *stack) track(conn *websocket.Conn) *wire {
 	if got := conn.Subprotocol(); got != protocol.WebSocketSubprotocol {
 		st.t.Errorf("the daemon answered with the subprotocol %q, want only %q", got, protocol.WebSocketSubprotocol)
 	}
+	// A frame can hold 256 KiB of events, and a terminal screen up to a third more than that, and the
+	// client library reads no more than 32 KiB unless it is told to.
+	conn.SetReadLimit(2 << 20)
 	w := &wire{t: st.t, conn: conn}
 	st.wires = append(st.wires, w)
 	st.t.Cleanup(func() { _ = conn.CloseNow() })
@@ -356,6 +362,18 @@ func (w *wire) read(ctx context.Context) error {
 		}
 		w.epoch, w.lastSeq = resync.Epoch, max(w.lastSeq, resync.Seq)
 		w.resyncs = append(w.resyncs, resync)
+	case protocol.FrameTypeTerminalScreen:
+		var screen protocol.TerminalScreen
+		if err := json.Unmarshal(data, &screen); err != nil {
+			w.t.Fatalf("decode a terminal screen: %v", err)
+		}
+		w.screens = append(w.screens, screen)
+	case protocol.FrameTypeTerminalRefused:
+		var refusal protocol.TerminalRefusal
+		if err := json.Unmarshal(data, &refusal); err != nil {
+			w.t.Fatalf("decode a terminal refusal: %v", err)
+		}
+		w.refusals = append(w.refusals, refusal)
 	default:
 		w.t.Fatalf("the daemon sent a frame of type %q: %s", head.Type, data)
 	}

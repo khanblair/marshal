@@ -14,16 +14,23 @@ import (
 	"testing"
 	"time"
 
+	"github.com/khanblair/marshal/daemon/internal/accounts"
 	"github.com/khanblair/marshal/daemon/internal/agents"
 	"github.com/khanblair/marshal/daemon/internal/agents/acp"
 	"github.com/khanblair/marshal/daemon/internal/agents/catalog"
 	"github.com/khanblair/marshal/daemon/internal/api"
+	"github.com/khanblair/marshal/daemon/internal/cardhistory"
+	"github.com/khanblair/marshal/daemon/internal/chats"
 	"github.com/khanblair/marshal/daemon/internal/config"
+	"github.com/khanblair/marshal/daemon/internal/dashboard"
+	"github.com/khanblair/marshal/daemon/internal/diff"
 	"github.com/khanblair/marshal/daemon/internal/events"
 	"github.com/khanblair/marshal/daemon/internal/gitx"
+	"github.com/khanblair/marshal/daemon/internal/history"
 	"github.com/khanblair/marshal/daemon/internal/platform"
 	"github.com/khanblair/marshal/daemon/internal/projects"
 	"github.com/khanblair/marshal/daemon/internal/protocol"
+	"github.com/khanblair/marshal/daemon/internal/search"
 	"github.com/khanblair/marshal/daemon/internal/session"
 	"github.com/khanblair/marshal/daemon/internal/store"
 	"github.com/khanblair/marshal/daemon/internal/testutil"
@@ -39,8 +46,26 @@ type stackConfig struct {
 	noProjects bool
 	noSessions bool
 	noCatalog  bool
+	// noDashboard leaves the dashboard service out, so the Home route is not registered.
+	noDashboard bool
+	// noHistory leaves the history store and the service that reads it out, so the routes that
+	// page a card's chat and activity are not registered.
+	noHistory bool
+	// noDiff leaves the diff service out, so the routes that draw a card's Diff tab are not
+	// registered.
+	noDiff bool
+	// noChats leaves the chats service out, so the project chat routes are not registered.
+	noChats bool
+	// noSearch leaves the search service out, so the search route is not registered.
+	noSearch bool
+	// noAccounts leaves the accounts service out, so the profile, avatar, progress, and preferences
+	// routes, and the dev reset, are not registered.
+	noAccounts bool
 	resumeMode session.ResumeMode
 	stubSpeed  string
+	// terminals are the agents that run a card's CLI in a terminal (the terminal view). Nil leaves
+	// every card without a terminal view.
+	terminals *agents.Registry
 }
 
 type stackOption func(*stackConfig)
@@ -54,6 +79,15 @@ func withCatalog(src catalog.Source) stackOption { return func(c *stackConfig) {
 func withoutProjects() stackOption               { return func(c *stackConfig) { c.noProjects = true } }
 func withoutSessions() stackOption               { return func(c *stackConfig) { c.noSessions = true } }
 func withoutCatalog() stackOption                { return func(c *stackConfig) { c.noCatalog = true } }
+func withoutDashboard() stackOption              { return func(c *stackConfig) { c.noDashboard = true } }
+func withoutHistory() stackOption                { return func(c *stackConfig) { c.noHistory = true } }
+func withoutDiff() stackOption                   { return func(c *stackConfig) { c.noDiff = true } }
+func withoutChats() stackOption                  { return func(c *stackConfig) { c.noChats = true } }
+func withoutSearch() stackOption                 { return func(c *stackConfig) { c.noSearch = true } }
+func withoutAccounts() stackOption               { return func(c *stackConfig) { c.noAccounts = true } }
+func withTerminals(reg *agents.Registry) stackOption {
+	return func(c *stackConfig) { c.terminals = reg }
+}
 func withResumeMode(m session.ResumeMode) stackOption {
 	return func(c *stackConfig) { c.resumeMode = m }
 }
@@ -82,6 +116,7 @@ type stack struct {
 	clockMu    sync.Mutex
 	skew       time.Duration // how far the server's clock is ahead of the real one
 	mgr        *session.Manager
+	hist       *history.Store
 	closeMgr   func()
 	base       string // http://127.0.0.1:<port>
 	stopServer func()
@@ -158,7 +193,13 @@ func (st *stack) openCore() {
 	t.Cleanup(st.bus.Close)
 	st.git = testutil.Git()
 	deps := projects.Deps{Store: st.store, Bus: st.bus, Git: st.git, DataDir: st.dataDir}
-	if st.proj, err = projects.New(deps, projects.WithLogger(st.log)); err != nil {
+	// The session states come from the stored rows, as they do in cmd/marshald, so the projects
+	// service built once here keeps reading them while restart replaces the session manager.
+	states, err := session.NewStoredStates(st.store)
+	if err != nil {
+		t.Fatalf("make the session states: %v", err)
+	}
+	if st.proj, err = projects.New(deps, projects.WithLogger(st.log), projects.WithSessionStates(states)); err != nil {
 		t.Fatalf("make the projects service: %v", err)
 	}
 }
@@ -209,12 +250,45 @@ func (st *stack) startModules() {
 	t := st.t
 	t.Helper()
 	deps := api.Deps{Store: st.store, Bus: st.bus, Dev: st.dev, Limits: st.cfg.limits}
+	if !st.cfg.noHistory {
+		// One history store is shared by the session manager that writes it and the service that
+		// reads it back, the way cmd/marshald shares one.
+		if st.hist == nil {
+			hist, err := history.New(st.store, history.WithClock(st.now))
+			if err != nil {
+				t.Fatalf("make the history store: %v", err)
+			}
+			st.hist = hist
+		}
+		histSvc, err := cardhistory.New(cardhistory.Deps{Store: st.store, History: st.hist})
+		if err != nil {
+			t.Fatalf("make the card history service: %v", err)
+		}
+		deps.History = histSvc
+	}
+	if !st.cfg.noDashboard {
+		home, err := dashboard.New(dashboard.Deps{Store: st.store}, dashboard.WithLogger(st.log))
+		if err != nil {
+			t.Fatalf("make the dashboard service: %v", err)
+		}
+		deps.Dashboard = home
+	}
 	if !st.cfg.noProjects {
 		deps.Projects = st.proj
 	}
+	if !st.cfg.noDiff && !st.cfg.noProjects {
+		// The diff module reads a card's worktree through the projects module, so a stack without
+		// projects has no diff service either.
+		cardDiff, err := diff.New(diff.Deps{Projects: st.proj, Git: st.git}, diff.WithLogger(st.log))
+		if err != nil {
+			t.Fatalf("make the card diff service: %v", err)
+		}
+		deps.Diff = cardDiff
+	}
 	if !st.cfg.noSessions {
 		mgr, err := session.NewManager(st.store, st.bus, st.proj, st.reg, st.git, session.Config{
-			DataDir: st.dataDir, Logger: st.log, ResumeMode: st.cfg.resumeMode,
+			DataDir: st.dataDir, Logger: st.log, ResumeMode: st.cfg.resumeMode, History: st.hist,
+			Terminals: st.cfg.terminals,
 		})
 		if err != nil {
 			t.Fatalf("make the session manager: %v", err)
@@ -227,6 +301,37 @@ func (st *stack) startModules() {
 		})
 		t.Cleanup(st.closeMgr)
 		deps.Sessions = mgr
+	}
+	if !st.cfg.noChats {
+		// The chats service is given the session manager when there is one, as cmd/marshald gives
+		// it: the manager starts a chat's agent on its first message, and puts it to sleep or ends
+		// it when the chat is archived or deleted.
+		chatDeps := chats.Deps{Store: st.store, Bus: st.bus}
+		if deps.Sessions != nil {
+			chatDeps.Sessions = deps.Sessions
+		}
+		projectChats, err := chats.New(chatDeps, chats.WithLogger(st.log))
+		if err != nil {
+			t.Fatalf("make the chats service: %v", err)
+		}
+		deps.Chats = projectChats
+		if !st.cfg.noSearch && !st.cfg.noProjects {
+			// Search reads through the projects and chats services, so a stack without either has
+			// no search either.
+			finder, err := search.New(search.Deps{Projects: st.proj, Chats: projectChats})
+			if err != nil {
+				t.Fatalf("make the search service: %v", err)
+			}
+			deps.Search = finder
+		}
+	}
+	if !st.cfg.noAccounts {
+		you, err := accounts.New(accounts.Deps{Store: st.store, Bus: st.bus, Projects: st.proj, DataDir: st.dataDir},
+			accounts.WithLogger(st.log), accounts.WithClock(st.now))
+		if err != nil {
+			t.Fatalf("make the accounts service: %v", err)
+		}
+		deps.Accounts = you
 	}
 	if !st.cfg.noCatalog {
 		deps.Catalog = st.cfg.catalog

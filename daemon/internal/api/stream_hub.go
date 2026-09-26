@@ -22,6 +22,9 @@ type hub struct {
 	limits Limits
 	log    *slog.Logger
 	now    func() time.Time
+	// terminals serves a card's terminal for the messages that name one. It is nil when the server has
+	// no session manager, and a terminal message is then refused as a card with no terminal.
+	terminals terminalControl
 
 	mu       sync.Mutex // guards streams and closing
 	streams  map[*stream]struct{}

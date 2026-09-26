@@ -88,10 +88,10 @@ func (st *stream) run(ctx context.Context, ws *websocket.Conn) error {
 		return err
 	}
 	defer p.close()
-	hellos := make(chan protocol.Hello)
+	messages := make(chan clientMessage)
 	group, groupCtx := errgroup.WithContext(ctx)
-	group.Go(func() error { return st.readLoop(groupCtx, ws, hellos) })
-	group.Go(func() error { return p.run(groupCtx, hellos) })
+	group.Go(func() error { return st.readLoop(groupCtx, ws, messages) })
+	group.Go(func() error { return p.run(groupCtx, messages) })
 	group.Go(func() error { return st.pingLoop(groupCtx, ws) })
 	return group.Wait()
 }
@@ -119,19 +119,21 @@ func (st *stream) readHello(ctx context.Context, ws *websocket.Conn) (protocol.H
 	return hello, nil
 }
 
-// readLoop reads every later message. Each one is a new Hello, which it passes to the pump.
-func (st *stream) readLoop(ctx context.Context, ws *websocket.Conn, hellos chan<- protocol.Hello) error {
+// readLoop reads every later message: a new Hello, or a message about a card's terminal. It checks
+// each one and passes it to the pump, in the order it arrived, so a Hello that changes the topics
+// and the terminal message after it are applied in that order.
+func (st *stream) readLoop(ctx context.Context, ws *websocket.Conn, messages chan<- clientMessage) error {
 	for {
 		kind, data, err := ws.Read(ctx)
 		if err != nil {
 			return fmt.Errorf("read a message: %w", err)
 		}
-		hello, perr := st.parseHello(kind, data)
+		msg, perr := st.parseMessage(kind, data)
 		if perr != nil {
 			return st.refuse(ctx, ws, perr)
 		}
 		select {
-		case hellos <- hello:
+		case messages <- msg:
 		case <-ctx.Done():
 			return ctx.Err()
 		}
