@@ -31,6 +31,21 @@ func (r *router) protected(pattern string, handler http.HandlerFunc) {
 	r.mux.Handle(pattern, r.s.authenticated(r.s.jsonBody(handler)))
 }
 
+// uploadCeilingBytes is the most any upload route reads, whatever the route allows itself. A route
+// applies its own, smaller limit, and this one only makes sure that a route which forgot to still
+// cannot be made to read without end.
+const uploadCeilingBytes = 32 << 20
+
+// upload adds a route that needs a valid token and reads its body as it is, such as an image. It
+// has the token check and none of the JSON rules: the handler checks the kind and the size of what
+// it is sent.
+func (r *router) upload(pattern string, handler http.HandlerFunc) {
+	r.mux.Handle(pattern, r.s.authenticated(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		req.Body = http.MaxBytesReader(w, req.Body, uploadCeilingBytes)
+		handler(w, req)
+	})))
+}
+
 // stream adds a route that takes over its connection, such as the WebSocket. It has no body
 // rules, and no token check either: the handler reads the token from the place its protocol
 // carries it and calls the same check.

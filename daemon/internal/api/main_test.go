@@ -16,6 +16,7 @@ import (
 func TestMain(m *testing.M) {
 	code := m.Run()
 	testutil.CleanStubAgent()
+	testutil.CleanTerminalHelper()
 	if code == 0 {
 		if err := goleak.Find(); err != nil {
 			fmt.Fprintln(os.Stderr, err)

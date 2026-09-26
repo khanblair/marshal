@@ -40,7 +40,12 @@ func TestLoadFixtureNeverStopsTheDaemon(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			var out bytes.Buffer
-			loadFixture(context.Background(), tc.settings, nil, slog.New(slog.NewTextHandler(&out, nil)))
+			// No projects service and no session seeder: this test is about what is logged when a
+			// fixture is asked for and cannot be loaded.
+			loaded := loadFixture(context.Background(), tc.settings, nil, nil, slog.New(slog.NewTextHandler(&out, nil)))
+			if loaded {
+				t.Error("no fixture was loaded, so loadFixture should say so")
+			}
 			switch {
 			case tc.wantLog == "" && out.Len() != 0:
 				t.Errorf("logged %q, want nothing", out.String())

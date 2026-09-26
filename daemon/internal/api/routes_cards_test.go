@@ -3,8 +3,10 @@ package api_test
 import (
 	"context"
 	"net/http"
+	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/khanblair/marshal/daemon/internal/protocol"
 )
@@ -25,8 +27,12 @@ func TestCardsThroughHTTP(t *testing.T) {
 		ID: card.ID, ProjectID: project.ID, Number: 1, Key: project.ID + "#1", Title: "Add a health check",
 		Body: "Serve GET /health.", State: protocol.CardStateBacklog, Agent: protocol.AgentKindClaude,
 		PermissionMode: protocol.PermissionModeAutoEdits, CreatedAt: card.CreatedAt, UpdatedAt: card.UpdatedAt,
+		// A card with no labels carries [], never null.
+		Labels: []protocol.Label{},
+		// Every card carries its view mode; a new one starts in chat (docs/architecture.md 4.3).
+		ViewMode: protocol.CardViewModeChat,
 	}
-	if card != want {
+	if !reflect.DeepEqual(card, want) {
 		t.Errorf("card = %+v\nwant  %+v", card, want)
 	}
 
@@ -49,7 +55,7 @@ func TestCardsThroughHTTP(t *testing.T) {
 	}
 
 	got := decode[protocol.Card](t, st.do(http.MethodGet, "/v1/cards/"+card.ID, nil).want(t, http.StatusOK))
-	if got != want {
+	if !reflect.DeepEqual(got, want) {
 		t.Errorf("GET returned %+v, want %+v", got, want)
 	}
 
@@ -122,11 +128,206 @@ func TestCardsWithTheSameNumberInTwoProjects(t *testing.T) {
 	}
 	for _, want := range []protocol.Card{a, b} {
 		got := decode[protocol.Card](t, st.do(http.MethodGet, "/v1/cards/"+want.ID, nil).want(t, http.StatusOK))
-		if got != want {
+		if !reflect.DeepEqual(got, want) {
 			t.Errorf("card %s reads back as %+v, want %+v", want.Key, got, want)
 		}
 	}
 	if a.Key == b.Key {
 		t.Errorf("both cards have the key %q", a.Key)
 	}
+}
+
+// A manual move that the rules in architecture.md section 6.1 do not allow answers 422 with the
+// stable reason and the sentence the app shows, and the card does not move.
+func TestMovingACardByHand(t *testing.T) {
+	st := newStack(t)
+	project, _ := st.addProject("small-repo")
+	card := st.addCard(project.ID, "Move me by hand")
+
+	moved := decode[protocol.Card](t, st.do(http.MethodPost, "/v1/cards/"+card.ID+"/move",
+		protocol.MoveCardRequest{State: protocol.CardStateWorking}).want(t, http.StatusOK))
+	if moved.State != protocol.CardStateWorking {
+		t.Errorf("state = %s, want working", moved.State)
+	}
+
+	// To Done is refused by rule 2, with its own sentence.
+	got := st.do(http.MethodPost, "/v1/cards/"+card.ID+"/move",
+		protocol.MoveCardRequest{State: protocol.CardStateDone}).
+		apiError(t, http.StatusUnprocessableEntity, protocol.ErrorCodeRefused)
+	if got.Details["reason"] != string(protocol.MoveRefusalReasonToDone) {
+		t.Errorf("reason = %q, want %q", got.Details["reason"], protocol.MoveRefusalReasonToDone)
+	}
+	if got.Message != "Cards move to Done by themselves after they merge." {
+		t.Errorf("message = %q", got.Message)
+	}
+	if again := decode[protocol.Card](t, st.do(http.MethodGet, "/v1/cards/"+card.ID, nil).want(t, http.StatusOK)); again.State != protocol.CardStateWorking {
+		t.Errorf("the refused move changed the card: %s", again.State)
+	}
+
+	// In review needs a pull request, which no card has yet.
+	got = st.do(http.MethodPost, "/v1/cards/"+card.ID+"/move",
+		protocol.MoveCardRequest{State: protocol.CardStateReview}).
+		apiError(t, http.StatusUnprocessableEntity, protocol.ErrorCodeRefused)
+	if got.Details["reason"] != string(protocol.MoveRefusalReasonNeedsPullRequest) {
+		t.Errorf("reason = %q, want %q", got.Details["reason"], protocol.MoveRefusalReasonNeedsPullRequest)
+	}
+
+	// A column Marshal does not have is a bad request, not a rule refusal.
+	st.do(http.MethodPost, "/v1/cards/"+card.ID+"/move",
+		protocol.MoveCardRequest{State: "sideways"}).apiError(t, http.StatusBadRequest, protocol.ErrorCodeInvalidArgument)
+}
+
+// Editing a card: a field that is not sent is not touched, a date can be set and cleared, and a
+// field that is not allowed is refused.
+func TestEditingACard(t *testing.T) {
+	st := newStack(t)
+	project, _ := st.addProject("small-repo")
+	card := st.addCard(project.ID, "Before")
+
+	title, body := "After", "A longer description."
+	role := "Implementer"
+	pkg := "packages/api"
+	dueAt := protocol.NewTimestamp(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC))
+	due := protocol.DateChange{At: &dueAt}
+	updated := decode[protocol.Card](t, st.do(http.MethodPatch, "/v1/cards/"+card.ID, protocol.UpdateCardRequest{
+		Title: &title, Body: &body, Role: &role, Package: &pkg, Due: &due,
+	}).want(t, http.StatusOK))
+	if updated.Title != "After" || updated.Body != body || updated.Role != role || updated.Package != pkg {
+		t.Errorf("the edit did not apply: %+v", updated)
+	}
+	if updated.Due == nil || updated.Due.Time().UTC() != dueAt.Time().UTC() {
+		t.Errorf("due = %v, want %v", updated.Due, dueAt.Time())
+	}
+	// What was not sent is untouched.
+	if updated.ID != card.ID || updated.Number != card.Number || updated.Key != card.Key ||
+		updated.State != card.State || updated.Agent != card.Agent || updated.PermissionMode != card.PermissionMode {
+		t.Errorf("the edit changed a field it was not given: %+v", updated)
+	}
+	// The history of the change is published, and applying it twice ends in the same place.
+	again := decode[protocol.Card](t, st.do(http.MethodGet, "/v1/cards/"+card.ID, nil).want(t, http.StatusOK))
+	if !reflect.DeepEqual(again, updated) {
+		t.Errorf("the card reads back as %+v, want %+v", again, updated)
+	}
+	// Clearing the date is its own request, because an absent field means "leave it".
+	cleared := decode[protocol.Card](t, st.do(http.MethodPatch, "/v1/cards/"+card.ID,
+		protocol.UpdateCardRequest{Due: &protocol.DateChange{Clear: true}}).want(t, http.StatusOK))
+	if cleared.Due != nil {
+		t.Errorf("due = %v, want it cleared", cleared.Due)
+	}
+	if cleared.Title != "After" {
+		t.Errorf("clearing the date changed the title: %q", cleared.Title)
+	}
+
+	empty, unknownAgent := "", protocol.AgentKind("gpt")
+	st.do(http.MethodPatch, "/v1/cards/"+card.ID, protocol.UpdateCardRequest{Title: &empty}).
+		apiError(t, http.StatusBadRequest, protocol.ErrorCodeInvalidArgument)
+	st.do(http.MethodPatch, "/v1/cards/"+card.ID, protocol.UpdateCardRequest{Agent: &unknownAgent}).
+		apiError(t, http.StatusBadRequest, protocol.ErrorCodeInvalidArgument)
+	st.do(http.MethodPatch, "/v1/cards/01M3C107JB041061050R3GG28A", protocol.UpdateCardRequest{Title: &title}).
+		apiError(t, http.StatusNotFound, protocol.ErrorCodeNotFound)
+}
+
+// Deleting a card by hand removes it, and reading it afterwards is not found.
+func TestDeletingACard(t *testing.T) {
+	st := newStack(t)
+	project, _ := st.addProject("small-repo")
+	card := st.addCard(project.ID, "Delete me")
+
+	st.do(http.MethodDelete, "/v1/cards/"+card.ID, nil).want(t, http.StatusNoContent)
+	st.do(http.MethodGet, "/v1/cards/"+card.ID, nil).apiError(t, http.StatusNotFound, protocol.ErrorCodeNotFound)
+	// Deleting it again is not found, not a second success.
+	st.do(http.MethodDelete, "/v1/cards/"+card.ID, nil).apiError(t, http.StatusNotFound, protocol.ErrorCodeNotFound)
+	// The board no longer lists it.
+	board := decode[protocol.BoardSnapshot](t, st.do(http.MethodGet, "/v1/projects/"+project.ID+"/board", nil).want(t, http.StatusOK))
+	if len(board.Cards) != 0 {
+		t.Errorf("the board still lists %d cards", len(board.Cards))
+	}
+}
+
+// A card asked for in Working or Planning starts its session as it is added, and is never shown as
+// working before its agent exists.
+func TestCreatingACardInAStartedColumn(t *testing.T) {
+	st := newStack(t)
+	project, _ := st.addProject("small-repo")
+
+	working := decode[protocol.Card](t, st.do(http.MethodPost, "/v1/projects/"+project.ID+"/cards",
+		protocol.CreateCardRequest{Title: "Start me", StartState: protocol.CardStateWorking}).want(t, http.StatusCreated))
+	if working.State != protocol.CardStateWorking {
+		t.Errorf("state = %s, want working", working.State)
+	}
+	if row, err := st.store.Queries().GetSessionByCard(context.Background(), working.ID); err != nil || row.State != string(protocol.SessionStateAwake) {
+		t.Errorf("session = %+v, %v; want an awake session", row, err)
+	}
+
+	planning := decode[protocol.Card](t, st.do(http.MethodPost, "/v1/projects/"+project.ID+"/cards",
+		protocol.CreateCardRequest{Title: "Plan me", StartState: protocol.CardStatePlanning}).want(t, http.StatusCreated))
+	if planning.State != protocol.CardStatePlanning {
+		t.Errorf("state = %s, want planning", planning.State)
+	}
+	if row, err := st.store.Queries().GetSessionByCard(context.Background(), planning.ID); err != nil || row.State != string(protocol.SessionStateAwake) {
+		t.Errorf("session = %+v, %v; want a running session behind the plan", row, err)
+	}
+
+	// A column a card cannot be added to is a bad request.
+	st.do(http.MethodPost, "/v1/projects/"+project.ID+"/cards",
+		protocol.CreateCardRequest{Title: "No", StartState: protocol.CardStateDone}).
+		apiError(t, http.StatusBadRequest, protocol.ErrorCodeInvalidArgument)
+	// The default is still the backlog, with no session started.
+	plain := decode[protocol.Card](t, st.do(http.MethodPost, "/v1/projects/"+project.ID+"/cards",
+		protocol.CreateCardRequest{Title: "Plain"}).want(t, http.StatusCreated))
+	if plain.State != protocol.CardStateBacklog {
+		t.Errorf("state = %s, want backlog", plain.State)
+	}
+	if _, err := st.store.Queries().GetSessionByCard(context.Background(), plain.ID); err == nil {
+		t.Error("a card added to the backlog started a session")
+	}
+}
+
+// With no session manager there is nothing to start an agent with, so a start state is refused
+// before anything is written, and the route stays registered.
+func TestCreatingACardInAStartedColumnWithoutSessions(t *testing.T) {
+	st := newStack(t, withoutSessions())
+	project, _ := st.addProject("small-repo")
+	st.do(http.MethodPost, "/v1/projects/"+project.ID+"/cards",
+		protocol.CreateCardRequest{Title: "Start me", StartState: protocol.CardStateWorking}).
+		apiError(t, http.StatusServiceUnavailable, protocol.ErrorCodeUnavailable)
+	// Nothing was written.
+	board := decode[protocol.BoardSnapshot](t, st.do(http.MethodGet, "/v1/projects/"+project.ID+"/board", nil).want(t, http.StatusOK))
+	if len(board.Cards) != 0 {
+		t.Errorf("a card was written anyway: %+v", board.Cards)
+	}
+}
+
+// Forking a card by hand: a new card in the backlog that starts from the card it came from. A card
+// that never started has nothing to fork from.
+func TestForkingACard(t *testing.T) {
+	st := newStack(t)
+	project, _ := st.addProject("small-repo")
+	card := st.addCard(project.ID, "Fork me")
+
+	// Nothing to fork from yet.
+	st.do(http.MethodPost, "/v1/cards/"+card.ID+"/fork", nil).
+		apiError(t, http.StatusUnprocessableEntity, protocol.ErrorCodeRefused)
+
+	st.do(http.MethodPost, "/v1/cards/"+card.ID+"/start", nil).want(t, http.StatusOK)
+	fork := decode[protocol.Card](t, st.do(http.MethodPost, "/v1/cards/"+card.ID+"/fork", nil).want(t, http.StatusCreated))
+	if fork.Title != "Fork me (fork)" || fork.State != protocol.CardStateBacklog {
+		t.Errorf("fork = %+v", fork)
+	}
+	if fork.ID == card.ID || fork.Number == card.Number {
+		t.Errorf("the fork is the source card: %+v", fork)
+	}
+	// Both cards are on the board.
+	board := decode[protocol.BoardSnapshot](t, st.do(http.MethodGet, "/v1/projects/"+project.ID+"/board", nil).want(t, http.StatusOK))
+	if len(board.Cards) != 2 {
+		t.Errorf("the board lists %d cards, want 2", len(board.Cards))
+	}
+	// The fork can be started, and it gets its own branch.
+	started := decode[protocol.Card](t, st.do(http.MethodPost, "/v1/cards/"+fork.ID+"/start", nil).want(t, http.StatusOK))
+	if started.Branch == "" || started.Branch == card.Branch {
+		t.Errorf("the fork's branch = %q, want its own", started.Branch)
+	}
+	// Forking a card that is not there is not found.
+	st.do(http.MethodPost, "/v1/cards/01M3C107JB041061050R3GG28A/fork", nil).
+		apiError(t, http.StatusNotFound, protocol.ErrorCodeNotFound)
 }

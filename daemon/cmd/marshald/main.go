@@ -15,6 +15,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/khanblair/marshal/daemon/internal/accounts"
 	"github.com/khanblair/marshal/daemon/internal/agents"
 	"github.com/khanblair/marshal/daemon/internal/agents/acp"
 	"github.com/khanblair/marshal/daemon/internal/agents/catalog"
@@ -22,13 +23,19 @@ import (
 	"github.com/khanblair/marshal/daemon/internal/agents/gemini"
 	"github.com/khanblair/marshal/daemon/internal/api"
 	"github.com/khanblair/marshal/daemon/internal/buildinfo"
+	"github.com/khanblair/marshal/daemon/internal/cardhistory"
+	"github.com/khanblair/marshal/daemon/internal/chats"
 	"github.com/khanblair/marshal/daemon/internal/config"
+	"github.com/khanblair/marshal/daemon/internal/dashboard"
+	"github.com/khanblair/marshal/daemon/internal/diff"
 	"github.com/khanblair/marshal/daemon/internal/events"
 	"github.com/khanblair/marshal/daemon/internal/fixture"
 	"github.com/khanblair/marshal/daemon/internal/gitx"
+	"github.com/khanblair/marshal/daemon/internal/history"
 	"github.com/khanblair/marshal/daemon/internal/platform"
 	"github.com/khanblair/marshal/daemon/internal/projects"
 	"github.com/khanblair/marshal/daemon/internal/protocol"
+	"github.com/khanblair/marshal/daemon/internal/search"
 	"github.com/khanblair/marshal/daemon/internal/session"
 	"github.com/khanblair/marshal/daemon/internal/store"
 )
@@ -152,6 +159,18 @@ func serve(ctx context.Context, settings config.Settings, env platform.Env, log 
 			err = errors.Join(err, fmt.Errorf("close the session manager: %w", closeErr))
 		}
 	}()
+	// The Home subscriber stops before the session manager, the bus, and the store: it is registered
+	// last, so it runs first, and a card finish it is still writing lands while the store still
+	// works. It is started before the fixture loads, so a card the fixture creates in the done state
+	// is counted like any other.
+	defer func() {
+		if closeErr := mods.homeSub.Close(); closeErr != nil {
+			err = errors.Join(err, fmt.Errorf("stop the Home subscriber: %w", closeErr))
+		}
+	}()
+	if err := mods.homeSub.Start(ctx); err != nil {
+		return fmt.Errorf("start the Home subscriber: %w", err)
+	}
 
 	dev, err := api.EnsureAccounts(ctx, st, api.AccountsConfig{
 		DataDir: settings.DataDir, Dev: settings.Dev(), Now: time.Now, Log: log,
@@ -161,21 +180,38 @@ func serve(ctx context.Context, settings config.Settings, env platform.Env, log 
 	}
 	// The fixture loads before the restore below starts, and before Run serves anything, so the
 	// restore and the first requests never see a half-made fixture.
-	loadFixture(ctx, settings, mods.proj, log)
-	// Restoring sessions runs in its own goroutine, bounded by its own timeout, so a slow or
-	// stuck agent program never delays Run below from serving the health endpoint.
-	go restoreSessions(ctx, mods.sessions, log)
+	loaded := loadFixture(ctx, settings, mods.proj, mods.sessions, log)
+	if loaded {
+		// A fixture writes session rows so the screens have something to draw, and those sessions
+		// have no process behind them. Restoring them would start an agent for every one of the
+		// prototype's cards at every daemon start, which is neither wanted nor cheap, so a loaded
+		// fixture leaves them for a person to resume (the manual side of architecture.md 5.3).
+		log.Info("the fixture is loaded, so its sessions are left for a person to resume")
+	} else {
+		// Restoring sessions runs in its own goroutine, bounded by its own timeout, so a slow or
+		// stuck agent program never delays Run below from serving the health endpoint.
+		go restoreSessions(ctx, mods.sessions, log)
+	}
 	return api.New(settings, log, time.Now, api.Deps{
-		Store: st, Bus: bus, Dev: dev, Projects: mods.proj, Sessions: mods.sessions, Catalog: mods.catalog,
+		Store: st, Bus: bus, Dev: dev, Projects: mods.proj, Sessions: mods.sessions,
+		Catalog: mods.catalog, Dashboard: mods.dashboard, History: mods.history,
+		Diff: mods.diff, Chats: mods.chats, Search: mods.search, Accounts: mods.accounts,
 	}).Run(ctx)
 }
 
 // daemonModules are the parts of the daemon that buildModules makes together, once the store and
 // the bus are ready.
 type daemonModules struct {
-	proj     *projects.Service
-	sessions *session.Manager
-	catalog  catalog.Source
+	proj      *projects.Service
+	sessions  *session.Manager
+	catalog   catalog.Source
+	dashboard *dashboard.Service
+	homeSub   *dashboard.Subscriber
+	history   *cardhistory.Service
+	diff      *diff.Service
+	chats     *chats.Service
+	search    *search.Service
+	accounts  *accounts.Service
 }
 
 // buildModules makes git, projects, the agent registry and catalog, and the session manager, in
@@ -183,8 +219,15 @@ type daemonModules struct {
 func buildModules(st *store.Store, bus *events.Bus, settings config.Settings, env platform.Env, log *slog.Logger) (daemonModules, error) {
 	git := gitx.New()
 	late := &lateSessions{}
+	// A card's session state is read from the stored session rows, not from the manager, so the
+	// projects service can have it before the manager is built.
+	states, err := session.NewStoredStates(st)
+	if err != nil {
+		return daemonModules{}, fmt.Errorf("start the session states: %w", err)
+	}
 	proj, err := projects.New(projects.Deps{Store: st, Bus: bus, Git: git, DataDir: settings.DataDir},
-		projects.WithLogger(log), projects.WithSessionStopper(late), projects.WithAwakeCounter(late))
+		projects.WithLogger(log), projects.WithSessionStopper(late), projects.WithAwakeCounter(late),
+		projects.WithSessionStates(states))
 	if err != nil {
 		return daemonModules{}, fmt.Errorf("start the projects module: %w", err)
 	}
@@ -192,18 +235,87 @@ func buildModules(st *store.Store, bus *events.Bus, settings config.Settings, en
 	if err != nil {
 		return daemonModules{}, err
 	}
-	sessions, err := session.NewManager(st, bus, proj, registry, git, session.Config{DataDir: settings.DataDir, Logger: log})
+	terminals, err := buildTerminals(settings, env, catalogSrc, log)
+	if err != nil {
+		return daemonModules{}, err
+	}
+	// The history is built first and given to both: the session manager writes a card's events
+	// through it as they happen, and the API layer pages them back for the card's chat and activity.
+	historyStore, err := history.New(st)
+	if err != nil {
+		return daemonModules{}, fmt.Errorf("start the history store: %w", err)
+	}
+	sessions, err := session.NewManager(st, bus, proj, registry, git, session.Config{
+		DataDir: settings.DataDir, Logger: log, History: historyStore, Terminals: terminals,
+	})
 	if err != nil {
 		return daemonModules{}, fmt.Errorf("start the session manager: %w", err)
 	}
 	late.manager.Store(sessions)
-	return daemonModules{proj: proj, sessions: sessions, catalog: catalogSrc}, nil
+	home, err := dashboard.New(dashboard.Deps{Store: st}, dashboard.WithLogger(log))
+	if err != nil {
+		return daemonModules{}, fmt.Errorf("start the dashboard module: %w", err)
+	}
+	// The dashboard's subscriber keeps the stored daily numbers and the activity stream current from
+	// the events the daemon publishes. It is built here and started by the caller, which is also
+	// where it is closed: its goroutine must stop before the bus and the store close.
+	homeSub, err := dashboard.NewSubscriber(home, bus)
+	if err != nil {
+		return daemonModules{}, fmt.Errorf("start the dashboard subscriber: %w", err)
+	}
+	cards, err := cardhistory.New(cardhistory.Deps{Store: st, History: historyStore}, cardhistory.WithLogger(log))
+	if err != nil {
+		return daemonModules{}, fmt.Errorf("start the card history module: %w", err)
+	}
+	cardDiff, err := diff.New(diff.Deps{Projects: proj, Git: git}, diff.WithLogger(log))
+	if err != nil {
+		return daemonModules{}, fmt.Errorf("start the card diff module: %w", err)
+	}
+	// The chats service owns a project's chats and their own sessions. It is given the session
+	// manager, which starts a chat's agent when its first message is sent, puts it to sleep when the
+	// chat is archived, and stops it and removes its logs when the chat is deleted. The manager never
+	// reads the chats table, so the two need no late binding: the manager is built first.
+	projectChats, err := chats.New(chats.Deps{Store: st, Bus: bus, Sessions: sessions}, chats.WithLogger(log))
+	if err != nil {
+		return daemonModules{}, fmt.Errorf("start the chats module: %w", err)
+	}
+	// Search reads the projects, their cards, and their chats through the two services that own
+	// them, never their tables.
+	finder, err := search.New(search.Deps{Projects: proj, Chats: projectChats})
+	if err != nil {
+		return daemonModules{}, fmt.Errorf("start the search module: %w", err)
+	}
+	// The accounts service owns the person's profile, avatar, progress, and preferences. It asks the
+	// projects module only whether a project and a saved view are there.
+	you, err := accounts.New(accounts.Deps{Store: st, Bus: bus, Projects: proj, DataDir: settings.DataDir},
+		accounts.WithLogger(log))
+	if err != nil {
+		return daemonModules{}, fmt.Errorf("start the accounts module: %w", err)
+	}
+	return daemonModules{
+		proj: proj, sessions: sessions, catalog: catalogSrc, dashboard: home, homeSub: homeSub,
+		history: cards, diff: cardDiff, chats: projectChats, search: finder, accounts: you,
+	}, nil
 }
 
 // lateSessions lets the projects service reach the session manager, which is built after it
 // because the manager needs the projects service. It does nothing until the manager is set.
 type lateSessions struct {
 	manager atomic.Pointer[session.Manager]
+}
+
+func (l *lateSessions) StopCardSession(ctx context.Context, cardID string) error {
+	if m := l.manager.Load(); m != nil {
+		return m.StopCardSession(ctx, cardID)
+	}
+	return nil
+}
+
+func (l *lateSessions) RemoveCardLogs(ctx context.Context, cardID string) error {
+	if m := l.manager.Load(); m != nil {
+		return m.RemoveCardLogs(ctx, cardID)
+	}
+	return nil
 }
 
 func (l *lateSessions) StopProjectSessions(ctx context.Context, projectID string) error {
@@ -220,23 +332,28 @@ func (l *lateSessions) AwakeCards(ctx context.Context, projectID string) (int, e
 	return 0, nil
 }
 
-// loadFixture loads the fixture named by --fixture or MARSHAL_FIXTURE, if any. A fixture that
-// cannot be loaded is logged and skipped: it is a dev convenience, so a missing checkout or a
-// missing Git must not stop the daemon from starting.
-func loadFixture(ctx context.Context, settings config.Settings, proj projects.Projects, log *slog.Logger) {
+// loadFixture loads the fixture named by --fixture or MARSHAL_FIXTURE, and says whether one was
+// loaded. A fixture that is not asked for, or that cannot be loaded, is not fatal: the daemon
+// starts without it and the log says so.
+func loadFixture(ctx context.Context, settings config.Settings, proj fixture.Cards, sessions fixture.Sessions, log *slog.Logger) bool {
 	if settings.Fixture != "" && !settings.Dev() {
 		// Sample projects must never land in the data folder of a real install.
 		log.Warn("fixtures load only in dev mode, so nothing was loaded", "fixture", settings.Fixture)
-		return
+		return false
 	}
 	switch settings.Fixture {
 	case "":
+		return false
 	case fixture.PrototypeName:
-		if err := fixture.LoadPrototype(ctx, settings.DataDir, proj, fixture.WithLogger(log)); err != nil {
+		if err := fixture.LoadPrototype(ctx, settings.DataDir, proj,
+			fixture.WithLogger(log), fixture.WithSessions(sessions)); err != nil {
 			log.Warn("could not load the prototype fixture, so starting without all of it", "error", err)
+			return false
 		}
+		return true
 	default:
 		log.Warn("unknown fixture, so nothing was loaded", "fixture", settings.Fixture, "known", fixture.PrototypeName)
+		return false
 	}
 }
 

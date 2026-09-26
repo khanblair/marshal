@@ -11,12 +11,23 @@ import (
 
 // routeNeeds names the services a route calls. A route is registered only when the server has all
 // of the services it needs, the same way the event stream is registered only when there is a bus.
-type routeNeeds uint8
+type routeNeeds uint16
 
 const (
 	needsProjects routeNeeds = 1 << iota
 	needsSessions
 	needsCatalog
+	needsDashboard
+	needsHistory
+	needsDiff
+	needsChats
+	needsSearch
+	needsAccounts
+	// needsDevMode limits a route to a dev daemon: a normal daemon has no such address at all.
+	needsDevMode
+	// rawBody marks a route that reads its body as it is and not as JSON, such as an image upload.
+	// It is not a service, and has ignores it.
+	rawBody
 )
 
 // routeSpec is one domain route: its method and path, the services it needs, and its handler.
@@ -40,11 +51,58 @@ func domainRoutes() []routeSpec {
 		{"POST /v1/projects/{id}/cards", needsProjects, (*Server).createCard},
 		{"GET /v1/cards/{id}", needsProjects, (*Server).getCard},
 		{"POST /v1/cards/{id}/start", needsProjects | needsSessions, (*Server).startCard},
+		{"POST /v1/cards/{id}/move", needsProjects, (*Server).moveCard},
+		{"PATCH /v1/cards/{id}", needsProjects, (*Server).updateCard},
+		{"DELETE /v1/cards/{id}", needsProjects, (*Server).deleteCard},
+		{"POST /v1/cards/{id}/fork", needsProjects, (*Server).forkCard},
 		{"POST /v1/cards/{id}/messages", needsSessions, (*Server).sendMessage},
 		{"POST /v1/cards/{id}/stop", needsSessions, (*Server).stopCard},
 		{"POST /v1/cards/{id}/resume", needsSessions, (*Server).resumeCard},
+		{"POST /v1/cards/{id}/pause", needsSessions, (*Server).pauseCard},
+		{"POST /v1/cards/{id}/unpause", needsSessions, (*Server).unpauseCard},
+		{"POST /v1/cards/{id}/sleep", needsSessions, (*Server).sleepCard},
+		{"POST /v1/cards/{id}/wake", needsSessions, (*Server).wakeCard},
+		{"POST /v1/cards/{id}/pin", needsSessions, (*Server).pinCard},
+		{"POST /v1/cards/{id}/unpin", needsSessions, (*Server).unpinCard},
+		{"POST /v1/cards/{id}/view", needsSessions, (*Server).setCardView},
+		{"GET /v1/cards/{id}/messages", needsHistory, (*Server).listMessages},
+		{"GET /v1/cards/{id}/messages/{messageId}", needsHistory, (*Server).getMessage},
+		{"GET /v1/cards/{id}/activity", needsHistory, (*Server).listActivity},
+		{"GET /v1/cards/{id}/diff", needsDiff, (*Server).getCardDiff},
+		{"GET /v1/cards/{id}/diff/{path...}", needsDiff, (*Server).getFileHunks},
+		{"GET /v1/home/dashboard", needsDashboard, (*Server).home},
+		{"GET /v1/home/activity", needsDashboard, (*Server).homeActivity},
 		{"GET /v1/agents", needsCatalog, (*Server).listAgents},
+		{"GET /v1/projects/{id}/labels", needsProjects, (*Server).listLabels},
+		{"POST /v1/projects/{id}/labels", needsProjects, (*Server).createLabel},
+		{"PATCH /v1/labels/{id}", needsProjects, (*Server).updateLabel},
+		{"DELETE /v1/labels/{id}", needsProjects, (*Server).deleteLabel},
 		{"POST /v1/agents/refresh", needsCatalog, (*Server).refreshAgents},
+		{"GET /v1/projects/{id}/chats", needsChats, (*Server).listChats},
+		{"POST /v1/projects/{id}/chats", needsChats, (*Server).createChat},
+		{"PATCH /v1/chats/{id}", needsChats, (*Server).updateChat},
+		{"POST /v1/chats/{id}/archive", needsChats, (*Server).archiveChat},
+		{"POST /v1/chats/{id}/restore", needsChats, (*Server).restoreChat},
+		{"DELETE /v1/chats/{id}", needsChats, (*Server).deleteChat},
+		{"POST /v1/chats/{id}/messages", needsChats, (*Server).sendChatMessage},
+		{"GET /v1/chats/{id}/messages", needsHistory, (*Server).listChatMessages},
+		{"GET /v1/chats/{id}/messages/{messageId}", needsHistory, (*Server).getChatMessage},
+		{"GET /v1/search", needsSearch, (*Server).getSearch},
+		{"GET /v1/me", needsAccounts, (*Server).getMe},
+		{"PATCH /v1/me", needsAccounts, (*Server).updateMe},
+		{"POST /v1/me/avatar", needsAccounts | rawBody, (*Server).setAvatar},
+		{"DELETE /v1/me/avatar", needsAccounts, (*Server).removeAvatar},
+		{"GET /v1/users", needsAccounts, (*Server).listUsers},
+		{"GET /v1/users/{id}/avatar", needsAccounts, (*Server).getAvatar},
+		{"GET /v1/me/progress", needsAccounts, (*Server).getProgress},
+		{"PATCH /v1/me/progress", needsAccounts, (*Server).updateProgress},
+		{"GET /v1/me/preferences", needsAccounts, (*Server).getPreferences},
+		{"PATCH /v1/me/preferences", needsAccounts, (*Server).updatePreferences},
+		{"POST /v1/dev/reset-first-launch", needsAccounts | needsDevMode, (*Server).resetFirstLaunch},
+		{"GET /v1/projects/{id}/saved-views", needsProjects, (*Server).listSavedViews},
+		{"POST /v1/projects/{id}/saved-views", needsProjects, (*Server).createSavedView},
+		{"PATCH /v1/saved-views/{id}", needsProjects, (*Server).updateSavedView},
+		{"DELETE /v1/saved-views/{id}", needsProjects, (*Server).deleteSavedView},
 	}
 }
 
@@ -54,7 +112,11 @@ func (s *Server) addDomainRoutes(r *router) {
 		if !s.has(spec.needs) {
 			continue
 		}
-		r.protected(spec.pattern, func(w http.ResponseWriter, req *http.Request) {
+		register := r.protected
+		if spec.needs&rawBody != 0 {
+			register = r.upload
+		}
+		register(spec.pattern, func(w http.ResponseWriter, req *http.Request) {
 			spec.handle(s, w, req)
 		})
 	}
@@ -68,6 +130,20 @@ func (s *Server) has(needs routeNeeds) bool {
 	case needs&needsSessions != 0 && s.sessions == nil:
 		return false
 	case needs&needsCatalog != 0 && s.catalog == nil:
+		return false
+	case needs&needsDashboard != 0 && s.dashboard == nil:
+		return false
+	case needs&needsHistory != 0 && s.history == nil:
+		return false
+	case needs&needsDiff != 0 && s.diff == nil:
+		return false
+	case needs&needsChats != 0 && s.chats == nil:
+		return false
+	case needs&needsSearch != 0 && s.search == nil:
+		return false
+	case needs&needsAccounts != 0 && s.accounts == nil:
+		return false
+	case needs&needsDevMode != 0 && !s.settings.Dev():
 		return false
 	}
 	return true
@@ -126,6 +202,26 @@ func cardIDOf(r *http.Request) (string, error) {
 	id := r.PathValue("id")
 	if !protocol.ValidID(id) {
 		return "", notFoundID("card", id)
+	}
+	return id, nil
+}
+
+// labelIDOf reads a label id from the address. A label id is opaque, like a card's, so an id that
+// is not the right shape is not found rather than passed on.
+func labelIDOf(r *http.Request) (string, error) {
+	id := r.PathValue("id")
+	if !protocol.ValidID(id) {
+		return "", notFoundID("label", id)
+	}
+	return id, nil
+}
+
+// chatIDOf reads a chat id from the address. A chat id is opaque, like a card's, so an id that is
+// not the right shape is not found rather than passed on.
+func chatIDOf(r *http.Request) (string, error) {
+	id := r.PathValue("id")
+	if !protocol.ValidID(id) {
+		return "", notFoundID("chat", id)
 	}
 	return id, nil
 }
