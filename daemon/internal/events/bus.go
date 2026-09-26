@@ -12,7 +12,9 @@
 //     Subscription.Lagged). Critical events are never dropped: if even their queue overflows, the
 //     subscription is closed so the consumer reloads from the store.
 //   - The bus keeps the most recent events in a ring, so a client that reconnects can be replayed
-//     what it missed (Since and SubscribeSince), or be told to reload (Replay).
+//     what it missed (Since and SubscribeSince), or be told to reload (Replay). An event
+//     published with PublishLive is not kept in the ring, so a stream of bytes such as a
+//     terminal's output cannot push the events that matter out of it.
 //
 // Bounds, all configurable: 256 ordinary events (DefaultBufferSize) and 1,024 critical events
 // (DefaultCriticalBufferSize) per subscriber, and 2,000 events in the ring
@@ -46,11 +48,18 @@ type Bus struct {
 	criticalSize int
 	replaySize   int
 
-	mu     sync.Mutex // guards everything below
-	seq    uint64
-	ring   queue
-	subs   map[*Subscription]struct{}
-	closed bool
+	mu  sync.Mutex // guards everything below
+	seq uint64
+	// ring holds the newest replayable events. A live-only event (PublishLive) takes a sequence
+	// number and never enters it, so the ring's sequence numbers are increasing but not always
+	// contiguous.
+	ring queue
+	// evicted is the sequence number of the newest replayable event that is no longer in the ring
+	// (0 while none has left it). A client that has applied everything up to evicted can be
+	// replayed the rest from the ring, and one that is behind it cannot.
+	evicted uint64
+	subs    map[*Subscription]struct{}
+	closed  bool
 }
 
 // Option changes how New works.
@@ -136,6 +145,24 @@ func (b *Bus) Seq() uint64 {
 // number. It never blocks. It returns 0 if the bus is closed. Publish after the change is
 // committed to the store, so a subscriber that reloads sees it.
 func (b *Bus) Publish(topic, eventType string, data any, critical bool) uint64 {
+	return b.publish(topic, eventType, data, critical, true)
+}
+
+// PublishLive sends an event that is for the subscribers of this moment only, and never enters the
+// replay ring. It is for a stream whose bytes must not be applied twice or out of place, and that
+// would push every other event out of the ring: a terminal's output (docs/architecture.md 11.2). A
+// client that reconnects is not replayed it and asks for the current state instead.
+//
+// It is an ordinary event in every other way. It has the next sequence number, so every subscriber
+// still sees events in sequence order, and it is not critical, so a subscriber that reads too
+// slowly loses its oldest ordinary events and is told to reload, exactly as for any ordinary
+// event. It returns 0 if the bus is closed.
+func (b *Bus) PublishLive(topic, eventType string, data any) uint64 {
+	return b.publish(topic, eventType, data, false, false)
+}
+
+// publish is Publish and PublishLive: replayable says whether the event enters the ring.
+func (b *Bus) publish(topic, eventType string, data any, critical, replayable bool) uint64 {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if b.closed {
@@ -143,10 +170,13 @@ func (b *Bus) Publish(topic, eventType string, data any, critical bool) uint64 {
 	}
 	b.seq++
 	ev := Event{Seq: b.seq, Topic: topic, Type: eventType, At: b.now(), Critical: critical, Data: data}
-	if b.ring.len() >= b.replaySize {
-		b.ring.pop()
+	if replayable {
+		if b.ring.len() >= b.replaySize {
+			oldest, _ := b.ring.pop()
+			b.evicted = oldest.Seq
+		}
+		b.ring.push(ev)
 	}
-	b.ring.push(ev)
 	for sub := range b.subs {
 		if !sub.offer(ev) {
 			delete(b.subs, sub)
@@ -210,6 +240,7 @@ func (b *Bus) Close() {
 	}
 	clear(b.subs)
 	b.ring.clear()
+	b.evicted = b.seq
 	b.mu.Unlock()
 	for _, sub := range subs {
 		<-sub.finished
@@ -235,8 +266,9 @@ func (b *Bus) forget(sub *Subscription) {
 }
 
 // sinceLocked decides whether the ring covers a client's position. Coverage is judged on the
-// sequence numbers of all events, before any topic filter: the client needs every number from
-// seq+1 to the newest.
+// sequence numbers of all replayable events, before any topic filter: the client needs every one
+// after seq, so the replay works only while none of them has left the ring. A live-only event is
+// never replayed, so it does not count against that.
 func (b *Bus) sinceLocked(epoch string, seq uint64) ([]Event, Replay) {
 	switch {
 	case epoch != b.epoch:
@@ -245,14 +277,16 @@ func (b *Bus) sinceLocked(epoch string, seq uint64) ([]Event, Replay) {
 		return nil, ReplayAhead
 	case seq == b.seq:
 		return nil, ReplayOK
-	}
-	oldest := b.seq - uint64(b.ring.len()) + 1
-	if seq+1 < oldest {
+	case seq < b.evicted:
 		return nil, ReplayTooOld
 	}
-	skip := int(seq + 1 - oldest)
-	missed := make([]Event, 0, b.ring.len()-skip)
-	for i := skip; i < b.ring.len(); i++ {
+	// The ring's sequence numbers increase, so the missed events are its tail.
+	first := b.ring.len()
+	for first > 0 && b.ring.at(first-1).Seq > seq {
+		first--
+	}
+	missed := make([]Event, 0, b.ring.len()-first)
+	for i := first; i < b.ring.len(); i++ {
 		missed = append(missed, b.ring.at(i))
 	}
 	return missed, ReplayOK

@@ -36,7 +36,10 @@ type Adapter struct {
 	sessions map[string]*session
 }
 
-var _ agents.Agent = (*Adapter)(nil)
+var (
+	_ agents.Agent    = (*Adapter)(nil)
+	_ agents.Terminal = (*Adapter)(nil)
+)
 
 // New returns an adapter for the program in cfg. It does not start anything.
 func New(cfg Config) (*Adapter, error) {
@@ -118,6 +121,17 @@ func (a *Adapter) Resize(ctx context.Context, h agents.SessionHandle, cols, rows
 	return s.resize(cols, rows)
 }
 
+// Size returns the size the terminal has now, which is the configured size until the first Resize.
+// It returns agents.ErrUnknownSession for a session that is not running.
+func (a *Adapter) Size(h agents.SessionHandle) (cols, rows int, err error) {
+	s, err := a.find(h)
+	if err != nil {
+		return 0, 0, err
+	}
+	cols, rows = s.size()
+	return cols, rows, nil
+}
+
 // Interrupt types Ctrl-C, which the terminal turns into an interrupt for the program in front.
 func (a *Adapter) Interrupt(ctx context.Context, h agents.SessionHandle) error {
 	s, err := a.find(h)
@@ -189,6 +203,9 @@ func (a *Adapter) launch(
 	}
 	if a.isRunning(id) {
 		return agents.SessionHandle{}, fmt.Errorf("session %q is already running", id)
+	}
+	if a.cfg.SpecArgs != nil {
+		args = slices.Concat(args, a.cfg.SpecArgs(spec))
 	}
 	s, err := a.spawn(id, args, spec)
 	if err != nil {

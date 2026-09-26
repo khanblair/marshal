@@ -40,6 +40,10 @@ type session struct {
 	ring      *ring
 	bytesRead atomic.Int64
 
+	// sizeMu guards cols and rows, the size the terminal has now.
+	sizeMu     sync.Mutex
+	cols, rows int
+
 	// events is what the caller reads. chunks carries reads from the pump to the batcher.
 	events chan agents.AgentEvent
 	chunks chan []byte
@@ -73,6 +77,8 @@ type launched struct {
 // newSession makes the session for a program that has started in the terminal.
 func newSession(a *Adapter, l launched) *session {
 	return &session{
+		cols:        a.cfg.Cols,
+		rows:        a.cfg.Rows,
 		adapter:     a,
 		log:         a.log.With("session_id", l.id, "label", l.label),
 		id:          l.id,
@@ -258,7 +264,17 @@ func (s *session) resize(cols, rows int) error {
 	if err := s.pty.Resize(cols, rows); err != nil {
 		return fmt.Errorf("resize the terminal: %w", err)
 	}
+	s.sizeMu.Lock()
+	s.cols, s.rows = cols, rows
+	s.sizeMu.Unlock()
 	return nil
+}
+
+// size is the size the terminal has now.
+func (s *session) size() (cols, rows int) {
+	s.sizeMu.Lock()
+	defer s.sizeMu.Unlock()
+	return s.cols, s.rows
 }
 
 // isExited says whether the process has exited.

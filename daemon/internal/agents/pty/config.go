@@ -6,6 +6,8 @@ import (
 	"io"
 	"log/slog"
 	"time"
+
+	"github.com/khanblair/marshal/daemon/internal/agents"
 )
 
 const (
@@ -52,6 +54,10 @@ type Config struct {
 	// ResumeArgs gives the arguments that pick up a session that an earlier process had. A nil
 	// value means the CLI cannot resume, and Resume returns agents.ErrCannotResume.
 	ResumeArgs func(sessionID string) []string
+	// SpecArgs turns the settings of a session into extra arguments, for example a model flag,
+	// added after the others on Start and on Resume alike. A nil value means the program takes none
+	// of them, or that the person's own configuration of it is what should apply.
+	SpecArgs func(spec agents.StartSpec) []string
 	// InstructionArgs turns the role instructions of a new session into extra arguments, for
 	// example a system prompt flag, added after the others. A nil value means the CLI has no
 	// such flag, and the instructions are not delivered: there is no reliable way to type them
