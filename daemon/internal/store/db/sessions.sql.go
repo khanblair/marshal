@@ -268,6 +268,52 @@ func (q *Queries) ListResumableSessions(ctx context.Context) ([]Session, error) 
 	return items, nil
 }
 
+const updateSessionHandoff = `-- name: UpdateSessionHandoff :execrows
+UPDATE sessions
+SET agent_kind = ?1, agent_session_id = ?2,
+    state = ?3, model = ?4, thinking = ?5,
+    permission_mode = ?6, view_mode = 'chat',
+    last_active_at = ?7, updated_at = ?8
+WHERE id = ?9
+`
+
+type UpdateSessionHandoffParams struct {
+	AgentKind      string
+	AgentSessionID string
+	State          string
+	Model          string
+	Thinking       string
+	PermissionMode string
+	LastActiveAt   int64
+	UpdatedAt      int64
+	ID             string
+}
+
+// The handoff (build-plan 7.5): the card's work continues on a different agent, and the row is
+// rewritten to say so. The row's id is kept on purpose: a card has one session row for its whole
+// life (0003_sessions.sql), and the card's history hangs off this row (session_events.session_id),
+// so replacing the row would take the history with it. What changes is which agent the session runs,
+// the agent's own session id (the new agent's conversation is new), and the view, which is back to
+// chat for the same reason a stopped session's is: a fresh conversation has no terminal of its own
+// yet. One write, so a restart never sees the old agent and the new agent's session id apart.
+func (q *Queries) UpdateSessionHandoff(ctx context.Context, arg UpdateSessionHandoffParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, updateSessionHandoff,
+		arg.AgentKind,
+		arg.AgentSessionID,
+		arg.State,
+		arg.Model,
+		arg.Thinking,
+		arg.PermissionMode,
+		arg.LastActiveAt,
+		arg.UpdatedAt,
+		arg.ID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const updateSessionRuntime = `-- name: UpdateSessionRuntime :execrows
 UPDATE sessions
 SET state = ?1, agent_session_id = ?2,

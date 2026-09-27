@@ -83,6 +83,11 @@ type CardLabel struct {
 	LabelID string
 }
 
+type CardLink struct {
+	CardID      string
+	DependsOnID string
+}
+
 type Chat struct {
 	ID             string
 	ProjectID      string
@@ -141,6 +146,13 @@ type Device struct {
 	RevokedAt  *int64
 }
 
+type FileClaim struct {
+	CardID        string
+	ProjectID     string
+	PathOrPackage string
+	ClaimedAt     int64
+}
+
 type Integration struct {
 	ID                 string
 	Kind               string
@@ -162,6 +174,36 @@ type Limit struct {
 	Scope string
 	Kind  string
 	Value int64
+}
+
+type McpServer struct {
+	ID            string
+	Name          string
+	TransportJSON string
+	Health        string
+	LastCheckedAt int64
+}
+
+type Note struct {
+	ID        string
+	ProjectID string
+	CardID    string
+	Kind      string
+	Slug      string
+	Title     string
+	Author    string
+	Body      string
+	CreatedAt int64
+	UpdatedAt int64
+}
+
+type NotesFt struct {
+	ID        string
+	ProjectID string
+	CardID    string
+	Kind      string
+	Title     string
+	Body      string
 }
 
 type Project struct {
@@ -245,9 +287,22 @@ type SessionEvent struct {
 	CreatedAt  int64
 }
 
+type SessionEventsFt struct {
+	ID      string
+	CardID  string
+	Summary string
+}
+
 type Setting struct {
 	Key       string
 	ValueJSON string
+}
+
+type Skill struct {
+	ID     string
+	Name   string
+	Path   string
+	Source string
 }
 
 type SmellCheck struct {

@@ -64,3 +64,66 @@ func (q *Queries) GetApproval(ctx context.Context, id string) (Approval, error) 
 	)
 	return i, err
 }
+
+const getPendingApprovalBySession = `-- name: GetPendingApprovalBySession :one
+SELECT id, session_id, request_json, decision, decided_by FROM approvals WHERE session_id = ? AND decision = '' ORDER BY id DESC LIMIT 1
+`
+
+// The one approval a session is waiting on right now, if it has one (S8b): a session blocks on at
+// most one at a time, so this is at most one row. It is how a card's own wire NeedsReason carries
+// the approval's id for Home's needs-you list (protocol.NeedsReason.ApprovalID, set by
+// session.StoredStates from this), derived fresh on every read rather than stored on the card, so
+// it can never go stale once the approval is answered: decision turns non-empty and this simply
+// stops matching.
+func (q *Queries) GetPendingApprovalBySession(ctx context.Context, sessionID string) (Approval, error) {
+	row := q.db.QueryRowContext(ctx, getPendingApprovalBySession, sessionID)
+	var i Approval
+	err := row.Scan(
+		&i.ID,
+		&i.SessionID,
+		&i.RequestJSON,
+		&i.Decision,
+		&i.DecidedBy,
+	)
+	return i, err
+}
+
+const listPendingApprovalsByProject = `-- name: ListPendingApprovalsByProject :many
+SELECT sessions.card_id AS card_id, approvals.id AS approval_id
+FROM approvals
+JOIN sessions ON sessions.id = approvals.session_id
+JOIN cards ON cards.id = sessions.card_id
+WHERE cards.project_id = ? AND approvals.decision = ''
+`
+
+type ListPendingApprovalsByProjectRow struct {
+	CardID     string
+	ApprovalID string
+}
+
+// GetPendingApprovalBySession's twin for a whole project's cards at once, so a board read does not
+// run one query per card the way GetPendingApprovalBySession would if it were called in a loop
+// (see cardWithLabels's own doc comment on that rule; this is the batched read the doc comment
+// means).
+func (q *Queries) ListPendingApprovalsByProject(ctx context.Context, projectID string) ([]ListPendingApprovalsByProjectRow, error) {
+	rows, err := q.db.QueryContext(ctx, listPendingApprovalsByProject, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListPendingApprovalsByProjectRow{}
+	for rows.Next() {
+		var i ListPendingApprovalsByProjectRow
+		if err := rows.Scan(&i.CardID, &i.ApprovalID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

@@ -216,6 +216,63 @@ func (q *Queries) ListChatEvents(ctx context.Context, arg ListChatEventsParams) 
 	return items, nil
 }
 
+const listChatEventsByKind = `-- name: ListChatEventsByKind :many
+SELECT id, card_id, chat_id, session_id, seq, kind, state, summary, detail_json, log_ref, created_at FROM session_events
+WHERE chat_id = ? AND kind = ? AND seq < ?
+ORDER BY seq DESC
+LIMIT ?
+`
+
+type ListChatEventsByKindParams struct {
+	ChatID *string
+	Kind   string
+	Seq    int64
+	Limit  int64
+}
+
+// ListSessionEventsByKind's twin for a chat's history (S8b): used today only to page a chat's own
+// approval events while looking for the one an approval's id names (internal/history/approvals.go's
+// ResolveApproval), the way ListSessionEventsByKind already does for a card's.
+func (q *Queries) ListChatEventsByKind(ctx context.Context, arg ListChatEventsByKindParams) ([]SessionEvent, error) {
+	rows, err := q.db.QueryContext(ctx, listChatEventsByKind,
+		arg.ChatID,
+		arg.Kind,
+		arg.Seq,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []SessionEvent{}
+	for rows.Next() {
+		var i SessionEvent
+		if err := rows.Scan(
+			&i.ID,
+			&i.CardID,
+			&i.ChatID,
+			&i.SessionID,
+			&i.Seq,
+			&i.Kind,
+			&i.State,
+			&i.Summary,
+			&i.DetailJSON,
+			&i.LogRef,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSessionEvents = `-- name: ListSessionEvents :many
 SELECT id, card_id, chat_id, session_id, seq, kind, state, summary, detail_json, log_ref, created_at FROM session_events
 WHERE card_id = ? AND card_id <> '' AND seq < ?
@@ -342,4 +399,47 @@ func (q *Queries) NextSessionEventSeq(ctx context.Context, cardID string) (int64
 	var seq int64
 	err := row.Scan(&seq)
 	return seq, err
+}
+
+const updateChatEventState = `-- name: UpdateChatEventState :execrows
+UPDATE session_events SET state = ?1 WHERE id = ?2 AND chat_id = ?3
+`
+
+type UpdateChatEventStateParams struct {
+	State  string
+	ID     string
+	ChatID *string
+}
+
+// UpdateSessionEventState's twin for a chat's event.
+func (q *Queries) UpdateChatEventState(ctx context.Context, arg UpdateChatEventStateParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, updateChatEventState, arg.State, arg.ID, arg.ChatID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const updateSessionEventState = `-- name: UpdateSessionEventState :execrows
+UPDATE session_events SET state = ?1 WHERE id = ?2 AND card_id = ?3 AND card_id <> ''
+`
+
+type UpdateSessionEventStateParams struct {
+	State  string
+	ID     string
+	CardID string
+}
+
+// Rewrites the state of one stored event of a card's history, and nothing else about it (S8b): an
+// approval's row is written once, with its own id already in its detail, and this is the one place
+// that row is ever touched again, to move it from waiting to however it was answered
+// (internal/history/approvals.go's ResolveApproval). id is the event's own id, not the approval's;
+// the caller has already found it. Zero rows affected is not an error: see ResolveApproval's doc
+// comment on why the row can legitimately not be there.
+func (q *Queries) UpdateSessionEventState(ctx context.Context, arg UpdateSessionEventStateParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, updateSessionEventState, arg.State, arg.ID, arg.CardID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
