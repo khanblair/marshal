@@ -21,11 +21,21 @@ import type { Syncer } from "./syncer";
  * loaded once when the app comes online and after every re-sync.
  */
 
-/** Which section owns each connection the daemon lists. Only GitHub's row is built so far. */
-const CONNECTION_SECTIONS: Readonly<Record<string, SectionId>> = { github: "S29a" };
+/** Which section owns each connection the daemon lists. */
+const CONNECTION_SECTIONS: Readonly<Record<string, SectionId>> = {
+  github: "S29a",
+  obsidian: "S29b",
+};
 
 /** The GitHub App connection's own id, the one its row, its keychain entry, and its test are filed under. */
 export const GITHUB_ID = "github";
+
+/**
+ * The Obsidian vault connection's own id (section S29b). Marshal owns this one - the vault is its
+ * own data folder, not a setting a person fills in - so it has a test the same as GitHub's does,
+ * but no save and no keychain entry.
+ */
+export const OBSIDIAN_ID = "obsidian";
 
 export const integrationsSyncer: Syncer<IntegrationState[]> = {
   section: "S29a",

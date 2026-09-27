@@ -108,11 +108,14 @@ describe("the integrations section", () => {
   it("says which connection's row the daemon owns, and which is still the mock's", () => {
     const daemonStore = createTestMarshal();
     expect(connectionOnDaemon(contextOf(daemonStore), "github")).toBe(true);
+    expect(connectionOnDaemon(contextOf(daemonStore), "obsidian")).toBe(true);
     // Trello, the calendar, and the rest are later phases' sections, so the daemon owns none of them.
     expect(connectionOnDaemon(contextOf(daemonStore), "trello")).toBe(false);
     expect(connectionOnDaemon(contextOf(daemonStore), "gcal")).toBe(false);
     const mockStore = createTestMarshal({ sections: { ...sectionStatus, S29a: "mock" } });
     expect(connectionOnDaemon(contextOf(mockStore), "github")).toBe(false);
+    const obsidianMockStore = createTestMarshal({ sections: { ...sectionStatus, S29b: "mock" } });
+    expect(connectionOnDaemon(contextOf(obsidianMockStore), "obsidian")).toBe(false);
   });
 });
 
@@ -261,6 +264,55 @@ describe("the connections with a daemon", () => {
     // refuses it rather than silently accepting it, and the row does not change.
     expect(await M.disconnectIntegration("nope")).toBe(false);
     expect(row(M, "github").st).toBe("none");
+  });
+
+  // Section S29b: the Obsidian vault row. Nobody sets this connection up - it is Marshal's own
+  // folder, not a person's setting - so it starts connected rather than "none", the way the real
+  // daemon's `vaultStatus` always answers once a vault root is set.
+  it("reads the Obsidian row connected before anything is tested", async () => {
+    const d = createFakeDaemon();
+    daemon = d;
+    const M = await createSyncedMarshal(d);
+    expect(row(M, "obsidian").st).toBe("connected");
+    expect(row(M, "obsidian").lastTest).toBeUndefined();
+  });
+
+  it("runs the Obsidian vault's own test and keeps what it found", async () => {
+    const d = createFakeDaemon();
+    daemon = d;
+    const M = await createSyncedMarshal(d);
+    expect(await M.testIntegration("obsidian")).toBe(true);
+    expect(row(M, "obsidian").st).toBe("connected");
+    expect(row(M, "obsidian").lastTest?.ok).toBe(true);
+    expect(row(M, "obsidian").lastTest?.checks.map((check) => check.name)).toEqual([
+      "Summary",
+      "Vault folder",
+      "Vault writable",
+    ]);
+  });
+
+  it("marks the Obsidian row needing attention when its test finds the vault unwritable", async () => {
+    const d = createFakeDaemon({
+      integrationChecks: (r) =>
+        r.id === "obsidian"
+          ? [
+              {
+                name: "Vault writable",
+                state: "failed",
+                message: "The vault folder is read-only, so Marshal cannot save notes in it.",
+                fix: "Give your user write access to the vault folder, then test again.",
+              },
+            ]
+          : [],
+    });
+    daemon = d;
+    const M = await createSyncedMarshal(d);
+    expect(await M.testIntegration("obsidian")).toBe(false);
+    expect(row(M, "obsidian").st).toBe("error");
+    expect(row(M, "obsidian").lastTest?.ok).toBe(false);
+    expect(row(M, "obsidian").detail).toBe(
+      "Give your user write access to the vault folder, then test again.",
+    );
   });
 });
 

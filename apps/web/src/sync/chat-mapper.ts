@@ -82,6 +82,12 @@ const planMessage = (message: ChatMessage, plan: ChatPlan): Msg => planBlock(mes
 /** One stored approval request, in the shape the approval block draws. */
 const approvalMessage = (message: ChatMessage, approval: ChatApproval): Msg => ({
   id: message.id,
+  // The approval's own id is empty for a row the daemon wrote already resolved on a person's
+  // behalf (bypass, the harness auto-answer path) rather than undefined, so it is turned into
+  // undefined here: ApprovalMsg's own convention (and this block's Approve/Deny buttons, which key
+  // off `st === "waiting"` and never off whether an id is set) is that "no id" reads the same as
+  // "not this app's to answer" (S8b).
+  approvalId: approval.id || undefined,
   k: "approval",
   st: approval.state,
   cmd: approval.command,

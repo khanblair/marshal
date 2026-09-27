@@ -13,6 +13,7 @@ import { ApiError } from "~/data/api-error";
 import { isRecord } from "~/data/guards";
 import { toCheckpointRows } from "~/data/mappers/checkpoints";
 import { sleepFlags } from "~/data/mappers/card";
+import { toNoteInfo } from "~/data/mappers/notes";
 import { isDaemon } from "~/data/sections";
 import type { CardKey } from "~/mock/card-key";
 import { type Ctx, sectionsOf } from "~/mock/context";
@@ -50,7 +51,8 @@ export async function readOpenCard(
   const wantsChat = isDaemon("S8a", table);
   const wantsActivity = isDaemon("S10", table);
   const wantsPreview = isDaemon("S13", table);
-  const [messages, activity, checkpoints, preview] = await Promise.all([
+  const wantsNote = isDaemon("S14", table);
+  const [messages, activity, checkpoints, preview, note] = await Promise.all([
     wantsChat ? api.messages(daemonId, { limit: FIRST_PAGE }) : null,
     wantsActivity ? api.activity(daemonId, { limit: FIRST_PAGE }) : null,
     // A card's restore points are read with its activity, because that is the tab they are drawn in
@@ -59,6 +61,10 @@ export async function readOpenCard(
     // A card's live preview (section S13) is read when the card opens. Reading it starts nothing, so
     // opening a card never starts a dev server on the person's machine.
     wantsPreview ? api.preview(daemonId) : null,
+    // A card's note (section S14) is read when the card opens, the same as a card's activity is:
+    // reading never writes one, so opening a card a person has never written a note on leaves no
+    // file behind (`card-note.ts`'s `ensureNote` no longer does that once S14 is the daemon's).
+    wantsNote ? api.note(daemonId) : null,
   ]);
   // The card may have been closed, or another one opened, while the daemon was answering.
   if (ctx.S.openId !== key) return;
@@ -66,6 +72,10 @@ export async function readOpenCard(
   if (activity) ctx.S.act[key] = toStoredActivityList(activity.items, ctx.clock.now());
   if (checkpoints) ctx.S.checkpoints[key] = toCheckpointRows(checkpoints);
   if (preview) applyCardPreview(ctx, key, preview.preview);
+  if (note) {
+    ctx.S.notes = { ...ctx.S.notes, [key]: note.body };
+    ctx.S.noteInfo = { ...ctx.S.noteInfo, [key]: toNoteInfo(note) };
+  }
 }
 
 /**
@@ -87,13 +97,16 @@ export function followOpenCard(ctx: Ctx, api: ApiClient, stream: Stream): void {
   // (docs/architecture.md 11.2), which `card-view.ts`'s `followOpenCardTerminal` relies on this
   // subscribing before it ever asks for a snapshot. S13 needs it for the same reason: a preview's
   // `preview.state_changed` is published on `card:<id>`, so the open card's tab only hears it while
-  // this subscription is up.
+  // this subscription is up. S14 needs no topic at all - a note has no live event, only the read
+  // `readOpenCard` makes below - but it is listed here anyway, because this function is the only
+  // place that read runs, and a store where S14 is switched and nothing else must still run it.
   if (
     !isDaemon("S8a", table) &&
     !isDaemon("S10", table) &&
     !isDaemon("S7c", table) &&
     !isDaemon("S9", table) &&
-    !isDaemon("S13", table)
+    !isDaemon("S13", table) &&
+    !isDaemon("S14", table)
   ) {
     return;
   }

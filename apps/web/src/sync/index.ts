@@ -4,6 +4,7 @@ import { ApiError } from "~/data/api-error";
 import { isDaemon } from "~/data/sections";
 import { type Ctx, sectionsOf } from "~/mock/context";
 import { agentsSyncer } from "./agents";
+import { applyApprovalEvent } from "./approval-actions";
 import { applyCardSessionEvent, followOpenCard } from "./card-session";
 import { applyTerminalFrame, applyTerminalOutputEvent, followOpenCardTerminal } from "./card-view";
 import { cardsSyncer } from "./cards";
@@ -214,6 +215,9 @@ export function startSync(ctx: Ctx, syncers: readonly Syncer[] = SYNCERS): SyncC
           // A plan an answer replaced (section S8c) arrives on the same card topic as the chat it
           // lives in, so every view of the card's plan follows one answer.
           applyPlanUpdated(ctx, event);
+          // A permission request and its answer (section S8b) arrive the same way, so an open
+          // chat's approval block appears and updates live rather than only on the card's next open.
+          applyApprovalEvent(ctx, event);
           // A card's live preview changing state (section S13) arrives on the card's own topic too.
           applyPreviewEvent(ctx, event);
           for (const syncer of active) syncer.onEvent?.(ctx, event);

@@ -87,6 +87,46 @@ describe("reading the open card's history", () => {
     expect(isDaemon("S8a", { ...SECTIONS, S8a: "mock" })).toBe(false);
     expect(ctx.S.chat[KEY]).toBeUndefined();
   });
+
+  it("puts a card's note and its own path in the store once section S14 is the daemon's", async () => {
+    daemon = createFakeDaemon({
+      projects: PROTOTYPE_PROJECTS,
+      cards: [CARD],
+      notes: {
+        [CARD.id]: {
+          cardId: CARD.id,
+          projectId: "api",
+          path: "api/cards/41-fix-token-refresh-on-login.md",
+          body: "Already saved",
+          author: "agent",
+          updatedAt: "2026-09-26T12:00:00.000Z",
+        },
+      },
+    });
+    const M = createTestMarshal({
+      data: daemon.data,
+      sections: { ...SECTIONS, S14: "daemon" as const },
+    });
+    await daemon.connect();
+    await vi.waitFor(() => expect(M.S.ready).toBe(true));
+    const ctx = contextOf(M);
+    const card = ctx.S.cards.find((one) => one.id === KEY)!;
+    ctx.S.openId = KEY;
+    await readOpenCard(ctx, daemon.data.api, card, KEY);
+    expect(ctx.S.notes?.[KEY]).toBe("Already saved");
+    expect(ctx.S.noteInfo?.[KEY]).toMatchObject({
+      path: "api/cards/41-fix-token-refresh-on-login.md",
+      author: "agent",
+    });
+  });
+
+  it("reads no note while section S14 is still the mock's", async () => {
+    const { ctx, d } = await storeWithHistory();
+    ctx.S.openId = KEY;
+    await readOpenCard(ctx, d.data.api, { daemonId: CARD.id }, KEY);
+    expect(ctx.S.notes?.[KEY]).toBeUndefined();
+    expect(ctx.S.noteInfo?.[KEY]).toBeUndefined();
+  });
 });
 
 describe("following the open card", () => {

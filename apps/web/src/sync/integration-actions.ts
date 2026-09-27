@@ -13,7 +13,11 @@ import { applyIntegrationList, GITHUB_ID } from "./integrations";
  */
 
 /** Runs one connection write and applies the whole list it answers. False means the daemon refused it. */
-async function write(c: Ctx, key: string, request: () => Promise<IntegrationList>): Promise<boolean> {
+async function write(
+  c: Ctx,
+  key: string,
+  request: () => Promise<IntegrationList>,
+): Promise<boolean> {
   const api = c.env.data?.api;
   if (!api) return false;
   try {

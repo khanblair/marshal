@@ -104,6 +104,35 @@ describe("a page of a card's chat", () => {
     const stored = toStoredMessages([message({ id: "t", kind: "tool", text: "a tool call" })]);
     expect(stored[0]).toEqual({ id: "t", k: "system", text: "a tool call" });
   });
+
+  it("carries the approval's own id, so the block can answer it (S8b)", () => {
+    const stored = toStoredMessages([
+      message({
+        id: "m1",
+        kind: "approval",
+        approval: { id: "app_1", state: "waiting", command: "rm -rf build", reason: "Clean the build folder" },
+      }),
+    ])[0];
+    expect(stored).toEqual({
+      id: "m1",
+      approvalId: "app_1",
+      k: "approval",
+      st: "waiting",
+      cmd: "rm -rf build",
+      why: "Clean the build folder",
+    });
+  });
+
+  it("has no approval id for a row the daemon answered on its own, which mints none", () => {
+    const stored = toStoredMessages([
+      message({
+        id: "m2",
+        kind: "approval",
+        approval: { id: "", state: "approved", command: "go mod tidy", reason: "" },
+      }),
+    ])[0];
+    expect(stored?.k === "approval" && stored.approvalId).toBeUndefined();
+  });
 });
 
 describe("a page of a card's activity", () => {
