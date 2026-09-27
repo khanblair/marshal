@@ -77,3 +77,28 @@ pub async fn ensure_running(app: tauri::AppHandle) -> bool {
     }
     false
 }
+
+/// The owner's own access token, the same one `marshal token --show` prints
+/// (cmd/marshal/cmd_token.go): the daemon writes it to a file on install and keeps it there, so
+/// the shell reads it the same way a person at a terminal would, rather than knowing the file's
+/// path itself. "The desktop app gets one on install" (docs/architecture.md) is this call: with
+/// it, the web app never has to show its sign-in screen on this machine.
+pub async fn owner_token(app: &tauri::AppHandle) -> Option<String> {
+    let output = app
+        .shell()
+        .sidecar("marshal")
+        .ok()?
+        .args(["token", "--show"])
+        .output()
+        .await
+        .ok()?;
+    if !output.status.success() {
+        eprintln!(
+            "marshal token --show: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        );
+        return None;
+    }
+    let token = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if token.is_empty() { None } else { Some(token) }
+}

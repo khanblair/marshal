@@ -39,9 +39,19 @@ async fn on_ready(app: tauri::AppHandle) {
     {
         use tauri::Manager;
         if daemon::ensure_running(app.clone()).await {
+            let token = daemon::owner_token(&app).await;
             if let Some(window) = app.get_webview_window("main") {
                 if let Ok(url) = daemon::url().parse() {
                     let _ = window.navigate(url);
+                }
+                // "The desktop app gets one on install" (docs/architecture.md): sign the window
+                // in with the owner's own token, the same one `marshal token --show` prints, so
+                // the person never sees the plain-browser sign-in screen on this machine. The
+                // navigation above only starts loading the new page; a few short retries give it
+                // time to reach a document `eval` can run against before giving up quietly (a
+                // failure here just leaves the sign-in screen showing, not a crash).
+                if let Some(token) = token {
+                    seed_token(&window, &token).await;
                 }
             }
             updater::check(&app).await;
@@ -54,4 +64,25 @@ async fn on_ready(app: tauri::AppHandle) {
             );
         }
     }
+}
+
+/// Writes the token into the page's own `localStorage` (data/token.ts's `TOKEN_KEY`) and reloads,
+/// so the app boots already signed in. `eval` runs once, after a short wait for `navigate` to
+/// finish loading the new page: `eval` reports only whether the call reached the webview, not
+/// which document it ran against, so retrying on its result cannot tell a too-early attempt from
+/// a real failure, and retrying blindly risks firing again after the reload this already caused
+/// and reloading the signed-in app a second time. The script's own origin check is the real
+/// guard: run early against the splash page by mistake, it does nothing, and the person falls
+/// back to the sign-in screen's always-working manual flow instead of a wrong write.
+#[cfg(not(debug_assertions))]
+async fn seed_token(window: &tauri::WebviewWindow, token: &str) {
+    let Ok(token_js) = serde_json::to_string(token) else { return };
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    let script = format!(
+        "if (location.origin === {origin:?}) {{ \
+           localStorage.setItem('marshal-token', {token_js}); location.reload(); \
+         }}",
+        origin = daemon::url(),
+    );
+    let _ = window.eval(&script);
 }

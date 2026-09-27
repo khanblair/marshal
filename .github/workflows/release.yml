@@ -1,0 +1,113 @@
+# Builds the desktop shell (apps/desktop) on a GitHub-hosted macOS runner and publishes the
+# result, so a signed .dmg never has to be built on the owner's own Mac.
+#
+# Triggers: pushing a tag that looks like a version ("v0.1.0"), or running this workflow by hand
+# from the Actions tab with a "tag" input (useful to test the pipeline without cutting a real
+# release; it still makes a draft release, which nobody sees until it is published).
+#
+# The build step is the same command a person runs locally (`pnpm --filter desktop build`,
+# apps/desktop/package.json): this workflow only adds the environment Tauri's own macOS bundler
+# reads to sign and notarize, rather than wrapping the build in a separate signing action. Code
+# signing and notarization turn on automatically once these repository secrets exist (Settings ->
+# Secrets and variables -> Actions), and the build stays ad-hoc signed (installable, but with a
+# Gatekeeper "unidentified developer" prompt) when they do not:
+#   APPLE_CERTIFICATE            Base64 of a Developer ID Application .p12 export
+#   APPLE_CERTIFICATE_PASSWORD   The .p12's export password
+#   APPLE_SIGNING_IDENTITY       The certificate's name, e.g. "Developer ID Application: ..."
+#   APPLE_ID                     The Apple ID used for notarization
+#   APPLE_PASSWORD                An app-specific password for that Apple ID (not its real one)
+#   APPLE_TEAM_ID                 The Apple Developer team ID
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Version tag for this build (e.g. v0.1.0). Makes a draft release."
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  macos-dmg:
+    name: macOS (dmg)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve the release tag
+        id: tag
+        run: echo "name=${{ github.event.inputs.tag || github.ref_name }}" >> "$GITHUB_OUTPUT"
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: daemon/go.mod
+          cache-dependency-path: |
+            daemon/go.sum
+            tools/*/go.sum
+      - uses: actions/cache@v4
+        with:
+          path: .tools
+          key: go-tools-${{ runner.os }}-${{ hashFiles('scripts/setup-tools.mjs') }}
+      - run: pnpm setup:tools
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+
+      - name: Set the app's version from the release tag
+        # tauri.conf.json's version ships as 0.0.1 in the repo; the tag is the real version. A
+        # leading "v" in the tag (the usual form) is stripped, since Cargo and tauri.conf.json
+        # both want a bare semver.
+        run: |
+          version="${{ steps.tag.outputs.name }}"
+          version="${version#v}"
+          node -e "
+            const fs = require('node:fs');
+            const path = 'apps/desktop/src-tauri/tauri.conf.json';
+            const conf = JSON.parse(fs.readFileSync(path, 'utf8'));
+            conf.version = '$version';
+            fs.writeFileSync(path, JSON.stringify(conf, null, 2) + '\n');
+          "
+
+      # The daemon sidecar and the web app the daemon serves (internal/webui) both have to exist
+      # before `tauri build` runs: the sidecar because tauri.conf.json's externalBin resolves it
+      # at compile time (apps/desktop/src-tauri/build.rs fails loudly otherwise), the web app
+      # because the daemon embeds whatever scripts/copy-web-dist.mjs finds in apps/web/dist.
+      # `pnpm --filter desktop build` runs bundle-sidecar.mjs itself, which builds it and, the
+      # first time apps/web/dist is missing, the web app too; running the web build explicitly
+      # first just avoids relying on that fallback in CI.
+      - run: pnpm gen
+      - run: pnpm --filter web build
+      - run: node scripts/copy-web-dist.mjs
+
+      - name: Build the signed app and dmg
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: pnpm --filter desktop build
+
+      - name: Publish the draft release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.name }}
+          name: "Marshal ${{ steps.tag.outputs.name }}"
+          body: "Built by this workflow from ${{ github.sha }}. See the commit log for what changed."
+          draft: true
+          files: |
+            apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg
