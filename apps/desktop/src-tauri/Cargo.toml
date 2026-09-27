@@ -1,0 +1,33 @@
+[package]
+name = "marshal-desktop"
+version = "0.0.1"
+description = "Marshal desktop shell: shows the daemon's UI and keeps the daemon running."
+edition = "2021"
+rust-version = "1.85"
+publish = false
+
+# See https://v2.tauri.app/reference/config/ for tauri.conf.json, and build.rs for the build
+# script tauri-build reads it through. Desktop only for now (a plain binary crate): mobile needs
+# its own cdylib entry point (a src/lib.rs with #[tauri::mobile_entry_point]), which is Phase 9's
+# concern (docs/mobile.md), not this one.
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-shell = "2"
+tauri-plugin-notification = "2"
+tauri-plugin-deep-link = "2"
+tauri-plugin-updater = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+reqwest = { version = "0.12", default-features = false, features = ["json"] }
+tokio = { version = "1", features = ["time"] }
+
+[profile.release]
+# Small and slower to link over fast and large: this app is a thin shell, not the hot path.
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
