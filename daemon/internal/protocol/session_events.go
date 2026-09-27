@@ -20,9 +20,8 @@ package protocol
 // and exactly one of the two is set: cardId is empty in a chat's event, and chatId is left out of a
 // card's, so a client tells them apart by which is there.
 //
-// Neither payload is sent for a PermissionRequested event: that belongs to the approvals flow of
-// architecture.md section 11.4 and Phase 3 (B3.4), which does not exist yet, so a permission
-// request is only logged for now (see internal/session's report).
+// A permission request is not sent this way: it belongs to the approvals flow of architecture.md
+// section 11.4 (B3.4), which announces it as approval.requested on the same topic.
 
 // SessionOutputEventData is the payload of session.output: a piece of the agent's answer, a piece
 // of its reasoning, or a full replacement of its plan.

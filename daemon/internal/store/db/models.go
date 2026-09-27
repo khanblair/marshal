@@ -16,6 +16,24 @@ type Activity struct {
 	CreatedAt   int64
 }
 
+type Approval struct {
+	ID          string
+	SessionID   string
+	RequestJSON string
+	Decision    string
+	DecidedBy   string
+}
+
+type AuditLog struct {
+	ID         string
+	SessionID  string
+	Actor      string
+	Action     string
+	Target     string
+	DetailJSON string
+	CreatedAt  int64
+}
+
 type Board struct {
 	ID          string
 	ProjectID   string
@@ -81,6 +99,28 @@ type Chat struct {
 	UpdatedAt      int64
 }
 
+type Checkpoint struct {
+	ID        string
+	CardID    string
+	GitRef    string
+	Label     string
+	CreatedAt int64
+}
+
+type CiRun struct {
+	ID        string
+	ProjectID string
+	CardID    *string
+	Branch    string
+	Workflow  string
+	Status    string
+	Url       string
+	StartedAt int64
+	UpdatedAt int64
+	RerunAt   int64
+	FixSentAt int64
+}
+
 type DailyStat struct {
 	Day           int64
 	ProjectID     string
@@ -101,12 +141,27 @@ type Device struct {
 	RevokedAt  *int64
 }
 
+type Integration struct {
+	ID                 string
+	Kind               string
+	ConfigJSON         string
+	KeychainRef        string
+	LastTestAt         int64
+	LastTestResultJSON string
+}
+
 type Label struct {
 	ID        string
 	ProjectID string
 	Name      string
 	Color     string
 	CreatedAt int64
+}
+
+type Limit struct {
+	Scope string
+	Kind  string
+	Value int64
 }
 
 type Project struct {
@@ -135,6 +190,19 @@ type ProjectPreference struct {
 	ShowAllDone        int64
 	SavedViewID        *string
 	UpdatedAt          int64
+}
+
+type Role struct {
+	ID        string
+	Name      string
+	IsStarter int64
+	SpecJSON  string
+}
+
+type RoleOverride struct {
+	RoleID    string
+	ProjectID string
+	SpecJSON  string
 }
 
 type SavedView struct {
@@ -180,6 +248,45 @@ type SessionEvent struct {
 type Setting struct {
 	Key       string
 	ValueJSON string
+}
+
+type SmellCheck struct {
+	CardID    string
+	CommitSha string
+	CheckedAt int64
+}
+
+type SmellFinding struct {
+	ID            string
+	CardID        string
+	CommitSha     string
+	Family        string
+	Smell         string
+	File          string
+	Line          int64
+	Severity      string
+	Message       string
+	Suggestion    string
+	Status        string
+	DismissReason string
+}
+
+type SmellProfile struct {
+	ProjectID string
+	SpecJSON  string
+}
+
+type Usage struct {
+	ID           string
+	CardID       string
+	ProjectID    string
+	RoleID       string
+	Provider     string
+	Model        string
+	InputTokens  int64
+	OutputTokens int64
+	CostMicros   int64
+	CreatedAt    int64
 }
 
 type User struct {

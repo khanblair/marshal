@@ -9,6 +9,27 @@ import (
 	"context"
 )
 
+const countSessionEventsOfKind = `-- name: CountSessionEventsOfKind :one
+SELECT CAST(COUNT(*) AS INTEGER) AS count FROM session_events
+WHERE card_id = ? AND card_id <> '' AND kind = ?
+`
+
+type CountSessionEventsOfKindParams struct {
+	CardID string
+	Kind   string
+}
+
+// How many events of one kind a card has, for a rule that counts rather than pages (the harness's
+// round limit, B5.3): one message delivered into a card's session is one turn, and it is stored as
+// a user event, so the count of a card's user events is the number of turns the card has taken. It
+// counts stored rows, so it survives a restart and a resume.
+func (q *Queries) CountSessionEventsOfKind(ctx context.Context, arg CountSessionEventsOfKindParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countSessionEventsOfKind, arg.CardID, arg.Kind)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const getChatEvent = `-- name: GetChatEvent :one
 SELECT id, card_id, chat_id, session_id, seq, kind, state, summary, detail_json, log_ref, created_at FROM session_events WHERE chat_id = ? AND id = ?
 `
