@@ -46,13 +46,6 @@ export function initialsOf(name: string): string {
 
 /** Keys of this many characters or fewer are treated as not entered. */
 export const SHORT_KEY_LENGTH = 8;
-const KEY_HEAD_CHARS = 6;
-const KEY_TAIL_CHARS = 4;
-
-/** How a saved key is shown: the first six characters, an ellipsis, the last four. */
-export function maskKey(key: string): string {
-  return `${key.slice(0, KEY_HEAD_CHARS)}…${key.slice(-KEY_TAIL_CHARS)}`;
-}
 
 /** The last part of a repository path or URL, without `.git`; empty when there is none. */
 export function repoNameOf(value: string): string {

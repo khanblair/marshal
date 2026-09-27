@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { initialDraft, initialsOf, maskKey, repoNameOf } from "./onboarding-draft";
+import { initialDraft, initialsOf, repoNameOf } from "./onboarding-draft";
 
 describe("initialsOf", () => {
   it.each([
@@ -11,12 +11,6 @@ describe("initialsOf", () => {
     ["Ada Augusta King", "AA"],
   ])("turns %j into %j", (name, expected) => {
     expect(initialsOf(name)).toBe(expected);
-  });
-});
-
-describe("maskKey", () => {
-  it("keeps the first six and last four characters", () => {
-    expect(maskKey("sk-ant-api03-abcdefgh1234")).toBe("sk-ant…1234");
   });
 });
 

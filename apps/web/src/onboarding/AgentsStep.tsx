@@ -1,4 +1,4 @@
-import type { Agent } from "@marshal/protocol";
+import { type Agent, AgentKindBuiltin } from "@marshal/protocol";
 import { Field, Icon, Input } from "@marshal/ui";
 import { For, Show } from "solid-js";
 import { M } from "~/mock";
@@ -38,11 +38,13 @@ function AgentRow(props: { agent: Agent }) {
 }
 
 /**
- * Screen 3: the agents Marshal looked for on this computer, as the daemon reports them (the
- * built-in agent is Marshal's own, not something found), and optional provider keys.
+ * Screen 3: the agents Marshal looked for on this computer, as the daemon reports them, and
+ * optional provider keys. Marshal's own agent is not one of them: the daemon lists it, but it is
+ * part of Marshal rather than something it found here.
  */
 export function AgentsStep(props: StepProps) {
-  const anyMissing = () => M.S.agents.some((agent) => agent.status === "missing");
+  const lookedFor = () => M.S.agents.filter((agent) => agent.kind !== AgentKindBuiltin);
+  const anyMissing = () => lookedFor().some((agent) => agent.status === "missing");
   return (
     <>
       <StepIntro>
@@ -52,7 +54,7 @@ export function AgentsStep(props: StepProps) {
         {SHARED_INTRO}
       </StepIntro>
       <ul class="m-0 p-0 list-none border-t border-border">
-        <For each={M.S.agents}>{(agent) => <AgentRow agent={agent} />}</For>
+        <For each={lookedFor()}>{(agent) => <AgentRow agent={agent} />}</For>
       </ul>
       <div class="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3">
         <For each={KEY_FIELDS}>

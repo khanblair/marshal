@@ -224,3 +224,17 @@ export async function chatMessagesViaApi(
   if (!response.ok()) throw new Error(`could not read the messages: ${response.status()}`);
   return ((await response.json()) as { items: { kind: string; text: string }[] }).items;
 }
+
+/** One connection as the daemon lists it, with what a spec checks about it. */
+export interface WireIntegration {
+  id: string;
+  st: string;
+  detail: string;
+}
+
+/** Every connection the daemon knows, in its own order, whether or not it is set up. */
+export async function integrationsViaApi(request: APIRequestContext): Promise<WireIntegration[]> {
+  const response = await request.get("/v1/integrations", { headers: auth() });
+  if (!response.ok()) throw new Error(`could not read the connections: ${response.status()}`);
+  return ((await response.json()) as { integrations: WireIntegration[] }).integrations;
+}

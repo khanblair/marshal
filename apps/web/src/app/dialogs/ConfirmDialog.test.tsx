@@ -1,5 +1,6 @@
-// First, so the store `~/mock` builds is the one that follows a fake daemon (S5a is the daemon's).
+// biome-ignore-all assist/source/organizeImports: the fake daemon's store has to be imported first, so the store `~/mock` builds is the one that follows it (S5a is the daemon's).
 import { daemon, resetDaemonCards, resetStoreCards } from "~/testing/daemon-cards-store";
+
 import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { M } from "~/mock";
@@ -118,15 +119,18 @@ describe("ConfirmDialog", () => {
     expect(M.S.dialog).toBeNull();
   });
 
-  it("is the bypass request the card settings open", () => {
+  it("is the bypass request the card settings open", async () => {
     M.requestBypass("api#41");
     render(() => <ConfirmDialog />);
     expect(screen.getByRole("heading", { name: "Turn on bypass permissions" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Turn on bypass" })).toBeDisabled();
     fireEvent.click(screen.getByRole("checkbox"));
     fireEvent.click(screen.getByRole("button", { name: "Turn on bypass" }));
-    expect(M.card("api#41")?.bypass).toBe(true);
+    // The grant is the daemon's (S7b): the card takes the mode once its answer is in.
+    await vi.waitFor(() => expect(M.card("api#41")?.bypass).toBe(true));
+    expect(M.card("api#41")?.perm).toBe("Bypass permissions");
     expect(M.S.toasts.map((t) => t.msg)).toContain("Bypass turned on");
+    expect(daemon.cards.find((card) => card.key === "api#41")?.permissionMode).toBe("bypass");
   });
 
   it("is the delete confirmation for a card", async () => {

@@ -1,5 +1,6 @@
-// First, so the store `~/mock` builds is the one that follows a fake daemon (S5a is the daemon's).
+// biome-ignore-all assist/source/organizeImports: the fake daemon's store has to be imported first, so the store `~/mock` builds is the one that follows it (S5a is the daemon's).
 import { daemon, resetDaemonCards, resetStoreCards } from "~/testing/daemon-cards-store";
+
 import { cleanup, fireEvent, render, screen, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { M } from "~/mock";

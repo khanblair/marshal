@@ -1,10 +1,11 @@
 import type { CreateProjectRequest } from "@marshal/protocol";
 import type { Marshal } from "~/mock";
 import { AGENTS_STEP, CONTROL_STEP, PROFILE_STEP, PROJECT_STEP } from "./onboarding-data";
-import { maskKey, type OnboardingDraft, repoNameOf, SHORT_KEY_LENGTH } from "./onboarding-draft";
+import type { OnboardingDraft } from "./onboarding-draft";
+import { repoNameOf, SHORT_KEY_LENGTH } from "./onboarding-draft";
 
 /** The part of the store a step writes to. */
-type Store = Pick<Marshal, "S" | "addProject" | "toast">;
+type Store = Pick<Marshal, "S" | "addProject" | "saveProviderKey" | "toast">;
 
 function commitProfile(m: Store, draft: OnboardingDraft): void {
   const { profile } = m.S;
@@ -15,12 +16,19 @@ function commitProfile(m: Store, draft: OnboardingDraft): void {
   });
 }
 
+/**
+ * Stores the keys typed on the agents step. Each one is saved on the daemon (section S28), which
+ * checks it, writes it to the OS keychain, and masks it, so nothing is stored here and nothing is
+ * masked here: the daemon's answer fills the store. A key is skipped when none was typed, and one
+ * for a provider the daemon does not list is skipped too. A refusal is shown as its own sentence by
+ * `optimistic`, and setup carries on.
+ */
 function commitKeys(m: Store, draft: OnboardingDraft): void {
   for (const [id, key] of Object.entries(draft.keys)) {
-    const provider = m.S.providers.find((p) => p.id === id);
-    if (!provider || key.length <= SHORT_KEY_LENGTH) continue;
-    provider.st = "saved";
-    provider.masked = maskKey(key);
+    const value = key.trim();
+    if (value.length <= SHORT_KEY_LENGTH) continue;
+    if (!m.S.providers.some((provider) => provider.id === id)) continue;
+    void m.saveProviderKey(id, value);
   }
 }
 

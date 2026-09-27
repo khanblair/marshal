@@ -42,19 +42,35 @@ describe("commitStep on the profile screen", () => {
 });
 
 describe("commitStep on the agents screen", () => {
-  it("saves a key longer than eight characters, masked", () => {
+  // The keys go to the daemon (section S28), which stores them in the operating system's keychain
+  // and answers only their masked form, so this screen needs a daemon to save one at all.
+  let daemon: FakeDaemon;
+  let synced: Marshal;
+  beforeEach(async () => {
+    daemon = createFakeDaemon();
+    synced = await createSyncedMarshal(daemon);
+  });
+  afterEach(() => daemon.data.stop());
+
+  const provider = (id: string) => synced.S.providers.find((p) => p.id === id);
+
+  it("saves a key longer than eight characters on the daemon, masked by the daemon", async () => {
     draft.keys.anthropic = "sk-ant-api03-abcdefgh1234";
-    commitStep(2, draft, m);
-    const provider = m.S.providers.find((p) => p.id === "anthropic");
-    expect(provider).toMatchObject({ st: "saved", masked: "sk-ant…1234" });
+    commitStep(2, draft, synced);
+    await vi.waitFor(() =>
+      expect(provider("anthropic")).toMatchObject({ st: "saved", masked: "sk-ant-…1234" }),
+    );
+    expect(daemon.bodies("PUT /v1/providers/anthropic")).toEqual([
+      { key: "sk-ant-api03-abcdefgh1234" },
+    ]);
   });
 
-  it("ignores a key of eight characters or fewer", () => {
-    const before = m.S.providers.find((p) => p.id === "deepseek");
+  it("ignores a key of eight characters or fewer, and asks the daemon for nothing", async () => {
+    const before = provider("deepseek");
     draft.keys.openai = "12345678";
-    commitStep(2, draft, m);
-    expect(m.S.providers.find((p) => p.id === "openai")?.masked).not.toBe("123456…5678");
-    expect(m.S.providers.find((p) => p.id === "deepseek")).toEqual(before);
+    commitStep(2, draft, synced);
+    expect(daemon.routes()).not.toContain("PUT /v1/providers/openai");
+    expect(provider("deepseek")).toEqual(before);
   });
 });
 

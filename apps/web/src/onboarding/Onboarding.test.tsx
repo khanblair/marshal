@@ -279,14 +279,17 @@ describe("Onboarding agents screen", () => {
     restore();
   });
 
-  it("saves a masked key on Continue", () => {
+  it("hands the typed key to the provider key action on Continue", () => {
+    const save = vi.spyOn(M, "saveProviderKey");
     render(() => <Onboarding />);
     const field = screen.getByLabelText("Anthropic API key");
     expect(field).toHaveAttribute("type", "password");
     type(field, LONG_KEY);
     click("Continue");
-    const provider = M.S.providers.find((p) => p.id === "anthropic");
-    expect(provider?.masked).toBe("sk-ant…1234");
+    // The key is stored by the daemon (section S28), which masks it; what this screen owes is the
+    // call, with the key it collected. The stored, masked row is `commit-step.test.ts`'s subject.
+    expect(save).toHaveBeenCalledWith("anthropic", LONG_KEY);
+    save.mockRestore();
   });
 });
 

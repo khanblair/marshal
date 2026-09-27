@@ -11,6 +11,7 @@ describe("agentSelectOptions", () => {
       { value: "Claude Code", label: "Claude Code", disabled: false },
       { value: "Gemini CLI", label: "Gemini CLI", disabled: false },
       { value: "Codex", label: "Codex (not installed)", disabled: true },
+      { value: "Built-in agent", label: "Built-in agent", disabled: false },
     ]);
   });
 
@@ -23,13 +24,13 @@ describe("agentSelectOptions", () => {
   it("puts an agent the catalog does not know first, so the picker shows what is set", () => {
     const rows = agentSelectOptions(golden, "Aider");
     expect(rows[0]).toEqual({ value: "Aider" });
-    expect(rows).toHaveLength(4);
+    expect(rows).toHaveLength(5);
   });
 
   it("adds nothing for an agent it knows, or for none", () => {
-    expect(agentSelectOptions(golden, "Codex")).toHaveLength(3);
-    expect(agentSelectOptions(golden, "")).toHaveLength(3);
-    expect(agentSelectOptions(golden, undefined)).toHaveLength(3);
+    expect(agentSelectOptions(golden, "Codex")).toHaveLength(4);
+    expect(agentSelectOptions(golden, "")).toHaveLength(4);
+    expect(agentSelectOptions(golden, undefined)).toHaveLength(4);
   });
 
   it("is empty for an empty catalog", () => {
