@@ -64,5 +64,20 @@ UPDATE sessions
 SET view_mode = ?, updated_at = ?
 WHERE id = ?;
 
+-- name: UpdateSessionHandoff :execrows
+-- The handoff (build-plan 7.5): the card's work continues on a different agent, and the row is
+-- rewritten to say so. The row's id is kept on purpose: a card has one session row for its whole
+-- life (0003_sessions.sql), and the card's history hangs off this row (session_events.session_id),
+-- so replacing the row would take the history with it. What changes is which agent the session runs,
+-- the agent's own session id (the new agent's conversation is new), and the view, which is back to
+-- chat for the same reason a stopped session's is: a fresh conversation has no terminal of its own
+-- yet. One write, so a restart never sees the old agent and the new agent's session id apart.
+UPDATE sessions
+SET agent_kind = sqlc.arg(agent_kind), agent_session_id = sqlc.arg(agent_session_id),
+    state = sqlc.arg(state), model = sqlc.arg(model), thinking = sqlc.arg(thinking),
+    permission_mode = sqlc.arg(permission_mode), view_mode = 'chat',
+    last_active_at = sqlc.arg(last_active_at), updated_at = sqlc.arg(updated_at)
+WHERE id = sqlc.arg(id);
+
 -- name: DeleteSession :execrows
 DELETE FROM sessions WHERE id = ?;

@@ -54,6 +54,28 @@ LIMIT ?;
 -- One of a chat's events in full, for the detail a row opens on demand.
 SELECT * FROM session_events WHERE chat_id = ? AND id = ?;
 
+-- name: ListChatEventsByKind :many
+-- ListSessionEventsByKind's twin for a chat's history (S8b): used today only to page a chat's own
+-- approval events while looking for the one an approval's id names (internal/history/approvals.go's
+-- ResolveApproval), the way ListSessionEventsByKind already does for a card's.
+SELECT * FROM session_events
+WHERE chat_id = ? AND kind = ? AND seq < ?
+ORDER BY seq DESC
+LIMIT ?;
+
+-- name: UpdateSessionEventState :execrows
+-- Rewrites the state of one stored event of a card's history, and nothing else about it (S8b): an
+-- approval's row is written once, with its own id already in its detail, and this is the one place
+-- that row is ever touched again, to move it from waiting to however it was answered
+-- (internal/history/approvals.go's ResolveApproval). id is the event's own id, not the approval's;
+-- the caller has already found it. Zero rows affected is not an error: see ResolveApproval's doc
+-- comment on why the row can legitimately not be there.
+UPDATE session_events SET state = ?1 WHERE id = ?2 AND card_id = ?3 AND card_id <> '';
+
+-- name: UpdateChatEventState :execrows
+-- UpdateSessionEventState's twin for a chat's event.
+UPDATE session_events SET state = ?1 WHERE id = ?2 AND chat_id = ?3;
+
 -- name: CountSessionEventsOfKind :one
 -- How many events of one kind a card has, for a rule that counts rather than pages (the harness's
 -- round limit, B5.3): one message delivered into a card's session is one turn, and it is stored as
