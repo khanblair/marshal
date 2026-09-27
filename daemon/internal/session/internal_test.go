@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/khanblair/marshal/daemon/internal/agents"
+	"github.com/khanblair/marshal/daemon/internal/store"
+	"github.com/khanblair/marshal/daemon/internal/store/db"
 )
 
 // stubbedAgent is a minimal agents.Agent for the one internal test that needs to call
@@ -221,6 +223,27 @@ func TestMarshalLogLineCoversEveryEventKind(t *testing.T) {
 				t.Error("the line has no \"at\" field")
 			}
 		})
+	}
+}
+
+// TestContainmentOfFailsClosedWhenTheProjectCannotBeRead covers the careful direction: a card that
+// has a worktree but whose project cannot be read must not be decided without the worktree rule, so
+// containmentOf reports the error rather than a worktree with no containment.
+func TestContainmentOfFailsClosedWhenTheProjectCannotBeRead(t *testing.T) {
+	st, err := store.Open(context.Background(), filepath.Join(t.TempDir(), "marshal.db"))
+	if err != nil {
+		t.Fatalf("open the store: %v", err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	m := &Manager{store: st, ctx: context.Background(), log: slog.New(slog.DiscardHandler), cfg: Config{DataDir: t.TempDir()}}
+
+	if _, ok, err := m.containmentOf(db.Card{ID: "card-1"}); err != nil || ok {
+		t.Errorf("a card with no worktree: ok = %v, err = %v, want no worktree and no error", ok, err)
+	}
+	if _, _, err := m.containmentOf(db.Card{
+		ID: "card-1", ProjectID: "prj_missing", WorktreePath: "/tmp/wt", Branch: "marshal/card-1",
+	}); err == nil {
+		t.Error("a card whose project cannot be read reported no error, so it would be decided with no worktree rule")
 	}
 }
 

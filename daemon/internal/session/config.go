@@ -1,13 +1,18 @@
 package session
 
 import (
+	"crypto/rand"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"path/filepath"
 	"time"
 
 	"github.com/khanblair/marshal/daemon/internal/agents"
+	"github.com/khanblair/marshal/daemon/internal/audit"
+	"github.com/khanblair/marshal/daemon/internal/secrets"
+	"github.com/khanblair/marshal/daemon/internal/security"
 )
 
 // Default sizes and times, all configurable through Config.
@@ -56,6 +61,11 @@ type Config struct {
 	// manager writes to the store it already has; set it to share the history module's own store,
 	// which is what reads a card's history back.
 	History HistoryRecorder
+	// Plans reads and writes the plans a card waits on in plan-first mode (docs/backend-checklist.md
+	// B5.2): the plan a person approves, rejects, or edits. Left unset, the manager writes to the
+	// store it already has; set it to share the history module's own store, which is what pages a
+	// card's plan back in its chat.
+	Plans PlanStore
 	// Terminals makes the agent that runs a card's CLI in a pseudo-terminal, for the terminal view
 	// (docs/architecture.md 4.3), by the same kinds as the registry the manager starts chat sessions
 	// through. Every agent it makes must also be an agents.Terminal, as the PTY adapter is. A kind
@@ -75,6 +85,25 @@ type Config struct {
 	Logger *slog.Logger
 	// Now is the clock. The default is time.Now.
 	Now func() time.Time
+	// Entropy is where an opaque id gets its random part, for the ids this manager makes itself (an
+	// approval's own id). The default is crypto/rand.Reader; a test sets it to get ids it can
+	// predict.
+	Entropy io.Reader
+	// Audit records the actions a person may need to account for: a decision on an approval, and the
+	// rest of Phase 3 (docs/backend-checklist.md B3.5). Left unset, the manager makes one on the
+	// store it already has.
+	Audit *audit.Recorder
+	// Profile says what a session's agent may do at all, in every mode except bypass
+	// (docs/marshal-product-scope.md section 14.3). Left nil, the profile Marshal ships with is used,
+	// which allows everything a person's own agent normally does. Set it to a profile meant to
+	// refuse - security.NothingAllowed, say - to narrow what the manager's sessions may do; a
+	// pointer is used so that "nothing allowed" is distinguishable from "not set".
+	Profile *security.Profile
+	// Secrets scans every commit an agent makes for credentials, and stops the card when it finds
+	// one (docs/backend-checklist.md B3.5). Left nil, Marshal's own scanner is built from the rule
+	// set gitleaks ships with; set it to a scanner a test controls to prove the block without
+	// inventing a key that the real rules would not match.
+	Secrets *secrets.Scanner
 }
 
 // withDefaults checks the config and fills in what was left out.
@@ -99,6 +128,16 @@ func (c Config) withDefaults() (Config, error) {
 	}
 	if c.Now == nil {
 		c.Now = time.Now
+	}
+	if c.Entropy == nil {
+		c.Entropy = rand.Reader
+	}
+	if c.Profile == nil {
+		profile := security.DefaultProfile()
+		c.Profile = &profile
+	}
+	if c.Secrets == nil {
+		c.Secrets = secrets.New()
 	}
 	return c, nil
 }

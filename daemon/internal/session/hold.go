@@ -62,10 +62,14 @@ func refusedHold(reason protocol.HoldRefusalReason) *protocol.Error {
 // awakeSessionState reports whether a session in this state is awake: it has, or is about to have,
 // a process. A session in any other state (asleep, stopped) has nothing to put to sleep, so a
 // sleep of it answers "This card has no awake session."
+//
+// The sleep warning is an awake state: the process is running and the card is only waiting out the
+// warning before it sleeps (section 5.1's SleepWarning -> Asleep). Leaving it out would make the
+// idle timer's own sleep of a warned card be refused as having no session.
 func awakeSessionState(state protocol.SessionState) bool {
 	switch state {
 	case protocol.SessionStateStarting, protocol.SessionStateAwake, protocol.SessionStateWorking,
-		protocol.SessionStateWaking:
+		protocol.SessionStateWaking, protocol.SessionStateSleepWarning:
 		return true
 	}
 	return false
@@ -180,6 +184,9 @@ func (m *Manager) Sleep(ctx context.Context, cardID string) error {
 	if err := m.stopForSleep(ctx, cardID); err != nil {
 		return err
 	}
+	// A card that sleeps is not going to sleep again later, so it leaves its project's notice: the
+	// one the idle timer made, or the one a person slept it out of ahead of the deadline.
+	m.leaveSleepGroup(cardID, protocol.EventTypeNoticeDismissed)
 	if err := m.setRowState(ctx, row, protocol.SessionStateAsleep); err != nil {
 		return err
 	}

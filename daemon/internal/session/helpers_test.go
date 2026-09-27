@@ -135,6 +135,20 @@ func (e *env) card(t *testing.T, projectID, title string) protocol.Card {
 	return c
 }
 
+// cardWithMode makes a card in a project, in a chosen permission mode. The mode is what the harness
+// answers the card's agent with on its own, so a test that wants a request to reach a person says so
+// here rather than relying on the default.
+func (e *env) cardWithMode(t *testing.T, projectID, title string, mode protocol.PermissionMode) protocol.Card {
+	t.Helper()
+	c, err := e.proj.CreateCard(context.Background(), projectID, protocol.CreateCardRequest{
+		Title: title, PermissionMode: mode,
+	})
+	if err != nil {
+		t.Fatalf("create the card %q in mode %s: %v", title, mode, err)
+	}
+	return c
+}
+
 // untilType reads events until one of the given type arrives, and returns it.
 func (e *env) untilType(t *testing.T, typ protocol.EventType) events.Event {
 	t.Helper()

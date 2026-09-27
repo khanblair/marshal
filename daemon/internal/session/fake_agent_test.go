@@ -30,6 +30,10 @@ type fakeAgent struct {
 	// hold, when set, makes every turn wait for a receive on it before sending TurnEnded, so a
 	// test can control exactly when a turn ends.
 	hold chan struct{}
+	// turnScript, when set, is the events a turn emits instead of the default message chunk, so a
+	// test can drive a turn's tool calls (a loop the stuck detector catches, for instance).
+	// TurnEnded is always emitted after them, so a script never has to end its own turn.
+	turnScript []agents.AgentEvent
 	// startHold, when set, makes Start wait for a receive on it before returning, so a test can
 	// create a reliable window during which two Start calls for the same card overlap.
 	startHold chan struct{}
@@ -40,6 +44,24 @@ type fakeAgent struct {
 	// specs is every StartSpec a Start or a Resume was given, in order, so a test can check where
 	// and with what settings the manager asked for a process.
 	specs []agents.StartSpec
+	// open maps a permission request's id to the session it was asked on, so Respond can find the
+	// request it answers; a request is removed once it is answered, exactly as a real adapter
+	// forgets one.
+	open map[string]*fakeSession
+	// responses is every ApprovalResponse the Manager delivered, by the request id it answered, so a
+	// test can prove the person's answer reached the agent unchanged.
+	responses map[string]agents.ApprovalResponse
+	// respondErr, when set, is what Respond returns instead of recording the answer.
+	respondErr error
+	// settings is every live setting change the Manager gave a running session, in order, the way
+	// an adapter that can change them without a restart takes one (B3.6). The fake implements
+	// agents.SettingsApplier, so a test can prove what the manager handed over and when.
+	settings []agents.SessionSettings
+	// applyErr, when set, is what ApplySettings returns instead of taking the settings.
+	applyErr error
+	// applyCalls counts every live setting change the Manager handed over, including one the fake
+	// refused, so a test can prove a change the agent cannot take is not offered again and again.
+	applyCalls int
 }
 
 // fakeSession is one session a fakeAgent is running.
@@ -53,7 +75,10 @@ type fakeSession struct {
 }
 
 func newFakeAgent(caps agents.Capabilities) *fakeAgent {
-	return &fakeAgent{caps: caps, sessions: make(map[string]*fakeSession)}
+	return &fakeAgent{
+		caps: caps, sessions: make(map[string]*fakeSession),
+		open: make(map[string]*fakeSession), responses: make(map[string]agents.ApprovalResponse),
+	}
 }
 
 func (a *fakeAgent) Start(_ context.Context, spec agents.StartSpec) (agents.SessionHandle, error) {
@@ -137,6 +162,7 @@ func (a *fakeAgent) Send(_ context.Context, h agents.SessionHandle, msg agents.U
 func (a *fakeAgent) runTurn(s *fakeSession, msg agents.UserMessage) {
 	a.mu.Lock()
 	hold := a.hold
+	script := append([]agents.AgentEvent(nil), a.turnScript...)
 	a.mu.Unlock()
 	if hold != nil {
 		<-hold
@@ -145,11 +171,25 @@ func (a *fakeAgent) runTurn(s *fakeSession, msg agents.UserMessage) {
 	s.turns++
 	n := s.turns
 	s.mu.Unlock()
-	s.sink.Emit(agents.MessageChunk{Text: fmt.Sprintf("turn %d remembers %d earlier turns: %s", n, n-1, msg.Text)})
+	if script != nil {
+		for _, ev := range script {
+			s.sink.Emit(ev)
+		}
+	} else {
+		s.sink.Emit(agents.MessageChunk{Text: fmt.Sprintf("turn %d remembers %d earlier turns: %s", n, n-1, msg.Text)})
+	}
 	s.sink.Emit(agents.TurnEnded{Reason: agents.TurnEndTurn})
 	s.mu.Lock()
 	s.busy = false
 	s.mu.Unlock()
+}
+
+// setTurnScript changes what a turn emits, safe to call while a pump goroutine may be concurrently
+// reading it.
+func (a *fakeAgent) setTurnScript(events ...agents.AgentEvent) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.turnScript = events
 }
 
 // startSpecs copies the specs the fake was asked to start or resume a process with.
@@ -171,6 +211,48 @@ func (a *fakeAgent) setSendErr(err error) {
 
 func (a *fakeAgent) Interrupt(context.Context, agents.SessionHandle) error { return nil }
 
+// ApplySettings takes a live settings change and remembers it, the way a real adapter that can
+// change a running session's settings does (agents.SettingsApplier, B3.6). Every field that has a
+// value is reported as applied, so the manager's own bookkeeping can be checked against it.
+func (a *fakeAgent) ApplySettings(
+	_ context.Context, _ agents.SessionHandle, settings agents.SessionSettings,
+) (agents.Applied, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.applyCalls++
+	if a.applyErr != nil {
+		return agents.Applied{}, a.applyErr
+	}
+	a.settings = append(a.settings, settings)
+	return agents.Applied{
+		Model:          settings.Model != "",
+		Thinking:       settings.Thinking != "",
+		PermissionMode: settings.PermissionMode != "",
+	}, nil
+}
+
+// appliedSettings copies the live settings changes the fake was given.
+func (a *fakeAgent) appliedSettings() []agents.SessionSettings {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return append([]agents.SessionSettings(nil), a.settings...)
+}
+
+// settingsCalls says how many live setting changes the Manager handed over, taken or refused.
+func (a *fakeAgent) settingsCalls() int {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.applyCalls
+}
+
+// setApplyErr changes what ApplySettings returns, safe to call while a pump goroutine may be
+// concurrently sending.
+func (a *fakeAgent) setApplyErr(err error) {
+	a.mu.Lock()
+	a.applyErr = err
+	a.mu.Unlock()
+}
+
 func (a *fakeAgent) Events(h agents.SessionHandle) <-chan agents.AgentEvent {
 	s, err := a.find(h.ID)
 	if err != nil {
@@ -181,8 +263,42 @@ func (a *fakeAgent) Events(h agents.SessionHandle) <-chan agents.AgentEvent {
 	return s.sink.C()
 }
 
-func (*fakeAgent) Respond(context.Context, agents.SessionHandle, agents.ApprovalResponse) error {
-	return agents.ErrUnknownRequest
+// Respond records the answer the Manager delivered, the way a real adapter hands the choice back
+// to the agent program. A request id it never asked about is unknown, matching a real adapter.
+func (a *fakeAgent) Respond(_ context.Context, _ agents.SessionHandle, resp agents.ApprovalResponse) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.respondErr != nil {
+		return a.respondErr
+	}
+	if _, ok := a.open[resp.RequestID]; !ok {
+		return agents.ErrUnknownRequest
+	}
+	delete(a.open, resp.RequestID)
+	a.responses[resp.RequestID] = resp
+	return nil
+}
+
+// ask makes the agent ask for permission on a running session, the way a real agent's protocol
+// would: it blocks the turn until Respond answers. It returns false when the session is unknown.
+func (a *fakeAgent) ask(id string, req agents.PermissionRequested) bool {
+	s, err := a.find(id)
+	if err != nil {
+		return false
+	}
+	a.mu.Lock()
+	a.open[req.RequestID] = s
+	a.mu.Unlock()
+	s.sink.Emit(req)
+	return true
+}
+
+// approvalResponse returns the answer delivered for a request id, and whether one was.
+func (a *fakeAgent) approvalResponse(requestID string) (agents.ApprovalResponse, bool) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	resp, ok := a.responses[requestID]
+	return resp, ok
 }
 
 func (a *fakeAgent) Stop(_ context.Context, h agents.SessionHandle) error {
@@ -242,3 +358,4 @@ func (a *fakeAgent) crash(id, message string) {
 }
 
 var _ agents.Agent = (*fakeAgent)(nil)
+var _ agents.SettingsApplier = (*fakeAgent)(nil)
