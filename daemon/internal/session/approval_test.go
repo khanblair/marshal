@@ -174,6 +174,50 @@ func TestRespondAnswersTheAgentAndAnnouncesIt(t *testing.T) {
 	}
 }
 
+// TestPermissionRequestMovesTheCardToNeedsYou is S8b's daemon-side half of B3.4's "the Home needs
+// you list" done-when: before this, a waiting approval held the session but never touched the
+// card's own state, so it never reached Home's needs-you list at all (a card-state driven list,
+// section 3 of the phase report).
+func TestPermissionRequestMovesTheCardToNeedsYou(t *testing.T) {
+	e := newEnv(t)
+	a := e.startAsking(t)
+
+	card, err := e.proj.Card(context.Background(), a.card.ID)
+	if err != nil {
+		t.Fatalf("read the card: %v", err)
+	}
+	if card.State != protocol.CardStateNeeds {
+		t.Errorf("the card's state = %q, want needs", card.State)
+	}
+	if card.NeedsReason == nil || card.NeedsReason.Kind != protocol.NeedsReasonKindApprovalNeeded {
+		t.Fatalf("the card's needs reason = %+v, want approval-needed", card.NeedsReason)
+	}
+	if card.NeedsReason.ApprovalID != a.approval.ID {
+		t.Errorf("the card's needs reason approval id = %q, want %q", card.NeedsReason.ApprovalID, a.approval.ID)
+	}
+}
+
+// TestRespondMovesTheCardBackToWorking is the other half of the same gap: once the approval is
+// answered, Home must stop showing the card, which means the card must leave Needs you again.
+func TestRespondMovesTheCardBackToWorking(t *testing.T) {
+	e := newEnv(t)
+	a := e.startAsking(t)
+
+	if err := e.mgr.Respond(context.Background(), a.approval.ID, protocol.ApprovalDecisionApproved, "", audit.ActorPerson); err != nil {
+		t.Fatalf("respond to the approval: %v", err)
+	}
+	card, err := e.proj.Card(context.Background(), a.card.ID)
+	if err != nil {
+		t.Fatalf("read the card: %v", err)
+	}
+	if card.State != protocol.CardStateWorking {
+		t.Errorf("the card's state after answering = %q, want working", card.State)
+	}
+	if card.NeedsReason != nil && card.NeedsReason.ApprovalID != "" {
+		t.Errorf("the card's needs reason after answering = %+v, want no approval waiting", card.NeedsReason)
+	}
+}
+
 func TestRespondRefusesARequestNobodyIsWaitingOn(t *testing.T) {
 	e := newEnv(t)
 	a := e.startAsking(t)

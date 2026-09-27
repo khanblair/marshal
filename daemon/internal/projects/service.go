@@ -145,6 +145,12 @@ type SessionInfo struct {
 	State protocol.SessionState
 	// View is the view the session runs in, chat or terminal (docs/architecture.md 4.3).
 	View protocol.CardViewMode
+	// ApprovalID is the id of the approval the session's card is waiting on, or empty when it is
+	// not waiting on one (S8b). It is set onto the card's own NeedsReason (card_labels.go's
+	// withSessionInfo) so Home's needs-you list can answer a waiting approval without opening the
+	// card. It is read fresh from the approvals table by session.StoredStates, never stored, so it
+	// cannot go stale once the approval is answered.
+	ApprovalID string
 }
 
 // SessionStates reads the stored state and view of cards' sessions, for the `session` and `viewMode`

@@ -27,8 +27,13 @@ func RecordsOf(ev agents.AgentEvent) ([]Record, error) {
 		return oneDetail(KindToolCallUpdate, e.Title, toolState(e.Status), toolDetailOfUpdate(e))
 	case agents.PlanUpdate:
 		return oneDetail(KindPlan, planSummary(len(e.Steps)), "", planDetailOf(e.Steps))
-	case agents.PermissionRequested:
-		return oneDetail(KindApproval, e.Title, StateWaiting, approvalDetailOf(e))
+	// agents.PermissionRequested is deliberately not a case here (S8b): the row this package stores
+	// for an approval must carry the approval's own id, and nothing has minted that id yet at the
+	// moment the pump logs this event (internal/session/pump.go's handleEvent calls logEvent, which
+	// calls this function, before its own switch reaches the case that mints one). The approvals
+	// work writes its own record explicitly, once the id exists (internal/session/approval.go's
+	// holdPermission and the daemon-auto-answer path in harness.go), through AppendApproval below,
+	// which is the same shape this case used to build. Falls to default, so this returns no record.
 	case agents.Failed:
 		return oneDetail(KindSystem, e.Message, StateFailed, failureDetailOf(e))
 	default:
@@ -122,8 +127,13 @@ type planStep struct {
 }
 
 // approvalDetail is a permission request, as stored. It holds the fields the session log line
-// keeps; the answers and the options the person can give belong to the approvals work.
+// keeps, plus the approval's own id (S8b), so a stored row can be found again and rewritten when
+// the approval it recorded is answered (see ResolveApproval in approvals.go). ID is empty for a
+// request the daemon answered on its own without ever minting one (the bypass and harness
+// auto-answer paths): such a row is written already resolved and is never a target of a later
+// rewrite.
 type approvalDetail struct {
+	ID          string `json:"id,omitempty"`
 	RequestID   string `json:"requestId"`
 	Title       string `json:"title,omitempty"`
 	RequestKind string `json:"requestKind,omitempty"`
@@ -170,14 +180,6 @@ func planDetailOfSteps(steps []agents.PlanStep) planDetail {
 		stored[i] = planStep{Text: step.Text, Status: step.Status}
 	}
 	return planDetail{Steps: stored}
-}
-
-// approvalDetailOf turns a permission request into its stored detail.
-func approvalDetailOf(request agents.PermissionRequested) approvalDetail {
-	return approvalDetail{
-		RequestID: request.RequestID, Title: request.Title, RequestKind: request.Kind,
-		Path: request.Path, Command: request.Command,
-	}
 }
 
 // failureDetailOf turns an agent failure into its stored detail.

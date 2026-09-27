@@ -41,11 +41,17 @@ func (s *Service) withSession(ctx context.Context, card protocol.Card) (protocol
 	return card, nil
 }
 
-// withSessionInfo sets the session and view of a card from what the session module stored.
+// withSessionInfo sets the session and view of a card from what the session module stored. It is
+// also where a card's NeedsReason picks up the id of the approval it is waiting on (S8b): the id
+// lives in the session module, not on the card row, so this is the one place a card built from a
+// row (toCard) and a card told about its session (this) meet.
 func withSessionInfo(card protocol.Card, info SessionInfo) protocol.Card {
 	state := info.State
 	card.Session = &state
 	card.ViewMode = info.View
+	if card.NeedsReason != nil && card.NeedsReason.Kind == protocol.NeedsReasonKindApprovalNeeded {
+		card.NeedsReason.ApprovalID = info.ApprovalID
+	}
 	return card
 }
 

@@ -248,16 +248,17 @@ func listOrEmpty(items []string) []string {
 	return items
 }
 
-// approvalOf builds the approval block of one stored event. Nothing writes an approval message yet
-// (Phase 3, B3.4), and the request an agent asks for today is only logged, so a stored approval is
-// drawn as waiting until the approval flow answers it.
+// approvalOf builds the approval block of one stored event. ID is the approval's own opaque id
+// (S8b), read back from the same detail AppendApproval wrote it into; it is empty for a row the
+// daemon wrote already resolved on a person's behalf (bypass, the harness auto-answer path), which
+// is never in the waiting state, so a client is never given a button with nothing to call.
 func approvalOf(ev Event, state protocol.ActivityState) (protocol.ChatApproval, error) {
 	var stored approvalDetail
 	if err := decodeDetail(ev, &stored); err != nil {
 		return protocol.ChatApproval{}, err
 	}
 	return protocol.ChatApproval{
-		State: approvalState(state), Command: stored.Command, Reason: stored.Title,
+		ID: stored.ID, State: approvalState(state), Command: stored.Command, Reason: stored.Title,
 	}, nil
 }
 

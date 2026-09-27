@@ -8,10 +8,34 @@ import (
 	"github.com/khanblair/marshal/daemon/internal/agents"
 	"github.com/khanblair/marshal/daemon/internal/audit"
 	"github.com/khanblair/marshal/daemon/internal/harness"
+	"github.com/khanblair/marshal/daemon/internal/history"
 	"github.com/khanblair/marshal/daemon/internal/protocol"
 	"github.com/khanblair/marshal/daemon/internal/store"
 	"github.com/khanblair/marshal/daemon/internal/store/db"
 )
+
+// ApprovalHistory reads and writes an approval's own row of a card's or a chat's history, the one
+// row this package deliberately rewrites in place rather than only ever appending to (S8b, N7): a
+// row RecordsOf cannot write for the reason its own comment gives (nothing has minted the
+// approval's id yet), and a row that must be found again and updated when the approval it recorded
+// is finally answered, so a chat reopened later shows the right thing instead of a stuck waiting
+// block with dead buttons. The history module implements it (history.Store), the way it implements
+// HistoryRecorder and PlanStore.
+type ApprovalHistory interface {
+	// AppendApproval stores one permission request as a card's next history event, with the
+	// approval's own id inside its detail (empty for a request the daemon answered on its own,
+	// which mints no id) and the state the request starts in (StateWaiting for one a person is
+	// asked, an already-decided state for one the daemon has already answered).
+	AppendApproval(ctx context.Context, cardID, sessionID, approvalID string, state history.State, e agents.PermissionRequested) error
+	// AppendChatApproval is AppendApproval for a chat's session.
+	AppendChatApproval(ctx context.Context, chatID, sessionID, approvalID string, state history.State, e agents.PermissionRequested) error
+	// ResolveApproval rewrites the state of a card's already-stored approval, found by the
+	// approval's own id. A card with no matching row (the id names one the daemon answered on its
+	// own and never gave a row to find) is left alone.
+	ResolveApproval(ctx context.Context, cardID, approvalID string, state history.State) error
+	// ResolveChatApproval is ResolveApproval for a chat's session.
+	ResolveChatApproval(ctx context.Context, chatID, approvalID string, state history.State) error
+}
 
 // pendingApproval is one permission request an agent is blocked on, kept in memory from the moment
 // the agent asks until someone answers it or the session ends. The row in the approvals table is
@@ -92,6 +116,26 @@ func (m *Manager) holdPermission(ls *liveSession, e agents.PermissionRequested) 
 		m.log.Error("could not record a permission request", ls.noun()+"_id", ls.key(), "error", err)
 		return
 	}
+	// The card's or the chat's own history row is written now that the approvals row - and the id
+	// on it - both exist, so nothing can ever read this row before it has an id to answer it with
+	// (S8b; see history.RecordsOf's own comment on why this can no longer happen automatically).
+	m.appendApprovalHistory(ls, id, history.StateWaiting, e)
+	if !ls.isChat() {
+		// A chat has no board card to move. B3.4's Home needs-you list is card-state driven, so a
+		// waiting approval must put the card there (S8b) - it did not before this change, which is
+		// the bigger of the two gaps section 3 of the phase report records for S8b. This runs
+		// before every event below is published, not after: a client that reacts to
+		// approval.requested (or the session-state change) by reading the card back must already
+		// find it in needs - otherwise the read races the write on a different goroutine, and can
+		// observe the card before its state catches up (found by TestPermissionRequestMovesThe...
+		// failing intermittently until this was reordered).
+		text := fmt.Sprintf("Approval needed to run %s.", refusalSubject(e))
+		if _, err := m.projects.SetNeeds(ctx, ls.cardID, protocol.NeedsReason{
+			Kind: protocol.NeedsReasonKindApprovalNeeded, Text: text,
+		}); err != nil {
+			m.log.Error("could not move a card to needs you for a waiting approval", "card_id", ls.cardID, "error", err)
+		}
+	}
 	m.mu.Lock()
 	m.approvals[id] = &pendingApproval{
 		ls: ls, approvalID: id, requestID: e.RequestID, options: e.Options,
@@ -104,6 +148,71 @@ func (m *Manager) holdPermission(ls *liveSession, e agents.PermissionRequested) 
 	m.publishState(ls, protocol.SessionStateWaitingApproval, "")
 	m.bus.Publish(string(ls.topic()), string(protocol.EventTypeApprovalRequested),
 		protocol.ApprovalRequestedEventData{CardID: ls.cardID, ChatID: ls.chatID, Approval: approval}, true)
+}
+
+// appendApprovalHistory writes one approval's history row, for a card or a chat, and logs rather
+// than fails when it cannot: the approvals table row (and the agent's own turn) already exist
+// either way, which is the same trade-off every other history write in this package makes
+// (recorder.go's appendRecords).
+func (m *Manager) appendApprovalHistory(ls *liveSession, approvalID string, state history.State, e agents.PermissionRequested) {
+	if m.cfg.Approvals == nil {
+		return
+	}
+	var err error
+	if ls.isChat() {
+		err = m.cfg.Approvals.AppendChatApproval(m.ctx, ls.chatID, ls.sessionRowID, approvalID, state, e)
+	} else {
+		err = m.cfg.Approvals.AppendApproval(m.ctx, ls.cardID, ls.sessionRowID, approvalID, state, e)
+	}
+	if err != nil {
+		m.log.Error("could not store an approval's history row", ls.noun()+"_id", ls.key(), "error", err)
+	}
+}
+
+// resolveApprovalHistory rewrites an already-stored approval's history row to how it was answered,
+// for a card or a chat. It is called from every place an approval is decided (Respond and
+// withdrawApprovals), so a chat reopened after the fact always shows the right thing.
+func (m *Manager) resolveApprovalHistory(ctx context.Context, pa *pendingApproval, state protocol.ChatApprovalState) {
+	if m.cfg.Approvals == nil {
+		return
+	}
+	historyState := history.StateFailed
+	if state == protocol.ChatApprovalStateApproved {
+		historyState = history.StateOK
+	}
+	var err error
+	if pa.ls.isChat() {
+		err = m.cfg.Approvals.ResolveChatApproval(ctx, pa.chatID, pa.approvalID, historyState)
+	} else {
+		err = m.cfg.Approvals.ResolveApproval(ctx, pa.cardID, pa.approvalID, historyState)
+	}
+	if err != nil {
+		m.log.Error("could not rewrite an approval's history row", "approval_id", pa.approvalID, "error", err)
+	}
+}
+
+// clearApprovalNeeds moves a card back off Needs you once its waiting approval is answered, but
+// only when the card is still there for this exact reason (S8b): a card whose reason changed while
+// the agent's turn was blocked on it - which nothing today can cause, since the turn does not
+// resume until an answer arrives - is left exactly as it is, so answering late can never undo
+// something more urgent than the approval was. cardID is empty for a chat, which has no board
+// column to move, and this is then a no-op.
+func (m *Manager) clearApprovalNeeds(ctx context.Context, cardID string) {
+	if cardID == "" {
+		return
+	}
+	card, err := m.projects.Card(ctx, cardID)
+	if err != nil {
+		m.log.Error("could not read a card to clear its waiting approval", "card_id", cardID, "error", err)
+		return
+	}
+	if card.State != protocol.CardStateNeeds || card.NeedsReason == nil ||
+		card.NeedsReason.Kind != protocol.NeedsReasonKindApprovalNeeded {
+		return
+	}
+	if _, err := m.projects.SetState(ctx, cardID, protocol.CardStateWorking); err != nil {
+		m.log.Error("could not move a card back to working after an approval", "card_id", cardID, "error", err)
+	}
 }
 
 // Respond answers a waiting approval: it delivers the person's decision to the agent, records it,
@@ -137,6 +246,8 @@ func (m *Manager) Respond(ctx context.Context, approvalID string, decision proto
 		m.log.Error("could not record a decision on an approval", "approval_id", approvalID, "error", err)
 	}
 	m.auditDecision(ctx, pa, decision, actor)
+	m.resolveApprovalHistory(ctx, pa, decision.State())
+	m.clearApprovalNeeds(ctx, pa.cardID)
 	m.bus.Publish(string(pa.ls.topic()), string(protocol.EventTypeApprovalResolved),
 		protocol.ApprovalResolvedEventData{
 			CardID: pa.cardID, ChatID: pa.chatID, ApprovalID: approvalID,
@@ -230,6 +341,8 @@ func (m *Manager) withdrawApprovals(ctx context.Context, ls *liveSession) {
 			m.log.Error("could not withdraw a waiting approval", "approval_id", pa.approvalID, "error", err)
 		}
 		m.auditDecision(ctx, pa, protocol.ApprovalDecisionDenied, audit.ActorDaemon)
+		m.resolveApprovalHistory(ctx, pa, protocol.ChatApprovalStateDenied)
+		m.clearApprovalNeeds(ctx, pa.cardID)
 		m.bus.Publish(string(ls.topic()), string(protocol.EventTypeApprovalResolved),
 			protocol.ApprovalResolvedEventData{
 				CardID: pa.cardID, ChatID: pa.chatID, ApprovalID: pa.approvalID,

@@ -51,6 +51,19 @@ func (s *Service) SetState(ctx context.Context, id string, state protocol.CardSt
 			return nil
 		}
 		after.State, after.UpdatedAt = string(state), s.now().UnixMilli()
+		if state != protocol.CardStateNeeds {
+			// A card that leaves needs has waited as long as it is going to (applyMove does the
+			// same for a manual move); UpdateCardState alone only ever touched state and
+			// updated_at, so a caller that moved a card off needs this way - clearApprovalNeeds,
+			// internal/session/approval.go - left the stale reason for needsReasonOf to keep
+			// reading back, including the answered approval's own id.
+			after.NeedsReasonKind, after.NeedsReasonText = "", ""
+			after.NeedsSince = nil
+			if err := updateCardRow(ctx, q, after); err != nil {
+				return fmt.Errorf("update the state of card %s: %w", id, err)
+			}
+			return nil
+		}
 		if _, err := q.UpdateCardState(ctx, db.UpdateCardStateParams{State: after.State, UpdatedAt: after.UpdatedAt, ID: id}); err != nil {
 			return fmt.Errorf("update the state of card %s: %w", id, err)
 		}

@@ -28,6 +28,9 @@ type cardConfig struct {
 	forkedFrom string
 	doingNow   string
 	fields     *CardFields
+	// dependsOn are the cards this one waits for, by key (dependencies.go). It is only ever set as
+	// a card is created, which is what makes a cycle impossible.
+	dependsOn []protocol.CardKey
 }
 
 // CardFields are the fields a fixture sets as it creates a card: the ones a person's create
@@ -140,6 +143,11 @@ func insertCard(ctx context.Context, q *db.Queries, projectID string, params db.
 	params.BoardID = board.ID
 	if err := q.CreateCard(ctx, params); err != nil {
 		return params, nil, fmt.Errorf("insert the card: %w", err)
+	}
+	if len(cfg.dependsOn) > 0 {
+		if err := insertCardLinks(ctx, q, projectID, params.ID, cfg.dependsOn); err != nil {
+			return params, nil, err
+		}
 	}
 	if cfg.forkedFrom != "" || cfg.doingNow != "" {
 		if _, err := q.SetCardForkFields(ctx, db.SetCardForkFieldsParams{

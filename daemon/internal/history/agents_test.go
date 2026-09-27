@@ -81,15 +81,6 @@ func TestRecordsOfTurnsAnAgentEventIntoOneRecord(t *testing.T) {
 			summary: "Plan with 0 steps",
 			detail:  `{"state":"waiting","steps":[]}`,
 		},
-		"a permission request": {
-			event: agents.PermissionRequested{
-				RequestID: "r1", Title: "Run the tests", Kind: "execute", Path: "main.go", Command: "go test ./...",
-			},
-			kind:    history.KindApproval,
-			state:   history.StateWaiting,
-			summary: "Run the tests",
-			detail:  `{"requestId":"r1","title":"Run the tests","requestKind":"execute","path":"main.go","command":"go test ./..."}`,
-		},
 		"a failure": {
 			event:   agents.Failed{Message: "the agent broke", Detail: "the last lines"},
 			kind:    history.KindSystem,
@@ -121,6 +112,13 @@ func TestRecordsOfIgnoresEventsThatAreNotHistory(t *testing.T) {
 		"a turn ending":  agents.TurnEnded{Reason: agents.TurnEndTurn},
 		"an exit":        agents.Exited{Code: 0},
 		"terminal bytes": agents.TerminalOutput{Data: []byte("$ ls")},
+		// A permission request is not history on its own (S8b): nothing has minted the approval's
+		// id yet at the moment the pump logs this event, so the approvals work writes its own
+		// record explicitly once the id exists, through history.AppendApproval, rather than through
+		// RecordsOf. See RecordsOf's own comment on this case.
+		"a permission request": agents.PermissionRequested{
+			RequestID: "r1", Title: "Run the tests", Kind: "execute", Path: "main.go", Command: "go test ./...",
+		},
 	}
 	for name, event := range cases {
 		t.Run(name, func(t *testing.T) {
