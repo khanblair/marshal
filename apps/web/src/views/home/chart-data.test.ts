@@ -32,22 +32,6 @@ function designFinished(N: number, mergedToday: number) {
   );
 }
 
-function designSeries(N: number, ids: string[], today: Record<string, number>) {
-  const dayIdx = (i: number) => Math.floor(T0 / DAY) - (N - 1 - i);
-  const base: Record<string, number> = { api: 3.6, web: 2.8, mobile: 5.4 };
-  const series = ids.map((id) =>
-    Array.from({ length: N }, (_, i) =>
-      i === N - 1
-        ? (today[id] as number)
-        : Math.max(0.2, (base[id] || 2) * (0.55 + rnd(dayIdx(i) * 3 + id.length) * 0.9)),
-    ),
-  );
-  const total = Array.from({ length: N }, (_, i) =>
-    series.reduce((a, s) => a + (s[i] as number), 0),
-  );
-  return { series, total };
-}
-
 const days = (range: number): ChartDays => ({ today: T0, dayMs: DAY, range });
 
 describe("seeded", () => {
@@ -99,29 +83,65 @@ describe("finishedFromStats", () => {
 
 describe("costSeries", () => {
   const projects = [
-    { id: "api", name: "Api", todayCost: 6.5 },
-    { id: "web", name: "Web", todayCost: 4.25 },
-    { id: "docs", name: "Docs", todayCost: 1.1 },
+    { id: "api", name: "Api" },
+    { id: "web", name: "Web" },
   ];
-  for (const range of [7, 30, 90]) {
-    it(`matches the design for ${range} days, with the total first`, () => {
-      const want = designSeries(range, ["api", "web", "docs"], { api: 6.5, web: 4.25, docs: 1.1 });
-      const got = costSeries(days(range), projects);
-      expect(got.map((s) => s.name)).toEqual(["All projects", "Api", "Web", "Docs"]);
-      expect(got[0]?.values).toEqual(want.total);
-      expect(got.slice(1).map((s) => s.values)).toEqual(want.series);
-      expect(got[1]?.values.at(-1)).toBe(6.5);
-    });
-  }
 
-  it("never drops below twenty cents a day before today", () => {
-    const got = costSeries(days(30), [{ id: "x", name: "X", todayCost: 0 }]);
-    for (const value of got[1]?.values.slice(0, -1) ?? [])
-      expect(value).toBeGreaterThanOrEqual(0.2);
+  /** Stored days whose cost is given in dollars, converted to the daemon's micro-dollars. */
+  const stats = (total: number[], perProject: Record<string, number[]>): DailyStats => {
+    const rows = (values: number[]) =>
+      values.map((dollars, i) => ({
+        day: T0 - (values.length - 1 - i) * DAY,
+        cardsFinished: 0,
+        merges: 0,
+        ciFailures: 0,
+        costMicros: Math.round(dollars * 1_000_000),
+      }));
+    return {
+      range: 90,
+      days: rows(total),
+      projects: Object.entries(perProject).map(([projectId, values]) => ({
+        projectId,
+        days: rows(values),
+      })),
+    };
+  };
+
+  it("reads the total and each project's line off the stored days, total first", () => {
+    const total = Array.from({ length: 7 }, (_, i) => i + 1);
+    const got = costSeries(
+      stats(total, { api: total.map((c) => c / 2), web: [1, 1, 1, 1, 1, 1, 7] }),
+      7,
+      projects,
+    );
+    expect(got.map((s) => s.name)).toEqual(["All projects", "Api", "Web"]);
+    expect(got[0]?.values).toEqual(total);
+    expect(got[1]?.values).toEqual([0.5, 1, 1.5, 2, 2.5, 3, 3.5]);
+    expect(got[2]?.values).toEqual([1, 1, 1, 1, 1, 1, 7]);
+  });
+
+  it("takes the trailing range out of the widest stored series", () => {
+    const total = Array.from({ length: 90 }, (_, i) => i);
+    const got = costSeries(stats(total, {}), 7, []);
+    expect(got[0]?.values).toEqual([83, 84, 85, 86, 87, 88, 89]);
+  });
+
+  it("pads with zeros when the daemon has fewer days than the range", () => {
+    const got = costSeries(stats([1, 2, 3], {}), 7, []);
+    expect(got[0]?.values).toEqual([0, 0, 0, 0, 1, 2, 3]);
+  });
+
+  it("draws a project the daemon has no days for as zeros", () => {
+    const got = costSeries(stats([1, 2, 3], {}), 3, projects);
+    expect(got.map((s) => s.values)).toEqual([
+      [1, 2, 3],
+      [0, 0, 0],
+      [0, 0, 0],
+    ]);
   });
 
   it("has only the total when there are no projects", () => {
-    const got = costSeries(days(7), []);
+    const got = costSeries(stats([], {}), 7, []);
     expect(got).toEqual([{ name: "All projects", values: [0, 0, 0, 0, 0, 0, 0] }]);
   });
 });

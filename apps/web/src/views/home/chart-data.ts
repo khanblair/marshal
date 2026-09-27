@@ -1,10 +1,11 @@
 import type { AxisTick, ChartSeries } from "@marshal/ui";
+import { microsToDollars } from "~/data/mappers/limits";
 import type { DailyStats } from "~/mock/types";
 
 /*
- * The numbers behind the two Home charts. The design has no history, so past
- * days are made up from a seeded generator (the same day always gives the same
- * value) and only today's value comes from the store.
+ * The numbers behind the two Home charts. The cost chart reads the daemon's own stored days (section
+ * S19b); the cards chart reads them too once S19a is switched, and before that makes its past days up
+ * from a seeded generator (the same day always gives the same value).
  */
 
 /** The days a chart covers: `today` is the store's midnight of today, `dayMs` the length of a day. */
@@ -58,44 +59,48 @@ export function finishedPerDay(days: ChartDays, mergedToday: number): number[] {
   });
 }
 
-/** Typical daily spend in dollars of the seeded projects; others count as `DEFAULT_DAILY_COST_USD`. */
-const DAILY_COST_USD: Record<string, number> = { api: 3.6, web: 2.8, mobile: 5.4 };
-const DEFAULT_DAILY_COST_USD = 2;
-const MIN_DAILY_COST_USD = 0.2;
-const COST_FLOOR_RATIO = 0.55;
-const COST_SPREAD_RATIO = 0.9;
-/** Spreads the seeds of neighbouring days and different projects apart. */
-const COST_SEED_STRIDE = 3;
-
+/** One cost line's project: the id its stored days are keyed by, and the name the line is labelled with. */
 export interface ProjectCost {
   id: string;
   name: string;
-  /** What the project has spent today, in dollars. */
-  todayCost: number;
+}
+
+/** The trailing `range` of a series, oldest first, padded with zeros when the daemon has fewer days. */
+function trailing(values: readonly number[], range: number): number[] {
+  const tail = values.slice(-range);
+  return tail.length >= range ? tail : [...new Array<number>(range - tail.length).fill(0), ...tail];
 }
 
 /**
- * One cost line per project, oldest day first, and the total of all of them
- * first in the list. Today's point is the project's real spend.
+ * One cost line per project, oldest day first, and the total of all of them first in the list, read
+ * from the daemon's own stored numbers (section S19b) rather than made up: the total is `stats.days`
+ * and each project's line is its own stored series. Money is micro-dollars on the wire, so each day
+ * is shown in dollars. A range the daemon has no days for draws as zeros.
  */
-export function costSeries(days: ChartDays, projects: readonly ProjectCost[]): ChartSeries[] {
-  const lines = projects.map((project) =>
-    Array.from({ length: days.range }, (_, i) => {
-      if (i === days.range - 1) return project.todayCost;
-      const typical = DAILY_COST_USD[project.id] || DEFAULT_DAILY_COST_USD;
-      const seed = dayNumber(days, i) * COST_SEED_STRIDE + project.id.length;
-      return Math.max(
-        MIN_DAILY_COST_USD,
-        typical * (COST_FLOOR_RATIO + seeded(seed) * COST_SPREAD_RATIO),
-      );
-    }),
-  );
-  const total = Array.from({ length: days.range }, (_, i) =>
-    lines.reduce((sum, values) => sum + (values[i] ?? 0), 0),
-  );
+export function costSeries(
+  stats: DailyStats,
+  range: number,
+  projects: readonly ProjectCost[],
+): ChartSeries[] {
+  const dollars = (micros: number): number => microsToDollars(micros);
   return [
-    { name: "All projects", values: total },
-    ...projects.map((project, i) => ({ name: project.name, values: lines[i] ?? [] })),
+    {
+      name: "All projects",
+      values: trailing(
+        stats.days.map((day) => dollars(day.costMicros)),
+        range,
+      ),
+    },
+    ...projects.map((project) => {
+      const days = stats.projects.find((row) => row.projectId === project.id)?.days ?? [];
+      return {
+        name: project.name,
+        values: trailing(
+          days.map((day) => dollars(day.costMicros)),
+          range,
+        ),
+      };
+    }),
   ];
 }
 

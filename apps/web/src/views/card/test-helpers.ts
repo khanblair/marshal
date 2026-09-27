@@ -12,6 +12,7 @@ const seed = {
   chat: clone(M.S.chat),
   act: clone(M.S.act),
   checks: clone(M.S.checks),
+  checkpoints: clone(M.S.checkpoints),
 };
 
 /** Puts the store back to its seed and closes everything, so each test starts clean. */
@@ -20,6 +21,7 @@ export function resetStore(width = DESKTOP_PX): void {
   M.S.chat = clone(seed.chat);
   M.S.act = clone(seed.act);
   M.S.checks = clone(seed.checks);
+  M.S.checkpoints = clone(seed.checkpoints);
   delete M.S.notes;
   delete M.S.preview;
   M.S.openId = null;

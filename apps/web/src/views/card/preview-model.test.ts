@@ -1,52 +1,73 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { Preview } from "@marshal/protocol";
+import { beforeEach, describe, expect, it } from "vitest";
 import { M } from "~/mock";
-import { previewState, previewStatus, previewUrl, togglePreview } from "./preview-model";
-import { cardOf, resetStore } from "./test-helpers";
+import { DARK_PREVIEW_CARD_ID, previewState, previewStatus, previewUrl } from "./preview-model";
+import { resetStore } from "./test-helpers";
 
-vi.hoisted(() => {
-  window.location.hash = "#nosim";
+/*
+ * The Preview tab's own read of a card's preview (section S13). The daemon owns the state, the
+ * address, and the command, so these are the words for what the daemon last said — not the mock's
+ * old stand-in, which computed a port from the card's id and a made-up URL.
+ */
+
+const preview = (fields: Partial<Preview>): Preview => ({
+  cardId: "card_web119",
+  state: "stopped",
+  url: "",
+  port: 0,
+  command: "",
+  startedAt: null,
+  error: "",
+  shots: [],
+  ...fields,
 });
 
-describe("preview", () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-    resetStore();
-  });
-  afterEach(() => vi.useRealTimers());
+const STOPPED = "Stopped. Start the preview to run the app from this card's worktree.";
 
-  it("gives web cards a port from their id, and card 118 the settings page", () => {
-    expect(previewUrl(cardOf("web#119"))).toBe("http://localhost:5129/reports");
-    expect(previewUrl(cardOf("web#118"))).toBe("http://localhost:5128/settings");
-  });
+describe("preview model", () => {
+  beforeEach(() => resetStore());
 
-  it("gives mobile cards a login page on their own port range", () => {
-    expect(previewUrl(cardOf("mobile#209"))).toBe("http://localhost:8029/login");
-  });
-
-  it("describes each state", () => {
-    expect(previewStatus(cardOf("web#119"), "stopped")).toBe(
-      "Stopped. Start the preview to run the app from this card's worktree.",
-    );
-    expect(previewStatus(cardOf("web#119"), "starting")).toBe(
-      "Starting the dev server with pnpm dev",
-    );
-    expect(previewStatus(cardOf("mobile#209"), "starting")).toBe(
-      "Starting the dev server with pnpm --filter apps/ios web",
-    );
-    expect(previewStatus(cardOf("web#119"), "running")).toBe(
-      "Running from marshal/119-tanstack-table on port 5129",
-    );
-    expect(previewStatus(cardOf("api#45"), "running")).toBe("Running from main on port 5145");
-  });
-
-  it("starts, becomes running after the fake server boots, and stops with a toast", () => {
+  it("draws a card nothing has been read for yet as stopped, with no address", () => {
     expect(previewState("web#119")).toBe("stopped");
-    togglePreview("web#119");
-    expect(previewState("web#119")).toBe("starting");
-    vi.advanceTimersByTime(1800);
+    expect(previewUrl("web#119")).toBe("");
+    expect(previewStatus("web#119")).toBe(STOPPED);
+  });
+
+  it("shows the daemon's own address and command while the preview is running", () => {
+    M.S.preview = {
+      "web#119": preview({
+        state: "running",
+        url: "http://127.0.0.1:5103",
+        port: 5103,
+        command: "pnpm dev",
+      }),
+    };
     expect(previewState("web#119")).toBe("running");
-    togglePreview("web#119");
+    expect(previewUrl("web#119")).toBe("http://127.0.0.1:5103");
+    expect(previewStatus("web#119")).toBe("Running pnpm dev on port 5103");
+  });
+
+  it("still names the port when the project has no dev command worth showing", () => {
+    M.S.preview = { "web#119": preview({ state: "running", port: 5103 }) };
+    expect(previewStatus("web#119")).toBe("Running on port 5103");
+  });
+
+  it("says a preview is starting, with the command it was started with", () => {
+    M.S.preview = { "web#119": preview({ state: "starting", port: 5103, command: "pnpm dev" }) };
+    expect(previewState("web#119")).toBe("starting");
+    expect(previewUrl("web#119")).toBe("");
+    expect(previewStatus("web#119")).toBe("Starting the dev server with pnpm dev");
+  });
+
+  it("says a preview that could not start is stopped, in the daemon's own sentence", () => {
+    M.S.preview = {
+      "web#119": preview({ state: "stopped", error: "The dev server stopped before it answered." }),
+    };
     expect(previewState("web#119")).toBe("stopped");
-    expect(M.S.toasts.at(-1)?.msg).toBe("Preview stopped");
+    expect(previewStatus("web#119")).toBe("The dev server stopped before it answered.");
+  });
+
+  it("keeps card #118 as the one that previews a dark page", () => {
+    expect(DARK_PREVIEW_CARD_ID).toBe("web#118");
   });
 });

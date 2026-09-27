@@ -47,8 +47,13 @@ function AwakeRow(props: { card: Card }) {
 export function AwakeSection() {
   const cards = createMemo(awakeCards);
   const rows = createShowAll(cards);
+  // The daemon ships with no awake ceiling, so `limit()` is undefined until one is set: then the
+  // count stands alone and nothing is ever full.
   const limit = () => M.S.limits.global.awake;
-  const full = () => cards().length >= limit();
+  const full = () => {
+    const ceiling = limit();
+    return ceiling !== undefined && cards().length >= ceiling;
+  };
   return (
     <section aria-labelledby="h-awake" class="flex flex-col">
       <div class="flex items-baseline gap-2 mb-2">
@@ -58,7 +63,7 @@ export function AwakeSection() {
         <span
           class={`text-small font-semibold ${full() ? "text-status-needs-you-text" : "text-secondary"}`}
         >
-          {cards().length} of {limit()}
+          {limit() !== undefined ? `${cards().length} of ${limit()}` : `${cards().length}`}
         </span>
       </div>
       <For each={rows.visible()}>{(card) => <AwakeRow card={card} />}</For>

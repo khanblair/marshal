@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { CheckpointRow } from "~/data/mappers/checkpoints";
 import { M } from "~/mock";
-import { activityRows, checkpointsFor } from "./activity-model";
+import { activityRows, checkpointsFor, daemonCheckpoints } from "./activity-model";
 import { resetStore } from "./test-helpers";
 
 vi.hoisted(() => {
@@ -91,5 +92,41 @@ describe("checkpointsFor", () => {
     expect(M.S.dialog?.message).toContain('"Before turn 6"');
     M.S.dialog?.run();
     expect(M.S.toasts.at(-1)?.msg).toBe("Checkpoint restored");
+  });
+});
+
+describe("daemonCheckpoints", () => {
+  const at = Date.now() - 12 * 60_000;
+
+  const row = (fields: Partial<CheckpointRow> = {}): CheckpointRow => ({
+    id: "cp1",
+    cardId: "01JD7Q4M2X8K9V0P5T3RB6NHC3",
+    sha: "9f2c1b7a4e6d85031234567890abcdef01234567",
+    label: "before turn 3",
+    at,
+    ...fields,
+  });
+
+  it("draws a restore point the daemon sent, with the commit named short", () => {
+    const [one] = daemonCheckpoints([row()], () => undefined);
+    expect(one?.label).toBe("before turn 3");
+    expect(one?.ref).toBe("9f2c1b7a");
+    expect(one?.when).toBe("12 min ago");
+  });
+
+  it("names a restore point the daemon left unnamed, so no row is blank", () => {
+    const [one] = daemonCheckpoints([row({ label: "   " })], () => undefined);
+    expect(one?.label).toBe("Restore point");
+  });
+
+  it("hands back the whole row the Restore button is about", () => {
+    const asked: CheckpointRow[] = [];
+    const [one] = daemonCheckpoints([row({ id: "cp7" })], (asked1) => asked.push(asked1));
+    one?.restore();
+    expect(asked.map((it) => it.id)).toEqual(["cp7"]);
+  });
+
+  it("has no rows when the card has no restore points", () => {
+    expect(daemonCheckpoints([], () => undefined)).toEqual([]);
   });
 });

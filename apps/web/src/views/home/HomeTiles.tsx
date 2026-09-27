@@ -6,7 +6,10 @@ import { mergedTodayCount, openCostLimits, openStatusList } from "./home-actions
 export function HomeTiles() {
   const needs = () => M.needs().length;
   const cost = () => M.costs();
+  // A daily ceiling of 0 means none is set: the tile then shows the spend alone, in the plain tone.
+  const ceiling = () => cost().day > 0;
   const costTone = () => {
+    if (!ceiling()) return "default";
     const tone = M.costTone(cost().today, cost().day);
     if (tone === "over") return "danger";
     return tone === "near" ? "needs-you" : "default";
@@ -34,7 +37,7 @@ export function HomeTiles() {
       />
       <SummaryTile
         value={M.money(cost().today)}
-        label={`Cost today of ${M.money(cost().day)}`}
+        label={ceiling() ? `Cost today of ${M.money(cost().day)}` : "Cost today"}
         title="Open cost limits"
         tone={costTone()}
         onClick={openCostLimits}

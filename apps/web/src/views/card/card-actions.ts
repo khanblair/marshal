@@ -95,6 +95,34 @@ export function cardActions(card: Card, mobile: boolean): CardAction[] {
 
 const lowerFirst = (text: string): string => text.charAt(0).toLowerCase() + text.slice(1);
 
+/**
+ * The Simulate CI failure items (N28, B6.4). Three cases, asked as the two questions the daemon's own
+ * rule answers: a card a daemon owns while that daemon runs in dev mode gets both of its modes, a card
+ * a daemon owns on a daemon that is not in dev mode gets neither (the routes exist only in dev mode),
+ * and a card the mock made keeps the mock's own one-item story. The real mode is the second item and
+ * is labeled so that what it does is plain before it is pressed; it asks for confirmation too.
+ */
+function simulateItems(card: Card, run: (fn: () => void) => () => void): MoreItem[] {
+  const mockItem: MoreItem = {
+    label: "Simulate CI failure",
+    icon: "circle-x",
+    danger: false,
+    run: run(() => M.simulateCiFailure(card.id)),
+  };
+  if (M.simulateOnDaemon(card)) {
+    return [
+      mockItem,
+      {
+        label: "Simulate CI failure on GitHub",
+        icon: "github",
+        danger: false,
+        run: run(() => M.simulateCiFailureReal(card.id)),
+      },
+    ];
+  }
+  return M.ciOnDaemon(card) ? [] : [mockItem];
+}
+
 /** Items of the More actions menu: a move to every other column, then the fixed ones. */
 export function moreItems(card: Card, close: () => void): MoreItem[] {
   const id = card.id;
@@ -116,12 +144,7 @@ export function moreItems(card: Card, close: () => void): MoreItem[] {
       danger: false,
       run: run(() => M.setTab("activity")),
     },
-    {
-      label: "Simulate CI failure",
-      icon: "circle-x",
-      danger: false,
-      run: run(() => M.simulateCiFailure(id)),
-    },
+    ...simulateItems(card, run),
     {
       label: "Copy branch name",
       icon: "copy",

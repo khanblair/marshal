@@ -1,7 +1,8 @@
 import { Icon, StatusDot } from "@marshal/ui";
 import { Index, Show } from "solid-js";
+import { isDaemon } from "~/data/sections";
 import { type Card, type CardView, M } from "~/mock";
-import { activityRows, checkpointsFor } from "./activity-model";
+import { activityRows, checkpointsFor, daemonCheckpoints } from "./activity-model";
 import { CheckpointList } from "./CheckpointList";
 
 export interface ActivityTabProps {
@@ -12,8 +13,19 @@ export interface ActivityTabProps {
 /** The Activity tab: what is happening now, the log of actions, and restore points. */
 export function ActivityTab(props: ActivityTabProps) {
   const rows = () => activityRows(M.S.act[props.card.id] ?? []);
+  // The restore points are the daemon's own commits once S10 is switched; while it is still the
+  // mock's, the tab draws the ones it makes up (activity-model's `checkpointsFor`).
+  const onDaemon = () => isDaemon("S10") && !!props.card.daemonId;
   const checkpoints = () =>
-    checkpointsFor(props.card.n, props.card.state !== "backlog", M.filesFor(props.card)[0] ?? "");
+    onDaemon()
+      ? daemonCheckpoints(M.S.checkpoints[props.card.id] ?? [], (row) =>
+          M.restoreCheckpoint(props.card.id, row.id, row.label),
+        )
+      : checkpointsFor(
+          props.card.n,
+          props.card.state !== "backlog",
+          M.filesFor(props.card)[0] ?? "",
+        );
   return (
     <div class="flex-1 min-h-0 overflow-auto">
       <Show when={props.c.showDoing}>

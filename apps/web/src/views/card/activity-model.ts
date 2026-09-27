@@ -1,3 +1,4 @@
+import type { CheckpointRow } from "~/data/mappers/checkpoints";
 import { type Activity, type ActivityKind, M } from "~/mock";
 
 /** A row of the Activity tab. Colors are classes, chosen from the activity's state. */
@@ -24,6 +25,8 @@ const KIND_ICONS: Record<ActivityKind, string> = {
 
 /** The Activity tab shows the newest entries only. */
 const ACTIVITY_LIMIT = 120;
+/** How much of a commit's hash a restore point's row names, the usual short form of a commit. */
+const SHORT_SHA_CHARS = 8;
 /** An entry that is newer than this is highlighted for a moment. */
 const FRESH_MS = 1500;
 const FILE_VERBS = /^Ran |^Edited |^Read |^Created /;
@@ -64,6 +67,24 @@ export interface Checkpoint {
   ref: string;
   when: string;
   restore: () => void;
+}
+
+/**
+ * A card's restore points as the daemon sent them (B5.3), in the shape the checkpoint list draws:
+ * the commit named short, and its time relative to now. A restore point with no label reads as a
+ * plain "Restore point", because Marshal names most of them by the turn they came before and a
+ * person should never see a blank row.
+ */
+export function daemonCheckpoints(
+  rows: readonly CheckpointRow[],
+  restore: (row: CheckpointRow) => void,
+): Checkpoint[] {
+  return rows.map((row) => ({
+    label: row.label.trim() || "Restore point",
+    ref: row.sha.slice(0, SHORT_SHA_CHARS),
+    when: M.rel(row.at),
+    restore: () => restore(row),
+  }));
 }
 
 const RECENT_CHECKPOINT_MIN = 12;

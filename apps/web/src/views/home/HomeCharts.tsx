@@ -55,18 +55,21 @@ export function HomeCharts() {
   });
   const series = createMemo(() =>
     costSeries(
-      days(),
-      M.S.projects
-        .slice(0, MAX_COST_PROJECTS)
-        .map((p) => ({ id: p.id, name: p.name, todayCost: M.costs(p.id).today })),
+      M.S.stats,
+      M.S.dashRange,
+      M.S.projects.slice(0, MAX_COST_PROJECTS).map((p) => ({ id: p.id, name: p.name })),
     ),
   );
   const cost = () => M.costs();
+  // A daily ceiling of 0 means none is set: then there is no limit line and no "of $X" in the label.
+  const ceiling = () => (cost().day > 0 ? cost().day : undefined);
   const ticks = createMemo(() => dateTicks(days()));
   const tips = createMemo(() => barTips(days(), finished()));
   const barLabel = () => barSummary(finished(), days().range);
   const lineLabel = () =>
-    `All projects today ${M.money(cost().today)} of the ${M.money(cost().day)} daily limit`;
+    ceiling() !== undefined
+      ? `All projects today ${M.money(cost().today)} of the ${M.money(cost().day)} daily limit`
+      : `All projects today ${M.money(cost().today)}`;
   return (
     <>
       <div class="flex flex-wrap items-center gap-3">
@@ -94,13 +97,16 @@ export function HomeCharts() {
           <LineChart
             width={width()}
             series={series()}
-            limit={cost().day}
-            limitLabel={`Limit ${M.money(cost().day)}`}
+            limit={ceiling()}
+            limitLabel={ceiling() !== undefined ? `Limit ${M.money(cost().day)}` : undefined}
             ticks={ticks()}
             format={dollarLabel}
             label={lineLabel()}
           />
-          <ChartLegend names={series().map((s) => s.name)} limitName="Daily limit" />
+          <ChartLegend
+            names={series().map((s) => s.name)}
+            limitName={ceiling() !== undefined ? "Daily limit" : undefined}
+          />
         </ChartFigure>
       </div>
     </>

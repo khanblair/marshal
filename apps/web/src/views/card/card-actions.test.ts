@@ -70,6 +70,7 @@ describe("cardActions", () => {
 
 describe("moreItems", () => {
   beforeEach(() => resetStore());
+  afterEach(() => vi.restoreAllMocks());
 
   it("lists a move to every other column, then the fixed items", () => {
     const items = moreItems(cardOf("api#41"), () => undefined);
@@ -109,5 +110,41 @@ describe("moreItems", () => {
       .find((item) => item.label === "Delete card")
       ?.run();
     expect(M.S.dialog?.title).toBe("Delete card");
+  });
+
+  it("runs the mock's own story for a card the mock made", () => {
+    vi.useFakeTimers();
+    moreItems(cardOf("api#41"), () => undefined)
+      .find((item) => item.label === "Simulate CI failure")
+      ?.run();
+    expect(M.S.toasts.at(-1)?.msg).toBe("Simulating a CI failure on api-gateway #41");
+    vi.useRealTimers();
+  });
+
+  it("offers both modes for a card the daemon made while that daemon runs in dev mode", () => {
+    const card = cardOf("api#41");
+    card.daemonId = "card-41";
+    vi.spyOn(M, "simulateOnDaemon").mockReturnValue(true);
+    expect(
+      moreItems(card, () => undefined)
+        .map((item) => item.label)
+        .slice(-5),
+    ).toEqual([
+      "Restore a checkpoint",
+      "Simulate CI failure",
+      "Simulate CI failure on GitHub",
+      "Copy branch name",
+      "Delete card",
+    ]);
+  });
+
+  it("leaves both items out for a daemon card on a daemon that is not in dev mode", () => {
+    const card = cardOf("api#41");
+    card.daemonId = "card-41";
+    vi.spyOn(M, "ciOnDaemon").mockReturnValue(true);
+    vi.spyOn(M, "simulateOnDaemon").mockReturnValue(false);
+    const labels = moreItems(card, () => undefined).map((item) => item.label);
+    expect(labels).not.toContain("Simulate CI failure");
+    expect(labels).not.toContain("Simulate CI failure on GitHub");
   });
 });

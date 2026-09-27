@@ -1,17 +1,27 @@
+import {
+  type PreviewShot,
+  PreviewShotKindAfter,
+  PreviewShotKindBefore,
+  type PreviewShotKind,
+} from "@marshal/protocol";
 import { Button, Icon } from "@marshal/ui";
-import { Index, Show } from "solid-js";
+import { createEffect, createSignal, Index, onCleanup, Show } from "solid-js";
 import { type Card, M } from "~/mock";
 import {
   DARK_PREVIEW_CARD_ID,
+  previewOf,
   previewState,
   previewStatus,
   previewUrl,
-  togglePreview,
 } from "./preview-model";
 
 export interface PreviewTabProps {
   card: Card;
 }
+
+/** The before and after halves, in the order the pair is read. */
+const KINDS: readonly PreviewShotKind[] = [PreviewShotKindBefore, PreviewShotKindAfter];
+const LABELS: Record<PreviewShotKind, string> = { before: "Before", after: "After" };
 
 /** Card #118 previews a dark page, whatever the theme; every other card follows the theme. */
 function tones(card: Card) {
@@ -50,42 +60,92 @@ function PagePreview(props: { card: Card }) {
   );
 }
 
-interface Shot {
-  label: string;
-  bg: string;
-  fill: string;
-  line: string;
+/**
+ * One screenshot the daemon took. The image needs the token, so a bare `img` cannot fetch it: the
+ * bytes come through the client and are drawn from an object URL, which is revoked when the shot is
+ * replaced or the tab closes (the way an avatar is, `sync/avatar.ts`).
+ */
+function ShotImage(props: { shot: PreviewShot; label: string }) {
+  const [src, setSrc] = createSignal("");
+  let objectUrl: string | null = null;
+  const release = (): void => {
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
+    objectUrl = null;
+  };
+  createEffect(() => {
+    const url = props.shot.url;
+    let newest = true;
+    onCleanup(() => {
+      newest = false;
+    });
+    void M.previewShotImage(url).then((bytes) => {
+      // A shot replaced while this one was being fetched must not draw over the newer one.
+      if (!newest) return;
+      release();
+      if (!bytes) {
+        setSrc("");
+        return;
+      }
+      objectUrl = URL.createObjectURL(bytes);
+      setSrc(objectUrl);
+    });
+  });
+  onCleanup(release);
+  return (
+    <div class="h-30 bg-surface-sunken flex items-center justify-center overflow-hidden">
+      <Show when={src()} fallback={<Icon name="spinner" size={16} />}>
+        <img src={src()} alt={`${props.label} screenshot`} class="w-full h-full object-contain" />
+      </Show>
+    </div>
+  );
 }
 
-/** The before and after screenshots, drawn as small blocks. */
+/** The drawn stand-in for a half of the pair the daemon has not taken yet. */
+function ShotPlaceholder(props: { card: Card; kind: PreviewShotKind }) {
+  const look = () => tones(props.card);
+  const bg = () => (props.kind === PreviewShotKindBefore ? look().beforeBg : look().afterBg);
+  const fill = () =>
+    props.kind === PreviewShotKindBefore ? "bg-card-preview-light-block" : "bg-card-preview-dark-block";
+  const line = () =>
+    props.kind === PreviewShotKindBefore
+      ? "border-card-preview-light-block"
+      : "border-card-preview-dark-block";
+  return (
+    <div class={`h-30 flex flex-col gap-2 p-3 ${bg()}`}>
+      <div class={`h-2.5 w-1/2 rounded-xs ${fill()}`} />
+      <div class={`h-10 rounded-xs border ${line()}`} />
+    </div>
+  );
+}
+
+/** The before and after screenshots of the running preview, with a way to take either that is missing. */
 function Screenshots(props: { card: Card }) {
-  const shots = (): Shot[] => [
-    {
-      label: "Before",
-      bg: tones(props.card).beforeBg,
-      fill: "bg-card-preview-light-block",
-      line: "border-card-preview-light-block",
-    },
-    {
-      label: "After",
-      bg: tones(props.card).afterBg,
-      fill: "bg-card-preview-dark-block",
-      line: "border-card-preview-dark-block",
-    },
-  ];
+  const shotOf = (kind: PreviewShotKind): PreviewShot | undefined =>
+    previewOf(props.card.id)?.shots.find((shot) => shot.kind === kind);
   return (
     <>
       <h3 class="m-0 mt-1 text-subtitle leading-5.5 font-semibold">Screenshots</h3>
       <div class="grid gap-2.5 grid-cols-[repeat(auto-fit,minmax(180px,1fr))]">
-        <Index each={shots()}>
-          {(shot) => (
+        <Index each={KINDS}>
+          {(kind) => (
             <figure class="m-0 border border-border rounded-md overflow-hidden">
-              <div class={`h-30 flex flex-col gap-2 p-3 ${shot().bg}`}>
-                <div class={`h-2.5 w-1/2 rounded-xs ${shot().fill}`} />
-                <div class={`h-10 rounded-xs border ${shot().line}`} />
-              </div>
-              <figcaption class="py-1.5 px-2.5 text-caption border-t border-border">
-                {shot().label}
+              <Show
+                when={shotOf(kind())}
+                fallback={<ShotPlaceholder card={props.card} kind={kind()} />}
+              >
+                {(shot) => <ShotImage shot={shot()} label={LABELS[kind()]} />}
+              </Show>
+              <figcaption class="flex items-center gap-2 py-1.5 px-2.5 text-caption border-t border-border">
+                <span class="flex-1">{LABELS[kind()]}</span>
+                <Show when={!shotOf(kind())}>
+                  <Button
+                    variant="secondary"
+                    class="px-2! py-0.5! text-caption!"
+                    onClick={() => void M.takePreviewShot(props.card.id, kind())}
+                  >
+                    Take screenshot
+                  </Button>
+                </Show>
               </figcaption>
             </figure>
           )}
@@ -132,19 +192,26 @@ export function PreviewTab(props: PreviewTabProps) {
                 <Icon name="circle-check" size={14} />
               </span>
             </Show>
-            <span class="font-mono text-small overflow-hidden text-ellipsis whitespace-nowrap">
-              {previewUrl(props.card)}
-            </span>
+            <Show
+              when={previewUrl(props.card.id)}
+              fallback={<span class="text-small text-muted">No server running</span>}
+            >
+              <span class="font-mono text-small overflow-hidden text-ellipsis whitespace-nowrap">
+                {previewUrl(props.card.id)}
+              </span>
+            </Show>
           </div>
           <Button
             variant={stopped() ? "primary" : "secondary"}
             class="font-semibold!"
-            onClick={() => togglePreview(props.card.id)}
+            onClick={() =>
+              stopped() ? void M.startPreview(props.card.id) : void M.stopPreview(props.card.id)
+            }
           >
             {stopped() ? "Start preview" : "Stop preview"}
           </Button>
         </div>
-        <span class="text-small text-secondary">{previewStatus(props.card, state())}</span>
+        <span class="text-small text-secondary">{previewStatus(props.card.id)}</span>
         <Show when={state() === "running"}>
           <PagePreview card={props.card} />
           <Screenshots card={props.card} />
