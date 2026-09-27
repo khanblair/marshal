@@ -1,0 +1,22 @@
+{
+  "name": "Nightly janitor",
+  "spec": {
+    "skills": [],
+    "mcp": [
+      "marshal"
+    ],
+    "limits": {
+      "time": 10,
+      "cost": 1,
+      "rounds": 3
+    },
+    "backup": "gpt-5",
+    "desc": "Tidies the backlog overnight",
+    "agent": "Built-in agent",
+    "model": "gpt-5-mini",
+    "think": "Low",
+    "perm": "Plan only",
+    "strength": "Medium",
+    "instr": "Tidy up."
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "cardId": "crd_01JQZ0000000000000000000AC",
+  "approval": {
+    "id": "app_01JQZ0000000000000000000AD",
+    "cardId": "crd_01JQZ0000000000000000000AC",
+    "sessionId": "ses_01JQZ0000000000000000000AB",
+    "toolCallId": "call_7",
+    "title": "Run rm -rf build",
+    "kind": "execute",
+    "command": "rm -rf build",
+    "options": [
+      {
+        "id": "allow-once",
+        "name": "Allow once",
+        "kind": "allow_once"
+      },
+      {
+        "id": "allow-always",
+        "name": "Always allow",
+        "kind": "allow_always"
+      },
+      {
+        "id": "reject-once",
+        "name": "Reject",
+        "kind": "reject_once"
+      }
+    ],
+    "state": "waiting",
+    "at": "2026-05-06T07:08:09.000Z"
+  }
+}

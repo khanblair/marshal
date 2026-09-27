@@ -1,0 +1,11 @@
+{
+  "id": "01JD7Q4M2X8K9V0P5T3RB6NHC1",
+  "projectId": "web-dashboard",
+  "cardId": "01M3C107JB041061050R3GG28A",
+  "branch": "marshal/card-12-fix-the-report",
+  "workflow": "ci",
+  "status": "failed",
+  "url": "https://github.com/khanblair/web-dashboard/actions/runs/9931",
+  "startedAt": "2026-09-27T09:26:00.000Z",
+  "updatedAt": "2026-09-27T09:30:00.000Z"
+}

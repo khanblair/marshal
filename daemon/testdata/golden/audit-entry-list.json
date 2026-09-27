@@ -1,0 +1,21 @@
+{
+  "items": [
+    {
+      "id": "aud_01JQZ0000000000000000000AA",
+      "sessionId": "ses_01JQZ0000000000000000000AB",
+      "actor": "daemon",
+      "action": "commit.blocked",
+      "target": "9f1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c",
+      "detail": {
+        "cardId": "crd_01JQZ0000000000000000000AC",
+        "commit": "9f1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c",
+        "file": "deploy/settings.yaml",
+        "line": 3,
+        "rule": "aws-access-token"
+      },
+      "at": "2026-03-04T05:06:07.000Z"
+    }
+  ],
+  "nextCursor": "eyJyb3dpZCI6MTJ9",
+  "serverTime": "2026-03-04T05:06:07.000Z"
+}
