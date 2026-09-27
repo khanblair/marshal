@@ -17,12 +17,29 @@ import {
 
 /** A store with nothing from the daemon yet, as the app has before its first answer. */
 // The reservoir is the mock's own machinery, so these tests say out loud that S5a, S17, and S20 are
-// on the mock and keep testing it whatever the register says.
+// on the mock and keep testing it whatever the register says. The limits (S26b) are pinned with them:
+// these tests are about the mock's own per-project defaults, and the daemon's path (no entry for a
+// project it has no ceiling for) is covered on its own below.
 const emptyStore = () =>
   createContext(
     testEnv({
       hash: "#nosim",
-      sections: { ...MOCK_CARDS, ...MOCK_PERSON_SECTIONS, S17: "mock", S20: "mock" },
+      sections: { ...MOCK_CARDS, ...MOCK_PERSON_SECTIONS, S17: "mock", S20: "mock", S26b: "mock" },
+    }),
+  );
+
+/** The same store with the limits on the daemon (S26b), which is what the register says. */
+const daemonLimitsStore = () =>
+  createContext(
+    testEnv({
+      hash: "#nosim",
+      sections: {
+        ...MOCK_CARDS,
+        ...MOCK_PERSON_SECTIONS,
+        S17: "mock",
+        S20: "mock",
+        S26b: "daemon",
+      },
     }),
   );
 const prototype = PROTOTYPE_PROJECTS.map(toDaemonProject);
@@ -300,6 +317,14 @@ describe("the screen state every project has", () => {
     const ctx = emptyStore();
     ensureProjectState(ctx.S, { id: "hand", packages: undefined });
     expect(ctx.S.lastView.hand).toBe("board");
+  });
+
+  it("gives a project no ceiling at all once the limits are the daemon's", () => {
+    const ctx = daemonLimitsStore();
+    applyProject(ctx, daemonProject({ id: "billing" }));
+    expect(ctx.S.limits.billing).toBeUndefined();
+    // The global scope is still there for a screen to read.
+    expect(ctx.S.limits.global).toEqual({});
   });
 });
 

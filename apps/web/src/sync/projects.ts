@@ -9,7 +9,8 @@ import { batch } from "solid-js";
 import type { ApiClient } from "~/data/api-client";
 import { isRecord } from "~/data/guards";
 import { type DaemonProject, toDaemonProject } from "~/data/mappers/project";
-import type { Ctx } from "~/mock/context";
+import { isDaemon } from "~/data/sections";
+import { type Ctx, sectionsOf } from "~/mock/context";
 import { feed } from "~/mock/engine";
 import type { State } from "~/mock/state-types";
 import type { Project } from "~/mock/types";
@@ -56,8 +57,15 @@ function update(target: Project, next: Mirrored): void {
  * Screen state every project has: its filters, search, swimlane, saved views, last view, chats, and
  * limits. It is filled for a project that has none, once, whether the project was made here, on
  * another device, or by the fixture, and it never overwrites what a project already has.
+ *
+ * `limitsOnDaemon` says the cost and awake limits are the daemon's (S26b): then a project the daemon
+ * has no ceiling for gets no entry at all, rather than the mock's own defaults.
  */
-export function ensureProjectState(S: State, project: Pick<Project, "id" | "packages">): void {
+export function ensureProjectState(
+  S: State,
+  project: Pick<Project, "id" | "packages">,
+  limitsOnDaemon = false,
+): void {
   const { id } = project;
   if (!(id in S.filters)) S.filters[id] = [];
   if (!(id in S.query)) S.query[id] = "";
@@ -66,7 +74,7 @@ export function ensureProjectState(S: State, project: Pick<Project, "id" | "pack
   if (!(id in S.savedView)) S.savedView[id] = "All cards";
   if (!(id in S.lastView)) S.lastView[id] = "board";
   if (!(id in S.chats)) S.chats[id] = [];
-  if (!(id in S.limits)) S.limits[id] = { ...NEW_PROJECT_LIMITS };
+  if (!limitsOnDaemon && !(id in S.limits)) S.limits[id] = { ...NEW_PROJECT_LIMITS };
 }
 
 /** The project shown on Home and in the settings must be one that exists. */
@@ -78,7 +86,8 @@ function repairRoute(S: State): void {
 /** After the project list changed: its mock records, its per-project state, and where the screen points. */
 function settle(ctx: Ctx): void {
   reconcileMock(ctx);
-  for (const project of ctx.S.projects) ensureProjectState(ctx.S, project);
+  const limitsOnDaemon = isDaemon("S26b", sectionsOf(ctx.env));
+  for (const project of ctx.S.projects) ensureProjectState(ctx.S, project, limitsOnDaemon);
   repairRoute(ctx.S);
 }
 
