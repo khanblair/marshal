@@ -1,0 +1,6 @@
+{
+  "appId": 1282340,
+  "installationId": 55123907,
+  "privateKey": "-----BEGIN RSA PRIVATE KEY-----\nMIIEogIBAAKCAQEA…\n-----END RSA PRIVATE KEY-----\n",
+  "webhookSecret": "a-synthetic-webhook-secret"
+}

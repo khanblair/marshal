@@ -1,0 +1,17 @@
+{
+  "connectionId": "anthropic",
+  "checks": [
+    {
+      "name": "Key",
+      "state": "passed",
+      "message": "The provider accepted the key."
+    },
+    {
+      "name": "Model",
+      "state": "passed",
+      "message": "Claude Sonnet 4.5 answered."
+    }
+  ],
+  "ok": true,
+  "ranAt": "2026-09-27T10:00:00.000Z"
+}

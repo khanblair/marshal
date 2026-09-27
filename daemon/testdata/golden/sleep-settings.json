@@ -1,0 +1,7 @@
+{
+  "idleMinutes": 15,
+  "warningMinutes": 2,
+  "keepAwakeMinutes": 15,
+  "restore": "auto",
+  "channel": "in-app"
+}

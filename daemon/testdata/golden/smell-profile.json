@@ -1,0 +1,58 @@
+{
+  "projectId": "web-dashboard",
+  "maxFunctionLines": 120,
+  "maxFileLines": 800,
+  "maxParameters": 5,
+  "maxNesting": 4,
+  "maxLineLength": 160,
+  "duplicateBlockLines": 6,
+  "checks": [
+    {
+      "check": "long-function",
+      "enabled": true,
+      "severity": "blocking"
+    },
+    {
+      "check": "large-file",
+      "enabled": true,
+      "severity": "blocking"
+    },
+    {
+      "check": "duplicate-block",
+      "enabled": true,
+      "severity": "blocking"
+    },
+    {
+      "check": "long-parameter-list",
+      "enabled": true,
+      "severity": "warning"
+    },
+    {
+      "check": "deep-nesting",
+      "enabled": true,
+      "severity": "warning"
+    },
+    {
+      "check": "long-line",
+      "enabled": true,
+      "severity": "warning"
+    },
+    {
+      "check": "magic-number",
+      "enabled": true,
+      "severity": "warning"
+    }
+  ],
+  "linters": [
+    {
+      "name": "golangci-lint",
+      "command": [
+        "golangci-lint",
+        "run",
+        "--out-format",
+        "line-number"
+      ],
+      "family": "obfuscators"
+    }
+  ]
+}

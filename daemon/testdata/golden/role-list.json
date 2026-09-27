@@ -1,0 +1,84 @@
+{
+  "roles": [
+    {
+      "id": "01JD7Q4M2X8K9V0P5T3RB6NHAE",
+      "name": "Worker",
+      "starter": true,
+      "overridden": false,
+      "spec": {
+        "skills": [
+          "conventional-commits"
+        ],
+        "mcp": [
+          "marshal",
+          "github"
+        ],
+        "limits": {
+          "time": 60,
+          "cost": 5,
+          "rounds": 12
+        },
+        "backup": "gpt-5",
+        "desc": "Does the coding on a card",
+        "agent": "Claude Code",
+        "model": "claude-sonnet-4-5",
+        "think": "Medium",
+        "perm": "Auto-accept edits",
+        "strength": "Your choice",
+        "instr": "You do the coding on one card."
+      }
+    },
+    {
+      "id": "01JD7Q4M2X8K9V0P5T3RB6NHB7",
+      "name": "Reviewer",
+      "starter": true,
+      "overridden": true,
+      "spec": {
+        "skills": [
+          "conventional-commits"
+        ],
+        "mcp": [
+          "marshal",
+          "github"
+        ],
+        "limits": {
+          "time": 30,
+          "cost": 3,
+          "rounds": 6
+        },
+        "backup": "gpt-5",
+        "desc": "Reviews every pull request before you do",
+        "agent": "Claude Code",
+        "model": "claude-opus-4-1",
+        "think": "High",
+        "perm": "Plan only",
+        "strength": "Strong",
+        "instr": "Review the diff against the card's task and acceptance checks."
+      }
+    },
+    {
+      "id": "01JD7Q4M2X8K9V0P5T3RB6NHC3",
+      "name": "Nightly janitor",
+      "starter": false,
+      "overridden": false,
+      "spec": {
+        "skills": [],
+        "mcp": [],
+        "limits": {
+          "time": 0,
+          "cost": 0,
+          "rounds": 0
+        },
+        "backup": "",
+        "desc": "Tidies the backlog overnight",
+        "agent": "Built-in agent",
+        "model": "gpt-5-mini",
+        "think": "",
+        "perm": "",
+        "strength": "Medium",
+        "instr": "Tidy up."
+      }
+    }
+  ],
+  "serverTime": "2026-09-27T09:30:00.000Z"
+}

@@ -1,0 +1,10 @@
+{
+  "headers": {
+    "X-GitHub-Event": "workflow_run",
+    "X-GitHub-Delivery": "8b6f0c1e-0000-4000-8000-000000000002",
+    "User-Agent": "GitHub-Hookshot/recorded",
+    "X-GitHub-Hook-ID": "1",
+    "Content-Type": "application/json"
+  },
+  "body": {"action":"completed","workflow_run":{"id":1531,"name":"ci","head_branch":"marshal/sample-1-ci-fails","head_sha":"4b1d0e7c9a2f3d5b6c8e0a1f2b3c4d5e6f708192","status":"completed","conclusion":"failure","html_url":"https://github.com/marshal-fixtures/small-repo/actions/runs/1531","run_started_at":"2026-09-27T09:20:00Z","run_number":7,"event":"push"},"workflow":{"id":11,"name":"ci","path":".github/workflows/ci.yml","state":"active"},"repository":{"id":1,"name":"small-repo","full_name":"marshal-fixtures/small-repo","owner":{"login":"marshal-fixtures"},"default_branch":"main"},"installation":{"id":99},"sender":{"login":"octocat"}}
+}

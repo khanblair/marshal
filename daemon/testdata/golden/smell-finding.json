@@ -1,0 +1,14 @@
+{
+  "id": "01JD7Q4M2X8K9V0P5T3RB6NHC1",
+  "cardId": "01M3C107JB041061050R3GG28A",
+  "commit": "9f2c1ab4d5e6f708192a3b4c5d6e7f8091a2b3c4",
+  "family": "bloaters",
+  "smell": "long-function",
+  "file": "src/report.ts",
+  "line": 118,
+  "severity": "blocking",
+  "message": "This function is 143 lines, over the 80 a new function may be.",
+  "suggestion": "Split it into one function per section of the report.",
+  "status": "open",
+  "dismissReason": ""
+}

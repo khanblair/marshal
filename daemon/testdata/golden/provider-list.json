@@ -1,0 +1,41 @@
+{
+  "providers": [
+    {
+      "id": "anthropic",
+      "name": "Anthropic",
+      "st": "saved",
+      "masked": "sk-ant-…4f2a",
+      "models": "Claude models",
+      "error": "",
+      "local": false
+    },
+    {
+      "id": "deepseek",
+      "name": "DeepSeek",
+      "st": "empty",
+      "masked": "",
+      "models": "DeepSeek models",
+      "error": "",
+      "local": false
+    },
+    {
+      "id": "openrouter",
+      "name": "OpenRouter",
+      "st": "invalid",
+      "masked": "sk-or-…0b33",
+      "models": "Any model on OpenRouter",
+      "error": "OpenRouter rejected this key. Create a new key at openrouter.ai/keys and paste it here.",
+      "local": false
+    },
+    {
+      "id": "ollama",
+      "name": "Ollama",
+      "st": "saved",
+      "masked": "http://localhost:11434",
+      "models": "Local models",
+      "error": "",
+      "local": true
+    }
+  ],
+  "serverTime": "2026-09-27T09:30:00.000Z"
+}

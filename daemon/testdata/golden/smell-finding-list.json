@@ -1,0 +1,51 @@
+{
+  "cardId": "01M3C107JB041061050R3GG28A",
+  "commit": "9f2c1ab4d5e6f708192a3b4c5d6e7f8091a2b3c4",
+  "findings": [
+    {
+      "id": "01JD7Q4M2X8K9V0P5T3RB6NHC1",
+      "cardId": "01M3C107JB041061050R3GG28A",
+      "commit": "9f2c1ab4d5e6f708192a3b4c5d6e7f8091a2b3c4",
+      "family": "bloaters",
+      "smell": "long-function",
+      "file": "src/report.ts",
+      "line": 118,
+      "severity": "blocking",
+      "message": "This function is 143 lines, over the 80 a new function may be.",
+      "suggestion": "Split it into one function per section of the report.",
+      "status": "open",
+      "dismissReason": ""
+    },
+    {
+      "id": "01JD7Q4M2X8K9V0P5T3RB6NHC2",
+      "cardId": "01M3C107JB041061050R3GG28A",
+      "commit": "9f2c1ab4d5e6f708192a3b4c5d6e7f8091a2b3c4",
+      "family": "obfuscators",
+      "smell": "golangci-lint:gocyclo",
+      "file": "src/report.ts",
+      "line": 42,
+      "severity": "warning",
+      "message": "This function has a cyclomatic complexity of 24.",
+      "suggestion": "Move the two branches into their own functions.",
+      "status": "dismissed",
+      "dismissReason": "The report is generated once and thrown away."
+    },
+    {
+      "id": "01JD7Q4M2X8K9V0P5T3RB6NHC3",
+      "cardId": "01M3C107JB041061050R3GG28A",
+      "commit": "",
+      "family": "lexical-abusers",
+      "smell": "long-line",
+      "file": "src/report.ts",
+      "line": 7,
+      "severity": "info",
+      "message": "This line is 212 characters long, over the 160 a new line may be.",
+      "suggestion": "Break the call across lines.",
+      "status": "open",
+      "dismissReason": ""
+    }
+  ],
+  "blocking": 1,
+  "checked": "2026-09-27T09:30:00.000Z",
+  "serverTime": "2026-09-27T09:30:00.000Z"
+}
