@@ -45,10 +45,18 @@ func (s *Server) updateCard(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, err)
 		return
 	}
+	// The card as it was, so a change to one of its settings can be said in the card's own chat
+	// (N8). A card that cannot be read is left for UpdateCard to report.
+	before, beforeErr := s.projects.Card(r.Context(), id)
 	card, err := s.projects.UpdateCard(r.Context(), id, req)
 	if err != nil {
 		s.writeError(w, translate(err))
 		return
+	}
+	if beforeErr == nil && s.sessions != nil {
+		// The daemon writes the system message and the activity row (N8). Nothing is written when
+		// no setting changed, and a card with no session yet has no chat to write into.
+		s.sessions.NoteSettingsChanged(r.Context(), before, card)
 	}
 	s.writeJSON(w, http.StatusOK, card)
 }
