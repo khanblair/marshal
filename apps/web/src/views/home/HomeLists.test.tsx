@@ -351,10 +351,15 @@ describe("CI health", { timeout: SLOW_TEST_MS }, () => {
       });
     }
     render(() => <HomeView />);
+    const ci = section("CI health");
     expect(rows()).toHaveLength(5);
-    fireEvent.click(screen.getByRole("button", { name: "Show all 6" }));
+    // Scoped to the CI health section: the 3 fake projects pushed above also grow whichever other
+    // Home section reads the same M.S.projects array to some count that can coincidentally collide
+    // with this one's "Show all 6" text (see the sibling tests above, which scope with within(ci)
+    // for the same reason).
+    fireEvent.click(within(ci).getByRole("button", { name: "Show all 6" }));
     expect(rows()).toHaveLength(6);
-    fireEvent.click(screen.getByRole("button", { name: "View all CI runs" }));
+    fireEvent.click(within(ci).getByRole("button", { name: "View all CI runs" }));
     expect(M.S).toMatchObject({ allKind: "ci", route: { page: "all" } });
   });
 });

@@ -35,8 +35,16 @@ export const reasonIcon = (reason: string): string =>
 export const reasonButton = (reason: string): string =>
   firstMatch(REASON_BUTTONS, reason, DEFAULT_REASON_BUTTON);
 
-/** Whether the card waits on a command approval, which can be given right from Home. */
-export const canApproveHere = (card: Card): boolean => M.pendingApproval(card.id)?.k === "approval";
+/**
+ * Whether the card waits on a command approval, which can be given right from Home.
+ *
+ * A mock card's waiting approval lives in its open chat (`M.pendingApproval`), which a card nobody
+ * has opened has none of - the gap section 3 of the phase report records for S8b. A daemon card
+ * carries the answer on the card itself instead (`Card.approvalId`, set from its own NeedsReason),
+ * which is what lets Home answer a card it has never opened.
+ */
+export const canApproveHere = (card: Card): boolean =>
+  Boolean(card.approvalId) || M.pendingApproval(card.id)?.k === "approval";
 
 /** `1 card` or `3 cards`. */
 export const countLabel = (count: number): string => `${count} ${count === 1 ? "card" : "cards"}`;

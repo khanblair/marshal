@@ -89,8 +89,11 @@ function fillAppForm(overrides: Partial<SaveGitHubRequest> = {}): void {
 describe("the Integrations section on the daemon", () => {
   it("shows every connection the daemon knows, with the daemon's own state for GitHub", () => {
     render(() => <SettingsView />);
-    // The six of later phases are listed and read the way the daemon's own `known()` reports them
-    // and the way their own mock rows already read: only GitHub's row is the daemon's today.
+    // Trello, the calendar, Gmail, Telegram, and Discord are listed and read the way the daemon's
+    // own `known()` reports them and the way their own mock rows already read: their own sections
+    // are still the mock's. GitHub and Obsidian (S29a, S29b) are this fixture's own two daemon-backed
+    // rows - this store pins several other sections to mock (S17, S20, S7c, S9) but pins neither
+    // S29a nor S29b, so both read the daemon's answer here rather than the seed's.
     for (const name of ["GitHub", "Trello", "Google Calendar", "Gmail", "Telegram", "Discord"]) {
       expect(screen.getByText(name)).toBeInTheDocument();
     }
@@ -98,7 +101,9 @@ describe("the Integrations section on the daemon", () => {
     // Nothing is stored for GitHub, so the prototype's own "installed" sentence does not show.
     expect(screen.queryByText(PROTOTYPE_DETAIL)).not.toBeInTheDocument();
     expect(rowButton("Connect")).toBeInTheDocument();
-    // A later phase's row keeps the prototype's own state until its own phase builds it.
+    // A later phase's row keeps the prototype's own state until its own phase builds it; Obsidian,
+    // this run's own switched row, reads connected (it is self-owned, never "none") and so also
+    // shows Manage.
     expect(screen.getAllByRole("button", { name: "Manage" }).length).toBeGreaterThan(0);
     // The daemon was asked for the list while the app came online.
     expect(boot).toContain("GET /v1/integrations");

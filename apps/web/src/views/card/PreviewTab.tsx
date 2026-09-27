@@ -105,7 +105,9 @@ function ShotPlaceholder(props: { card: Card; kind: PreviewShotKind }) {
   const look = () => tones(props.card);
   const bg = () => (props.kind === PreviewShotKindBefore ? look().beforeBg : look().afterBg);
   const fill = () =>
-    props.kind === PreviewShotKindBefore ? "bg-card-preview-light-block" : "bg-card-preview-dark-block";
+    props.kind === PreviewShotKindBefore
+      ? "bg-card-preview-light-block"
+      : "bg-card-preview-dark-block";
   const line = () =>
     props.kind === PreviewShotKindBefore
       ? "border-card-preview-light-block"
