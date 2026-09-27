@@ -57,7 +57,12 @@ describe("the card chat and activity golden files", () => {
           tool: null,
           diff: null,
           plan: null,
-          approval: { state: "waiting", command: "rm -rf build", reason: "Clean the build folder" },
+          approval: {
+            id: "app_01JQZ0000000000000000000AD",
+            state: "waiting",
+            command: "rm -rf build",
+            reason: "Clean the build folder",
+          },
           card: null,
         },
         {

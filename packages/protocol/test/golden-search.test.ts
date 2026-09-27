@@ -53,7 +53,31 @@ describe("the search and sample project golden files", () => {
           lastActiveAt: "2026-09-30T10:00:00.000Z",
         },
       ],
-      totals: { projects: 1, cards: 11, chats: 1 },
+      sessions: [
+        {
+          cardId: "01M3C107JB041061050R3GG28A",
+          key: "api#41",
+          title: "Refresh the token before it expires",
+          excerpt: "Refreshed the token in the middleware and left the rotation job alone",
+          projectId: "api",
+          projectName: "api-gateway",
+          at: "2026-09-30T10:30:00.000Z",
+        },
+      ],
+      notes: [
+        {
+          cardId: "01M3C107JB041061050R3GG28A",
+          key: "api#41",
+          title: "Refresh the token before it expires",
+          path: "api/cards/41-refresh-the-token-before-it-expires.md",
+          excerpt: "# Refresh the token before it expires\n\nGoal: refresh the token before it expires.",
+          author: "agent",
+          projectId: "api",
+          projectName: "api-gateway",
+          at: "2026-09-30T11:30:00.000Z",
+        },
+      ],
+      totals: { projects: 1, cards: 11, chats: 1, sessions: 3, notes: 2 },
       serverTime: "2026-09-30T12:00:00.000Z",
     };
     expect(golden("search")).toEqual(sample);
@@ -62,13 +86,15 @@ describe("the search and sample project golden files", () => {
     expect(sample.totals.cards).toBeGreaterThan(sample.cards.length);
   });
 
-  it("sends three empty lists, never null, for an empty query", () => {
+  it("sends an empty list of every kind, never null, for an empty query", () => {
     const sample: SearchSnapshot = {
       query: "",
       projects: [],
       cards: [],
       chats: [],
-      totals: { projects: 0, cards: 0, chats: 0 },
+      sessions: [],
+      notes: [],
+      totals: { projects: 0, cards: 0, chats: 0, sessions: 0, notes: 0 },
       serverTime: "2026-09-30T12:00:00.000Z",
     };
     expect(golden("search-empty")).toEqual(sample);
