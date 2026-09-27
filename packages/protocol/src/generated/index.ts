@@ -9,16 +9,16 @@
  * goes back to the daemon when a card is created.
  */
 export interface AgentModel {
-  /** ID is the value the agent takes as its model setting, such as "sonnet" or "gemini-2.5-pro". */
-  id: string;
-  /** Name is the words shown to people. */
-  name: string;
-  /**
-   * Thinking says whether the model has a thinking setting at all. The thinking picker is only
-   * offered when it is true and the agent's own Thinking capability is true as well, because
-   * an agent may have models that think and still give Marshal no way to set how hard.
-   */
-  thinking: boolean;
+	/** ID is the value the agent takes as its model setting, such as "sonnet" or "gemini-2.5-pro". */
+	id: string;
+	/** Name is the words shown to people. */
+	name: string;
+	/**
+	 * Thinking says whether the model has a thinking setting at all. The thinking picker is only
+	 * offered when it is true and the agent's own Thinking capability is true as well, because
+	 * an agent may have models that think and still give Marshal no way to set how hard.
+	 */
+	thinking: boolean;
 }
 /**
  * AgentCapabilities says what Marshal can do with an agent, as far as it is known before a
@@ -26,25 +26,25 @@ export interface AgentModel {
  * Marshal does not use yet is false.
  */
 export interface AgentCapabilities {
-  /** Resume is true when a stopped session can be picked up again with its session id. */
-  resume: boolean;
-  /**
-   * StructuredEvents is true when the agent reports messages and tool calls as events, so the
-   * chat view works. An agent without it is only shown as a terminal.
-   */
-  structuredEvents: boolean;
-  /** ModelSwitching is true when a card can choose the model when its session starts. */
-  modelSwitching: boolean;
-  /** Thinking is true when a card can choose a thinking mode when its session starts. */
-  thinking: boolean;
-  /** MCP is true when the agent accepts MCP servers from Marshal. */
-  mcp: boolean;
-  /**
-   * Approvals is true when the agent can ask the person before it uses a tool. When it is
-   * false, the "Ask" permission mode makes the agent skip what needs approval instead of
-   * asking, and the screens should say so.
-   */
-  approvals: boolean;
+	/** Resume is true when a stopped session can be picked up again with its session id. */
+	resume: boolean;
+	/**
+	 * StructuredEvents is true when the agent reports messages and tool calls as events, so the
+	 * chat view works. An agent without it is only shown as a terminal.
+	 */
+	structuredEvents: boolean;
+	/** ModelSwitching is true when a card can choose the model when its session starts. */
+	modelSwitching: boolean;
+	/** Thinking is true when a card can choose a thinking mode when its session starts. */
+	thinking: boolean;
+	/** MCP is true when the agent accepts MCP servers from Marshal. */
+	mcp: boolean;
+	/**
+	 * Approvals is true when the agent can ask the person before it uses a tool. When it is
+	 * false, the "Ask" permission mode makes the agent skip what needs approval instead of
+	 * asking, and the screens should say so.
+	 */
+	approvals: boolean;
 }
 /**
  * Agent is one entry of the agent catalog: a kind of coding agent, and whether it can be used on
@@ -52,46 +52,46 @@ export interface AgentCapabilities {
  * folders.
  */
 export interface Agent {
-  /** Kind says which agent it is. */
-  kind: AgentKind;
-  /** Name is the words shown to people, such as "Claude Code". */
-  name: string;
-  /** Version is the installed version, or empty when the agent is missing. */
-  version: string;
-  /** Status says whether the agent can be used here. */
-  status: AgentStatus;
-  /**
-   * Warning is one plain sentence for the screens when there is something to know, such as an
-   * untested version. It is empty when there is nothing to say.
-   */
-  warning: string;
-  /**
-   * InstallHint is one plain sentence with the install command, for the disabled row of a
-   * missing agent. It is empty when the agent is installed.
-   */
-  installHint: string;
-  /**
-   * Models are the models the agent can run, in the order to show them. The first one is the
-   * default when a card switches to this agent.
-   */
-  models: AgentModel[];
-  /** Capabilities says what Marshal can do with the agent. */
-  capabilities: AgentCapabilities;
+	/** Kind says which agent it is. */
+	kind: AgentKind;
+	/** Name is the words shown to people, such as "Claude Code". */
+	name: string;
+	/** Version is the installed version, or empty when the agent is missing. */
+	version: string;
+	/** Status says whether the agent can be used here. */
+	status: AgentStatus;
+	/**
+	 * Warning is one plain sentence for the screens when there is something to know, such as an
+	 * untested version. It is empty when there is nothing to say.
+	 */
+	warning: string;
+	/**
+	 * InstallHint is one plain sentence with the install command, for the disabled row of a
+	 * missing agent. It is empty when the agent is installed.
+	 */
+	installHint: string;
+	/**
+	 * Models are the models the agent can run, in the order to show them. The first one is the
+	 * default when a card switches to this agent.
+	 */
+	models: AgentModel[];
+	/** Capabilities says what Marshal can do with the agent. */
+	capabilities: AgentCapabilities;
 }
 /** AgentCatalog is the answer to GET /v1/agents. */
 export interface AgentCatalog {
-  /**
-   * Agents has one entry for each kind of agent that a card can use, whether or not it is
-   * installed. The built-in agent is last, and it is always there: Marshal runs it itself, so
-   * there is nothing to install. The three CLI kinds come first, in the order the pickers show
-   * them.
-   */
-  agents: Agent[];
-  /**
-   * ServerTime is the daemon's time when the answer was made. The catalog itself may come from
-   * a check that was made a few minutes earlier.
-   */
-  serverTime: Timestamp;
+	/**
+	 * Agents has one entry for each kind of agent that a card can use, whether or not it is
+	 * installed. The built-in agent is last, and it is always there: Marshal runs it itself, so
+	 * there is nothing to install. The three CLI kinds come first, in the order the pickers show
+	 * them.
+	 */
+	agents: Agent[];
+	/**
+	 * ServerTime is the daemon's time when the answer was made. The catalog itself may come from
+	 * a check that was made a few minutes earlier.
+	 */
+	serverTime: Timestamp;
 }
 
 //////////
@@ -102,63 +102,63 @@ export interface AgentCatalog {
  * is answered. State is where it stands: waiting, approved, or denied.
  */
 export interface Approval {
-  /** ID is the approval's own opaque id. It is what POST /v1/approvals/{id} answers. */
-  id: string;
-  /** CardID is the card whose session asked for permission. It is empty when a chat's session did. */
-  cardId: string;
-  /** ChatID is the chat whose session asked for permission. It is left out when a card's did. */
-  chatId?: string;
-  /** SessionID is the session's own opaque id, for the audit trail. */
-  sessionId: string;
-  /**
-   * ToolCallID names the tool call the request is about, when the agent says. Empty when it does
-   * not.
-   */
-  toolCallId?: string;
-  /** Title is the one line the request shows, in the agent's own words. */
-  title: string;
-  /**
-   * Kind is the agent's word for the kind of tool: read, edit, delete, move, search, execute,
-   * think, fetch, switch_mode, or other. Empty when the agent gave none.
-   */
-  kind?: string;
-  /** Path is the file the request is about, when it has one. */
-  path?: string;
-  /** Command is the command line of an execute request, when it has one. */
-  command?: string;
-  /** Options are the answers the agent offered, in the order the agent gave them. Never null. */
-  options: ApprovalOption[];
-  /** State is where the request stands. */
-  state: ChatApprovalState;
-  /**
-   * DecidedBy names who answered, and is empty while the request is waiting. It is "person" for an
-   * answer given from a screen, or "daemon" for one the daemon gave on a person's behalf (a
-   * bypassed mode, or a request withdrawn when the session ended).
-   */
-  decidedBy?: string;
-  /**
-   * At is when the agent asked, in UTC. It is read back from the approval's own id (IDTime), so it
-   * survives a restart without a stored column of its own.
-   */
-  at: Timestamp;
+	/** ID is the approval's own opaque id. It is what POST /v1/approvals/{id} answers. */
+	id: string;
+	/** CardID is the card whose session asked for permission. It is empty when a chat's session did. */
+	cardId: string;
+	/** ChatID is the chat whose session asked for permission. It is left out when a card's did. */
+	chatId?: string;
+	/** SessionID is the session's own opaque id, for the audit trail. */
+	sessionId: string;
+	/**
+	 * ToolCallID names the tool call the request is about, when the agent says. Empty when it does
+	 * not.
+	 */
+	toolCallId?: string;
+	/** Title is the one line the request shows, in the agent's own words. */
+	title: string;
+	/**
+	 * Kind is the agent's word for the kind of tool: read, edit, delete, move, search, execute,
+	 * think, fetch, switch_mode, or other. Empty when the agent gave none.
+	 */
+	kind?: string;
+	/** Path is the file the request is about, when it has one. */
+	path?: string;
+	/** Command is the command line of an execute request, when it has one. */
+	command?: string;
+	/** Options are the answers the agent offered, in the order the agent gave them. Never null. */
+	options: ApprovalOption[];
+	/** State is where the request stands. */
+	state: ChatApprovalState;
+	/**
+	 * DecidedBy names who answered, and is empty while the request is waiting. It is "person" for an
+	 * answer given from a screen, or "daemon" for one the daemon gave on a person's behalf (a
+	 * bypassed mode, or a request withdrawn when the session ended).
+	 */
+	decidedBy?: string;
+	/**
+	 * At is when the agent asked, in UTC. It is read back from the approval's own id (IDTime), so it
+	 * survives a restart without a stored column of its own.
+	 */
+	at: Timestamp;
 }
 /**
  * ApprovalOption is one answer an agent offered for an approval, on the wire. Kind is one of the
  * agents.Option constants: allow_once, allow_always, reject_once, or reject_always.
  */
 export interface ApprovalOption {
-  /**
-   * ID is the option's id inside the request, as the agent named it. It is what the agent is
-   * given back, so it is passed through unchanged.
-   */
-  id: string;
-  /** Name is the option's label, in the agent's own words. */
-  name: string;
-  /**
-   * Kind groups the options: allow_once and allow_always allow, reject_once and reject_always
-   * refuse.
-   */
-  kind: string;
+	/**
+	 * ID is the option's id inside the request, as the agent named it. It is what the agent is
+	 * given back, so it is passed through unchanged.
+	 */
+	id: string;
+	/** Name is the option's label, in the agent's own words. */
+	name: string;
+	/**
+	 * Kind groups the options: allow_once and allow_always allow, reject_once and reject_always
+	 * refuse.
+	 */
+	kind: string;
 }
 /**
  * ApprovalDecision is the answer a person gives to an Approval. It is the state the request moves
@@ -168,23 +168,25 @@ export interface ApprovalOption {
 export const ApprovalDecisionApproved = "approved";
 /** ApprovalDecisionDenied is an approval a person refused. */
 export const ApprovalDecisionDenied = "denied";
-export type ApprovalDecision = typeof ApprovalDecisionApproved | typeof ApprovalDecisionDenied;
+export type ApprovalDecision =
+	| typeof ApprovalDecisionApproved
+	| typeof ApprovalDecisionDenied;
 /** Every ApprovalDecision, in the order the Go list gives them. */
 export const ApprovalDecisionValues: readonly ApprovalDecision[] = [
-  ApprovalDecisionApproved,
-  ApprovalDecisionDenied,
+	ApprovalDecisionApproved,
+	ApprovalDecisionDenied,
 ];
 /** DecideApprovalRequest is the body of POST /v1/approvals/{id}: the answer to one approval. */
 export interface DecideApprovalRequest {
-  /** Decision is approve or deny. It is required. */
-  decision: ApprovalDecision;
-  /**
-   * OptionID picks the exact option the agent offered (allow_always rather than allow_once, for
-   * example). It is optional: when it is empty the daemon picks the plain option for the decision
-   * (allow_once to approve, reject_once to deny), and when it is set the agent must have offered
-   * it.
-   */
-  optionId?: string;
+	/** Decision is approve or deny. It is required. */
+	decision: ApprovalDecision;
+	/**
+	 * OptionID picks the exact option the agent offered (allow_always rather than allow_once, for
+	 * example). It is optional: when it is empty the daemon picks the plain option for the decision
+	 * (allow_once to approve, reject_once to deny), and when it is set the agent must have offered
+	 * it.
+	 */
+	optionId?: string;
 }
 /**
  * ApprovalRequestedEventData is the payload of approval.requested, on the card's or the chat's
@@ -192,30 +194,30 @@ export interface DecideApprovalRequest {
  * without another call.
  */
 export interface ApprovalRequestedEventData {
-  /** CardID is the card whose session asked. It is empty when a chat's did. */
-  cardId: string;
-  /** ChatID is the chat whose session asked. It is left out when a card's did. */
-  chatId?: string;
-  /** Approval is the request, in the waiting state. */
-  approval: Approval;
+	/** CardID is the card whose session asked. It is empty when a chat's did. */
+	cardId: string;
+	/** ChatID is the chat whose session asked. It is left out when a card's did. */
+	chatId?: string;
+	/** Approval is the request, in the waiting state. */
+	approval: Approval;
 }
 /**
  * ApprovalResolvedEventData is the payload of approval.resolved: which approval was answered and
  * where it now stands, so every view of the same row updates together (N7).
  */
 export interface ApprovalResolvedEventData {
-  /** CardID is the card whose session asked. It is empty when a chat's did. */
-  cardId: string;
-  /** ChatID is the chat whose session asked. It is left out when a card's did. */
-  chatId?: string;
-  /** ApprovalID is the approval that was answered. */
-  approvalId: string;
-  /** State is where it now stands: approved or denied. */
-  state: ChatApprovalState;
-  /** DecidedBy names who answered ("person" or "daemon"). */
-  decidedBy?: string;
-  /** At is when it was answered, in UTC. */
-  at: Timestamp;
+	/** CardID is the card whose session asked. It is empty when a chat's did. */
+	cardId: string;
+	/** ChatID is the chat whose session asked. It is left out when a card's did. */
+	chatId?: string;
+	/** ApprovalID is the approval that was answered. */
+	approvalId: string;
+	/** State is where it now stands: approved or denied. */
+	state: ChatApprovalState;
+	/** DecidedBy names who answered ("person" or "daemon"). */
+	decidedBy?: string;
+	/** At is when it was answered, in UTC. */
+	at: Timestamp;
 }
 
 //////////
@@ -223,27 +225,27 @@ export interface ApprovalResolvedEventData {
 
 /** AuditEntry is one row of the audit log. */
 export interface AuditEntry {
-  /** ID is the row's own opaque id. It is made by the writer and sorts by time like every other id. */
-  id: string;
-  /** SessionID is the session the action belonged to, when it belonged to one. */
-  sessionId?: string;
-  /** Actor is who acted: "person", "agent", or "daemon". */
-  actor: string;
-  /**
-   * Action is what they did, as one of internal/audit's action names: "approve", "deny",
-   * "bypass.on", "bypass.off", "commit.blocked", and so on. It is a plain string, not an enum, so a
-   * new kind of action needs no wire change and an older client shows it by its name.
-   */
-  action: string;
-  /** Target is what the action was about, when there is one: an approval id, a card id, a commit. */
-  target?: string;
-  /**
-   * Detail is whatever else the writer recorded, as JSON. It is left out when the writer recorded
-   * nothing.
-   */
-  detail?: { [key: string]: any };
-  /** At is when it happened, in UTC. */
-  at: Timestamp;
+	/** ID is the row's own opaque id. It is made by the writer and sorts by time like every other id. */
+	id: string;
+	/** SessionID is the session the action belonged to, when it belonged to one. */
+	sessionId?: string;
+	/** Actor is who acted: "person", "agent", or "daemon". */
+	actor: string;
+	/**
+	 * Action is what they did, as one of internal/audit's action names: "approve", "deny",
+	 * "bypass.on", "bypass.off", "commit.blocked", and so on. It is a plain string, not an enum, so a
+	 * new kind of action needs no wire change and an older client shows it by its name.
+	 */
+	action: string;
+	/** Target is what the action was about, when there is one: an approval id, a card id, a commit. */
+	target?: string;
+	/**
+	 * Detail is whatever else the writer recorded, as JSON. It is left out when the writer recorded
+	 * nothing.
+	 */
+	detail?: { [key: string]: any };
+	/** At is when it happened, in UTC. */
+	at: Timestamp;
 }
 /**
  * AuditExport is the answer to the export route: everything the query matched, newest first, not
@@ -251,14 +253,14 @@ export interface AuditEntry {
  * carries the query it answers so the file says what it is.
  */
 export interface AuditExport {
-  /** Query is the search that produced this export, and is empty for an export of everything. */
-  query?: string;
-  /** Entries are the rows the query matched, newest first. */
-  entries: AuditEntry[];
-  /** Total is how many entries there are, so a reader knows whether it has all of them. */
-  total: number /* int */;
-  /** ServerTime is the daemon's time when the export was made. */
-  serverTime: Timestamp;
+	/** Query is the search that produced this export, and is empty for an export of everything. */
+	query?: string;
+	/** Entries are the rows the query matched, newest first. */
+	entries: AuditEntry[];
+	/** Total is how many entries there are, so a reader knows whether it has all of them. */
+	total: number /* int */;
+	/** ServerTime is the daemon's time when the export was made. */
+	serverTime: Timestamp;
 }
 
 //////////
@@ -279,34 +281,34 @@ export const DeviceKindCLI = "cli";
 /** DeviceKindDev is the dev token, which only a dev daemon accepts and only from this machine. */
 export const DeviceKindDev = "dev";
 export type DeviceKind =
-  | typeof DeviceKindWeb
-  | typeof DeviceKindDesktop
-  | typeof DeviceKindMobile
-  | typeof DeviceKindCLI
-  | typeof DeviceKindDev;
+	| typeof DeviceKindWeb
+	| typeof DeviceKindDesktop
+	| typeof DeviceKindMobile
+	| typeof DeviceKindCLI
+	| typeof DeviceKindDev;
 /** Every DeviceKind, in the order the Go list gives them. */
 export const DeviceKindValues: readonly DeviceKind[] = [
-  DeviceKindWeb,
-  DeviceKindDesktop,
-  DeviceKindMobile,
-  DeviceKindCLI,
-  DeviceKindDev,
+	DeviceKindWeb,
+	DeviceKindDesktop,
+	DeviceKindMobile,
+	DeviceKindCLI,
+	DeviceKindDev,
 ];
 /**
  * WhoAmI is the answer to GET /v1/auth/whoami. A client calls it to check that its token still
  * works and to learn which device and user the token belongs to.
  */
 export interface WhoAmI {
-  /** DeviceID is the opaque id of the device the token belongs to. */
-  deviceId: string;
-  /** DeviceKind is what sort of client that device is. */
-  deviceKind: DeviceKind;
-  /** UserID is the opaque id of the user who owns the device. */
-  userId: string;
-  /** Mode is "normal" or "dev", the same word as in Health. */
-  mode: string;
-  /** ServerTime is the daemon's clock when the answer was made. */
-  serverTime: Timestamp;
+	/** DeviceID is the opaque id of the device the token belongs to. */
+	deviceId: string;
+	/** DeviceKind is what sort of client that device is. */
+	deviceKind: DeviceKind;
+	/** UserID is the opaque id of the user who owns the device. */
+	userId: string;
+	/** Mode is "normal" or "dev", the same word as in Health. */
+	mode: string;
+	/** ServerTime is the daemon's clock when the answer was made. */
+	serverTime: Timestamp;
 }
 
 //////////
@@ -322,11 +324,11 @@ export interface WhoAmI {
  * a permission mode.
  */
 export interface BypassRequest {
-  /**
-   * Acknowledged says the person accepted what bypass means: the agent runs every command and
-   * edit in the card's worktree without asking.
-   */
-  acknowledged: boolean;
+	/**
+	 * Acknowledged says the person accepted what bypass means: the agent runs every command and
+	 * edit in the card's worktree without asking.
+	 */
+	acknowledged: boolean;
 }
 /**
  * BypassRefusalReason is why the daemon refused to turn bypass on. It travels in the details of a
@@ -340,12 +342,12 @@ export const BypassRefusalReasonUnacknowledged = "unacknowledged";
  */
 export const BypassRefusalReasonLocked = "locked";
 export type BypassRefusalReason =
-  | typeof BypassRefusalReasonUnacknowledged
-  | typeof BypassRefusalReasonLocked;
+	| typeof BypassRefusalReasonUnacknowledged
+	| typeof BypassRefusalReasonLocked;
 /** Every BypassRefusalReason, in the order the Go list gives them. */
 export const BypassRefusalReasonValues: readonly BypassRefusalReason[] = [
-  BypassRefusalReasonUnacknowledged,
-  BypassRefusalReasonLocked,
+	BypassRefusalReasonUnacknowledged,
+	BypassRefusalReasonLocked,
 ];
 
 //////////
@@ -356,169 +358,178 @@ export const BypassRefusalReasonValues: readonly BypassRefusalReason[] = [
  * by its Key (the project and the number) when a person reads or types it.
  */
 export interface Card {
-  /** ID is the card's opaque id. Routes use it. */
-  id: string;
-  /** ProjectID is the short id of the project the card belongs to. */
-  projectId: string;
-  /**
-   * Number counts the project's cards from 1. It is the "41" in "#41". Two projects each have a
-   * card 12, so a list that mixes projects shows the project name too.
-   */
-  number: number /* int */;
-  /** Key is the project id and the number as text, such as "web-dashboard#12". */
-  key: string;
-  /** Title is the card's short name. */
-  title: string;
-  /** Body is the longer description the agent starts from. It may be empty. */
-  body: string;
-  /** State is where the card is on the board. */
-  state: CardState;
-  /** Agent is which agent program works on the card. */
-  agent: AgentKind;
-  /** Model is the model the agent uses. Empty means the agent's own default. */
-  model: string;
-  /**
-   * Thinking is how much the agent thinks. It is null when the card has no thinking setting.
-   * The tstype tag makes the generated TypeScript `ThinkingMode | null` and required, because
-   * this field is always sent, as null when there is no setting: a pointer without `omitempty`
-   * encodes nothing away, so the type must not make it optional.
-   */
-  thinking?: ThinkingMode | null;
-  /** PermissionMode is how much the agent may do without asking. */
-  permissionMode: PermissionMode;
-  /**
-   * Role is the role's name, such as "Implementer". A role is addressed by its name rather than
-   * by an id, so this is the name of one of the project's roles, and it may be empty.
-   */
-  role: string;
-  /** Labels are the project's labels on this card, in the order they were added. Never null. */
-  labels: Label[];
-  /** Package is the monorepo package the card works in. Empty when the project is not one. */
-  package: string;
-  /**
-   * PlannedStart and PlannedEnd are when the card is meant to run (the Timeline draws these for
-   * a card that has not started). Null when the person set no plan.
-   */
-  plannedStart?: Timestamp | null;
-  plannedEnd?: Timestamp | null;
-  /** Due is when the card is due. Null when it has no date. */
-  due?: Timestamp | null;
-  /**
-   * ActualStart and ActualEnd are when the card really ran (the Timeline draws these once it
-   * has started, decision D1). Null before the card starts, and before it ends.
-   */
-  actualStart?: Timestamp | null;
-  actualEnd?: Timestamp | null;
-  /**
-   * PullRequest is the card's pull request. Null when it has none. Phase 1 has no CI or forge
-   * integration, so it is only ever set by hand or by the fixture.
-   */
-  pullRequest?: PullRequest | null;
-  /**
-   * CI is the state of the card's CI run. Null when the card has no CI data (nothing invents
-   * one: architecture.md section 11.5 and the design-port deviations list).
-   */
-  ci?: CIState | null;
-  /** ContextUsed is how full the agent's context window is, as a percentage from 0 to 100. */
-  contextUsed: number /* int */;
-  /** NeedsReason is why the card waits on a person. Null unless State is needs. */
-  needsReason?: NeedsReason | null;
-  /** DoingNow is the agent's one-line "doing now", empty when it is not working. */
-  doingNow: string;
-  /** Paused is true while a pause holds the card between turns. Slice G of Phase 2 writes it. */
-  paused: boolean;
-  /**
-   * Pinned is true while the card is kept from sleeping on its own. Automatic sleep is Phase 5,
-   * so today it only records what the person chose.
-   */
-  pinned: boolean;
-  /**
-   * Session is the state of the card's session as it was last stored: awake, working, asleep,
-   * waking, and the rest. It is null when the card has never had a session. It is the stored
-   * state rather than whether a process runs in the daemon right now, so it survives a restart:
-   * a card put to sleep reads asleep after the daemon starts again, and one that was awake reads
-   * awake until the restore resumes it (docs/architecture.md 5.3). Every change to it is also
-   * announced as card.updated on the project topic, beside session.state_changed on the card's
-   * own topic. It is always sent, as null when there is no session: a pointer without `omitempty`
-   * encodes nothing away, and the `required` flag of the tstype tag makes the generated type
-   * `SessionState | null`, where a bare pointer would be generated as an optional field.
-   */
-  session: SessionState | null;
-  /**
-   * ViewMode is the view the card's agent runs in: chat, or terminal (docs/architecture.md 4.3).
-   * It is stored with the session, so it survives a restart, and it is chat for a card with no
-   * session and for one whose session has stopped. It is always sent. Every change to it is
-   * announced as card.updated, like the session state it goes with.
-   */
-  viewMode: CardViewMode;
-  /** Branch is the Git branch of the card's work. Empty until the card starts. */
-  branch: string;
-  /** CreatedAt is when the card was made. */
-  createdAt: Timestamp;
-  /** UpdatedAt is when the card last changed. */
-  updatedAt: Timestamp;
+	/** ID is the card's opaque id. Routes use it. */
+	id: string;
+	/** ProjectID is the short id of the project the card belongs to. */
+	projectId: string;
+	/**
+	 * Number counts the project's cards from 1. It is the "41" in "#41". Two projects each have a
+	 * card 12, so a list that mixes projects shows the project name too.
+	 */
+	number: number /* int */;
+	/** Key is the project id and the number as text, such as "web-dashboard#12". */
+	key: string;
+	/** Title is the card's short name. */
+	title: string;
+	/** Body is the longer description the agent starts from. It may be empty. */
+	body: string;
+	/** State is where the card is on the board. */
+	state: CardState;
+	/** Agent is which agent program works on the card. */
+	agent: AgentKind;
+	/** Model is the model the agent uses. Empty means the agent's own default. */
+	model: string;
+	/**
+	 * Thinking is how much the agent thinks. It is null when the card has no thinking setting.
+	 * The tstype tag makes the generated TypeScript `ThinkingMode | null` and required, because
+	 * this field is always sent, as null when there is no setting: a pointer without `omitempty`
+	 * encodes nothing away, so the type must not make it optional.
+	 */
+	thinking?: ThinkingMode | null;
+	/** PermissionMode is how much the agent may do without asking. */
+	permissionMode: PermissionMode;
+	/**
+	 * Role is the role's name, such as "Implementer". A role is addressed by its name rather than
+	 * by an id, so this is the name of one of the project's roles, and it may be empty.
+	 */
+	role: string;
+	/** Labels are the project's labels on this card, in the order they were added. Never null. */
+	labels: Label[];
+	/** Package is the monorepo package the card works in. Empty when the project is not one. */
+	package: string;
+	/**
+	 * PlannedStart and PlannedEnd are when the card is meant to run (the Timeline draws these for
+	 * a card that has not started). Null when the person set no plan.
+	 */
+	plannedStart?: Timestamp | null;
+	plannedEnd?: Timestamp | null;
+	/** Due is when the card is due. Null when it has no date. */
+	due?: Timestamp | null;
+	/**
+	 * ActualStart and ActualEnd are when the card really ran (the Timeline draws these once it
+	 * has started, decision D1). Null before the card starts, and before it ends.
+	 */
+	actualStart?: Timestamp | null;
+	actualEnd?: Timestamp | null;
+	/**
+	 * PullRequest is the card's pull request. Null when it has none. Phase 1 has no CI or forge
+	 * integration, so it is only ever set by hand or by the fixture.
+	 */
+	pullRequest?: PullRequest | null;
+	/**
+	 * CI is the state of the card's CI run. Null when the card has no CI data (nothing invents
+	 * one: architecture.md section 11.5 and the design-port deviations list).
+	 */
+	ci?: CIState | null;
+	/** ContextUsed is how full the agent's context window is, as a percentage from 0 to 100. */
+	contextUsed: number /* int */;
+	/** NeedsReason is why the card waits on a person. Null unless State is needs. */
+	needsReason?: NeedsReason | null;
+	/** DoingNow is the agent's one-line "doing now", empty when it is not working. */
+	doingNow: string;
+	/** Paused is true while a pause holds the card between turns. Slice G of Phase 2 writes it. */
+	paused: boolean;
+	/**
+	 * Pinned is true while the card is kept from sleeping on its own. Automatic sleep is Phase 5,
+	 * so today it only records what the person chose.
+	 */
+	pinned: boolean;
+	/**
+	 * Session is the state of the card's session as it was last stored: awake, working, asleep,
+	 * waking, and the rest. It is null when the card has never had a session. It is the stored
+	 * state rather than whether a process runs in the daemon right now, so it survives a restart:
+	 * a card put to sleep reads asleep after the daemon starts again, and one that was awake reads
+	 * awake until the restore resumes it (docs/architecture.md 5.3). Every change to it is also
+	 * announced as card.updated on the project topic, beside session.state_changed on the card's
+	 * own topic. It is always sent, as null when there is no session: a pointer without `omitempty`
+	 * encodes nothing away, and the `required` flag of the tstype tag makes the generated type
+	 * `SessionState | null`, where a bare pointer would be generated as an optional field.
+	 */
+	session: SessionState | null;
+	/**
+	 * ViewMode is the view the card's agent runs in: chat, or terminal (docs/architecture.md 4.3).
+	 * It is stored with the session, so it survives a restart, and it is chat for a card with no
+	 * session and for one whose session has stopped. It is always sent. Every change to it is
+	 * announced as card.updated, like the session state it goes with.
+	 */
+	viewMode: CardViewMode;
+	/** Branch is the Git branch of the card's work. Empty until the card starts. */
+	branch: string;
+	/** CreatedAt is when the card was made. */
+	createdAt: Timestamp;
+	/** UpdatedAt is when the card last changed. */
+	updatedAt: Timestamp;
 }
 /** PullRequest is a card's pull request: the number a person reads and the address it lives at. */
 export interface PullRequest {
-  /** Number is the pull request number, such as 287. */
-  number: number /* int */;
-  /** URL is the address of the pull request. Empty when only the number is known. */
-  url: string;
+	/** Number is the pull request number, such as 287. */
+	number: number /* int */;
+	/** URL is the address of the pull request. Empty when only the number is known. */
+	url: string;
 }
 /**
  * NeedsReason is why a card waits on a person: a kind a client can act on, and the sentence the
  * app shows.
  */
 export interface NeedsReason {
-  /** Kind is the reason. */
-  kind: NeedsReasonKind;
-  /** Text is the plain sentence shown under the card. It may be empty. */
-  text: string;
+	/** Kind is the reason. */
+	kind: NeedsReasonKind;
+	/** Text is the plain sentence shown under the card. It may be empty. */
+	text: string;
+	/**
+	 * ApprovalID is the id of the approval the card is waiting on, set only when Kind is
+	 * ApprovalNeeded, so Home's needs-you list can answer it (POST /v1/approvals/{id}) for a card
+	 * nobody has opened (S8b, B3.4). It is read fresh from the approvals table every time the card
+	 * is read rather than stored on the card row, so it can never go stale: empty means either the
+	 * card is waiting for a different reason, or this exact approval has already been answered and
+	 * the card has not been moved off Needs you yet.
+	 */
+	approvalId?: string;
 }
 /** BoardSnapshot is the answer to GET /v1/projects/{id}/board: the columns and every card. */
 export interface BoardSnapshot {
-  /** ProjectID is the project the board belongs to. */
-  projectId: string;
-  /**
-   * Columns are the card states that have a column, in board order. A card in the "merging"
-   * state has no column of its own: it is shown in the "ready" column.
-   */
-  columns: CardState[];
-  /** Cards are all the project's cards, in number order. */
-  cards: Card[];
-  /** ServerTime is the daemon's time when the board was made. */
-  serverTime: Timestamp;
+	/** ProjectID is the project the board belongs to. */
+	projectId: string;
+	/**
+	 * Columns are the card states that have a column, in board order. A card in the "merging"
+	 * state has no column of its own: it is shown in the "ready" column.
+	 */
+	columns: CardState[];
+	/** Cards are all the project's cards, in number order. */
+	cards: Card[];
+	/** ServerTime is the daemon's time when the board was made. */
+	serverTime: Timestamp;
 }
 /**
  * CreateCardRequest is the body of POST /v1/projects/{id}/cards. The card starts in the backlog
  * unless StartState names another of the three states a person can add a card in.
  */
 export interface CreateCardRequest {
-  /** Title is the card's name. It cannot be empty. */
-  title: string;
-  /** Body is the description. It may be empty. */
-  body?: string;
-  /** Agent is which agent works on the card. Empty means Claude Code. */
-  agent?: AgentKind;
-  /** Model is the model to use. Empty means the agent's own default. */
-  model?: string;
-  /** Thinking is how much the agent thinks. Empty means no setting. */
-  thinking?: ThinkingMode;
-  /** PermissionMode is how much the agent may do without asking. Empty means auto-accept edits. */
-  permissionMode?: PermissionMode;
-  /** Role is the role's name. Empty means no role. */
-  role?: string;
-  /** Package is the monorepo package. Empty means none. */
-  package?: string;
-  /**
-   * StartState is the column the card is added in: backlog (the default when empty), planning,
-   * or working. Any other value is refused, because a card reaches the other columns by what
-   * happens to it, not by being added there.
-   * The card row is written in the backlog and its session is started straight after, so nothing
-   * is ever shown as working before its agent exists. If the agent cannot start, the card is
-   * removed again and the request fails: adding a card either works or leaves nothing behind.
-   */
-  startState?: CardState;
+	/** Title is the card's name. It cannot be empty. */
+	title: string;
+	/** Body is the description. It may be empty. */
+	body?: string;
+	/** Agent is which agent works on the card. Empty means Claude Code. */
+	agent?: AgentKind;
+	/** Model is the model to use. Empty means the agent's own default. */
+	model?: string;
+	/** Thinking is how much the agent thinks. Empty means no setting. */
+	thinking?: ThinkingMode;
+	/** PermissionMode is how much the agent may do without asking. Empty means auto-accept edits. */
+	permissionMode?: PermissionMode;
+	/** Role is the role's name. Empty means no role. */
+	role?: string;
+	/** Package is the monorepo package. Empty means none. */
+	package?: string;
+	/**
+	 * StartState is the column the card is added in: backlog (the default when empty), planning,
+	 * or working. Any other value is refused, because a card reaches the other columns by what
+	 * happens to it, not by being added there.
+	 * The card row is written in the backlog and its session is started straight after, so nothing
+	 * is ever shown as working before its agent exists. If the agent cannot start, the card is
+	 * removed again and the request fails: adding a card either works or leaves nothing behind.
+	 */
+	startState?: CardState;
 }
 /**
  * UpdateCardRequest is the body of PATCH /v1/cards/{id}. A field that is not set is left as it
@@ -526,55 +537,55 @@ export interface CreateCardRequest {
  * not null.
  */
 export interface UpdateCardRequest {
-  /** Title renames the card. Null leaves the name. */
-  title?: string;
-  /** Body replaces the description. Null leaves it. */
-  body?: string;
-  /** Agent changes the agent program. Null leaves it. */
-  agent?: AgentKind;
-  /** Model changes the model. Null leaves it; the empty string clears it. */
-  model?: string;
-  /**
-   * Thinking changes the thinking mode. Null leaves it; the empty string clears it, which is what
-   * a model that cannot be told how hard to think leaves on a card.
-   */
-  thinking?: ThinkingMode | "";
-  /** PermissionMode changes how much the agent may do. Null leaves it. */
-  permissionMode?: PermissionMode;
-  /** Role changes the role name. Null leaves it. */
-  role?: string;
-  /** Package changes the package. Null leaves it. */
-  package?: string;
-  /** Labels replaces the card's labels with exactly these ids. Null leaves them. */
-  labels?: string[];
-  /**
-   * PlannedStart, PlannedEnd, Due, ActualStart, and ActualEnd set dates. Null leaves the date.
-   * A DateChange clears it instead (there is no way to tell "clear" from "absent" with a
-   * pointer alone).
-   */
-  plannedStart?: DateChange;
-  plannedEnd?: DateChange;
-  due?: DateChange;
-  actualStart?: DateChange;
-  actualEnd?: DateChange;
-  /** DoingNow replaces the "doing now" line. Null leaves it. */
-  doingNow?: string;
-  /** NeedsReason sets or clears why the card waits on a person. Null leaves it. */
-  needsReason?: NeedsReason;
+	/** Title renames the card. Null leaves the name. */
+	title?: string;
+	/** Body replaces the description. Null leaves it. */
+	body?: string;
+	/** Agent changes the agent program. Null leaves it. */
+	agent?: AgentKind;
+	/** Model changes the model. Null leaves it; the empty string clears it. */
+	model?: string;
+	/**
+	 * Thinking changes the thinking mode. Null leaves it; the empty string clears it, which is what
+	 * a model that cannot be told how hard to think leaves on a card.
+	 */
+	thinking?: ThinkingMode | "";
+	/** PermissionMode changes how much the agent may do. Null leaves it. */
+	permissionMode?: PermissionMode;
+	/** Role changes the role name. Null leaves it. */
+	role?: string;
+	/** Package changes the package. Null leaves it. */
+	package?: string;
+	/** Labels replaces the card's labels with exactly these ids. Null leaves them. */
+	labels?: string[];
+	/**
+	 * PlannedStart, PlannedEnd, Due, ActualStart, and ActualEnd set dates. Null leaves the date.
+	 * A DateChange clears it instead (there is no way to tell "clear" from "absent" with a
+	 * pointer alone).
+	 */
+	plannedStart?: DateChange;
+	plannedEnd?: DateChange;
+	due?: DateChange;
+	actualStart?: DateChange;
+	actualEnd?: DateChange;
+	/** DoingNow replaces the "doing now" line. Null leaves it. */
+	doingNow?: string;
+	/** NeedsReason sets or clears why the card waits on a person. Null leaves it. */
+	needsReason?: NeedsReason;
 }
 /**
  * DateChange sets a card's date, or clears it. It exists because a JSON null and an absent field
  * are the same to Go's decoder, so "clear this date" needs its own shape.
  */
 export interface DateChange {
-  /** Clear removes the date. When it is false, At is the new date. */
-  clear?: boolean;
-  /**
-   * At is the new date, in UTC with milliseconds, and null when the date is being cleared. It is
-   * a pointer because a Timestamp is a struct: `omitempty` cannot leave one out, and a Timestamp
-   * that was never set refuses to encode at all.
-   */
-  at?: Timestamp | null;
+	/** Clear removes the date. When it is false, At is the new date. */
+	clear?: boolean;
+	/**
+	 * At is the new date, in UTC with milliseconds, and null when the date is being cleared. It is
+	 * a pointer because a Timestamp is a struct: `omitempty` cannot leave one out, and a Timestamp
+	 * that was never set refuses to encode at all.
+	 */
+	at?: Timestamp | null;
 }
 /**
  * MoveCardRequest is the body of POST /v1/cards/{id}/move: the column a person dragged the card
@@ -584,8 +595,8 @@ export interface DateChange {
  * through UpdateCardRequest or the session manager.
  */
 export interface MoveCardRequest {
-  /** State is the column to move to. It must be one of the board's columns. */
-  state: CardState;
+	/** State is the column to move to. It must be one of the board's columns. */
+	state: CardState;
 }
 
 //////////
@@ -601,11 +612,11 @@ export const MaxMessageChars = 100000;
  * the agent that works on the card. The answer arrives on the event stream, not in the reply.
  */
 export interface SendMessageRequest {
-  /**
-   * Text is the message. It cannot be empty or only spaces, and it can have at most
-   * MaxMessageChars characters. Its spaces and line breaks are sent as they are.
-   */
-  text: string;
+	/**
+	 * Text is the message. It cannot be empty or only spaces, and it can have at most
+	 * MaxMessageChars characters. Its spaces and line breaks are sent as they are.
+	 */
+	text: string;
 }
 
 //////////
@@ -617,86 +628,86 @@ export interface SendMessageRequest {
  * card's opaque id - not its key, so the client turns it into a key the way it does everywhere else.
  */
 export interface ChatTarget {
-  /** Kind is what the target is. It is one of the fixed ChatTargetKind values. */
-  kind: ChatTargetKind;
-  /** ID is the role name or the card's opaque id. Empty for the Orchestrator. */
-  id: string;
+	/** Kind is what the target is. It is one of the fixed ChatTargetKind values. */
+	kind: ChatTargetKind;
+	/** ID is the role name or the card's opaque id. Empty for the Orchestrator. */
+	id: string;
 }
 /** Chat is one project chat, as clients see it. */
 export interface Chat {
-  /** ID is the chat's opaque id. Routes and the `chat:<id>` topic use it. */
-  id: string;
-  /** ProjectID is the project the chat belongs to. A chat is only ever listed for its project. */
-  projectId: string;
-  /**
-   * Title is the name the app shows. A new chat is "New chat" until its first message names it;
-   * a person can rename it at any time.
-   */
-  title: string;
-  /** Target is who the chat talks to. */
-  target: ChatTarget;
-  /**
-   * AgentKind is the agent program its session starts, such as "claude". A chats' sessions are
-   * started in slice C; the settings are stored here from the moment the chat is made so the
-   * session has them.
-   */
-  agentKind: AgentKind;
-  /** Model is the model its session starts with. Empty means the agent's own default. */
-  model: string;
-  /** Thinking is the thinking mode its session starts with, and null when none is set. */
-  thinking?: ThinkingMode | null;
-  /** PermissionMode is the permission mode its session starts with. */
-  permissionMode: PermissionMode;
-  /**
-   * ArchivedAt is when the chat was archived, and null while it is in the main list. Restoring a
-   * chat puts it back to null.
-   */
-  archivedAt?: Timestamp | null;
-  /** LastActiveAt is when the chat last had a message, which is the order the list draws it in. */
-  lastActiveAt: Timestamp;
-  /** CreatedAt is when the chat was made. */
-  createdAt: Timestamp;
+	/** ID is the chat's opaque id. Routes and the `chat:<id>` topic use it. */
+	id: string;
+	/** ProjectID is the project the chat belongs to. A chat is only ever listed for its project. */
+	projectId: string;
+	/**
+	 * Title is the name the app shows. A new chat is "New chat" until its first message names it;
+	 * a person can rename it at any time.
+	 */
+	title: string;
+	/** Target is who the chat talks to. */
+	target: ChatTarget;
+	/**
+	 * AgentKind is the agent program its session starts, such as "claude". A chats' sessions are
+	 * started in slice C; the settings are stored here from the moment the chat is made so the
+	 * session has them.
+	 */
+	agentKind: AgentKind;
+	/** Model is the model its session starts with. Empty means the agent's own default. */
+	model: string;
+	/** Thinking is the thinking mode its session starts with, and null when none is set. */
+	thinking?: ThinkingMode | null;
+	/** PermissionMode is the permission mode its session starts with. */
+	permissionMode: PermissionMode;
+	/**
+	 * ArchivedAt is when the chat was archived, and null while it is in the main list. Restoring a
+	 * chat puts it back to null.
+	 */
+	archivedAt?: Timestamp | null;
+	/** LastActiveAt is when the chat last had a message, which is the order the list draws it in. */
+	lastActiveAt: Timestamp;
+	/** CreatedAt is when the chat was made. */
+	createdAt: Timestamp;
 }
 /**
  * ChatListSnapshot is the answer to GET /v1/projects/{id}/chats: one project's chats, most recently
  * active first, with the archived ones kept only when the caller asked for them.
  */
 export interface ChatListSnapshot {
-  /** ProjectID is the project the chats belong to. */
-  projectId: string;
-  /**
-   * Chats are the project's chats, most recently active first. Never null, so a project with no
-   * chats sends an empty list rather than null.
-   */
-  chats: Chat[];
-  /** ServerTime is the daemon's time when the list was made. */
-  serverTime: Timestamp;
+	/** ProjectID is the project the chats belong to. */
+	projectId: string;
+	/**
+	 * Chats are the project's chats, most recently active first. Never null, so a project with no
+	 * chats sends an empty list rather than null.
+	 */
+	chats: Chat[];
+	/** ServerTime is the daemon's time when the list was made. */
+	serverTime: Timestamp;
 }
 /**
  * ChatEventData is the payload of chat.created and chat.updated. It carries the chat as it is now,
  * not a difference, so a client that applies one twice, or after a replay, ends in the same place.
  */
 export interface ChatEventData {
-  /** Chat is the chat as it is now. */
-  chat: Chat;
+	/** Chat is the chat as it is now. */
+	chat: Chat;
 }
 /**
  * ChatArchivedEventData is the payload of chat.archived. It carries the chat as it is now, so the
  * same event serves archiving and restoring; a client reads `Chat.ArchivedAt` to tell which.
  */
 export interface ChatArchivedEventData {
-  /** Chat is the chat as it is now, with ArchivedAt set or cleared. */
-  chat: Chat;
+	/** Chat is the chat as it is now, with ArchivedAt set or cleared. */
+	chat: Chat;
 }
 /**
  * ChatDeletedEventData is the payload of chat.deleted. It is critical: a client that missed it
  * would keep drawing a chat that is gone.
  */
 export interface ChatDeletedEventData {
-  /** ChatID is the opaque id of the chat that is gone, which is what routes and the list use. */
-  chatId: string;
-  /** ProjectID is the project it belonged to, so a client knows which chat list to redraw. */
-  projectId: string;
+	/** ChatID is the opaque id of the chat that is gone, which is what routes and the list use. */
+	chatId: string;
+	/** ProjectID is the project it belonged to, so a client knows which chat list to redraw. */
+	projectId: string;
 }
 /**
  * CreateChatRequest is the body of POST /v1/projects/{id}/chats. Everything but the target is
@@ -704,32 +715,32 @@ export interface ChatDeletedEventData {
  * own defaults.
  */
 export interface CreateChatRequest {
-  /**
-   * Title is the name to start with. Empty means "New chat". A title that is only spaces is
-   * refused.
-   */
-  title?: string;
-  /**
-   * Target is who the chat talks to. Null means the Orchestrator, which is what the app opens a
-   * new chat with.
-   */
-  target?: ChatTarget | null;
-  /** AgentKind is the agent program its session starts. Empty means the project's default. */
-  agentKind?: AgentKind;
-  /** Model is the model its session starts with. Empty means the agent's own default. */
-  model?: string;
-  /** Thinking is the thinking mode its session starts with. Null means none. */
-  thinking?: ThinkingMode;
-  /** PermissionMode is the permission mode its session starts with. Empty means ask. */
-  permissionMode?: PermissionMode;
+	/**
+	 * Title is the name to start with. Empty means "New chat". A title that is only spaces is
+	 * refused.
+	 */
+	title?: string;
+	/**
+	 * Target is who the chat talks to. Null means the Orchestrator, which is what the app opens a
+	 * new chat with.
+	 */
+	target?: ChatTarget | null;
+	/** AgentKind is the agent program its session starts. Empty means the project's default. */
+	agentKind?: AgentKind;
+	/** Model is the model its session starts with. Empty means the agent's own default. */
+	model?: string;
+	/** Thinking is the thinking mode its session starts with. Null means none. */
+	thinking?: ThinkingMode;
+	/** PermissionMode is the permission mode its session starts with. Empty means ask. */
+	permissionMode?: PermissionMode;
 }
 /**
  * UpdateChatRequest is the body of PATCH /v1/chats/{id}: rename a chat. A field that is left out is
  * not changed, so a client sends only what changed.
  */
 export interface UpdateChatRequest {
-  /** Title is the new name. Null leaves it, and a title that is only spaces is refused. */
-  title?: string;
+	/** Title is the new name. Null leaves it, and a title that is only spaces is refused. */
+	title?: string;
 }
 
 //////////
@@ -745,47 +756,47 @@ export interface UpdateChatRequest {
  * reads beside it. The commit itself is kept on a hidden ref, so it survives the branch moving on.
  */
 export interface Checkpoint {
-  /**
-   * ID is the checkpoint's own opaque id. The restore route addresses it, and it is what names
-   * the hidden ref the commit is kept on.
-   */
-  id: string;
-  /** CardID is the card the restore point belongs to. */
-  cardId: string;
-  /** SHA is the commit the checkpoint points at, full length. */
-  sha: string;
-  /**
-   * Label says what the checkpoint was made before ("before turn 3", "before merge"). It is
-   * empty when there is nothing to say, and the app then names the moment by its time.
-   */
-  label: string;
-  /** CreatedAt is when the checkpoint was made. */
-  createdAt: Timestamp;
+	/**
+	 * ID is the checkpoint's own opaque id. The restore route addresses it, and it is what names
+	 * the hidden ref the commit is kept on.
+	 */
+	id: string;
+	/** CardID is the card the restore point belongs to. */
+	cardId: string;
+	/** SHA is the commit the checkpoint points at, full length. */
+	sha: string;
+	/**
+	 * Label says what the checkpoint was made before ("before turn 3", "before merge"). It is
+	 * empty when there is nothing to say, and the app then names the moment by its time.
+	 */
+	label: string;
+	/** CreatedAt is when the checkpoint was made. */
+	createdAt: Timestamp;
 }
 /**
  * CheckpointList is the answer to GET /v1/cards/{id}/checkpoints: every restore point of one card,
  * newest first.
  */
 export interface CheckpointList {
-  /** CardID is the card the list is about. */
-  cardId: string;
-  /** Checkpoints are the card's restore points, newest first. Never null. */
-  checkpoints: Checkpoint[];
-  /** ServerTime is the daemon's time when the answer was made. */
-  serverTime: Timestamp;
+	/** CardID is the card the list is about. */
+	cardId: string;
+	/** Checkpoints are the card's restore points, newest first. Never null. */
+	checkpoints: Checkpoint[];
+	/** ServerTime is the daemon's time when the answer was made. */
+	serverTime: Timestamp;
 }
 /**
  * RestoreCheckpointRequest is the body of POST /v1/cards/{id}/checkpoints/{cp}/restore. An empty
  * body is a worktree restore, which is what the plain Restore button asks for.
  */
 export interface RestoreCheckpointRequest {
-  /**
-   * Conversation asks for the card's own conversation to be put back to the checkpoint as well as
-   * its worktree, which is what the "and the conversation" choice in the restore dialog sends.
-   * It is the one field, so an absent body and a body of `{}` mean the same thing: the worktree
-   * alone.
-   */
-  conversation?: boolean;
+	/**
+	 * Conversation asks for the card's own conversation to be put back to the checkpoint as well as
+	 * its worktree, which is what the "and the conversation" choice in the restore dialog sends.
+	 * It is the one field, so an absent body and a body of `{}` mean the same thing: the worktree
+	 * alone.
+	 */
+	conversation?: boolean;
 }
 
 //////////
@@ -796,36 +807,36 @@ export interface RestoreCheckpointRequest {
  * two times a screen needs to say "4 min ago" without a second call.
  */
 export interface CiRun {
-  /** ID is the run's opaque id. It is the forge's own run id when there is one. */
-  id: string;
-  /** ProjectID is the project whose repository the run is in. */
-  projectId: string;
-  /**
-   * CardID is the card whose branch the run is on. Empty when the branch is not a card's: the
-   * default branch, or another branch a person pushed for their own reasons.
-   */
-  cardId: string;
-  /** Branch is the Git branch the run is on. */
-  branch: string;
-  /**
-   * Workflow is the workflow's name as the forge names it, such as "ci". For a monorepo it is
-   * the workflow with the package it covers, such as "ci packages/web".
-   */
-  workflow: string;
-  /** Status is where the run is. */
-  status: CIState;
-  /** URL is the address of the run on the forge, so a person can open it. Empty when unknown. */
-  url: string;
-  /**
-   * StartedAt is when the run started. Null while it is still queued, so a screen shows the
-   * queued state rather than a time that has not happened.
-   */
-  startedAt?: Timestamp | null;
-  /**
-   * UpdatedAt is when the run last changed. It is always set: it is what "4 min ago" is counted
-   * from, and a run always has the moment Marshal first heard of it.
-   */
-  updatedAt: Timestamp;
+	/** ID is the run's opaque id. It is the forge's own run id when there is one. */
+	id: string;
+	/** ProjectID is the project whose repository the run is in. */
+	projectId: string;
+	/**
+	 * CardID is the card whose branch the run is on. Empty when the branch is not a card's: the
+	 * default branch, or another branch a person pushed for their own reasons.
+	 */
+	cardId: string;
+	/** Branch is the Git branch the run is on. */
+	branch: string;
+	/**
+	 * Workflow is the workflow's name as the forge names it, such as "ci". For a monorepo it is
+	 * the workflow with the package it covers, such as "ci packages/web".
+	 */
+	workflow: string;
+	/** Status is where the run is. */
+	status: CIState;
+	/** URL is the address of the run on the forge, so a person can open it. Empty when unknown. */
+	url: string;
+	/**
+	 * StartedAt is when the run started. Null while it is still queued, so a screen shows the
+	 * queued state rather than a time that has not happened.
+	 */
+	startedAt?: Timestamp | null;
+	/**
+	 * UpdatedAt is when the run last changed. It is always set: it is what "4 min ago" is counted
+	 * from, and a run always has the moment Marshal first heard of it.
+	 */
+	updatedAt: Timestamp;
 }
 /**
  * ProjectCI is one project's CI health: the state of its default branch, and every run Marshal
@@ -833,25 +844,25 @@ export interface CiRun {
  * screen shows an honest "GitHub is not connected" instead of an empty list.
  */
 export interface ProjectCI {
-  /** ProjectID is the project the runs belong to. */
-  projectId: string;
-  /**
-   * Status is the state of the project's default branch: the newest run on it, or queued when
-   * Marshal knows nothing about that branch.
-   */
-  status: CIState;
-  /** Runs are the project's runs, newest first. Never null. */
-  runs: CiRun[];
+	/** ProjectID is the project the runs belong to. */
+	projectId: string;
+	/**
+	 * Status is the state of the project's default branch: the newest run on it, or queued when
+	 * Marshal knows nothing about that branch.
+	 */
+	status: CIState;
+	/** Runs are the project's runs, newest first. Never null. */
+	runs: CiRun[];
 }
 /** CiSnapshot is the answer to GET /v1/ci: every project Marshal has CI data for, in project order. */
 export interface CISnapshot {
-  /**
-   * Projects has one entry per project that has at least one run. A project with none is left
-   * out on purpose: the CI health page says GitHub is not connected when none has any.
-   */
-  projects: ProjectCI[];
-  /** ServerTime is the daemon's time when the answer was made, so a client counts ages from it. */
-  serverTime: Timestamp;
+	/**
+	 * Projects has one entry per project that has at least one run. A project with none is left
+	 * out on purpose: the CI health page says GitHub is not connected when none has any.
+	 */
+	projects: ProjectCI[];
+	/** ServerTime is the daemon's time when the answer was made, so a client counts ages from it. */
+	serverTime: Timestamp;
 }
 /**
  * CIEventData is what a `ci.updated` event carries (section 11.2). One run changes at a time, but a
@@ -860,10 +871,10 @@ export interface CISnapshot {
  * is published on a project's topic, and the whole snapshot when it is published on the home topic.
  */
 export interface CIEventData {
-  /** Project is the project whose CI changed. Set on a project's topic, and null on the home one. */
-  project?: ProjectCI;
-  /** Snapshot is every project's CI as it now is. Set on the home topic, and null on a project's. */
-  snapshot?: CISnapshot;
+	/** Project is the project whose CI changed. Set on a project's topic, and null on the home one. */
+	project?: ProjectCI;
+	/** Snapshot is every project's CI as it now is. Set on the home topic, and null on a project's. */
+	snapshot?: CISnapshot;
 }
 /** SimulateMode is which way the "Simulate CI failure" action runs (N28, B6.4, decision D5). */
 /**
@@ -879,41 +890,43 @@ export const SimulateModeSynthetic = "synthetic";
  * it without a person asking.
  */
 export const SimulateModeReal = "real";
-export type SimulateMode = typeof SimulateModeSynthetic | typeof SimulateModeReal;
+export type SimulateMode =
+	| typeof SimulateModeSynthetic
+	| typeof SimulateModeReal;
 /** Every SimulateMode, in the order the Go list gives them. */
 export const SimulateModeValues: readonly SimulateMode[] = [
-  SimulateModeSynthetic,
-  SimulateModeReal,
+	SimulateModeSynthetic,
+	SimulateModeReal,
 ];
 /**
  * SimulateCIFailureRequest is the body of POST /v1/cards/{id}/ci-failure. The card comes from the
  * path, so the body carries only which mode to run.
  */
 export interface SimulateCIFailureRequest {
-  /** Mode is the mode to run. */
-  mode: SimulateMode;
+	/** Mode is the mode to run. */
+	mode: SimulateMode;
 }
 /**
  * SimulateCIFailureResult is what a simulated failure produced. Both modes answer with the same
  * shape, so the screen that shows which one ran does not branch.
  */
 export interface SimulateCIFailureResult {
-  /** CardID is the card the failure was injected for. */
-  cardId: string;
-  /** Mode is the mode that ran, so the audit line and the screen agree. */
-  mode: SimulateMode;
-  /** Run is the failed run as the CI monitor now holds it. */
-  run: CiRun;
-  /**
-   * FixStarted is true when the failure was handed to the fix loop. It is false for a card that
-   * had no session to send the log to, or one the loop limits already stopped.
-   */
-  fixStarted: boolean;
-  /**
-   * Commit is the marked commit the real mode pushed. Empty in synthetic mode, which changes
-   * nothing on the branch.
-   */
-  commit: string;
+	/** CardID is the card the failure was injected for. */
+	cardId: string;
+	/** Mode is the mode that ran, so the audit line and the screen agree. */
+	mode: SimulateMode;
+	/** Run is the failed run as the CI monitor now holds it. */
+	run: CiRun;
+	/**
+	 * FixStarted is true when the failure was handed to the fix loop. It is false for a card that
+	 * had no session to send the log to, or one the loop limits already stopped.
+	 */
+	fixStarted: boolean;
+	/**
+	 * Commit is the marked commit the real mode pushed. Empty in synthetic mode, which changes
+	 * nothing on the branch.
+	 */
+	commit: string;
 }
 
 //////////
@@ -930,14 +943,14 @@ export const CheckStateFailed = "failed";
  */
 export const CheckStateWarning = "warning";
 export type CheckState =
-  | typeof CheckStatePassed
-  | typeof CheckStateFailed
-  | typeof CheckStateWarning;
+	| typeof CheckStatePassed
+	| typeof CheckStateFailed
+	| typeof CheckStateWarning;
 /** Every CheckState, in the order the Go list gives them. */
 export const CheckStateValues: readonly CheckState[] = [
-  CheckStatePassed,
-  CheckStateFailed,
-  CheckStateWarning,
+	CheckStatePassed,
+	CheckStateFailed,
+	CheckStateWarning,
 ];
 /**
  * TestCheck is one thing a connection test looked at. Message is one plain sentence for the person;
@@ -945,14 +958,14 @@ export const CheckStateValues: readonly CheckState[] = [
  * is nothing to do.
  */
 export interface TestCheck {
-  /** Name is the short label of the check, such as "Key" or "Model". */
-  name: string;
-  /** State is how it came out. */
-  state: CheckState;
-  /** Message is one plain sentence saying what was found. */
-  message: string;
-  /** Fix says what to do about a check that did not pass. Empty when there is nothing to do. */
-  fix?: string;
+	/** Name is the short label of the check, such as "Key" or "Model". */
+	name: string;
+	/** State is how it came out. */
+	state: CheckState;
+	/** Message is one plain sentence saying what was found. */
+	message: string;
+	/** Fix says what to do about a check that did not pass. Empty when there is nothing to do. */
+	fix?: string;
 }
 /**
  * TestResult is what one connection test found. It is the answer to a test call and the thing a
@@ -960,17 +973,17 @@ export interface TestCheck {
  * integrations.last_test_result_json).
  */
 export interface TestResult {
-  /**
-   * ConnectionID is the id of the connection that was tested: a provider id today, such as
-   * "anthropic".
-   */
-  connectionId: string;
-  /** Checks is what the test looked at, in the order the screen shows them. */
-  checks: TestCheck[];
-  /** OK is true when no check failed. A warning does not make a result not OK. */
-  ok: boolean;
-  /** RanAt is when the test ran. */
-  ranAt: Timestamp;
+	/**
+	 * ConnectionID is the id of the connection that was tested: a provider id today, such as
+	 * "anthropic".
+	 */
+	connectionId: string;
+	/** Checks is what the test looked at, in the order the screen shows them. */
+	checks: TestCheck[];
+	/** OK is true when no check failed. A warning does not make a result not OK. */
+	ok: boolean;
+	/** RanAt is when the test ran. */
+	ranAt: Timestamp;
 }
 
 //////////
@@ -992,16 +1005,16 @@ export const DiffFileStatusDeleted = "deleted";
  */
 export const DiffFileStatusRenamed = "renamed";
 export type DiffFileStatus =
-  | typeof DiffFileStatusAdded
-  | typeof DiffFileStatusModified
-  | typeof DiffFileStatusDeleted
-  | typeof DiffFileStatusRenamed;
+	| typeof DiffFileStatusAdded
+	| typeof DiffFileStatusModified
+	| typeof DiffFileStatusDeleted
+	| typeof DiffFileStatusRenamed;
 /** Every DiffFileStatus, in the order the Go list gives them. */
 export const DiffFileStatusValues: readonly DiffFileStatus[] = [
-  DiffFileStatusAdded,
-  DiffFileStatusModified,
-  DiffFileStatusDeleted,
-  DiffFileStatusRenamed,
+	DiffFileStatusAdded,
+	DiffFileStatusModified,
+	DiffFileStatusDeleted,
+	DiffFileStatusRenamed,
 ];
 /** DiffLineKind says which side of a change one line of a hunk is on. */
 /** DiffLineKindContext is a line both sides have, drawn unchanged. */
@@ -1011,14 +1024,14 @@ export const DiffLineKindAdded = "added";
 /** DiffLineKindRemoved is a line only the base side has, drawn with a minus. */
 export const DiffLineKindRemoved = "removed";
 export type DiffLineKind =
-  | typeof DiffLineKindContext
-  | typeof DiffLineKindAdded
-  | typeof DiffLineKindRemoved;
+	| typeof DiffLineKindContext
+	| typeof DiffLineKindAdded
+	| typeof DiffLineKindRemoved;
 /** Every DiffLineKind, in the order the Go list gives them. */
 export const DiffLineKindValues: readonly DiffLineKind[] = [
-  DiffLineKindContext,
-  DiffLineKindAdded,
-  DiffLineKindRemoved,
+	DiffLineKindContext,
+	DiffLineKindAdded,
+	DiffLineKindRemoved,
 ];
 /**
  * CardDiff is the answer to GET /v1/cards/{id}/diff: every file the card changed, with its counts
@@ -1029,31 +1042,31 @@ export const DiffLineKindValues: readonly DiffLineKind[] = [
  * totals.
  */
 export interface CardDiff {
-  /** CardID is the card whose worktree this is. */
-  cardId: string;
-  /**
-   * Base is the branch the card's work was compared against: its project's default branch. The
-   * comparison starts at the merge base, so work that landed on the default branch after the
-   * card started is not drawn as the card's own change.
-   */
-  base: string;
-  /** Branch is the card's own branch. It is empty for a card that never started. */
-  branch: string;
-  /** Files are the changed files, in path order, with their counts and no hunks. Never null. */
-  files: ChangedFile[];
-  /** FileCount is how many files the whole diff has, including any that Truncated left out. */
-  fileCount: number /* int */;
-  /** Additions is how many lines the whole diff added. */
-  additions: number /* int */;
-  /** Deletions is how many lines the whole diff removed. */
-  deletions: number /* int */;
-  /**
-   * Truncated is true when Files was cut short. A client that shows the whole list then shows
-   * the cap instead of FileCount.
-   */
-  truncated: boolean;
-  /** ServerTime is the daemon's time when the answer was made. */
-  serverTime: Timestamp;
+	/** CardID is the card whose worktree this is. */
+	cardId: string;
+	/**
+	 * Base is the branch the card's work was compared against: its project's default branch. The
+	 * comparison starts at the merge base, so work that landed on the default branch after the
+	 * card started is not drawn as the card's own change.
+	 */
+	base: string;
+	/** Branch is the card's own branch. It is empty for a card that never started. */
+	branch: string;
+	/** Files are the changed files, in path order, with their counts and no hunks. Never null. */
+	files: ChangedFile[];
+	/** FileCount is how many files the whole diff has, including any that Truncated left out. */
+	fileCount: number /* int */;
+	/** Additions is how many lines the whole diff added. */
+	additions: number /* int */;
+	/** Deletions is how many lines the whole diff removed. */
+	deletions: number /* int */;
+	/**
+	 * Truncated is true when Files was cut short. A client that shows the whole list then shows
+	 * the cap instead of FileCount.
+	 */
+	truncated: boolean;
+	/** ServerTime is the daemon's time when the answer was made. */
+	serverTime: Timestamp;
 }
 /**
  * ChangedFile is one file of a card's diff, as the list draws it: its path, what happened to it,
@@ -1061,27 +1074,27 @@ export interface CardDiff {
  * still a small answer.
  */
 export interface ChangedFile {
-  /**
-   * Path is the file's path, relative to the repository, with forward slashes on every
-   * platform.
-   */
-  path: string;
-  /** OldPath is the path the file had before a rename, and empty for every other status. */
-  oldPath: string;
-  /** Status is what happened to the file. */
-  status: DiffFileStatus;
-  /** Additions is how many lines the file gained. */
-  additions: number /* int */;
-  /** Deletions is how many lines the file lost. */
-  deletions: number /* int */;
-  /** Binary is true when the file is not text, so it has counts of nothing and no hunks. */
-  binary: boolean;
-  /**
-   * Large is true when the file has more changed lines than the daemon draws in one answer. The
-   * screen keeps such a file collapsed until a person asks for it, and the hunks route bounds
-   * what it sends even then.
-   */
-  large: boolean;
+	/**
+	 * Path is the file's path, relative to the repository, with forward slashes on every
+	 * platform.
+	 */
+	path: string;
+	/** OldPath is the path the file had before a rename, and empty for every other status. */
+	oldPath: string;
+	/** Status is what happened to the file. */
+	status: DiffFileStatus;
+	/** Additions is how many lines the file gained. */
+	additions: number /* int */;
+	/** Deletions is how many lines the file lost. */
+	deletions: number /* int */;
+	/** Binary is true when the file is not text, so it has counts of nothing and no hunks. */
+	binary: boolean;
+	/**
+	 * Large is true when the file has more changed lines than the daemon draws in one answer. The
+	 * screen keeps such a file collapsed until a person asks for it, and the hunks route bounds
+	 * what it sends even then.
+	 */
+	large: boolean;
 }
 /**
  * FileHunks is the answer to GET /v1/cards/{id}/diff/{path}: one changed file's hunks, loaded when
@@ -1089,29 +1102,29 @@ export interface ChangedFile {
  * comes back cut, with Truncated set, so one very large file cannot stall the screen.
  */
 export interface FileHunks {
-  /** Path is the file these hunks belong to. */
-  path: string;
-  /**
-   * Status is what happened to the file, so the header of an opened file is drawn from the same
-   * words as the list.
-   */
-  status: DiffFileStatus;
-  /** Hunks are the file's hunks, in the order Git gives them. Never null. */
-  hunks: DiffHunk[];
-  /** Truncated is true when the hunks were cut short at the daemon's line cap. */
-  truncated: boolean;
-  /** ServerTime is the daemon's time when the answer was made. */
-  serverTime: Timestamp;
+	/** Path is the file these hunks belong to. */
+	path: string;
+	/**
+	 * Status is what happened to the file, so the header of an opened file is drawn from the same
+	 * words as the list.
+	 */
+	status: DiffFileStatus;
+	/** Hunks are the file's hunks, in the order Git gives them. Never null. */
+	hunks: DiffHunk[];
+	/** Truncated is true when the hunks were cut short at the daemon's line cap. */
+	truncated: boolean;
+	/** ServerTime is the daemon's time when the answer was made. */
+	serverTime: Timestamp;
 }
 /** DiffHunk is one hunk of a file: the line the view draws above the lines, and the lines. */
 export interface DiffHunk {
-  /**
-   * Header is the hunk's own header, such as "@@ -41,18 +41,35 @@ type Client struct". It
-   * carries the ranges and, when Git wrote one, the enclosing line's text.
-   */
-  header: string;
-  /** Lines are the hunk's lines, in order. Never null. */
-  lines: DiffLine[];
+	/**
+	 * Header is the hunk's own header, such as "@@ -41,18 +41,35 @@ type Client struct". It
+	 * carries the ranges and, when Git wrote one, the enclosing line's text.
+	 */
+	header: string;
+	/** Lines are the hunk's lines, in order. Never null. */
+	lines: DiffLine[];
 }
 /**
  * DiffLine is one line of a hunk. Kind says which side it is on; the other side's line number is
@@ -1119,14 +1132,14 @@ export interface DiffHunk {
  * without guessing which column it belongs in.
  */
 export interface DiffLine {
-  /** Kind is which side of the change this line belongs to. */
-  kind: DiffLineKind;
-  /** OldLine is the line's number in the base file, counting from 1, or 0 for an added line. */
-  oldLine: number /* int */;
-  /** NewLine is the line's number in the card's file, counting from 1, or 0 for a removed line. */
-  newLine: number /* int */;
-  /** Text is the line itself, without its newline and without the sign a client draws. */
-  text: string;
+	/** Kind is which side of the change this line belongs to. */
+	kind: DiffLineKind;
+	/** OldLine is the line's number in the base file, counting from 1, or 0 for an added line. */
+	oldLine: number /* int */;
+	/** NewLine is the line's number in the card's file, counting from 1, or 0 for a removed line. */
+	newLine: number /* int */;
+	/** Text is the line itself, without its newline and without the sign a client draws. */
+	text: string;
 }
 
 //////////
@@ -1150,24 +1163,24 @@ export const CardStateMerging = "merging";
 /** CardStateDone is a card that is merged or closed. */
 export const CardStateDone = "done";
 export type CardState =
-  | typeof CardStateBacklog
-  | typeof CardStatePlanning
-  | typeof CardStateWorking
-  | typeof CardStateNeeds
-  | typeof CardStateReview
-  | typeof CardStateReady
-  | typeof CardStateMerging
-  | typeof CardStateDone;
+	| typeof CardStateBacklog
+	| typeof CardStatePlanning
+	| typeof CardStateWorking
+	| typeof CardStateNeeds
+	| typeof CardStateReview
+	| typeof CardStateReady
+	| typeof CardStateMerging
+	| typeof CardStateDone;
 /** Every CardState, in the order the Go list gives them. */
 export const CardStateValues: readonly CardState[] = [
-  CardStateBacklog,
-  CardStatePlanning,
-  CardStateWorking,
-  CardStateNeeds,
-  CardStateReview,
-  CardStateReady,
-  CardStateMerging,
-  CardStateDone,
+	CardStateBacklog,
+	CardStatePlanning,
+	CardStateWorking,
+	CardStateNeeds,
+	CardStateReview,
+	CardStateReady,
+	CardStateMerging,
+	CardStateDone,
 ];
 /** PermissionMode says how much an agent may do without asking. */
 /** PermissionModeAsk asks before every edit and command ("Ask" in the app). */
@@ -1181,18 +1194,18 @@ export const PermissionModeFullAuto = "full-auto";
 /** PermissionModeBypass skips permission checks inside the card's worktree ("Bypass permissions"). */
 export const PermissionModeBypass = "bypass";
 export type PermissionMode =
-  | typeof PermissionModeAsk
-  | typeof PermissionModeAutoEdits
-  | typeof PermissionModePlan
-  | typeof PermissionModeFullAuto
-  | typeof PermissionModeBypass;
+	| typeof PermissionModeAsk
+	| typeof PermissionModeAutoEdits
+	| typeof PermissionModePlan
+	| typeof PermissionModeFullAuto
+	| typeof PermissionModeBypass;
 /** Every PermissionMode, in the order the Go list gives them. */
 export const PermissionModeValues: readonly PermissionMode[] = [
-  PermissionModeAsk,
-  PermissionModeAutoEdits,
-  PermissionModePlan,
-  PermissionModeFullAuto,
-  PermissionModeBypass,
+	PermissionModeAsk,
+	PermissionModeAutoEdits,
+	PermissionModePlan,
+	PermissionModeFullAuto,
+	PermissionModeBypass,
 ];
 /** ThinkingMode is how much an agent thinks before it answers. */
 /** ThinkingModeLow thinks a little ("Low" in the app). */
@@ -1204,16 +1217,16 @@ export const ThinkingModeHigh = "high";
 /** ThinkingModeExtraHigh thinks the most ("Extra high"). */
 export const ThinkingModeExtraHigh = "extra-high";
 export type ThinkingMode =
-  | typeof ThinkingModeLow
-  | typeof ThinkingModeMedium
-  | typeof ThinkingModeHigh
-  | typeof ThinkingModeExtraHigh;
+	| typeof ThinkingModeLow
+	| typeof ThinkingModeMedium
+	| typeof ThinkingModeHigh
+	| typeof ThinkingModeExtraHigh;
 /** Every ThinkingMode, in the order the Go list gives them. */
 export const ThinkingModeValues: readonly ThinkingMode[] = [
-  ThinkingModeLow,
-  ThinkingModeMedium,
-  ThinkingModeHigh,
-  ThinkingModeExtraHigh,
+	ThinkingModeLow,
+	ThinkingModeMedium,
+	ThinkingModeHigh,
+	ThinkingModeExtraHigh,
 ];
 /** AgentKind is which agent program does the work. */
 /** AgentKindClaude is Claude Code. */
@@ -1225,16 +1238,16 @@ export const AgentKindCodex = "codex";
 /** AgentKindBuiltin is Marshal's built-in agent. */
 export const AgentKindBuiltin = "builtin";
 export type AgentKind =
-  | typeof AgentKindClaude
-  | typeof AgentKindGemini
-  | typeof AgentKindCodex
-  | typeof AgentKindBuiltin;
+	| typeof AgentKindClaude
+	| typeof AgentKindGemini
+	| typeof AgentKindCodex
+	| typeof AgentKindBuiltin;
 /** Every AgentKind, in the order the Go list gives them. */
 export const AgentKindValues: readonly AgentKind[] = [
-  AgentKindClaude,
-  AgentKindGemini,
-  AgentKindCodex,
-  AgentKindBuiltin,
+	AgentKindClaude,
+	AgentKindGemini,
+	AgentKindCodex,
+	AgentKindBuiltin,
 ];
 /** AgentStatus says whether an agent can be used on this machine. */
 /** AgentStatusSupported is an installed agent at a version Marshal has been tested with. */
@@ -1244,14 +1257,14 @@ export const AgentStatusUntested = "untested";
 /** AgentStatusMissing is an agent that is not installed. */
 export const AgentStatusMissing = "missing";
 export type AgentStatus =
-  | typeof AgentStatusSupported
-  | typeof AgentStatusUntested
-  | typeof AgentStatusMissing;
+	| typeof AgentStatusSupported
+	| typeof AgentStatusUntested
+	| typeof AgentStatusMissing;
 /** Every AgentStatus, in the order the Go list gives them. */
 export const AgentStatusValues: readonly AgentStatus[] = [
-  AgentStatusSupported,
-  AgentStatusUntested,
-  AgentStatusMissing,
+	AgentStatusSupported,
+	AgentStatusUntested,
+	AgentStatusMissing,
 ];
 /** SessionState is where an agent session is in its life (docs/architecture.md section 5.1). */
 /** SessionStateStarting is a session that is being started. */
@@ -1271,24 +1284,24 @@ export const SessionStateWaking = "waking";
 /** SessionStateStopped is a session that ended because its card closed. */
 export const SessionStateStopped = "stopped";
 export type SessionState =
-  | typeof SessionStateStarting
-  | typeof SessionStateAwake
-  | typeof SessionStateWorking
-  | typeof SessionStateWaitingApproval
-  | typeof SessionStateSleepWarning
-  | typeof SessionStateAsleep
-  | typeof SessionStateWaking
-  | typeof SessionStateStopped;
+	| typeof SessionStateStarting
+	| typeof SessionStateAwake
+	| typeof SessionStateWorking
+	| typeof SessionStateWaitingApproval
+	| typeof SessionStateSleepWarning
+	| typeof SessionStateAsleep
+	| typeof SessionStateWaking
+	| typeof SessionStateStopped;
 /** Every SessionState, in the order the Go list gives them. */
 export const SessionStateValues: readonly SessionState[] = [
-  SessionStateStarting,
-  SessionStateAwake,
-  SessionStateWorking,
-  SessionStateWaitingApproval,
-  SessionStateSleepWarning,
-  SessionStateAsleep,
-  SessionStateWaking,
-  SessionStateStopped,
+	SessionStateStarting,
+	SessionStateAwake,
+	SessionStateWorking,
+	SessionStateWaitingApproval,
+	SessionStateSleepWarning,
+	SessionStateAsleep,
+	SessionStateWaking,
+	SessionStateStopped,
 ];
 /** FeedKind is the kind of an entry in the Home activity feed. */
 /** FeedKindBrief is a morning or evening brief. */
@@ -1306,22 +1319,22 @@ export const FeedKindCI = "ci";
 /** FeedKindTool is any other agent or system event. */
 export const FeedKindTool = "tool";
 export type FeedKind =
-  | typeof FeedKindBrief
-  | typeof FeedKindMerge
-  | typeof FeedKindSchedule
-  | typeof FeedKindApproval
-  | typeof FeedKindPlan
-  | typeof FeedKindCI
-  | typeof FeedKindTool;
+	| typeof FeedKindBrief
+	| typeof FeedKindMerge
+	| typeof FeedKindSchedule
+	| typeof FeedKindApproval
+	| typeof FeedKindPlan
+	| typeof FeedKindCI
+	| typeof FeedKindTool;
 /** Every FeedKind, in the order the Go list gives them. */
 export const FeedKindValues: readonly FeedKind[] = [
-  FeedKindBrief,
-  FeedKindMerge,
-  FeedKindSchedule,
-  FeedKindApproval,
-  FeedKindPlan,
-  FeedKindCI,
-  FeedKindTool,
+	FeedKindBrief,
+	FeedKindMerge,
+	FeedKindSchedule,
+	FeedKindApproval,
+	FeedKindPlan,
+	FeedKindCI,
+	FeedKindTool,
 ];
 /** NoticeKind is the kind of a notice in the notice list. */
 /** NoticeKindSleep is a group of idle cards that will sleep soon. */
@@ -1335,18 +1348,18 @@ export const NoticeKindPlan = "plan";
 /** NoticeKindCI is a CI failure on a card. */
 export const NoticeKindCI = "ci";
 export type NoticeKind =
-  | typeof NoticeKindSleep
-  | typeof NoticeKindCIMain
-  | typeof NoticeKindCost
-  | typeof NoticeKindPlan
-  | typeof NoticeKindCI;
+	| typeof NoticeKindSleep
+	| typeof NoticeKindCIMain
+	| typeof NoticeKindCost
+	| typeof NoticeKindPlan
+	| typeof NoticeKindCI;
 /** Every NoticeKind, in the order the Go list gives them. */
 export const NoticeKindValues: readonly NoticeKind[] = [
-  NoticeKindSleep,
-  NoticeKindCIMain,
-  NoticeKindCost,
-  NoticeKindPlan,
-  NoticeKindCI,
+	NoticeKindSleep,
+	NoticeKindCIMain,
+	NoticeKindCost,
+	NoticeKindPlan,
+	NoticeKindCI,
 ];
 /** ActivityKind is the kind of an entry on a card's Activity tab. */
 /** ActivityKindFile is a file that was read, edited, or created. */
@@ -1360,18 +1373,18 @@ export const ActivityKindTool = "tool";
 /** ActivityKindApproval is a request for permission. */
 export const ActivityKindApproval = "approval";
 export type ActivityKind =
-  | typeof ActivityKindFile
-  | typeof ActivityKindCommand
-  | typeof ActivityKindTest
-  | typeof ActivityKindTool
-  | typeof ActivityKindApproval;
+	| typeof ActivityKindFile
+	| typeof ActivityKindCommand
+	| typeof ActivityKindTest
+	| typeof ActivityKindTool
+	| typeof ActivityKindApproval;
 /** Every ActivityKind, in the order the Go list gives them. */
 export const ActivityKindValues: readonly ActivityKind[] = [
-  ActivityKindFile,
-  ActivityKindCommand,
-  ActivityKindTest,
-  ActivityKindTool,
-  ActivityKindApproval,
+	ActivityKindFile,
+	ActivityKindCommand,
+	ActivityKindTest,
+	ActivityKindTool,
+	ActivityKindApproval,
 ];
 /**
  * ActivityState is how an entry of a card's Activity tab ended (docs/backend-inventory.md 4.4,
@@ -1386,16 +1399,16 @@ export const ActivityStateFailed = "failed";
 /** ActivityStateWaiting is work blocked on a person, such as a permission request. */
 export const ActivityStateWaiting = "waiting";
 export type ActivityState =
-  | typeof ActivityStateOK
-  | typeof ActivityStateRunning
-  | typeof ActivityStateFailed
-  | typeof ActivityStateWaiting;
+	| typeof ActivityStateOK
+	| typeof ActivityStateRunning
+	| typeof ActivityStateFailed
+	| typeof ActivityStateWaiting;
 /** Every ActivityState, in the order the Go list gives them. */
 export const ActivityStateValues: readonly ActivityState[] = [
-  ActivityStateOK,
-  ActivityStateRunning,
-  ActivityStateFailed,
-  ActivityStateWaiting,
+	ActivityStateOK,
+	ActivityStateRunning,
+	ActivityStateFailed,
+	ActivityStateWaiting,
 ];
 /**
  * ChatMessageKind is what one item of a card's chat is (docs/backend-inventory.md 4.3, N13). The
@@ -1422,24 +1435,24 @@ export const ChatMessageKindApproval = "approval";
 /** ChatMessageKindCard is a card an agent or the Orchestrator made or named. */
 export const ChatMessageKindCard = "card";
 export type ChatMessageKind =
-  | typeof ChatMessageKindUser
-  | typeof ChatMessageKindAgent
-  | typeof ChatMessageKindTool
-  | typeof ChatMessageKindSystem
-  | typeof ChatMessageKindDiff
-  | typeof ChatMessageKindPlan
-  | typeof ChatMessageKindApproval
-  | typeof ChatMessageKindCard;
+	| typeof ChatMessageKindUser
+	| typeof ChatMessageKindAgent
+	| typeof ChatMessageKindTool
+	| typeof ChatMessageKindSystem
+	| typeof ChatMessageKindDiff
+	| typeof ChatMessageKindPlan
+	| typeof ChatMessageKindApproval
+	| typeof ChatMessageKindCard;
 /** Every ChatMessageKind, in the order the Go list gives them. */
 export const ChatMessageKindValues: readonly ChatMessageKind[] = [
-  ChatMessageKindUser,
-  ChatMessageKindAgent,
-  ChatMessageKindTool,
-  ChatMessageKindSystem,
-  ChatMessageKindDiff,
-  ChatMessageKindPlan,
-  ChatMessageKindApproval,
-  ChatMessageKindCard,
+	ChatMessageKindUser,
+	ChatMessageKindAgent,
+	ChatMessageKindTool,
+	ChatMessageKindSystem,
+	ChatMessageKindDiff,
+	ChatMessageKindPlan,
+	ChatMessageKindApproval,
+	ChatMessageKindCard,
 ];
 /** ChatPlanState is where a plan block stands (docs/backend-inventory.md 4.3). */
 /** ChatPlanStateWaiting is a plan the agent waits for an answer on. */
@@ -1451,16 +1464,16 @@ export const ChatPlanStateRejected = "rejected";
 /** ChatPlanStateEdited is a plan a person changed. */
 export const ChatPlanStateEdited = "edited";
 export type ChatPlanState =
-  | typeof ChatPlanStateWaiting
-  | typeof ChatPlanStateApproved
-  | typeof ChatPlanStateRejected
-  | typeof ChatPlanStateEdited;
+	| typeof ChatPlanStateWaiting
+	| typeof ChatPlanStateApproved
+	| typeof ChatPlanStateRejected
+	| typeof ChatPlanStateEdited;
 /** Every ChatPlanState, in the order the Go list gives them. */
 export const ChatPlanStateValues: readonly ChatPlanState[] = [
-  ChatPlanStateWaiting,
-  ChatPlanStateApproved,
-  ChatPlanStateRejected,
-  ChatPlanStateEdited,
+	ChatPlanStateWaiting,
+	ChatPlanStateApproved,
+	ChatPlanStateRejected,
+	ChatPlanStateEdited,
 ];
 /** ChatApprovalState is where an approval block stands (docs/backend-inventory.md 4.3). */
 /** ChatApprovalStateWaiting is an approval nobody has answered yet. */
@@ -1470,14 +1483,14 @@ export const ChatApprovalStateApproved = "approved";
 /** ChatApprovalStateDenied is an approval a person refused. */
 export const ChatApprovalStateDenied = "denied";
 export type ChatApprovalState =
-  | typeof ChatApprovalStateWaiting
-  | typeof ChatApprovalStateApproved
-  | typeof ChatApprovalStateDenied;
+	| typeof ChatApprovalStateWaiting
+	| typeof ChatApprovalStateApproved
+	| typeof ChatApprovalStateDenied;
 /** Every ChatApprovalState, in the order the Go list gives them. */
 export const ChatApprovalStateValues: readonly ChatApprovalState[] = [
-  ChatApprovalStateWaiting,
-  ChatApprovalStateApproved,
-  ChatApprovalStateDenied,
+	ChatApprovalStateWaiting,
+	ChatApprovalStateApproved,
+	ChatApprovalStateDenied,
 ];
 /**
  * ChatTargetKind is who a project chat talks to (docs/architecture.md 16.2, inventory N13). The
@@ -1492,14 +1505,14 @@ export const ChatTargetKindRole = "role";
 /** ChatTargetKindCard is one card's own agent, by the card's opaque id. */
 export const ChatTargetKindCard = "card";
 export type ChatTargetKind =
-  | typeof ChatTargetKindOrchestrator
-  | typeof ChatTargetKindRole
-  | typeof ChatTargetKindCard;
+	| typeof ChatTargetKindOrchestrator
+	| typeof ChatTargetKindRole
+	| typeof ChatTargetKindCard;
 /** Every ChatTargetKind, in the order the Go list gives them. */
 export const ChatTargetKindValues: readonly ChatTargetKind[] = [
-  ChatTargetKindOrchestrator,
-  ChatTargetKindRole,
-  ChatTargetKindCard,
+	ChatTargetKindOrchestrator,
+	ChatTargetKindRole,
+	ChatTargetKindCard,
 ];
 /** CIState is the state of a CI run. */
 /** CIStateQueued is a run that has not started. */
@@ -1513,27 +1526,32 @@ export const CIStateFailed = "failed";
 /** CIStateCancelled is a run that was cancelled. */
 export const CIStateCancelled = "cancelled";
 export type CIState =
-  | typeof CIStateQueued
-  | typeof CIStateRunning
-  | typeof CIStatePassed
-  | typeof CIStateFailed
-  | typeof CIStateCancelled;
+	| typeof CIStateQueued
+	| typeof CIStateRunning
+	| typeof CIStatePassed
+	| typeof CIStateFailed
+	| typeof CIStateCancelled;
 /** Every CIState, in the order the Go list gives them. */
 export const CIStateValues: readonly CIState[] = [
-  CIStateQueued,
-  CIStateRunning,
-  CIStatePassed,
-  CIStateFailed,
-  CIStateCancelled,
+	CIStateQueued,
+	CIStateRunning,
+	CIStatePassed,
+	CIStateFailed,
+	CIStateCancelled,
 ];
 /** CardViewMode is how a card's agent is shown. */
 /** CardViewModeChat shows the conversation. */
 export const CardViewModeChat = "chat";
 /** CardViewModeTerminal shows the agent's own terminal. */
 export const CardViewModeTerminal = "terminal";
-export type CardViewMode = typeof CardViewModeChat | typeof CardViewModeTerminal;
+export type CardViewMode =
+	| typeof CardViewModeChat
+	| typeof CardViewModeTerminal;
 /** Every CardViewMode, in the order the Go list gives them. */
-export const CardViewModeValues: readonly CardViewMode[] = [CardViewModeChat, CardViewModeTerminal];
+export const CardViewModeValues: readonly CardViewMode[] = [
+	CardViewModeChat,
+	CardViewModeTerminal,
+];
 /**
  * NeedsReasonKind says why a card is waiting on a person. The words people read belong to the app;
  * these are the wire values (architecture.md section 6, "Needs you").
@@ -1555,24 +1573,24 @@ export const NeedsReasonKindQuestion = "question";
 /** NeedsReasonKindSecret is a card whose commit held something that looks like a credential. */
 export const NeedsReasonKindSecret = "secret-detected";
 export type NeedsReasonKind =
-  | typeof NeedsReasonKindPlanReady
-  | typeof NeedsReasonKindApprovalNeeded
-  | typeof NeedsReasonKindStuck
-  | typeof NeedsReasonKindLimit
-  | typeof NeedsReasonKindCIFailed
-  | typeof NeedsReasonKindConflict
-  | typeof NeedsReasonKindQuestion
-  | typeof NeedsReasonKindSecret;
+	| typeof NeedsReasonKindPlanReady
+	| typeof NeedsReasonKindApprovalNeeded
+	| typeof NeedsReasonKindStuck
+	| typeof NeedsReasonKindLimit
+	| typeof NeedsReasonKindCIFailed
+	| typeof NeedsReasonKindConflict
+	| typeof NeedsReasonKindQuestion
+	| typeof NeedsReasonKindSecret;
 /** Every NeedsReasonKind, in the order the Go list gives them. */
 export const NeedsReasonKindValues: readonly NeedsReasonKind[] = [
-  NeedsReasonKindPlanReady,
-  NeedsReasonKindApprovalNeeded,
-  NeedsReasonKindStuck,
-  NeedsReasonKindLimit,
-  NeedsReasonKindCIFailed,
-  NeedsReasonKindConflict,
-  NeedsReasonKindQuestion,
-  NeedsReasonKindSecret,
+	NeedsReasonKindPlanReady,
+	NeedsReasonKindApprovalNeeded,
+	NeedsReasonKindStuck,
+	NeedsReasonKindLimit,
+	NeedsReasonKindCIFailed,
+	NeedsReasonKindConflict,
+	NeedsReasonKindQuestion,
+	NeedsReasonKindSecret,
 ];
 /**
  * LabelColor is the fixed set of colors a label may have (decision D3). The values are token
@@ -1592,20 +1610,20 @@ export const LabelColorRed = "red";
 /** LabelColorPurple is purple. */
 export const LabelColorPurple = "purple";
 export type LabelColor =
-  | typeof LabelColorSlate
-  | typeof LabelColorBlue
-  | typeof LabelColorGreen
-  | typeof LabelColorAmber
-  | typeof LabelColorRed
-  | typeof LabelColorPurple;
+	| typeof LabelColorSlate
+	| typeof LabelColorBlue
+	| typeof LabelColorGreen
+	| typeof LabelColorAmber
+	| typeof LabelColorRed
+	| typeof LabelColorPurple;
 /** Every LabelColor, in the order the Go list gives them. */
 export const LabelColorValues: readonly LabelColor[] = [
-  LabelColorSlate,
-  LabelColorBlue,
-  LabelColorGreen,
-  LabelColorAmber,
-  LabelColorRed,
-  LabelColorPurple,
+	LabelColorSlate,
+	LabelColorBlue,
+	LabelColorGreen,
+	LabelColorAmber,
+	LabelColorRed,
+	LabelColorPurple,
 ];
 /**
  * MoveRefusalReason is why a manual move was refused (architecture.md section 6.1). The sentence a
@@ -1635,24 +1653,24 @@ export const MoveRefusalReasonCardMerging = "move_card_merging";
  */
 export const MoveRefusalReasonQualityBlocking = "move_quality_blocking";
 export type MoveRefusalReason =
-  | typeof MoveRefusalReasonFromDone
-  | typeof MoveRefusalReasonToDone
-  | typeof MoveRefusalReasonToNeeds
-  | typeof MoveRefusalReasonNeedsPullRequest
-  | typeof MoveRefusalReasonNeedsReview
-  | typeof MoveRefusalReasonChecksNotPassed
-  | typeof MoveRefusalReasonCardMerging
-  | typeof MoveRefusalReasonQualityBlocking;
+	| typeof MoveRefusalReasonFromDone
+	| typeof MoveRefusalReasonToDone
+	| typeof MoveRefusalReasonToNeeds
+	| typeof MoveRefusalReasonNeedsPullRequest
+	| typeof MoveRefusalReasonNeedsReview
+	| typeof MoveRefusalReasonChecksNotPassed
+	| typeof MoveRefusalReasonCardMerging
+	| typeof MoveRefusalReasonQualityBlocking;
 /** Every MoveRefusalReason, in the order the Go list gives them. */
 export const MoveRefusalReasonValues: readonly MoveRefusalReason[] = [
-  MoveRefusalReasonFromDone,
-  MoveRefusalReasonToDone,
-  MoveRefusalReasonToNeeds,
-  MoveRefusalReasonNeedsPullRequest,
-  MoveRefusalReasonNeedsReview,
-  MoveRefusalReasonChecksNotPassed,
-  MoveRefusalReasonCardMerging,
-  MoveRefusalReasonQualityBlocking,
+	MoveRefusalReasonFromDone,
+	MoveRefusalReasonToDone,
+	MoveRefusalReasonToNeeds,
+	MoveRefusalReasonNeedsPullRequest,
+	MoveRefusalReasonNeedsReview,
+	MoveRefusalReasonChecksNotPassed,
+	MoveRefusalReasonCardMerging,
+	MoveRefusalReasonQualityBlocking,
 ];
 /**
  * HoldRefusalReason is why a pause or a sleep of a card was refused (architecture.md section 5.1,
@@ -1673,18 +1691,18 @@ export const HoldRefusalReasonSleepNoSession = "sleep_no_session";
  */
 export const HoldRefusalReasonSleepHoldingMessages = "sleep_holding_messages";
 export type HoldRefusalReason =
-  | typeof HoldRefusalReasonPauseNotWorking
-  | typeof HoldRefusalReasonSleepWorking
-  | typeof HoldRefusalReasonSleepNeedsYou
-  | typeof HoldRefusalReasonSleepNoSession
-  | typeof HoldRefusalReasonSleepHoldingMessages;
+	| typeof HoldRefusalReasonPauseNotWorking
+	| typeof HoldRefusalReasonSleepWorking
+	| typeof HoldRefusalReasonSleepNeedsYou
+	| typeof HoldRefusalReasonSleepNoSession
+	| typeof HoldRefusalReasonSleepHoldingMessages;
 /** Every HoldRefusalReason, in the order the Go list gives them. */
 export const HoldRefusalReasonValues: readonly HoldRefusalReason[] = [
-  HoldRefusalReasonPauseNotWorking,
-  HoldRefusalReasonSleepWorking,
-  HoldRefusalReasonSleepNeedsYou,
-  HoldRefusalReasonSleepNoSession,
-  HoldRefusalReasonSleepHoldingMessages,
+	HoldRefusalReasonPauseNotWorking,
+	HoldRefusalReasonSleepWorking,
+	HoldRefusalReasonSleepNeedsYou,
+	HoldRefusalReasonSleepNoSession,
+	HoldRefusalReasonSleepHoldingMessages,
 ];
 /**
  * ChatRefusalReason is why a message to a project chat was refused (docs/backend-checklist.md
@@ -1703,12 +1721,12 @@ export const ChatRefusalReasonArchived = "chat_archived";
  */
 export const ChatRefusalReasonCannotResume = "chat_cannot_resume";
 export type ChatRefusalReason =
-  | typeof ChatRefusalReasonArchived
-  | typeof ChatRefusalReasonCannotResume;
+	| typeof ChatRefusalReasonArchived
+	| typeof ChatRefusalReasonCannotResume;
 /** Every ChatRefusalReason, in the order the Go list gives them. */
 export const ChatRefusalReasonValues: readonly ChatRefusalReason[] = [
-  ChatRefusalReasonArchived,
-  ChatRefusalReasonCannotResume,
+	ChatRefusalReasonArchived,
+	ChatRefusalReasonCannotResume,
 ];
 
 //////////
@@ -1746,28 +1764,28 @@ export const ErrorCodeUnavailable = "unavailable";
 /** ErrorCodeInternal means something broke inside the daemon. The details stay in its log. */
 export const ErrorCodeInternal = "internal";
 export type ErrorCode =
-  | typeof ErrorCodeInvalidArgument
-  | typeof ErrorCodeUnauthorized
-  | typeof ErrorCodeForbidden
-  | typeof ErrorCodeNotFound
-  | typeof ErrorCodeMethodNotAllowed
-  | typeof ErrorCodeConflict
-  | typeof ErrorCodeRefused
-  | typeof ErrorCodeUnsupported
-  | typeof ErrorCodeUnavailable
-  | typeof ErrorCodeInternal;
+	| typeof ErrorCodeInvalidArgument
+	| typeof ErrorCodeUnauthorized
+	| typeof ErrorCodeForbidden
+	| typeof ErrorCodeNotFound
+	| typeof ErrorCodeMethodNotAllowed
+	| typeof ErrorCodeConflict
+	| typeof ErrorCodeRefused
+	| typeof ErrorCodeUnsupported
+	| typeof ErrorCodeUnavailable
+	| typeof ErrorCodeInternal;
 /** Every ErrorCode, in the order the Go list gives them. */
 export const ErrorCodeValues: readonly ErrorCode[] = [
-  ErrorCodeInvalidArgument,
-  ErrorCodeUnauthorized,
-  ErrorCodeForbidden,
-  ErrorCodeNotFound,
-  ErrorCodeMethodNotAllowed,
-  ErrorCodeConflict,
-  ErrorCodeRefused,
-  ErrorCodeUnsupported,
-  ErrorCodeUnavailable,
-  ErrorCodeInternal,
+	ErrorCodeInvalidArgument,
+	ErrorCodeUnauthorized,
+	ErrorCodeForbidden,
+	ErrorCodeNotFound,
+	ErrorCodeMethodNotAllowed,
+	ErrorCodeConflict,
+	ErrorCodeRefused,
+	ErrorCodeUnsupported,
+	ErrorCodeUnavailable,
+	ErrorCodeInternal,
 ];
 /**
  * Error is the one error shape of the API. It is sent as {"error": {...}} (see ErrorResponse).
@@ -1775,17 +1793,17 @@ export const ErrorCodeValues: readonly ErrorCode[] = [
  * there is something to do, what to do next. It never holds a stack, a file path, or a secret.
  */
 export interface Error {
-  /** Code is the stable reason. */
-  code: ErrorCode;
-  /** Message is the sentence to show. */
-  message: string;
-  /** Details holds extra facts for the "Details" section, such as the id that was not found. */
-  details?: { [key: string]: string };
+	/** Code is the stable reason. */
+	code: ErrorCode;
+	/** Message is the sentence to show. */
+	message: string;
+	/** Details holds extra facts for the "Details" section, such as the id that was not found. */
+	details?: { [key: string]: string };
 }
 /** ErrorResponse is the body of every error answer. */
 export interface ErrorResponse {
-  /** Error is the error itself. */
-  error: Error;
+	/** Error is the error itself. */
+	error: Error;
 }
 
 //////////
@@ -1880,76 +1898,76 @@ export const EventTypeUsageUpdated = "usage.updated";
 /** EventTypeBudgetWarning is sent when a cost or awake limit is close. */
 export const EventTypeBudgetWarning = "budget.warning";
 export type EventType =
-  | typeof EventTypeProjectCreated
-  | typeof EventTypeProjectUpdated
-  | typeof EventTypeProjectRemoved
-  | typeof EventTypeChatCreated
-  | typeof EventTypeChatUpdated
-  | typeof EventTypeChatArchived
-  | typeof EventTypeChatDeleted
-  | typeof EventTypeActivityCreated
-  | typeof EventTypeCardCreated
-  | typeof EventTypeCardUpdated
-  | typeof EventTypeCardMoved
-  | typeof EventTypeCardDeleted
-  | typeof EventTypeLabelUpdated
-  | typeof EventTypeSavedViewUpdated
-  | typeof EventTypeMeUpdated
-  | typeof EventTypeCardMembersChanged
-  | typeof EventTypeChecklistUpdated
-  | typeof EventTypeCommentCreated
-  | typeof EventTypeCommentReadByAgent
-  | typeof EventTypeSessionStateChanged
-  | typeof EventTypeSessionOutput
-  | typeof EventTypeSessionToolCall
-  | typeof EventTypeSessionTerminalOutput
-  | typeof EventTypeApprovalRequested
-  | typeof EventTypeApprovalResolved
-  | typeof EventTypePlanUpdated
-  | typeof EventTypeCIUpdated
-  | typeof EventTypePreviewStateChanged
-  | typeof EventTypeQualityChecked
-  | typeof EventTypeMergeProgress
-  | typeof EventTypeNoticeCreated
-  | typeof EventTypeNoticeDismissed
-  | typeof EventTypeUsageUpdated
-  | typeof EventTypeBudgetWarning;
+	| typeof EventTypeProjectCreated
+	| typeof EventTypeProjectUpdated
+	| typeof EventTypeProjectRemoved
+	| typeof EventTypeChatCreated
+	| typeof EventTypeChatUpdated
+	| typeof EventTypeChatArchived
+	| typeof EventTypeChatDeleted
+	| typeof EventTypeActivityCreated
+	| typeof EventTypeCardCreated
+	| typeof EventTypeCardUpdated
+	| typeof EventTypeCardMoved
+	| typeof EventTypeCardDeleted
+	| typeof EventTypeLabelUpdated
+	| typeof EventTypeSavedViewUpdated
+	| typeof EventTypeMeUpdated
+	| typeof EventTypeCardMembersChanged
+	| typeof EventTypeChecklistUpdated
+	| typeof EventTypeCommentCreated
+	| typeof EventTypeCommentReadByAgent
+	| typeof EventTypeSessionStateChanged
+	| typeof EventTypeSessionOutput
+	| typeof EventTypeSessionToolCall
+	| typeof EventTypeSessionTerminalOutput
+	| typeof EventTypeApprovalRequested
+	| typeof EventTypeApprovalResolved
+	| typeof EventTypePlanUpdated
+	| typeof EventTypeCIUpdated
+	| typeof EventTypePreviewStateChanged
+	| typeof EventTypeQualityChecked
+	| typeof EventTypeMergeProgress
+	| typeof EventTypeNoticeCreated
+	| typeof EventTypeNoticeDismissed
+	| typeof EventTypeUsageUpdated
+	| typeof EventTypeBudgetWarning;
 /** Every EventType, in the order the Go list gives them. */
 export const EventTypeValues: readonly EventType[] = [
-  EventTypeProjectCreated,
-  EventTypeProjectUpdated,
-  EventTypeProjectRemoved,
-  EventTypeChatCreated,
-  EventTypeChatUpdated,
-  EventTypeChatArchived,
-  EventTypeChatDeleted,
-  EventTypeActivityCreated,
-  EventTypeCardCreated,
-  EventTypeCardUpdated,
-  EventTypeCardMoved,
-  EventTypeCardDeleted,
-  EventTypeLabelUpdated,
-  EventTypeSavedViewUpdated,
-  EventTypeMeUpdated,
-  EventTypeCardMembersChanged,
-  EventTypeChecklistUpdated,
-  EventTypeCommentCreated,
-  EventTypeCommentReadByAgent,
-  EventTypeSessionStateChanged,
-  EventTypeSessionOutput,
-  EventTypeSessionToolCall,
-  EventTypeSessionTerminalOutput,
-  EventTypeApprovalRequested,
-  EventTypeApprovalResolved,
-  EventTypePlanUpdated,
-  EventTypeCIUpdated,
-  EventTypePreviewStateChanged,
-  EventTypeQualityChecked,
-  EventTypeMergeProgress,
-  EventTypeNoticeCreated,
-  EventTypeNoticeDismissed,
-  EventTypeUsageUpdated,
-  EventTypeBudgetWarning,
+	EventTypeProjectCreated,
+	EventTypeProjectUpdated,
+	EventTypeProjectRemoved,
+	EventTypeChatCreated,
+	EventTypeChatUpdated,
+	EventTypeChatArchived,
+	EventTypeChatDeleted,
+	EventTypeActivityCreated,
+	EventTypeCardCreated,
+	EventTypeCardUpdated,
+	EventTypeCardMoved,
+	EventTypeCardDeleted,
+	EventTypeLabelUpdated,
+	EventTypeSavedViewUpdated,
+	EventTypeMeUpdated,
+	EventTypeCardMembersChanged,
+	EventTypeChecklistUpdated,
+	EventTypeCommentCreated,
+	EventTypeCommentReadByAgent,
+	EventTypeSessionStateChanged,
+	EventTypeSessionOutput,
+	EventTypeSessionToolCall,
+	EventTypeSessionTerminalOutput,
+	EventTypeApprovalRequested,
+	EventTypeApprovalResolved,
+	EventTypePlanUpdated,
+	EventTypeCIUpdated,
+	EventTypePreviewStateChanged,
+	EventTypeQualityChecked,
+	EventTypeMergeProgress,
+	EventTypeNoticeCreated,
+	EventTypeNoticeDismissed,
+	EventTypeUsageUpdated,
+	EventTypeBudgetWarning,
 ];
 
 //////////
@@ -2008,48 +2026,48 @@ export const FrameTypeTerminalScreen = "terminal.screen";
  */
 export const FrameTypeTerminalRefused = "terminal.refused";
 export type FrameType =
-  | typeof FrameTypeHello
-  | typeof FrameTypeEvents
-  | typeof FrameTypeResync
-  | typeof FrameTypeError
-  | typeof FrameTypeTerminalInput
-  | typeof FrameTypeTerminalResize
-  | typeof FrameTypeTerminalSnapshot
-  | typeof FrameTypeTerminalScreen
-  | typeof FrameTypeTerminalRefused;
+	| typeof FrameTypeHello
+	| typeof FrameTypeEvents
+	| typeof FrameTypeResync
+	| typeof FrameTypeError
+	| typeof FrameTypeTerminalInput
+	| typeof FrameTypeTerminalResize
+	| typeof FrameTypeTerminalSnapshot
+	| typeof FrameTypeTerminalScreen
+	| typeof FrameTypeTerminalRefused;
 /** Every FrameType, in the order the Go list gives them. */
 export const FrameTypeValues: readonly FrameType[] = [
-  FrameTypeHello,
-  FrameTypeEvents,
-  FrameTypeResync,
-  FrameTypeError,
-  FrameTypeTerminalInput,
-  FrameTypeTerminalResize,
-  FrameTypeTerminalSnapshot,
-  FrameTypeTerminalScreen,
-  FrameTypeTerminalRefused,
+	FrameTypeHello,
+	FrameTypeEvents,
+	FrameTypeResync,
+	FrameTypeError,
+	FrameTypeTerminalInput,
+	FrameTypeTerminalResize,
+	FrameTypeTerminalSnapshot,
+	FrameTypeTerminalScreen,
+	FrameTypeTerminalRefused,
 ];
 /**
  * Event is one thing that happened. Every event has a number that grows by one for each event in
  * an epoch, so the daemon can replay what a client missed.
  */
 export interface Event {
-  /**
-   * Seq is the event's number within the epoch. It counts every event the daemon sends, not only
-   * the ones a client subscribed to, so a client sees increasing numbers with gaps in them.
-   */
-  seq: number /* uint64 */;
-  /** Topic is the topic the event belongs to. */
-  topic: Topic;
-  /** Type says what happened and how to read Data. */
-  type: EventType;
-  /** At is when it happened, by the daemon's clock. */
-  at: Timestamp;
-  /**
-   * Data is the event's payload, already encoded, so the daemon encodes it once for all clients
-   * and keeps it in the replay buffer. It is unknown in TypeScript: read it by Type.
-   */
-  data: unknown;
+	/**
+	 * Seq is the event's number within the epoch. It counts every event the daemon sends, not only
+	 * the ones a client subscribed to, so a client sees increasing numbers with gaps in them.
+	 */
+	seq: number /* uint64 */;
+	/** Topic is the topic the event belongs to. */
+	topic: Topic;
+	/** Type says what happened and how to read Data. */
+	type: EventType;
+	/** At is when it happened, by the daemon's clock. */
+	at: Timestamp;
+	/**
+	 * Data is the event's payload, already encoded, so the daemon encodes it once for all clients
+	 * and keeps it in the replay buffer. It is unknown in TypeScript: read it by Type.
+	 */
+	data: unknown;
 }
 /**
  * EventBatch is a frame from the daemon: events in order, sent together. The daemon groups
@@ -2057,12 +2075,12 @@ export interface Event {
  * client that sees an epoch it does not know must reload its snapshots.
  */
 export interface EventBatch {
-  /** Type is always "events". Encoding sets it, so a batch built without it is still right. */
-  type: typeof FrameTypeEvents;
-  /** Epoch identifies this run of the daemon. */
-  epoch: string;
-  /** Events are in increasing Seq order and are never empty. */
-  events: Event[];
+	/** Type is always "events". Encoding sets it, so a batch built without it is still right. */
+	type: typeof FrameTypeEvents;
+	/** Epoch identifies this run of the daemon. */
+	epoch: string;
+	/** Events are in increasing Seq order and are never empty. */
+	events: Event[];
 }
 /** ResyncReason says why the daemon could not replay. */
 /** ResyncReasonEpochChanged means the client has no epoch or one from an earlier daemon run. */
@@ -2075,30 +2093,35 @@ export const ResyncReasonTooFarBehind = "too-far-behind";
  */
 export const ResyncReasonUnknownPosition = "unknown-position";
 export type ResyncReason =
-  | typeof ResyncReasonEpochChanged
-  | typeof ResyncReasonTooFarBehind
-  | typeof ResyncReasonUnknownPosition;
+	| typeof ResyncReasonEpochChanged
+	| typeof ResyncReasonTooFarBehind
+	| typeof ResyncReasonUnknownPosition;
 /** Every ResyncReason, in the order the Go list gives them. */
 export const ResyncReasonValues: readonly ResyncReason[] = [
-  ResyncReasonEpochChanged,
-  ResyncReasonTooFarBehind,
-  ResyncReasonUnknownPosition,
+	ResyncReasonEpochChanged,
+	ResyncReasonTooFarBehind,
+	ResyncReasonUnknownPosition,
 ];
-export type ServerFrame = EventBatch | Resync | ErrorFrame | TerminalScreen | TerminalRefusal;
+export type ServerFrame =
+	| EventBatch
+	| Resync
+	| ErrorFrame
+	| TerminalScreen
+	| TerminalRefusal;
 /**
  * Resync is a frame from the daemon that says it cannot replay what the client missed. The
  * client reloads its snapshots. Events after Seq follow on the same connection, so nothing is
  * lost between the frame and the reload.
  */
 export interface Resync {
-  /** Type is always "resync". Encoding sets it. */
-  type: typeof FrameTypeResync;
-  /** Epoch is the daemon's current epoch. The client keeps it. */
-  epoch: string;
-  /** Reason is why the daemon could not replay. */
-  reason: ResyncReason;
-  /** Seq is the newest event number the daemon has sent in this epoch, or 0 if none. */
-  seq: number /* uint64 */;
+	/** Type is always "resync". Encoding sets it. */
+	type: typeof FrameTypeResync;
+	/** Epoch is the daemon's current epoch. The client keeps it. */
+	epoch: string;
+	/** Reason is why the daemon could not replay. */
+	reason: ResyncReason;
+	/** Seq is the newest event number the daemon has sent in this epoch, or 0 if none. */
+	seq: number /* uint64 */;
 }
 /**
  * ErrorFrame is a frame from the daemon that says the client did something wrong on the stream,
@@ -2106,10 +2129,10 @@ export interface Resync {
  * client fixes the mistake and connects again.
  */
 export interface ErrorFrame {
-  /** Type is always "error". Encoding sets it. */
-  type: typeof FrameTypeError;
-  /** Error is the same error shape that HTTP answers use. */
-  error: Error;
+	/** Type is always "error". Encoding sets it. */
+	type: typeof FrameTypeError;
+	/** Error is the same error shape that HTTP answers use. */
+	error: Error;
 }
 /**
  * Hello is the first message a client sends on the event stream, within 5 seconds of connecting.
@@ -2119,32 +2142,104 @@ export interface ErrorFrame {
  * events from then on.
  */
 export interface Hello {
-  /** Type is always "hello". The daemon refuses a first message with any other type. */
-  type: typeof FrameTypeHello;
-  /** Subscribe lists the topics to follow. */
-  subscribe: Topic[];
-  /** SinceSeq is the Seq of the last event the client applied, or 0 on a first connection. */
-  sinceSeq: number /* uint64 */;
-  /** Epoch is the epoch that SinceSeq belongs to, or empty on a first connection. */
-  epoch: string;
+	/** Type is always "hello". The daemon refuses a first message with any other type. */
+	type: typeof FrameTypeHello;
+	/** Subscribe lists the topics to follow. */
+	subscribe: Topic[];
+	/** SinceSeq is the Seq of the last event the client applied, or 0 on a first connection. */
+	sinceSeq: number /* uint64 */;
+	/** Epoch is the epoch that SinceSeq belongs to, or empty on a first connection. */
+	epoch: string;
 }
+
+//////////
+// source: handoff.go
+
+/**
+ * MaxHandoffSummaryChars is the most characters a handoff's summary may have. The daemon refuses a
+ * longer one with a plain sentence that names this limit, so the composer can show the same number.
+ */
+export const MaxHandoffSummaryChars = 20000;
+/**
+ * HandoffRequest is the body of POST /v1/cards/{id}/handoff: continue this card's work on a
+ * different agent, from a summary of where it got to.
+ */
+export interface HandoffRequest {
+	/**
+	 * To is the agent the card continues on. It must be a kind Marshal knows, and it must differ
+	 * from the agent the card's session is running now: handing a card to the agent it already
+	 * runs is a restart, which is what Stop and Start are for, and is refused.
+	 */
+	to: AgentKind;
+	/**
+	 * Summary is what the new agent is told about the work so far: the goal, what was done, what is
+	 * left, the decisions made, and anything still open (products scope 10.5). It is the new
+	 * session's starting context, so it is read once, by the new agent's first turn, and never
+	 * again. It may be empty, and then the new agent starts with the card's own context alone.
+	 */
+	summary?: string;
+}
+/**
+ * HandoffRefusalReason is why a handoff was refused. It is the stable token a client switches on;
+ * the sentence beside it is what a person reads.
+ */
+/**
+ * HandoffRefusalReasonNoSession is a handoff for a card that has no session: it was never
+ * started, so there is no work to continue and no agent to hand from.
+ */
+export const HandoffRefusalReasonNoSession = "handoff_no_session";
+/**
+ * HandoffRefusalReasonTurnRunning is a handoff while the agent is in the middle of a turn. The
+ * process would end mid-turn, so the handoff is refused until the turn finishes.
+ */
+export const HandoffRefusalReasonTurnRunning = "handoff_turn_running";
+/**
+ * HandoffRefusalReasonHoldingMessages is a handoff for a paused card that is holding a message.
+ * The waiting messages live in memory with the process, so the card is resumed first.
+ */
+export const HandoffRefusalReasonHoldingMessages = "handoff_holding_messages";
+/** HandoffRefusalReasonSameAgent is a handoff to the agent the card already runs. */
+export const HandoffRefusalReasonSameAgent = "handoff_same_agent";
+/** HandoffRefusalReasonUnknownAgent is a handoff to an agent kind Marshal has no adapter for. */
+export const HandoffRefusalReasonUnknownAgent = "handoff_unknown_agent";
+/**
+ * HandoffRefusalReasonCannotStart is a handoff whose new agent could not be started after the
+ * old process had stopped. The card moves to Needs you, by the rule of section 5.3.
+ */
+export const HandoffRefusalReasonCannotStart = "handoff_cannot_start";
+export type HandoffRefusalReason =
+	| typeof HandoffRefusalReasonNoSession
+	| typeof HandoffRefusalReasonTurnRunning
+	| typeof HandoffRefusalReasonHoldingMessages
+	| typeof HandoffRefusalReasonSameAgent
+	| typeof HandoffRefusalReasonUnknownAgent
+	| typeof HandoffRefusalReasonCannotStart;
+/** Every HandoffRefusalReason, in the order the Go list gives them. */
+export const HandoffRefusalReasonValues: readonly HandoffRefusalReason[] = [
+	HandoffRefusalReasonNoSession,
+	HandoffRefusalReasonTurnRunning,
+	HandoffRefusalReasonHoldingMessages,
+	HandoffRefusalReasonSameAgent,
+	HandoffRefusalReasonUnknownAgent,
+	HandoffRefusalReasonCannotStart,
+];
 
 //////////
 // source: health.go
 
 /** Health is the answer to GET /v1/health. */
 export interface Health {
-  /** Status is "ok" while the daemon is serving. */
-  status: string;
-  /** Version is the Marshal version. */
-  version: string;
-  /** Mode is "normal" or "dev". */
-  mode: string;
-  /**
-   * ServerTime is the daemon's current time. Clients show ages and countdowns from it, so a
-   * clock that is a little off never shows a wrong "4 min ago".
-   */
-  serverTime: Timestamp;
+	/** Status is "ok" while the daemon is serving. */
+	status: string;
+	/** Version is the Marshal version. */
+	version: string;
+	/** Mode is "normal" or "dev". */
+	mode: string;
+	/**
+	 * ServerTime is the daemon's current time. Clients show ages and countdowns from it, so a
+	 * clock that is a little off never shows a wrong "4 min ago".
+	 */
+	serverTime: Timestamp;
 }
 
 //////////
@@ -2156,30 +2251,30 @@ export interface Health {
  * same fields.
  */
 export interface ChatMessage {
-  /** ID is the stored event's opaque id. It is the id the message's detail route takes. */
-  id: string;
-  /** Kind is what this message is. */
-  kind: ChatMessageKind;
-  /** Seq is the message's place in the card's history, counting from 1, newest first. */
-  seq: number /* int64 */;
-  /** At is when the session emitted it, in UTC. */
-  at: Timestamp;
-  /**
-   * Text is a user or agent message's text, a system note, or the one line that stands for the
-   * message when Kind is diff, plan, approval, or card. Empty when the message is only its part
-   * below (an agent's tool call).
-   */
-  text: string;
-  /** Tool is the tool call, for Kind tool, and null for every other kind. */
-  tool?: ChatToolCall | null;
-  /** Diff is the summary of the files a turn changed, for Kind diff, and null otherwise. */
-  diff?: ChatDiffSummary | null;
-  /** Plan is the plan block, for Kind plan, and null otherwise. */
-  plan?: ChatPlan | null;
-  /** Approval is the approval block, for Kind approval, and null otherwise. */
-  approval?: ChatApproval | null;
-  /** Card is the card reference, for Kind card, and null otherwise. */
-  card?: ChatCardRef | null;
+	/** ID is the stored event's opaque id. It is the id the message's detail route takes. */
+	id: string;
+	/** Kind is what this message is. */
+	kind: ChatMessageKind;
+	/** Seq is the message's place in the card's history, counting from 1, newest first. */
+	seq: number /* int64 */;
+	/** At is when the session emitted it, in UTC. */
+	at: Timestamp;
+	/**
+	 * Text is a user or agent message's text, a system note, or the one line that stands for the
+	 * message when Kind is diff, plan, approval, or card. Empty when the message is only its part
+	 * below (an agent's tool call).
+	 */
+	text: string;
+	/** Tool is the tool call, for Kind tool, and null for every other kind. */
+	tool?: ChatToolCall | null;
+	/** Diff is the summary of the files a turn changed, for Kind diff, and null otherwise. */
+	diff?: ChatDiffSummary | null;
+	/** Plan is the plan block, for Kind plan, and null otherwise. */
+	plan?: ChatPlan | null;
+	/** Approval is the approval block, for Kind approval, and null otherwise. */
+	approval?: ChatApproval | null;
+	/** Card is the card reference, for Kind card, and null otherwise. */
+	card?: ChatCardRef | null;
 }
 /**
  * ChatToolCall is the tool call block of a card's chat: the line it shows, how the call is going,
@@ -2187,43 +2282,43 @@ export interface ChatMessage {
  * they are read from GET /v1/cards/{id}/messages/{messageId} when the block is opened (B2.6).
  */
 export interface ChatToolCall {
-  /**
-   * ID names the call inside the session. An update that only reports output shares the id of
-   * the call it updates, so a client matches the two and keeps what an update leaves out.
-   */
-  id: string;
-  /**
-   * Title is the one line the block shows, such as "Edited internal/upstream/conn.go". An update
-   * that does not rename the call leaves it empty.
-   */
-  title: string;
-  /**
-   * ToolKind is the agent's own word for the tool: read, edit, delete, move, search, execute,
-   * think, fetch, switch_mode, or other. Only the call that starts the tool sets it.
-   */
-  toolKind: string;
-  /**
-   * State is how the call is going. It is null when this event did not report a state (an
-   * update that only carried output), which means the state did not change.
-   */
-  state?: ActivityState | null;
-  /**
-   * HasDetail is true when the tool's output and diffs can be read from the detail route. It is
-   * false when the one line says everything the daemon stored.
-   */
-  hasDetail: boolean;
+	/**
+	 * ID names the call inside the session. An update that only reports output shares the id of
+	 * the call it updates, so a client matches the two and keeps what an update leaves out.
+	 */
+	id: string;
+	/**
+	 * Title is the one line the block shows, such as "Edited internal/upstream/conn.go". An update
+	 * that does not rename the call leaves it empty.
+	 */
+	title: string;
+	/**
+	 * ToolKind is the agent's own word for the tool: read, edit, delete, move, search, execute,
+	 * think, fetch, switch_mode, or other. Only the call that starts the tool sets it.
+	 */
+	toolKind: string;
+	/**
+	 * State is how the call is going. It is null when this event did not report a state (an
+	 * update that only carried output), which means the state did not change.
+	 */
+	state?: ActivityState | null;
+	/**
+	 * HasDetail is true when the tool's output and diffs can be read from the detail route. It is
+	 * false when the one line says everything the daemon stored.
+	 */
+	hasDetail: boolean;
 }
 /**
  * ChatDiffSummary is what one turn changed, beside the diff itself (N15): how many files, and how
  * many lines went in and came out.
  */
 export interface ChatDiffSummary {
-  /** Files is how many files the turn changed. */
-  files: number /* int */;
-  /** Additions is how many lines were added. */
-  additions: number /* int */;
-  /** Deletions is how many lines were removed. */
-  deletions: number /* int */;
+	/** Files is how many files the turn changed. */
+	files: number /* int */;
+	/** Additions is how many lines were added. */
+	additions: number /* int */;
+	/** Deletions is how many lines were removed. */
+	deletions: number /* int */;
 }
 /**
  * ChatPlan is a plan block of a card's chat (docs/backend-inventory.md 4.3): what a plan-first
@@ -2231,16 +2326,16 @@ export interface ChatDiffSummary {
  * what the person did, so what a person already read is never rewritten behind them (B5.2).
  */
 export interface ChatPlan {
-  /** State is where the plan stands. */
-  state: ChatPlanState;
-  /** Steps are the plan's steps, in order. */
-  steps: string[];
-  /** Files are the files the plan says it will touch. */
-  files: string[];
-  /** Risks are the risks the plan names. */
-  risks: string[];
-  /** Checks are the checks the plan says it will run. */
-  checks: string[];
+	/** State is where the plan stands. */
+	state: ChatPlanState;
+	/** Steps are the plan's steps, in order. */
+	steps: string[];
+	/** Files are the files the plan says it will touch. */
+	files: string[];
+	/** Risks are the risks the plan names. */
+	risks: string[];
+	/** Checks are the checks the plan says it will run. */
+	checks: string[];
 }
 /**
  * EditPlanRequest is the body of PUT /v1/cards/{id}/plan: the steps the person left in the plan
@@ -2249,48 +2344,56 @@ export interface ChatPlan {
  * as it was told them.
  */
 export interface EditPlanRequest {
-  /**
-   * Steps are the plan's steps, in order. A step that is empty after trimming is dropped, the
-   * way the plan's own writer drops it.
-   */
-  steps: string[];
+	/**
+	 * Steps are the plan's steps, in order. A step that is empty after trimming is dropped, the
+	 * way the plan's own writer drops it.
+	 */
+	steps: string[];
 }
 /**
  * PlanUpdatedEventData is the payload of plan.updated: the plan block of the message that changed,
  * so every view of the same card's plan follows one decision without reading the chat back (N6).
  */
 export interface PlanUpdatedEventData {
-  /** CardID is the card whose chat holds the plan. */
-  cardId: string;
-  /** MessageID is the plan message that changed. */
-  messageId: string;
-  /** Plan is the plan block as it now stands. */
-  plan: ChatPlan;
-  /** At is when it changed, in UTC. */
-  at: Timestamp;
+	/** CardID is the card whose chat holds the plan. */
+	cardId: string;
+	/** MessageID is the plan message that changed. */
+	messageId: string;
+	/** Plan is the plan block as it now stands. */
+	plan: ChatPlan;
+	/** At is when it changed, in UTC. */
+	at: Timestamp;
 }
 /**
  * ChatApproval is an approval block of a card's chat (docs/backend-inventory.md 4.3): a permission
  * an agent asked for, from the moment it waits to the answer it got (B3.4).
  */
 export interface ChatApproval {
-  /** State is where the request stands. */
-  state: ChatApprovalState;
-  /**
-   * Command is the command or the action the agent asked to run. Empty when the request has
-   * none.
-   */
-  command: string;
-  /** Reason is why the agent asked, in the agent's own words. Empty when it gave none. */
-  reason: string;
+	/**
+	 * ID is the approval's own opaque id, the one POST /v1/approvals/{id} takes. It is empty for a
+	 * request the daemon answered on its own without minting one (a bypassed or harness-auto-answered
+	 * request), which is never in the waiting state, so a client never has a button with nothing to
+	 * call. S8b: this is what lets a chat reopened after the request was made still answer it, since
+	 * before this field existed the stored block carried nothing an approve or deny call could use.
+	 */
+	id: string;
+	/** State is where the request stands. */
+	state: ChatApprovalState;
+	/**
+	 * Command is the command or the action the agent asked to run. Empty when the request has
+	 * none.
+	 */
+	command: string;
+	/** Reason is why the agent asked, in the agent's own words. Empty when it gave none. */
+	reason: string;
 }
 /**
  * ChatCardRef is a card reference: the cards an agent or the Orchestrator made or named, in the
  * order they appeared (docs/backend-inventory.md 4.3).
  */
 export interface ChatCardRef {
-  /** Cards are the cards the message names. Never null. */
-  cards: CardKey[];
+	/** Cards are the cards the message names. Never null. */
+	cards: CardKey[];
 }
 /**
  * ChatMessageDetail is the answer to GET /v1/cards/{id}/messages/{messageId}: one message with
@@ -2298,15 +2401,15 @@ export interface ChatCardRef {
  * diffs); every other kind answers with the message alone.
  */
 export interface ChatMessageDetail {
-  /**
-   * Message is the same message the page carries, so a client that opened a row has its kind,
-   * its text, and its id.
-   */
-  message: ChatMessage;
-  /** Tool is the tool call in full, for Kind tool, and null otherwise. */
-  tool?: ChatToolDetail | null;
-  /** ServerTime is the daemon's time when the answer was made. */
-  serverTime: Timestamp;
+	/**
+	 * Message is the same message the page carries, so a client that opened a row has its kind,
+	 * its text, and its id.
+	 */
+	message: ChatMessage;
+	/** Tool is the tool call in full, for Kind tool, and null otherwise. */
+	tool?: ChatToolDetail | null;
+	/** ServerTime is the daemon's time when the answer was made. */
+	serverTime: Timestamp;
 }
 /**
  * ChatToolDetail is the whole of one tool call: the output the agent kept, the files it changed,
@@ -2314,22 +2417,22 @@ export interface ChatMessageDetail {
  * session log on disk (docs/architecture.md section 10).
  */
 export interface ChatToolDetail {
-  /** ID names the call inside the session. */
-  id: string;
-  /** Title is the line the block shows. */
-  title: string;
-  /** ToolKind is the agent's own word for the tool. */
-  toolKind: string;
-  /** Path is the file the call is about. Empty when it has none. */
-  path: string;
-  /** Command is the command line of an execute call. Empty when it has none. */
-  command: string;
-  /** Content is the output the tool produced, cut to agents.MaxContentBytes. */
-  content: string;
-  /** Diffs are the changes the tool made to files. Never null. */
-  diffs: FileDiff[];
-  /** Truncated is true when Content or Diffs were cut short. */
-  truncated: boolean;
+	/** ID names the call inside the session. */
+	id: string;
+	/** Title is the line the block shows. */
+	title: string;
+	/** ToolKind is the agent's own word for the tool. */
+	toolKind: string;
+	/** Path is the file the call is about. Empty when it has none. */
+	path: string;
+	/** Command is the command line of an execute call. Empty when it has none. */
+	command: string;
+	/** Content is the output the tool produced, cut to agents.MaxContentBytes. */
+	content: string;
+	/** Diffs are the changes the tool made to files. Never null. */
+	diffs: FileDiff[];
+	/** Truncated is true when Content or Diffs were cut short. */
+	truncated: boolean;
 }
 /**
  * ActivityItem is one entry of a card's Activity tab, newest first (docs/backend-inventory.md 4.4,
@@ -2337,23 +2440,23 @@ export interface ChatToolDetail {
  * never served here.
  */
 export interface ActivityItem {
-  /** ID is the stored event's opaque id. */
-  id: string;
-  /** Kind is what happened. */
-  kind: ActivityKind;
-  /** Seq is the entry's place in the card's history, counting from 1, newest first. */
-  seq: number /* int64 */;
-  /** At is when it happened, in UTC. */
-  at: Timestamp;
-  /** Text is the one line the entry shows, such as "Edited internal/upstream/conn.go". */
-  text: string;
-  /**
-   * Result is the short line beside the text, such as "+4 -4". Empty when the daemon has
-   * nothing to add to the one line.
-   */
-  result: string;
-  /** State is how the entry ended. */
-  state: ActivityState;
+	/** ID is the stored event's opaque id. */
+	id: string;
+	/** Kind is what happened. */
+	kind: ActivityKind;
+	/** Seq is the entry's place in the card's history, counting from 1, newest first. */
+	seq: number /* int64 */;
+	/** At is when it happened, in UTC. */
+	at: Timestamp;
+	/** Text is the one line the entry shows, such as "Edited internal/upstream/conn.go". */
+	text: string;
+	/**
+	 * Result is the short line beside the text, such as "+4 -4". Empty when the daemon has
+	 * nothing to add to the one line.
+	 */
+	result: string;
+	/** State is how the entry ended. */
+	state: ActivityState;
 }
 
 //////////
@@ -2365,20 +2468,20 @@ export interface ActivityItem {
  * charts cover; the lists and the tiles are the same whatever it says.
  */
 export interface HomeSnapshot {
-  /** Needs is the cards that wait on a person, most recently changed first. */
-  needs: NeedsCard[];
-  /** Awake is the cards with a session that is awake or working, oldest first. */
-  awake: AwakeCard[];
-  /** Tiles are the counts the Home tiles show. */
-  tiles: HomeTiles;
-  /**
-   * Stats are the stored numbers the Home charts draw, over the range the request asked for. It
-   * is null only for an answer built without the range (a hand-built one in a test); the route
-   * always fills it.
-   */
-  stats?: HomeStats | null;
-  /** ServerTime is the daemon's time when the answer was made. */
-  serverTime: Timestamp;
+	/** Needs is the cards that wait on a person, most recently changed first. */
+	needs: NeedsCard[];
+	/** Awake is the cards with a session that is awake or working, oldest first. */
+	awake: AwakeCard[];
+	/** Tiles are the counts the Home tiles show. */
+	tiles: HomeTiles;
+	/**
+	 * Stats are the stored numbers the Home charts draw, over the range the request asked for. It
+	 * is null only for an answer built without the range (a hand-built one in a test); the route
+	 * always fills it.
+	 */
+	stats?: HomeStats | null;
+	/** ServerTime is the daemon's time when the answer was made. */
+	serverTime: Timestamp;
 }
 /**
  * HomeStats is the chart data of the Home answer (docs/backend-checklist.md B2.3, section S19a):
@@ -2386,76 +2489,76 @@ export interface HomeSnapshot {
  * scan. It is never built by counting cards.
  */
 export interface HomeStats {
-  /** Range is how many days the answer covers: 7, 30, or 90. */
-  range: number /* int */;
-  /** From is the first day the answer covers, midnight in the daemon's own clock. */
-  from: Timestamp;
-  /** To is the last day the answer covers, which is today. */
-  to: Timestamp;
-  /**
-   * Days is one row per day in the range, oldest first, with every project added together. Never
-   * null, so a range with nothing stored is a list of zeroed days rather than nothing to draw.
-   */
-  days: HomeStatDay[];
-  /**
-   * Projects is the same days, one series per project, for the cost chart that draws a line per
-   * project (S19b). Never null.
-   */
-  projects: HomeProjectStats[];
+	/** Range is how many days the answer covers: 7, 30, or 90. */
+	range: number /* int */;
+	/** From is the first day the answer covers, midnight in the daemon's own clock. */
+	from: Timestamp;
+	/** To is the last day the answer covers, which is today. */
+	to: Timestamp;
+	/**
+	 * Days is one row per day in the range, oldest first, with every project added together. Never
+	 * null, so a range with nothing stored is a list of zeroed days rather than nothing to draw.
+	 */
+	days: HomeStatDay[];
+	/**
+	 * Projects is the same days, one series per project, for the cost chart that draws a line per
+	 * project (S19b). Never null.
+	 */
+	projects: HomeProjectStats[];
 }
 /**
  * HomeStatDay is one day's stored numbers. Every field is what happened that day, not a running
  * total.
  */
 export interface HomeStatDay {
-  /** Day is midnight at the start of the day, in the daemon's own clock. */
-  day: Timestamp;
-  /** CardsFinished is how many cards reached done that day. */
-  cardsFinished: number /* int */;
-  /** Merges is how many cards were merged that day. */
-  merges: number /* int */;
-  /** CIFailures is how many CI runs failed that day. */
-  ciFailures: number /* int */;
-  /** CostMicros is what the day spent, in micro-dollars (Phase 4 fills it). */
-  costMicros: number /* int64 */;
+	/** Day is midnight at the start of the day, in the daemon's own clock. */
+	day: Timestamp;
+	/** CardsFinished is how many cards reached done that day. */
+	cardsFinished: number /* int */;
+	/** Merges is how many cards were merged that day. */
+	merges: number /* int */;
+	/** CIFailures is how many CI runs failed that day. */
+	ciFailures: number /* int */;
+	/** CostMicros is what the day spent, in micro-dollars (Phase 4 fills it). */
+	costMicros: number /* int64 */;
 }
 /** HomeProjectStats is one project's own days, so a chart can draw a line per project. */
 export interface HomeProjectStats {
-  /** ProjectID is the project's short id. */
-  projectId: string;
-  /**
-   * Days is that project's days, oldest first, the same length and days as the answer's own
-   * list, with a zeroed day where the project stored nothing.
-   */
-  days: HomeStatDay[];
+	/** ProjectID is the project's short id. */
+	projectId: string;
+	/**
+	 * Days is that project's days, oldest first, the same length and days as the answer's own
+	 * list, with a zeroed day where the project stored nothing.
+	 */
+	days: HomeStatDay[];
 }
 /** FeedEntry is one entry of the Home activity stream, newest first. */
 export interface FeedEntry {
-  /** ID is the stored row's opaque id. */
-  id: string;
-  /** Kind is what happened. */
-  kind: FeedKind;
-  /** Text is the one line the row shows. */
-  text: string;
-  /**
-   * ProjectID is the project the entry is about, or null when it is about no project in
-   * particular (a brief, or a project that was removed).
-   */
-  projectId?: string | null;
-  /** At is when it happened, in UTC. */
-  at: Timestamp;
-  /**
-   * CardID is the opaque id of the card the entry is about, or empty. It is what a client would
-   * use on a card route.
-   */
-  cardId: string;
-  /**
-   * CardKey is the card's key, `<projectId>#<number>`, which is how the screens name it. Empty
-   * when the entry is not about a card.
-   */
-  cardKey: string;
-  /** JobID is the id of the scheduled job the entry is about, or empty. */
-  jobId: string;
+	/** ID is the stored row's opaque id. */
+	id: string;
+	/** Kind is what happened. */
+	kind: FeedKind;
+	/** Text is the one line the row shows. */
+	text: string;
+	/**
+	 * ProjectID is the project the entry is about, or null when it is about no project in
+	 * particular (a brief, or a project that was removed).
+	 */
+	projectId?: string | null;
+	/** At is when it happened, in UTC. */
+	at: Timestamp;
+	/**
+	 * CardID is the opaque id of the card the entry is about, or empty. It is what a client would
+	 * use on a card route.
+	 */
+	cardId: string;
+	/**
+	 * CardKey is the card's key, `<projectId>#<number>`, which is how the screens name it. Empty
+	 * when the entry is not about a card.
+	 */
+	cardKey: string;
+	/** JobID is the id of the scheduled job the entry is about, or empty. */
+	jobId: string;
 }
 /**
  * ActivityCreatedEventData is the payload of activity.created, published on the home topic after a
@@ -2463,78 +2566,78 @@ export interface FeedEntry {
  * client that applies one twice, or after a replay, ends in the same place.
  */
 export interface ActivityCreatedEventData {
-  /** Entry is the row that was appended. */
-  entry: FeedEntry;
-  /**
-   * Day is the entry's own project's numbers for that day after this row, when the row also
-   * changed them, and null when it left the numbers alone (a brief, or a tool event). It is the
-   * project's day rather than the whole instance's, so a client that keeps one series per project
-   * updates exactly one of them; the totals are the projects added together, which is what the
-   * stored range is built from too.
-   */
-  day?: HomeStatDay | null;
+	/** Entry is the row that was appended. */
+	entry: FeedEntry;
+	/**
+	 * Day is the entry's own project's numbers for that day after this row, when the row also
+	 * changed them, and null when it left the numbers alone (a brief, or a tool event). It is the
+	 * project's day rather than the whole instance's, so a client that keeps one series per project
+	 * updates exactly one of them; the totals are the projects added together, which is what the
+	 * stored range is built from too.
+	 */
+	day?: HomeStatDay | null;
 }
 /** NeedsCard is one card in Home's "needs you" list: enough to draw the row and open the card. */
 export interface NeedsCard {
-  /** CardID is the card's opaque id. */
-  cardId: string;
-  /** Key is the card's key, such as "api#41". */
-  key: string;
-  /** Number is the card's number, the "41" in "#41". */
-  number: number /* int */;
-  /** ProjectID is the project the card belongs to. */
-  projectId: string;
-  /** ProjectName is the project's name, so a list that mixes projects can show it. */
-  projectName: string;
-  /** Title is the card's title. */
-  title: string;
-  /** Reason is why the card waits on a person. */
-  reason: NeedsReason;
-  /**
-   * WaitingSince is when the card entered the needs state, so the app can show how long it has
-   * waited. Null when the daemon does not know.
-   */
-  waitingSince?: Timestamp | null;
-  /** Role is the role's name. Empty when the card has none. */
-  role: string;
+	/** CardID is the card's opaque id. */
+	cardId: string;
+	/** Key is the card's key, such as "api#41". */
+	key: string;
+	/** Number is the card's number, the "41" in "#41". */
+	number: number /* int */;
+	/** ProjectID is the project the card belongs to. */
+	projectId: string;
+	/** ProjectName is the project's name, so a list that mixes projects can show it. */
+	projectName: string;
+	/** Title is the card's title. */
+	title: string;
+	/** Reason is why the card waits on a person. */
+	reason: NeedsReason;
+	/**
+	 * WaitingSince is when the card entered the needs state, so the app can show how long it has
+	 * waited. Null when the daemon does not know.
+	 */
+	waitingSince?: Timestamp | null;
+	/** Role is the role's name. Empty when the card has none. */
+	role: string;
 }
 /** AwakeCard is one card in Home's "agents awake" list. */
 export interface AwakeCard {
-  /** CardID is the card's opaque id. */
-  cardId: string;
-  /** Key is the card's key, such as "api#41". */
-  key: string;
-  /** Number is the card's number. */
-  number: number /* int */;
-  /** ProjectID is the project the card belongs to. */
-  projectId: string;
-  /** ProjectName is the project's name. */
-  projectName: string;
-  /** Title is the card's title. */
-  title: string;
-  /** State is the card's state. */
-  state: CardState;
-  /** Session is the session's state: awake, working, waking, or asleep. */
-  session: SessionState;
-  /** DoingNow is the agent's one-line "doing now". Empty when it is idle. */
-  doingNow: string;
-  /** Pinned is true while the card is kept from sleeping on its own. */
-  pinned: boolean;
-  /** Paused is true while a pause holds the card between turns. */
-  paused: boolean;
-  /** ContextUsed is how full the agent's context window is, as a percentage. */
-  contextUsed: number /* int */;
-  /** AwakeSince is when the session became awake or working, for how long it has run. */
-  awakeSince?: Timestamp | null;
+	/** CardID is the card's opaque id. */
+	cardId: string;
+	/** Key is the card's key, such as "api#41". */
+	key: string;
+	/** Number is the card's number. */
+	number: number /* int */;
+	/** ProjectID is the project the card belongs to. */
+	projectId: string;
+	/** ProjectName is the project's name. */
+	projectName: string;
+	/** Title is the card's title. */
+	title: string;
+	/** State is the card's state. */
+	state: CardState;
+	/** Session is the session's state: awake, working, waking, or asleep. */
+	session: SessionState;
+	/** DoingNow is the agent's one-line "doing now". Empty when it is idle. */
+	doingNow: string;
+	/** Pinned is true while the card is kept from sleeping on its own. */
+	pinned: boolean;
+	/** Paused is true while a pause holds the card between turns. */
+	paused: boolean;
+	/** ContextUsed is how full the agent's context window is, as a percentage. */
+	contextUsed: number /* int */;
+	/** AwakeSince is when the session became awake or working, for how long it has run. */
+	awakeSince?: Timestamp | null;
 }
 /** HomeTiles are the counts Home shows at the top. */
 export interface HomeTiles {
-  /** Needs counts the cards that wait on a person. */
-  needs: number /* int */;
-  /** Working counts the cards with a session that is working or awake. */
-  working: number /* int */;
-  /** MergedToday counts the cards that reached done since midnight, in the daemon's time zone. */
-  mergedToday: number /* int */;
+	/** Needs counts the cards that wait on a person. */
+	needs: number /* int */;
+	/** Working counts the cards with a session that is working or awake. */
+	working: number /* int */;
+	/** MergedToday counts the cards that reached done since midnight, in the daemon's time zone. */
+	mergedToday: number /* int */;
 }
 
 //////////
@@ -2545,10 +2648,10 @@ export interface HomeTiles {
  * every project, so the number alone is not unique. It is not the card's opaque id.
  */
 export interface CardKey {
-  /** ProjectID is the project's short id. */
-  projectId: string;
-  /** Number is the card's number in its project, starting at 1. */
-  number: number /* int */;
+	/** ProjectID is the project's short id. */
+	projectId: string;
+	/** Number is the card's number in its project, starting at 1. */
+	number: number /* int */;
 }
 
 //////////
@@ -2568,14 +2671,14 @@ export const IntegrationStatusNone = "none";
 /** IntegrationStatusError means something is stored and the last test found it does not work. */
 export const IntegrationStatusError = "error";
 export type IntegrationStatus =
-  | typeof IntegrationStatusConnected
-  | typeof IntegrationStatusNone
-  | typeof IntegrationStatusError;
+	| typeof IntegrationStatusConnected
+	| typeof IntegrationStatusNone
+	| typeof IntegrationStatusError;
 /** Every IntegrationStatus, in the order the Go list gives them. */
 export const IntegrationStatusValues: readonly IntegrationStatus[] = [
-  IntegrationStatusConnected,
-  IntegrationStatusNone,
-  IntegrationStatusError,
+	IntegrationStatusConnected,
+	IntegrationStatusNone,
+	IntegrationStatusError,
 ];
 /**
  * Integration is one connection as a screen sees it. The words shown to a person (a name, an icon,
@@ -2583,48 +2686,48 @@ export const IntegrationStatusValues: readonly IntegrationStatus[] = [
  * the status, and the last test's own answer.
  */
 export interface Integration {
-  /**
-   * ID is the connection's own id, and the id its keychain entry and its `integrations` row are
-   * filed under: "github", "trello", "anthropic".
-   */
-  id: string;
-  /**
-   * Kind is the sort of connection this is: "provider", "github", "calendar". It is the kind
-   * its connection test is filed under.
-   */
-  kind: string;
-  /**
-   * Status says whether it is set up, and whether the last test found it working. The field is
-   * called Status in Go and `st` on the wire because `st` is the name the screens already read.
-   */
-  st: IntegrationStatus;
-  /**
-   * Detail is one plain sentence saying what is set up, such as "GitHub App installed on 3
-   * repositories". It is empty for a connection nothing is stored for.
-   */
-  detail: string;
-  /**
-   * LastTest is the result of the last connection test of this connection, or nil when it has
-   * never been tested. It is the same shape a provider's test answers with, so one screen shows
-   * both kinds of result.
-   */
-  lastTest?: TestResult;
+	/**
+	 * ID is the connection's own id, and the id its keychain entry and its `integrations` row are
+	 * filed under: "github", "trello", "anthropic".
+	 */
+	id: string;
+	/**
+	 * Kind is the sort of connection this is: "provider", "github", "calendar". It is the kind
+	 * its connection test is filed under.
+	 */
+	kind: string;
+	/**
+	 * Status says whether it is set up, and whether the last test found it working. The field is
+	 * called Status in Go and `st` on the wire because `st` is the name the screens already read.
+	 */
+	st: IntegrationStatus;
+	/**
+	 * Detail is one plain sentence saying what is set up, such as "GitHub App installed on 3
+	 * repositories". It is empty for a connection nothing is stored for.
+	 */
+	detail: string;
+	/**
+	 * LastTest is the result of the last connection test of this connection, or nil when it has
+	 * never been tested. It is the same shape a provider's test answers with, so one screen shows
+	 * both kinds of result.
+	 */
+	lastTest?: TestResult;
 }
 /**
  * IntegrationList is the answer to GET /v1/integrations: every connection Marshal can be set up
  * with, whether or not it is, so the screen can show the ones that are not connected yet.
  */
 export interface IntegrationList {
-  /**
-   * Integrations has one entry per connection Marshal knows, in the order the screen shows them.
-   * Never null.
-   */
-  integrations: Integration[];
-  /**
-   * ServerTime is the daemon's time when the answer was made, so a client counts a cooldown or
-   * an age from it rather than from its own clock.
-   */
-  serverTime: Timestamp;
+	/**
+	 * Integrations has one entry per connection Marshal knows, in the order the screen shows them.
+	 * Never null.
+	 */
+	integrations: Integration[];
+	/**
+	 * ServerTime is the daemon's time when the answer was made, so a client counts a cooldown or
+	 * an age from it rather than from its own clock.
+	 */
+	serverTime: Timestamp;
 }
 /**
  * SaveGitHubRequest is the body of the call that saves the GitHub App's connection (B6.1). The
@@ -2632,21 +2735,21 @@ export interface IntegrationList {
  * route; the two ids are written to the connection's own row.
  */
 export interface SaveGitHubRequest {
-  /** AppID is the App's own numeric id, from its settings page on GitHub. */
-  appId: number /* int64 */;
-  /**
-   * InstallationID is the numeric id of the App's installation on the owner's account or
-   * organization. One App can be installed in more than one place, and this is the one Marshal
-   * acts as.
-   */
-  installationId: number /* int64 */;
-  /** PrivateKey is the App's private key, in PEM form, exactly as GitHub generated it. */
-  privateKey: string;
-  /**
-   * WebhookSecret is the secret the App's deliveries are signed with. Every delivery is checked
-   * against it before its body is read (B6.1).
-   */
-  webhookSecret: string;
+	/** AppID is the App's own numeric id, from its settings page on GitHub. */
+	appId: number /* int64 */;
+	/**
+	 * InstallationID is the numeric id of the App's installation on the owner's account or
+	 * organization. One App can be installed in more than one place, and this is the one Marshal
+	 * acts as.
+	 */
+	installationId: number /* int64 */;
+	/** PrivateKey is the App's private key, in PEM form, exactly as GitHub generated it. */
+	privateKey: string;
+	/**
+	 * WebhookSecret is the secret the App's deliveries are signed with. Every delivery is checked
+	 * against it before its body is read (B6.1).
+	 */
+	webhookSecret: string;
 }
 
 //////////
@@ -2654,39 +2757,91 @@ export interface SaveGitHubRequest {
 
 /** Label is one label of a project. */
 export interface Label {
-  /** ID is the label's opaque id. */
-  id: string;
-  /** ProjectID is the project the label belongs to. */
-  projectId: string;
-  /** Name is the label's text, such as "backend". It is unique inside its project. */
-  name: string;
-  /** Color is one of the fixed label colors. */
-  color: LabelColor;
-  /** CreatedAt is when the label was made. */
-  createdAt: Timestamp;
+	/** ID is the label's opaque id. */
+	id: string;
+	/** ProjectID is the project the label belongs to. */
+	projectId: string;
+	/** Name is the label's text, such as "backend". It is unique inside its project. */
+	name: string;
+	/** Color is one of the fixed label colors. */
+	color: LabelColor;
+	/** CreatedAt is when the label was made. */
+	createdAt: Timestamp;
 }
 /** LabelSnapshot is the answer to GET /v1/projects/{id}/labels. */
 export interface LabelSnapshot {
-  /** ProjectID is the project the labels belong to. */
-  projectId: string;
-  /** Labels are the project's labels, by name. */
-  labels: Label[];
-  /** ServerTime is the daemon's time when the answer was made. */
-  serverTime: Timestamp;
+	/** ProjectID is the project the labels belong to. */
+	projectId: string;
+	/** Labels are the project's labels, by name. */
+	labels: Label[];
+	/** ServerTime is the daemon's time when the answer was made. */
+	serverTime: Timestamp;
 }
 /** CreateLabelRequest is the body of POST /v1/projects/{id}/labels. */
 export interface CreateLabelRequest {
-  /** Name is the label's text. It cannot be empty and must be unique in the project. */
-  name: string;
-  /** Color is one of the fixed label colors. Empty means slate. */
-  color?: LabelColor;
+	/** Name is the label's text. It cannot be empty and must be unique in the project. */
+	name: string;
+	/** Color is one of the fixed label colors. Empty means slate. */
+	color?: LabelColor;
 }
 /** UpdateLabelRequest is the body of PATCH /v1/labels/{id}. A field that is not set is left alone. */
 export interface UpdateLabelRequest {
-  /** Name renames the label. Null leaves it. */
-  name?: string;
-  /** Color changes the color. Null leaves it. */
-  color?: LabelColor;
+	/** Name renames the label. Null leaves it. */
+	name?: string;
+	/** Color changes the color. Null leaves it. */
+	color?: LabelColor;
+}
+
+//////////
+// source: lesson.go
+
+/** Lesson is one project's lesson as a client or an agent's search_memory sees it. */
+export interface Lesson {
+	/**
+	 * ProjectID is the project the lesson belongs to, and the name of the folder its file sits in
+	 * under the vault (see Path).
+	 */
+	projectId: string;
+	/**
+	 * Slug is the lesson's identity inside its project: the readable, file-name-safe form of its
+	 * title (memory.noteSlug), and the second half of the unique key migration 0019 enforces.
+	 */
+	slug: string;
+	/**
+	 * Title is the lesson's heading, in full: what the lessons screen lists and what post_note's
+	 * sibling for lessons, once one exists, is given.
+	 */
+	title: string;
+	/**
+	 * Path is where the lesson lives, relative to the vault root, in the shape
+	 * `<project>/lessons/<slug>.md` - so the lessons screen shows something like
+	 * `small-repo/lessons/ci-is-flaky-on-windows.md`. Relative for the same reason Note.Path is:
+	 * the vault lives wherever the person put it.
+	 */
+	path: string;
+	/** Body is the whole lesson, in markdown. */
+	body: string;
+	/**
+	 * Author is who wrote the lesson: "person" for one written or edited through the lessons
+	 * screen, "agent" for one an agent leaves after a fix, once an internal MCP tool can write one
+	 * (lessons.go's package comment says where that stands today).
+	 */
+	author: NoteAuthor;
+	/** UpdatedAt is when the lesson was last saved. Never the zero time - see the package comment. */
+	updatedAt: Timestamp;
+}
+/**
+ * SaveLessonRequest is the body of the call that writes a project's lesson (task 7.6, 7.13). Like
+ * SaveNoteRequest, the body is the whole lesson and not a patch.
+ */
+export interface SaveLessonRequest {
+	/**
+	 * Title is the lesson's heading. Required: a lesson's slug and its place in the vault are made
+	 * from it, so a lesson cannot be titled after the fact by editing only its body.
+	 */
+	title: string;
+	/** Body is the lesson in full, in markdown. It may be empty, the same as a card note's may. */
+	body: string;
 }
 
 //////////
@@ -2705,16 +2860,16 @@ export const LocalCIKindBuild = "build";
 /** LocalCIKindOther is a step that is none of the three, such as a deploy or a packaging step. */
 export const LocalCIKindOther = "other";
 export type LocalCIKind =
-  | typeof LocalCIKindTest
-  | typeof LocalCIKindLint
-  | typeof LocalCIKindBuild
-  | typeof LocalCIKindOther;
+	| typeof LocalCIKindTest
+	| typeof LocalCIKindLint
+	| typeof LocalCIKindBuild
+	| typeof LocalCIKindOther;
 /** Every LocalCIKind, in the order the Go list gives them. */
 export const LocalCIKindValues: readonly LocalCIKind[] = [
-  LocalCIKindTest,
-  LocalCIKindLint,
-  LocalCIKindBuild,
-  LocalCIKindOther,
+	LocalCIKindTest,
+	LocalCIKindLint,
+	LocalCIKindBuild,
+	LocalCIKindOther,
 ];
 /**
  * LocalCIStatus is where a step ended, or where a whole workflow ended. `unsupported` and `skipped`
@@ -2733,74 +2888,74 @@ export const LocalCIStatusUnsupported = "unsupported";
 /** LocalCIStatusSkipped is a step that was not reached, with `Reason` saying what stopped it. */
 export const LocalCIStatusSkipped = "skipped";
 export type LocalCIStatus =
-  | typeof LocalCIStatusPassed
-  | typeof LocalCIStatusFailed
-  | typeof LocalCIStatusUnsupported
-  | typeof LocalCIStatusSkipped;
+	| typeof LocalCIStatusPassed
+	| typeof LocalCIStatusFailed
+	| typeof LocalCIStatusUnsupported
+	| typeof LocalCIStatusSkipped;
 /** Every LocalCIStatus, in the order the Go list gives them. */
 export const LocalCIStatusValues: readonly LocalCIStatus[] = [
-  LocalCIStatusPassed,
-  LocalCIStatusFailed,
-  LocalCIStatusUnsupported,
-  LocalCIStatusSkipped,
+	LocalCIStatusPassed,
+	LocalCIStatusFailed,
+	LocalCIStatusUnsupported,
+	LocalCIStatusSkipped,
 ];
 /** LocalCIRequest is the body of POST /v1/cards/{id}/local-ci. The card comes from the path. */
 export interface LocalCIRequest {
-  /**
-   * Workflow names one workflow file, as it is named in `.github/workflows`, such as "ci.yml".
-   * Empty means every workflow the card's worktree has.
-   */
-  workflow: string;
+	/**
+	 * Workflow names one workflow file, as it is named in `.github/workflows`, such as "ci.yml".
+	 * Empty means every workflow the card's worktree has.
+	 */
+	workflow: string;
 }
 /** LocalCIStep is one step of one job, as Marshal found it and as far as it got. */
 export interface LocalCIStep {
-  /** Job is the job's name in the workflow file. */
-  job: string;
-  /** Name is the step's own name: its `name:`, or the command itself when it has none. */
-  name: string;
-  /** Kind is what the step does. */
-  kind: LocalCIKind;
-  /** Status is where it ended. */
-  status: LocalCIStatus;
-  /** Reason says why it was not run, in a sentence a person reads. Empty for a step that ran. */
-  reason: string;
-  /**
-   * Command is the step's `run:` line, as the workflow file has it. Empty for a step that was
-   * not a command.
-   */
-  command: string;
-  /** Output is the end of what the step printed, trimmed. Empty for a step that was not run. */
-  output: string;
-  /** TookMs is how long the step ran, in milliseconds. Zero for a step that was not run. */
-  tookMs: number /* int64 */;
+	/** Job is the job's name in the workflow file. */
+	job: string;
+	/** Name is the step's own name: its `name:`, or the command itself when it has none. */
+	name: string;
+	/** Kind is what the step does. */
+	kind: LocalCIKind;
+	/** Status is where it ended. */
+	status: LocalCIStatus;
+	/** Reason says why it was not run, in a sentence a person reads. Empty for a step that ran. */
+	reason: string;
+	/**
+	 * Command is the step's `run:` line, as the workflow file has it. Empty for a step that was
+	 * not a command.
+	 */
+	command: string;
+	/** Output is the end of what the step printed, trimmed. Empty for a step that was not run. */
+	output: string;
+	/** TookMs is how long the step ran, in milliseconds. Zero for a step that was not run. */
+	tookMs: number /* int64 */;
 }
 /** LocalCIWorkflow is one workflow file of the card's worktree, with every step it declares. */
 export interface LocalCIWorkflow {
-  /** File is the file's path, relative to the worktree, with forward slashes. */
-  file: string;
-  /**
-   * Name is the workflow's own name: its top-level `name:`, or the file's name without its
-   * extension when it has none.
-   */
-  name: string;
-  /**
-   * Status is what the workflow ended as: failed when any step failed, unsupported when every
-   * step was, passed when nothing failed, and skipped when nothing ran.
-   */
-  status: LocalCIStatus;
-  /** Steps are the workflow's steps, job by job, in the order the file declares them. Never null. */
-  steps: LocalCIStep[];
+	/** File is the file's path, relative to the worktree, with forward slashes. */
+	file: string;
+	/**
+	 * Name is the workflow's own name: its top-level `name:`, or the file's name without its
+	 * extension when it has none.
+	 */
+	name: string;
+	/**
+	 * Status is what the workflow ended as: failed when any step failed, unsupported when every
+	 * step was, passed when nothing failed, and skipped when nothing ran.
+	 */
+	status: LocalCIStatus;
+	/** Steps are the workflow's steps, job by job, in the order the file declares them. Never null. */
+	steps: LocalCIStep[];
 }
 /** LocalCIResult is what a local run produced: every workflow the request covered. */
 export interface LocalCIResult {
-  /** CardID is the card whose branch was run. */
-  cardId: string;
-  /** Branch is the branch the card's worktree is on, so a person knows what was run. */
-  branch: string;
-  /** Workflows are the workflow files that were run, in file order. Never null. */
-  workflows: LocalCIWorkflow[];
-  /** ServerTime is the daemon's time when the answer was made. */
-  serverTime: Timestamp;
+	/** CardID is the card whose branch was run. */
+	cardId: string;
+	/** Branch is the branch the card's worktree is on, so a person knows what was run. */
+	branch: string;
+	/** Workflows are the workflow files that were run, in file order. Never null. */
+	workflows: LocalCIWorkflow[];
+	/** ServerTime is the daemon's time when the answer was made. */
+	serverTime: Timestamp;
 }
 
 //////////
@@ -2815,7 +2970,11 @@ export const ThemeDark = "dark";
 export const ThemeSystem = "system";
 export type Theme = typeof ThemeLight | typeof ThemeDark | typeof ThemeSystem;
 /** Every Theme, in the order the Go list gives them. */
-export const ThemeValues: readonly Theme[] = [ThemeLight, ThemeDark, ThemeSystem];
+export const ThemeValues: readonly Theme[] = [
+	ThemeLight,
+	ThemeDark,
+	ThemeSystem,
+];
 /**
  * ProjectView is one of a project's views, the tabs under its name. A project remembers the one
  * that was open last.
@@ -2833,20 +2992,20 @@ export const ProjectViewTimeline = "timeline";
 /** ProjectViewCalendar is the Calendar. */
 export const ProjectViewCalendar = "calendar";
 export type ProjectView =
-  | typeof ProjectViewChat
-  | typeof ProjectViewAgents
-  | typeof ProjectViewBoard
-  | typeof ProjectViewList
-  | typeof ProjectViewTimeline
-  | typeof ProjectViewCalendar;
+	| typeof ProjectViewChat
+	| typeof ProjectViewAgents
+	| typeof ProjectViewBoard
+	| typeof ProjectViewList
+	| typeof ProjectViewTimeline
+	| typeof ProjectViewCalendar;
 /** Every ProjectView, in the order the Go list gives them. */
 export const ProjectViewValues: readonly ProjectView[] = [
-  ProjectViewChat,
-  ProjectViewAgents,
-  ProjectViewBoard,
-  ProjectViewList,
-  ProjectViewTimeline,
-  ProjectViewCalendar,
+	ProjectViewChat,
+	ProjectViewAgents,
+	ProjectViewBoard,
+	ProjectViewList,
+	ProjectViewTimeline,
+	ProjectViewCalendar,
 ];
 /** Swimlane is what a board's rows are grouped by. "none" draws one row. */
 /** SwimlaneNone draws the board as one row. It is what a board has until another is chosen. */
@@ -2860,18 +3019,18 @@ export const SwimlanePackage = "package";
 /** SwimlaneLabel groups cards by their labels. */
 export const SwimlaneLabel = "label";
 export type Swimlane =
-  | typeof SwimlaneNone
-  | typeof SwimlaneRole
-  | typeof SwimlaneAgent
-  | typeof SwimlanePackage
-  | typeof SwimlaneLabel;
+	| typeof SwimlaneNone
+	| typeof SwimlaneRole
+	| typeof SwimlaneAgent
+	| typeof SwimlanePackage
+	| typeof SwimlaneLabel;
 /** Every Swimlane, in the order the Go list gives them. */
 export const SwimlaneValues: readonly Swimlane[] = [
-  SwimlaneNone,
-  SwimlaneRole,
-  SwimlaneAgent,
-  SwimlanePackage,
-  SwimlaneLabel,
+	SwimlaneNone,
+	SwimlaneRole,
+	SwimlaneAgent,
+	SwimlanePackage,
+	SwimlaneLabel,
 ];
 /** FilterKey is what a filter chip filters by. */
 /** FilterKeyStatus filters by the card's column. */
@@ -2887,20 +3046,20 @@ export const FilterKeyLabel = "label";
 /** FilterKeyPackage filters by the card's package. */
 export const FilterKeyPackage = "package";
 export type FilterKey =
-  | typeof FilterKeyStatus
-  | typeof FilterKeyRole
-  | typeof FilterKeyAgent
-  | typeof FilterKeyModel
-  | typeof FilterKeyLabel
-  | typeof FilterKeyPackage;
+	| typeof FilterKeyStatus
+	| typeof FilterKeyRole
+	| typeof FilterKeyAgent
+	| typeof FilterKeyModel
+	| typeof FilterKeyLabel
+	| typeof FilterKeyPackage;
 /** Every FilterKey, in the order the Go list gives them. */
 export const FilterKeyValues: readonly FilterKey[] = [
-  FilterKeyStatus,
-  FilterKeyRole,
-  FilterKeyAgent,
-  FilterKeyModel,
-  FilterKeyLabel,
-  FilterKeyPackage,
+	FilterKeyStatus,
+	FilterKeyRole,
+	FilterKeyAgent,
+	FilterKeyModel,
+	FilterKeyLabel,
+	FilterKeyPackage,
 ];
 /** SortDirection says which way a table is sorted. */
 /** SortDirectionAsc sorts from the smallest value up. */
@@ -2909,7 +3068,10 @@ export const SortDirectionAsc = "asc";
 export const SortDirectionDesc = "desc";
 export type SortDirection = typeof SortDirectionAsc | typeof SortDirectionDesc;
 /** Every SortDirection, in the order the Go list gives them. */
-export const SortDirectionValues: readonly SortDirection[] = [SortDirectionAsc, SortDirectionDesc];
+export const SortDirectionValues: readonly SortDirection[] = [
+	SortDirectionAsc,
+	SortDirectionDesc,
+];
 /** ProgressStatus is where a person is with onboarding or with the tour. */
 /**
  * ProgressStatusPending means it has not been finished: onboarding shows, at its saved step,
@@ -2921,176 +3083,176 @@ export const ProgressStatusDone = "done";
 /** ProgressStatusSkipped means the person skipped it. It does not show again by itself. */
 export const ProgressStatusSkipped = "skipped";
 export type ProgressStatus =
-  | typeof ProgressStatusPending
-  | typeof ProgressStatusDone
-  | typeof ProgressStatusSkipped;
+	| typeof ProgressStatusPending
+	| typeof ProgressStatusDone
+	| typeof ProgressStatusSkipped;
 /** Every ProgressStatus, in the order the Go list gives them. */
 export const ProgressStatusValues: readonly ProgressStatus[] = [
-  ProgressStatusPending,
-  ProgressStatusDone,
-  ProgressStatusSkipped,
+	ProgressStatusPending,
+	ProgressStatusDone,
+	ProgressStatusSkipped,
 ];
 /**
  * Profile is the answer to GET /v1/me and PATCH /v1/me: the person the token belongs to. Paired
  * devices are not here; they stay on the mock until Phase 9 adds pairing.
  */
 export interface Profile {
-  /** ID is the user's opaque id, the same as WhoAmI.UserID. */
-  id: string;
-  /** Name is the person's name. It is never empty. */
-  name: string;
-  /** Email is the address briefs are sent to, and empty when none was given. */
-  email: string;
-  /**
-   * Initials are up to two capital letters from the name, which the avatar shows when there is
-   * no image.
-   */
-  initials: string;
-  /**
-   * TimeZone is an IANA time zone name, such as "Europe/London", that briefs and schedules run
-   * in. Empty means none was chosen yet.
-   */
-  timeZone: string;
-  /**
-   * AvatarURL is the daemon path of the avatar image, with a version so a new image is a new
-   * address, and null when there is no image. It needs the token like every other route, so a
-   * client fetches it with the Authorization header and shows the bytes; an <img> tag cannot.
-   */
-  avatarUrl?: string | null;
-  /**
-   * TailnetIdentity is the Tailscale account this machine is signed in as. Empty until remote
-   * access arrives in Phase 9.
-   */
-  tailnetIdentity: string;
-  /** CreatedAt is when the user was made. */
-  createdAt: Timestamp;
-  /** UpdatedAt is when the profile last changed, including the avatar. */
-  updatedAt: Timestamp;
+	/** ID is the user's opaque id, the same as WhoAmI.UserID. */
+	id: string;
+	/** Name is the person's name. It is never empty. */
+	name: string;
+	/** Email is the address briefs are sent to, and empty when none was given. */
+	email: string;
+	/**
+	 * Initials are up to two capital letters from the name, which the avatar shows when there is
+	 * no image.
+	 */
+	initials: string;
+	/**
+	 * TimeZone is an IANA time zone name, such as "Europe/London", that briefs and schedules run
+	 * in. Empty means none was chosen yet.
+	 */
+	timeZone: string;
+	/**
+	 * AvatarURL is the daemon path of the avatar image, with a version so a new image is a new
+	 * address, and null when there is no image. It needs the token like every other route, so a
+	 * client fetches it with the Authorization header and shows the bytes; an <img> tag cannot.
+	 */
+	avatarUrl?: string | null;
+	/**
+	 * TailnetIdentity is the Tailscale account this machine is signed in as. Empty until remote
+	 * access arrives in Phase 9.
+	 */
+	tailnetIdentity: string;
+	/** CreatedAt is when the user was made. */
+	createdAt: Timestamp;
+	/** UpdatedAt is when the profile last changed, including the avatar. */
+	updatedAt: Timestamp;
 }
 /** UpdateProfileRequest is the body of PATCH /v1/me. A field that is not set is left alone. */
 export interface UpdateProfileRequest {
-  /** Name renames the person. It cannot be empty. */
-  name?: string;
-  /** Email changes the address. The empty string removes it. */
-  email?: string;
-  /** TimeZone changes the time zone to an IANA name. The empty string removes it. */
-  timeZone?: string;
+	/** Name renames the person. It cannot be empty. */
+	name?: string;
+	/** Email changes the address. The empty string removes it. */
+	email?: string;
+	/** TimeZone changes the time zone to an IANA name. The empty string removes it. */
+	timeZone?: string;
 }
 /** User is one person in the users list that member pickers read. */
 export interface User {
-  /** ID is the user's opaque id. */
-  id: string;
-  /** Name is the person's name. */
-  name: string;
-  /** Initials are up to two capital letters from the name. */
-  initials: string;
-  /** AvatarURL is the daemon path of their avatar image, or null when they have none. */
-  avatarUrl?: string | null;
+	/** ID is the user's opaque id. */
+	id: string;
+	/** Name is the person's name. */
+	name: string;
+	/** Initials are up to two capital letters from the name. */
+	initials: string;
+	/** AvatarURL is the daemon path of their avatar image, or null when they have none. */
+	avatarUrl?: string | null;
 }
 /** UserListSnapshot is the answer to GET /v1/users. Solo use lists the owner only (decision D10). */
 export interface UserListSnapshot {
-  /** Users are everyone who can be put on a card, by name. */
-  users: User[];
-  /** ServerTime is the daemon's time when the list was made. */
-  serverTime: Timestamp;
+	/** Users are everyone who can be put on a card, by name. */
+	users: User[];
+	/** ServerTime is the daemon's time when the list was made. */
+	serverTime: Timestamp;
 }
 /**
  * Progress is the answer to GET and PATCH /v1/me/progress: how far a person is with onboarding
  * and with the tour on Home. It is saved per user, so a new device resumes where another left off.
  */
 export interface Progress {
-  /** Onboarding is the first-launch screens. */
-  onboarding: OnboardingProgress;
-  /** Tutorial is the tour on Home. */
-  tutorial: TutorialProgress;
+	/** Onboarding is the first-launch screens. */
+	onboarding: OnboardingProgress;
+	/** Tutorial is the tour on Home. */
+	tutorial: TutorialProgress;
 }
 /** OnboardingProgress is where a person is with the first-launch screens. */
 export interface OnboardingProgress {
-  /** Status is pending until the person finishes or skips onboarding. */
-  status: ProgressStatus;
-  /** Step is the screen onboarding resumes at, counted from 0. */
-  step: number /* int */;
-  /** FinishedAt is when onboarding was finished or skipped, and null while it is pending. */
-  finishedAt?: Timestamp | null;
+	/** Status is pending until the person finishes or skips onboarding. */
+	status: ProgressStatus;
+	/** Step is the screen onboarding resumes at, counted from 0. */
+	step: number /* int */;
+	/** FinishedAt is when onboarding was finished or skipped, and null while it is pending. */
+	finishedAt?: Timestamp | null;
 }
 /**
  * TutorialProgress is where a person is with the tour. The step the tour is on is screen state;
  * only finishing or skipping it is saved.
  */
 export interface TutorialProgress {
-  /** Status is pending until the person finishes or skips the tour. Replaying it sets it back. */
-  status: ProgressStatus;
-  /** FinishedAt is when the tour was finished or skipped, and null while it is pending. */
-  finishedAt?: Timestamp | null;
+	/** Status is pending until the person finishes or skips the tour. Replaying it sets it back. */
+	status: ProgressStatus;
+	/** FinishedAt is when the tour was finished or skipped, and null while it is pending. */
+	finishedAt?: Timestamp | null;
 }
 /** UpdateProgressRequest is the body of PATCH /v1/me/progress. A part that is not set is left alone. */
 export interface UpdateProgressRequest {
-  /** Onboarding changes the onboarding progress. */
-  onboarding?: UpdateOnboardingProgress;
-  /** Tutorial changes the tour progress. */
-  tutorial?: UpdateTutorialProgress;
+	/** Onboarding changes the onboarding progress. */
+	onboarding?: UpdateOnboardingProgress;
+	/** Tutorial changes the tour progress. */
+	tutorial?: UpdateTutorialProgress;
 }
 /** UpdateOnboardingProgress changes onboarding. A field that is not set is left alone. */
 export interface UpdateOnboardingProgress {
-  /** Step saves the screen to resume at, counted from 0. */
-  step?: number /* int */;
-  /** Status finishes onboarding (done), skips it (skipped), or shows it again (pending). */
-  status?: ProgressStatus;
+	/** Step saves the screen to resume at, counted from 0. */
+	step?: number /* int */;
+	/** Status finishes onboarding (done), skips it (skipped), or shows it again (pending). */
+	status?: ProgressStatus;
 }
 /** UpdateTutorialProgress changes the tour. A field that is not set is left alone. */
 export interface UpdateTutorialProgress {
-  /** Status finishes the tour (done), skips it (skipped), or sets it to show again (pending). */
-  status?: ProgressStatus;
+	/** Status finishes the tour (done), skips it (skipped), or sets it to show again (pending). */
+	status?: ProgressStatus;
 }
 /**
  * Filter is one filter chip: a key and the value it keeps. The value is the text the chip shows,
  * such as a column, a role, or a label name.
  */
 export interface Filter {
-  /** Key is what the chip filters by. */
-  key: FilterKey;
-  /** Value is what the card must have. */
-  value: string;
+	/** Key is what the chip filters by. */
+	key: FilterKey;
+	/** Value is what the card must have. */
+	value: string;
 }
 /** SortOrder is how one table is sorted: by which column, and which way. */
 export interface SortOrder {
-  /** Key is the column's short key, such as "state" or "id". The screen owns the columns. */
-  key: string;
-  /** Direction is which way the column is sorted. */
-  direction: SortDirection;
+	/** Key is the column's short key, such as "state" or "id". The screen owns the columns. */
+	key: string;
+	/** Direction is which way the column is sorted. */
+	direction: SortDirection;
 }
 /**
  * SortPreferences are the sort orders of the two tables that can be sorted. A null order means
  * the person never changed it, and the screen uses its own default.
  */
 export interface SortPreferences {
-  /** Agents is the Agents table's order. */
-  agents?: SortOrder | null;
-  /** List is the List table's order. */
-  list?: SortOrder | null;
+	/** Agents is the Agents table's order. */
+	agents?: SortOrder | null;
+	/** List is the List table's order. */
+	list?: SortOrder | null;
 }
 /**
  * ProjectPreferences are one project's screen preferences (decision D2): what the project opens
  * in, and the board's filters, search, and swimlane as they were left.
  */
 export interface ProjectPreferences {
-  /** LastView is the view the project opens in. */
-  lastView: ProjectView;
-  /** Filters are the board's filter chips. */
-  filters: Filter[];
-  /** Query is the board's search text. */
-  query: string;
-  /** Swimlane is what the board's rows are grouped by. */
-  swimlane: Swimlane;
-  /** CollapsedLanes are the lanes that are folded, each as "<swimlane>:<lane>". */
-  collapsedLanes: string[];
-  /** ShowAllDone is true when the Done column shows every card rather than the newest 20. */
-  showAllDone: boolean;
-  /**
-   * SavedViewID is the saved view in use, and null when the filters were changed by hand or the
-   * view was deleted.
-   */
-  savedViewId?: string | null;
+	/** LastView is the view the project opens in. */
+	lastView: ProjectView;
+	/** Filters are the board's filter chips. */
+	filters: Filter[];
+	/** Query is the board's search text. */
+	query: string;
+	/** Swimlane is what the board's rows are grouped by. */
+	swimlane: Swimlane;
+	/** CollapsedLanes are the lanes that are folded, each as "<swimlane>:<lane>". */
+	collapsedLanes: string[];
+	/** ShowAllDone is true when the Done column shows every card rather than the newest 20. */
+	showAllDone: boolean;
+	/**
+	 * SavedViewID is the saved view in use, and null when the filters were changed by hand or the
+	 * view was deleted.
+	 */
+	savedViewId?: string | null;
 }
 /**
  * Preferences is the answer to GET and PATCH /v1/me/preferences: the screen preferences that
@@ -3098,61 +3260,61 @@ export interface ProjectPreferences {
  * panes, the calendar's mode, and the dashboard's range) stays on each device and is not here.
  */
 export interface Preferences {
-  /** Theme is the color scheme. */
-  theme: Theme;
-  /**
-   * ListColumns says which List columns are shown, by the column's short key. Only the columns
-   * the person changed are here; the screen's own default covers the rest.
-   */
-  listColumns: { [key: string]: boolean };
-  /** Sort is how the two tables are sorted. */
-  sort: SortPreferences;
-  /**
-   * Projects are each project's own preferences, by project id. A project that is not here
-   * has the screen's defaults.
-   */
-  projects: { [key: string]: ProjectPreferences };
+	/** Theme is the color scheme. */
+	theme: Theme;
+	/**
+	 * ListColumns says which List columns are shown, by the column's short key. Only the columns
+	 * the person changed are here; the screen's own default covers the rest.
+	 */
+	listColumns: { [key: string]: boolean };
+	/** Sort is how the two tables are sorted. */
+	sort: SortPreferences;
+	/**
+	 * Projects are each project's own preferences, by project id. A project that is not here
+	 * has the screen's defaults.
+	 */
+	projects: { [key: string]: ProjectPreferences };
 }
 /**
  * UpdatePreferencesRequest is the body of PATCH /v1/me/preferences. A field that is not set is left
  * alone, and a project that is not named keeps its preferences.
  */
 export interface UpdatePreferencesRequest {
-  /** Theme changes the color scheme. */
-  theme?: Theme;
-  /** ListColumns shows or hides List columns. Each key named is set; the others keep their value. */
-  listColumns?: { [key: string]: boolean };
-  /** Sort changes a table's order. */
-  sort?: UpdateSortPreferences;
-  /** Projects changes the preferences of the projects named, by project id. */
-  projects?: { [key: string]: UpdateProjectPreferences };
+	/** Theme changes the color scheme. */
+	theme?: Theme;
+	/** ListColumns shows or hides List columns. Each key named is set; the others keep their value. */
+	listColumns?: { [key: string]: boolean };
+	/** Sort changes a table's order. */
+	sort?: UpdateSortPreferences;
+	/** Projects changes the preferences of the projects named, by project id. */
+	projects?: { [key: string]: UpdateProjectPreferences };
 }
 /** UpdateSortPreferences changes the sort order of the tables it names. */
 export interface UpdateSortPreferences {
-  /** Agents sets the Agents table's order. */
-  agents?: SortOrder;
-  /** List sets the List table's order. */
-  list?: SortOrder;
+	/** Agents sets the Agents table's order. */
+	agents?: SortOrder;
+	/** List sets the List table's order. */
+	list?: SortOrder;
 }
 /**
  * UpdateProjectPreferences changes one project's preferences. A field that is not set is left
  * alone.
  */
 export interface UpdateProjectPreferences {
-  /** LastView changes the view the project opens in. */
-  lastView?: ProjectView;
-  /** Filters replaces the board's filter chips. */
-  filters?: Filter[];
-  /** Query replaces the board's search text. */
-  query?: string;
-  /** Swimlane changes what the board's rows are grouped by. */
-  swimlane?: Swimlane;
-  /** CollapsedLanes replaces the folded lanes. */
-  collapsedLanes?: string[];
-  /** ShowAllDone changes whether Done shows every card. */
-  showAllDone?: boolean;
-  /** SavedViewID sets the saved view in use, one of this project's. The empty string clears it. */
-  savedViewId?: string;
+	/** LastView changes the view the project opens in. */
+	lastView?: ProjectView;
+	/** Filters replaces the board's filter chips. */
+	filters?: Filter[];
+	/** Query replaces the board's search text. */
+	query?: string;
+	/** Swimlane changes what the board's rows are grouped by. */
+	swimlane?: Swimlane;
+	/** CollapsedLanes replaces the folded lanes. */
+	collapsedLanes?: string[];
+	/** ShowAllDone changes whether Done shows every card. */
+	showAllDone?: boolean;
+	/** SavedViewID sets the saved view in use, one of this project's. The empty string clears it. */
+	savedViewId?: string;
 }
 /**
  * MeUpdatedEventData is the payload of me.updated, on the `me` topic. It carries the profile, the
@@ -3160,12 +3322,85 @@ export interface UpdateProjectPreferences {
  * all three and applying the event twice changes nothing.
  */
 export interface MeUpdatedEventData {
-  /** Profile is the profile as it is now. */
-  profile: Profile;
-  /** Preferences are the preferences as they are now. */
-  preferences: Preferences;
-  /** Progress is the progress as it is now. */
-  progress: Progress;
+	/** Profile is the profile as it is now. */
+	profile: Profile;
+	/** Preferences are the preferences as they are now. */
+	preferences: Preferences;
+	/** Progress is the progress as it is now. */
+	progress: Progress;
+}
+
+//////////
+// source: note.go
+
+/**
+ * NoteAuthor is who wrote a note. It is the same two words the rest of the schema uses for the
+ * same question - `audit_log.actor` is "person", "agent", or "daemon" (migration 0013) - and it is
+ * all a note needs: there is one owner and one agent per card.
+ */
+/** NoteAuthorPerson is the owner, writing in the Notes tab or in Obsidian. */
+export const NoteAuthorPerson = "person";
+/** NoteAuthorAgent is a card's own agent, writing through the `post_note` tool. */
+export const NoteAuthorAgent = "agent";
+export type NoteAuthor = typeof NoteAuthorPerson | typeof NoteAuthorAgent;
+/** Every NoteAuthor, in the order the Go list gives them. */
+export const NoteAuthorValues: readonly NoteAuthor[] = [
+	NoteAuthorPerson,
+	NoteAuthorAgent,
+];
+/** Note is one card's note as a client sees it. */
+export interface Note {
+	/** CardID is the card the note belongs to. */
+	cardId: string;
+	/**
+	 * ProjectID is the project the card is in, and the name of the folder the note's file sits in
+	 * under the vault (see Path).
+	 */
+	projectId: string;
+	/**
+	 * Path is where the note lives, relative to the vault root, in the shape
+	 * `<project>/cards/<number>-<title>.md` - so the Notes tab shows something like
+	 * `small-repo/cards/7-add-a-health-check.md`. It is relative on purpose: the vault lives
+	 * wherever the person put it, and an absolute path from this machine would be meaningless to a
+	 * phone.
+	 */
+	path: string;
+	/**
+	 * Body is the whole note, in markdown. The tab shows it as it is and replaces all of it when it
+	 * saves.
+	 */
+	body: string;
+	/** Author is who last wrote the note, and person for a note nothing has been saved for yet. */
+	author: NoteAuthor;
+	/**
+	 * UpdatedAt is when the note was last saved, or null when nothing has been saved for the card.
+	 * Null is the whole of what "no note" means on the wire: Body is then the note the daemon writes
+	 * for the card (its title, its goal, and a link to its project), and the first save clears it.
+	 * Reading a note that does not exist does not write one. The design's `ensureNote` makes the
+	 * note in the store as it draws the panel, which is fine for a mock and wrong for a daemon: a
+	 * GET must not create a file. So the placeholder is built in memory and returned, and the file
+	 * appears on the first save.
+	 * It is a pointer because the repo's convention for a time that may be absent is one (a plain
+	 * Timestamp refuses to encode the zero time, which is a bug to fix rather than a date in the
+	 * year 1). The field carries no `omitempty`, so it is always sent, as null when nothing has
+	 * been saved; the `required` flag of the tstype tag tells the generated TypeScript the same
+	 * thing, so it is `updatedAt: Timestamp | null` and not an optional field (card.go's `session`
+	 * is the same shape for the same reason).
+	 */
+	updatedAt: Timestamp | null;
+}
+/**
+ * SaveNoteRequest is the body of the call that writes a card's note (B7.4, task 7.12). It is the
+ * whole note and not a patch: the tab's editor replaces the file, and a body that arrived with a
+ * part of the old one missing would be a merge nobody asked for.
+ */
+export interface SaveNoteRequest {
+	/**
+	 * Body is the note in full, in markdown. It may be empty, which saves an empty note rather than
+	 * deleting the file: deleting a note is its own thing, done in Obsidian, and it is not something
+	 * a save should do by accident.
+	 */
+	body: string;
 }
 
 //////////
@@ -3176,39 +3411,39 @@ export interface MeUpdatedEventData {
  * sleep; an informational notice carries its own two sentences instead.
  */
 export interface Notice {
-  /** ID names the notice for the calls that act on it. It is stable while the notice lives. */
-  id: string;
-  /** Kind is what the notice is about (NoticeKindSleep today). */
-  kind: NoticeKind;
-  /** Cards are the cards a notice is about, by their opaque ids. Empty for an informational kind. */
-  cards?: string[];
-  /**
-   * Deadline is the moment a sleep notice's cards sleep, when it has one. Nil for an
-   * informational notice, and for a sleep notice that has no deadline yet.
-   */
-  deadline?: Timestamp;
-  /** Text is a notice's one-line title, for an informational kind. */
-  text?: string;
-  /** Sub is the second line under the title, for an informational kind. */
-  sub?: string;
-  /**
-   * ProjectID is the project a notice belongs to, when it belongs to one. Empty for a notice
-   * about the whole install.
-   */
-  projectId?: string;
-  /** CreatedAt is when the notice was made. */
-  createdAt: Timestamp;
+	/** ID names the notice for the calls that act on it. It is stable while the notice lives. */
+	id: string;
+	/** Kind is what the notice is about (NoticeKindSleep today). */
+	kind: NoticeKind;
+	/** Cards are the cards a notice is about, by their opaque ids. Empty for an informational kind. */
+	cards?: string[];
+	/**
+	 * Deadline is the moment a sleep notice's cards sleep, when it has one. Nil for an
+	 * informational notice, and for a sleep notice that has no deadline yet.
+	 */
+	deadline?: Timestamp;
+	/** Text is a notice's one-line title, for an informational kind. */
+	text?: string;
+	/** Sub is the second line under the title, for an informational kind. */
+	sub?: string;
+	/**
+	 * ProjectID is the project a notice belongs to, when it belongs to one. Empty for a notice
+	 * about the whole install.
+	 */
+	projectId?: string;
+	/** CreatedAt is when the notice was made. */
+	createdAt: Timestamp;
 }
 /**
  * NoticeList is the answer to GET /v1/notices: every notice that is standing, newest first is not
  * guaranteed, so a client that cares sorts them.
  */
 export interface NoticeList {
-  /**
-   * Notices is every standing notice. It is never null, so JSON has [] and a client never
-   * handles both an empty list and a missing one.
-   */
-  notices: Notice[];
+	/**
+	 * Notices is every standing notice. It is never null, so JSON has [] and a client never
+	 * handles both an empty list and a missing one.
+	 */
+	notices: Notice[];
 }
 /**
  * NoticeListEventData is the payload of notice.created and notice.dismissed (architecture.md
@@ -3216,16 +3451,16 @@ export interface NoticeList {
  * never has to hold the difference between two of them.
  */
 export interface NoticeListEventData {
-  /** Notices is every standing notice. */
-  notices: Notice[];
+	/** Notices is every standing notice. */
+	notices: Notice[];
 }
 /**
  * NoticeActionResult is the answer to a notice's own call (keep all awake, sleep all now): how many
  * cards it changed, so the toast can say a number.
  */
 export interface NoticeActionResult {
-  /** Cards is how many cards the call acted on. */
-  cards: number /* int */;
+	/** Cards is how many cards the call acted on. */
+	cards: number /* int */;
 }
 /**
  * The four calls a person makes on a sleep notice, as the body of POST /v1/notices/{id}/actions
@@ -3250,10 +3485,10 @@ export const NoticeActionSleepAll = "sleep-all";
  * calls that name one card and ignored by the two that are about the whole notice.
  */
 export interface NoticeActionRequest {
-  /** Action is one of NoticeActionKeepAwake, SleepNow, KeepAll, or SleepAll. */
-  action: string;
-  /** CardID is the card a per-card call is about. */
-  cardId?: string;
+	/** Action is one of NoticeActionKeepAwake, SleepNow, KeepAll, or SleepAll. */
+	action: string;
+	/** CardID is the card a per-card call is about. */
+	cardId?: string;
 }
 /**
  * SleepRestoreAuto is the answer that resumes every card that was awake, right away
@@ -3273,19 +3508,19 @@ export const SleepRestoreManual = "manual";
  * warning, and Keep awake all use them.
  */
 export interface SleepSettings {
-  /** IdleMinutes is how long a card's session may be idle before it gets a sleep warning. */
-  idleMinutes: number /* int */;
-  /** WarningMinutes is how long the warning stands before the idle cards sleep. */
-  warningMinutes: number /* int */;
-  /** KeepAwakeMinutes is how long "Keep awake" holds a card off the idle timer. */
-  keepAwakeMinutes: number /* int */;
-  /** Restore is SleepRestoreAuto or SleepRestoreManual. */
-  restore: string;
-  /**
-   * Channel is where sleep warnings are sent: "in-app" today, with the messaging integrations
-   * (Phase 9) adding their own. Phase 5 stores it and always shows the warning in the app.
-   */
-  channel: string;
+	/** IdleMinutes is how long a card's session may be idle before it gets a sleep warning. */
+	idleMinutes: number /* int */;
+	/** WarningMinutes is how long the warning stands before the idle cards sleep. */
+	warningMinutes: number /* int */;
+	/** KeepAwakeMinutes is how long "Keep awake" holds a card off the idle timer. */
+	keepAwakeMinutes: number /* int */;
+	/** Restore is SleepRestoreAuto or SleepRestoreManual. */
+	restore: string;
+	/**
+	 * Channel is where sleep warnings are sent: "in-app" today, with the messaging integrations
+	 * (Phase 9) adding their own. Phase 5 stores it and always shows the warning in the app.
+	 */
+	channel: string;
 }
 /**
  * SleepChannelInApp is where a sleep warning goes when nobody has chosen otherwise: the app's own
@@ -3307,12 +3542,12 @@ export const SleepChannelInApp = "in-app";
  * shows state, a page carries the daemon's time.
  */
 export interface Page<T> {
-  /** Items are the entries of this page, in the order the endpoint documents. */
-  items: T[];
-  /** NextCursor is the cursor for the next page, or empty at the end. */
-  nextCursor: string;
-  /** ServerTime is the daemon's time when the page was made. */
-  serverTime: Timestamp;
+	/** Items are the entries of this page, in the order the endpoint documents. */
+	items: T[];
+	/** NextCursor is the cursor for the next page, or empty at the end. */
+	nextCursor: string;
+	/** ServerTime is the daemon's time when the page was made. */
+	serverTime: Timestamp;
 }
 
 //////////
@@ -3329,14 +3564,14 @@ export const PreviewStateStarting = "starting";
 /** PreviewStateRunning means the dev server answered, so the address is worth showing. */
 export const PreviewStateRunning = "running";
 export type PreviewState =
-  | typeof PreviewStateStopped
-  | typeof PreviewStateStarting
-  | typeof PreviewStateRunning;
+	| typeof PreviewStateStopped
+	| typeof PreviewStateStarting
+	| typeof PreviewStateRunning;
 /** Every PreviewState, in the order the Go list gives them. */
 export const PreviewStateValues: readonly PreviewState[] = [
-  PreviewStateStopped,
-  PreviewStateStarting,
-  PreviewStateRunning,
+	PreviewStateStopped,
+	PreviewStateStarting,
+	PreviewStateRunning,
 ];
 /**
  * PreviewShotKind says which half of the before/after pair a screenshot is: the page as the branch
@@ -3346,11 +3581,13 @@ export const PreviewStateValues: readonly PreviewState[] = [
 export const PreviewShotKindBefore = "before";
 /** PreviewShotKindAfter is the screenshot taken after the card's change. */
 export const PreviewShotKindAfter = "after";
-export type PreviewShotKind = typeof PreviewShotKindBefore | typeof PreviewShotKindAfter;
+export type PreviewShotKind =
+	| typeof PreviewShotKindBefore
+	| typeof PreviewShotKindAfter;
 /** Every PreviewShotKind, in the order the Go list gives them. */
 export const PreviewShotKindValues: readonly PreviewShotKind[] = [
-  PreviewShotKindBefore,
-  PreviewShotKindAfter,
+	PreviewShotKindBefore,
+	PreviewShotKindAfter,
 ];
 /**
  * PreviewShot is one screenshot of a card's preview. Marshal keeps the image as a file and serves
@@ -3358,55 +3595,55 @@ export const PreviewShotKindValues: readonly PreviewShotKind[] = [
  * bytes.
  */
 export interface PreviewShot {
-  /** Kind says which half of the pair this is. */
-  kind: PreviewShotKind;
-  /**
-   * URL is the daemon path of the image, with a version so a new image is a new address and a
-   * client never shows a cached one. It needs the token, like every other route.
-   */
-  url: string;
-  /**
-   * Width and Height are the image's size in pixels, so a screen can lay it out before the
-   * image arrives.
-   */
-  width: number /* int */;
-  height: number /* int */;
-  /** TakenAt is when the screenshot was taken. */
-  takenAt: Timestamp;
+	/** Kind says which half of the pair this is. */
+	kind: PreviewShotKind;
+	/**
+	 * URL is the daemon path of the image, with a version so a new image is a new address and a
+	 * client never shows a cached one. It needs the token, like every other route.
+	 */
+	url: string;
+	/**
+	 * Width and Height are the image's size in pixels, so a screen can lay it out before the
+	 * image arrives.
+	 */
+	width: number /* int */;
+	height: number /* int */;
+	/** TakenAt is when the screenshot was taken. */
+	takenAt: Timestamp;
 }
 /**
  * Preview is one card's live preview: where it is, the address it answers on when it is running,
  * the command that was run, and the screenshots taken of it.
  */
 export interface Preview {
-  /** CardID is the card the preview belongs to. */
-  cardId: string;
-  /** State is where the preview is. */
-  state: PreviewState;
-  /**
-   * URL is the address the app answers on, such as "http://127.0.0.1:5103". Empty until State
-   * is running: a preview that is starting has no address worth showing yet.
-   */
-  url: string;
-  /**
-   * Port is the port the dev server was given. Zero when the card has no preview of its own.
-   * Each card gets its own, so two cards preview at once without sharing state.
-   */
-  port: number /* int */;
-  /**
-   * Command is the command that was run to start it, such as "pnpm dev", so a person can see
-   * what the tab is doing. Empty when the project has no dev command set.
-   */
-  command: string;
-  /** StartedAt is when the preview reached running. Null while it is stopped or starting. */
-  startedAt?: Timestamp | null;
-  /**
-   * Error is one plain sentence saying why the preview could not start, and is empty when
-   * nothing went wrong. A preview that failed says so instead of spinning forever.
-   */
-  error: string;
-  /** Shots are the before and after screenshots, at most one of each. Never null. */
-  shots: PreviewShot[];
+	/** CardID is the card the preview belongs to. */
+	cardId: string;
+	/** State is where the preview is. */
+	state: PreviewState;
+	/**
+	 * URL is the address the app answers on, such as "http://127.0.0.1:5103". Empty until State
+	 * is running: a preview that is starting has no address worth showing yet.
+	 */
+	url: string;
+	/**
+	 * Port is the port the dev server was given. Zero when the card has no preview of its own.
+	 * Each card gets its own, so two cards preview at once without sharing state.
+	 */
+	port: number /* int */;
+	/**
+	 * Command is the command that was run to start it, such as "pnpm dev", so a person can see
+	 * what the tab is doing. Empty when the project has no dev command set.
+	 */
+	command: string;
+	/** StartedAt is when the preview reached running. Null while it is stopped or starting. */
+	startedAt?: Timestamp | null;
+	/**
+	 * Error is one plain sentence saying why the preview could not start, and is empty when
+	 * nothing went wrong. A preview that failed says so instead of spinning forever.
+	 */
+	error: string;
+	/** Shots are the before and after screenshots, at most one of each. Never null. */
+	shots: PreviewShot[];
 }
 /**
  * PreviewSnapshot is the answer to GET /v1/cards/{id}/preview: the card's preview as it is now.
@@ -3414,13 +3651,13 @@ export interface Preview {
  * not start a dev server on the machine by looking.
  */
 export interface PreviewSnapshot {
-  /** Preview is the card's preview. */
-  preview: Preview;
-  /**
-   * ServerTime is the daemon's time when the answer was made, so a client counts from it how
-   * long the preview has been running.
-   */
-  serverTime: Timestamp;
+	/** Preview is the card's preview. */
+	preview: Preview;
+	/**
+	 * ServerTime is the daemon's time when the answer was made, so a client counts from it how
+	 * long the preview has been running.
+	 */
+	serverTime: Timestamp;
 }
 /**
  * PreviewEventData is what a `preview.state_changed` event carries (section 11.2): the card's
@@ -3428,8 +3665,8 @@ export interface PreviewSnapshot {
  * the two can never disagree. It is published on the card's own topic.
  */
 export interface PreviewEventData {
-  /** Preview is the card's preview. */
-  preview: Preview;
+	/** Preview is the card's preview. */
+	preview: Preview;
 }
 
 //////////
@@ -3444,19 +3681,21 @@ export const PreviewShotOutcomeTaken = "taken";
  * when it never ran.
  */
 export const PreviewShotOutcomeSkipped = "skipped";
-export type PreviewShotOutcome = typeof PreviewShotOutcomeTaken | typeof PreviewShotOutcomeSkipped;
+export type PreviewShotOutcome =
+	| typeof PreviewShotOutcomeTaken
+	| typeof PreviewShotOutcomeSkipped;
 /** Every PreviewShotOutcome, in the order the Go list gives them. */
 export const PreviewShotOutcomeValues: readonly PreviewShotOutcome[] = [
-  PreviewShotOutcomeTaken,
-  PreviewShotOutcomeSkipped,
+	PreviewShotOutcomeTaken,
+	PreviewShotOutcomeSkipped,
 ];
 /**
  * PreviewShotRequest is the body of POST /v1/cards/{id}/preview/shots. The card comes from the
  * path, and the kind says which half of the before/after pair to take.
  */
 export interface PreviewShotRequest {
-  /** Kind says which half of the pair to capture: before the card's change, or after it. */
-  kind: PreviewShotKind;
+	/** Kind says which half of the pair to capture: before the card's change, or after it. */
+	kind: PreviewShotKind;
 }
 /**
  * PreviewShotResult is the answer to POST /v1/cards/{id}/preview/shots: the card's preview as it now
@@ -3465,17 +3704,17 @@ export interface PreviewShotRequest {
  * whether the check passed.
  */
 export interface PreviewShotResult {
-  /** Preview is the card's preview, with the new shot in it when one was taken. */
-  preview: Preview;
-  /** Outcome says whether the shot was taken or the check was skipped. */
-  outcome: PreviewShotOutcome;
-  /**
-   * Notice is one plain sentence saying what was captured or why the check was skipped. Never
-   * empty.
-   */
-  notice: string;
-  /** ServerTime is the daemon's time when the answer was made. */
-  serverTime: Timestamp;
+	/** Preview is the card's preview, with the new shot in it when one was taken. */
+	preview: Preview;
+	/** Outcome says whether the shot was taken or the check was skipped. */
+	outcome: PreviewShotOutcome;
+	/**
+	 * Notice is one plain sentence saying what was captured or why the check was skipped. Never
+	 * empty.
+	 */
+	notice: string;
+	/** ServerTime is the daemon's time when the answer was made. */
+	serverTime: Timestamp;
 }
 
 //////////
@@ -3492,113 +3731,113 @@ export const ProjectSourceClone = "clone";
  */
 export const ProjectSourceSample = "sample";
 export type ProjectSource =
-  | typeof ProjectSourceFolder
-  | typeof ProjectSourceClone
-  | typeof ProjectSourceSample;
+	| typeof ProjectSourceFolder
+	| typeof ProjectSourceClone
+	| typeof ProjectSourceSample;
 /** Every ProjectSource, in the order the Go list gives them. */
 export const ProjectSourceValues: readonly ProjectSource[] = [
-  ProjectSourceFolder,
-  ProjectSourceClone,
-  ProjectSourceSample,
+	ProjectSourceFolder,
+	ProjectSourceClone,
+	ProjectSourceSample,
 ];
 /**
  * ProjectBadges are the counts the sidebar shows beside a project. The daemon works them out from
  * the project's cards each time, so they are never stored.
  */
 export interface ProjectBadges {
-  /** Needs is how many cards wait for a person ("Needs you"). */
-  needs: number /* int */;
-  /** Awake is how many cards have a running agent. It is 0 until agent sessions exist. */
-  awake: number /* int */;
+	/** Needs is how many cards wait for a person ("Needs you"). */
+	needs: number /* int */;
+	/** Awake is how many cards have a running agent. It is 0 until agent sessions exist. */
+	awake: number /* int */;
 }
 /** Project is a repository that Marshal manages, as clients see it. */
 export interface Project {
-  /** ID is the project's short id, made from its name when it was added. It never changes. */
-  id: string;
-  /** Name is the display name. Renaming changes only this. */
-  name: string;
-  /** Path is the top folder of the repository on the machine that runs the daemon. */
-  path: string;
-  /**
-   * Language is what the daemon found in the repository, for example "Go" or "TypeScript", or
-   * "Monorepo" for a repository with several packages. "Unknown" when nothing matched.
-   */
-  language: string;
-  /** DefaultBranch is the branch new work starts from. */
-  defaultBranch: string;
-  /**
-   * DevCommand is the command that starts the project's dev server. It is a guess when the
-   * project is added, it may be empty, and the person can change it.
-   */
-  devCommand: string;
-  /** BypassLocked is true when the project does not allow the bypass permission mode. */
-  bypassLocked: boolean;
-  /** IsMonorepo is true when the repository has several packages. */
-  isMonorepo: boolean;
-  /**
-   * Packages are the package folders of a monorepo, relative to Path, with forward slashes and
-   * in name order. Empty for other projects.
-   */
-  packages: string[];
-  /** CreatedAt is when the project was added to Marshal. */
-  createdAt: Timestamp;
-  /** Badges are the counts for the sidebar. */
-  badges: ProjectBadges;
+	/** ID is the project's short id, made from its name when it was added. It never changes. */
+	id: string;
+	/** Name is the display name. Renaming changes only this. */
+	name: string;
+	/** Path is the top folder of the repository on the machine that runs the daemon. */
+	path: string;
+	/**
+	 * Language is what the daemon found in the repository, for example "Go" or "TypeScript", or
+	 * "Monorepo" for a repository with several packages. "Unknown" when nothing matched.
+	 */
+	language: string;
+	/** DefaultBranch is the branch new work starts from. */
+	defaultBranch: string;
+	/**
+	 * DevCommand is the command that starts the project's dev server. It is a guess when the
+	 * project is added, it may be empty, and the person can change it.
+	 */
+	devCommand: string;
+	/** BypassLocked is true when the project does not allow the bypass permission mode. */
+	bypassLocked: boolean;
+	/** IsMonorepo is true when the repository has several packages. */
+	isMonorepo: boolean;
+	/**
+	 * Packages are the package folders of a monorepo, relative to Path, with forward slashes and
+	 * in name order. Empty for other projects.
+	 */
+	packages: string[];
+	/** CreatedAt is when the project was added to Marshal. */
+	createdAt: Timestamp;
+	/** Badges are the counts for the sidebar. */
+	badges: ProjectBadges;
 }
 /** ProjectListSnapshot is the answer to GET /v1/projects: every project, oldest first. */
 export interface ProjectListSnapshot {
-  /** Projects are all the projects Marshal manages. */
-  projects: Project[];
-  /** ServerTime is the daemon's time when the list was made. */
-  serverTime: Timestamp;
+	/** Projects are all the projects Marshal manages. */
+	projects: Project[];
+	/** ServerTime is the daemon's time when the list was made. */
+	serverTime: Timestamp;
 }
 /**
  * CreateProjectRequest is the body of POST /v1/projects. Send Path for a folder, URL and Dest for
  * a clone, and only the source (and a name, if wanted) for the sample.
  */
 export interface CreateProjectRequest {
-  /** Source says which of the fields below are used. */
-  source: ProjectSource;
-  /** Path is the top folder of a repository on this machine. Used when Source is "folder". */
-  path?: string;
-  /** URL is the address to clone from. Used when Source is "clone". */
-  url?: string;
-  /** Dest is the folder to clone into. It must be new or empty, and outside every project. */
-  dest?: string;
-  /** Branch is the branch to check out when cloning. Empty means the repository's default. */
-  branch?: string;
-  /**
-   * Name is the display name. Empty means the name of the repository's folder, which for the
-   * sample is "marshal-sample".
-   */
-  name?: string;
+	/** Source says which of the fields below are used. */
+	source: ProjectSource;
+	/** Path is the top folder of a repository on this machine. Used when Source is "folder". */
+	path?: string;
+	/** URL is the address to clone from. Used when Source is "clone". */
+	url?: string;
+	/** Dest is the folder to clone into. It must be new or empty, and outside every project. */
+	dest?: string;
+	/** Branch is the branch to check out when cloning. Empty means the repository's default. */
+	branch?: string;
+	/**
+	 * Name is the display name. Empty means the name of the repository's folder, which for the
+	 * sample is "marshal-sample".
+	 */
+	name?: string;
 }
 /**
  * UpdateProjectRequest is the body of PATCH /v1/projects/{id}. A field that is left out is not
  * changed. Changing the name never moves the folder or renames a branch.
  */
 export interface UpdateProjectRequest {
-  /** Name is the new display name. It cannot be empty. */
-  name?: string;
-  /** DevCommand is the new dev command. An empty string clears it. */
-  devCommand?: string;
-  /** DefaultBranch is the new default branch. It must exist in the repository. */
-  defaultBranch?: string;
-  /** BypassLocked turns the bypass lock on or off. */
-  bypassLocked?: boolean;
+	/** Name is the new display name. It cannot be empty. */
+	name?: string;
+	/** DevCommand is the new dev command. An empty string clears it. */
+	devCommand?: string;
+	/** DefaultBranch is the new default branch. It must exist in the repository. */
+	defaultBranch?: string;
+	/** BypassLocked turns the bypass lock on or off. */
+	bypassLocked?: boolean;
 }
 /**
  * RemoveProjectRequest says what to keep when a project is removed from Marshal. The repository
  * folder is never deleted, whatever these say.
  */
 export interface RemoveProjectRequest {
-  /**
-   * KeepBranches keeps the branches Marshal made for the project's cards. When false they are
-   * deleted, including the ones with work that is not merged.
-   */
-  keepBranches: boolean;
-  /** KeepMemory keeps the project's memory folder. When false the folder is deleted. */
-  keepMemory: boolean;
+	/**
+	 * KeepBranches keeps the branches Marshal made for the project's cards. When false they are
+	 * deleted, including the ones with work that is not merged.
+	 */
+	keepBranches: boolean;
+	/** KeepMemory keeps the project's memory folder. When false the folder is deleted. */
+	keepMemory: boolean;
 }
 
 //////////
@@ -3606,50 +3845,50 @@ export interface RemoveProjectRequest {
 
 /** ProjectEventData is the payload of project.created and project.updated. */
 export interface ProjectEventData {
-  /** Project is the project as it is now, with its badges. */
-  project: Project;
+	/** Project is the project as it is now, with its badges. */
+	project: Project;
 }
 /** ProjectRemovedEventData is the payload of project.removed. */
 export interface ProjectRemovedEventData {
-  /** ProjectID is the id of the project that is gone. */
-  projectId: string;
+	/** ProjectID is the id of the project that is gone. */
+	projectId: string;
 }
 /** CardEventData is the payload of card.created and card.updated. */
 export interface CardEventData {
-  /** Card is the card as it is now. */
-  card: Card;
+	/** Card is the card as it is now. */
+	card: Card;
 }
 /** CardMovedEventData is the payload of card.moved. */
 export interface CardMovedEventData {
-  /** Card is the card as it is now, so Card.State is where it moved to. */
-  card: Card;
-  /** From is the state the card was in before. */
-  from: CardState;
+	/** Card is the card as it is now, so Card.State is where it moved to. */
+	card: Card;
+	/** From is the state the card was in before. */
+	from: CardState;
 }
 /**
  * CardDeletedEventData is the payload of card.deleted. It is critical: a client that missed it
  * would keep drawing a card that is gone.
  */
 export interface CardDeletedEventData {
-  /** CardID is the opaque id of the card that is gone, which is what routes use. */
-  cardId: string;
-  /**
-   * Key is the card's key, `<projectId>#<number>`, which is how the app names a card in its own
-   * store. It is here because a client cannot turn the opaque id back into the key by itself.
-   */
-  key: string;
-  /** ProjectID is the project it belonged to, so a client knows which board to redraw. */
-  projectId: string;
+	/** CardID is the opaque id of the card that is gone, which is what routes use. */
+	cardId: string;
+	/**
+	 * Key is the card's key, `<projectId>#<number>`, which is how the app names a card in its own
+	 * store. It is here because a client cannot turn the opaque id back into the key by itself.
+	 */
+	key: string;
+	/** ProjectID is the project it belonged to, so a client knows which board to redraw. */
+	projectId: string;
 }
 /**
  * LabelUpdatedEventData is the payload of label.updated. A label that was deleted is not in the
  * snapshot the event carries, so a client replaces its list with this one.
  */
 export interface LabelUpdatedEventData {
-  /** ProjectID is the project whose labels changed. */
-  projectId: string;
-  /** Labels are the project's labels as they are now, by name. */
-  labels: Label[];
+	/** ProjectID is the project whose labels changed. */
+	projectId: string;
+	/** Labels are the project's labels as they are now, by name. */
+	labels: Label[];
 }
 
 //////////
@@ -3666,14 +3905,14 @@ export const ProviderStatusEmpty = "empty";
 /** ProviderStatusInvalid means a key is stored and the last check refused it. */
 export const ProviderStatusInvalid = "invalid";
 export type ProviderStatus =
-  | typeof ProviderStatusSaved
-  | typeof ProviderStatusEmpty
-  | typeof ProviderStatusInvalid;
+	| typeof ProviderStatusSaved
+	| typeof ProviderStatusEmpty
+	| typeof ProviderStatusInvalid;
 /** Every ProviderStatus, in the order the Go list gives them. */
 export const ProviderStatusValues: readonly ProviderStatus[] = [
-  ProviderStatusSaved,
-  ProviderStatusEmpty,
-  ProviderStatusInvalid,
+	ProviderStatusSaved,
+	ProviderStatusEmpty,
+	ProviderStatusInvalid,
 ];
 /**
  * LimitKind says what a limit measures: how much money a scope may spend in a day or in a month, or
@@ -3692,12 +3931,15 @@ export const LimitKindCostMonth = "cost-month";
  * the limit is full, the oldest idle awake card gets a sleep warning").
  */
 export const LimitKindAwake = "awake";
-export type LimitKind = typeof LimitKindCostDay | typeof LimitKindCostMonth | typeof LimitKindAwake;
+export type LimitKind =
+	| typeof LimitKindCostDay
+	| typeof LimitKindCostMonth
+	| typeof LimitKindAwake;
 /** Every LimitKind, in the order the Go list gives them. */
 export const LimitKindValues: readonly LimitKind[] = [
-  LimitKindCostDay,
-  LimitKindCostMonth,
-  LimitKindAwake,
+	LimitKindCostDay,
+	LimitKindCostMonth,
+	LimitKindAwake,
 ];
 /**
  * LimitScopeGlobal is the scope a limit that covers the whole install has. Any other scope is a
@@ -3711,60 +3953,60 @@ export const LimitScopeGlobal = "global";
  * (docs/backend-inventory.md N18).
  */
 export interface Provider {
-  /**
-   * ID is the provider's own id, such as "anthropic". It is the key the keychain stores the
-   * secret under, so it is also what a save or a remove names.
-   */
-  id: string;
-  /** Name is the words shown to people, such as "Google Gemini". */
-  name: string;
-  /**
-   * Status says whether a key is stored and usable. The field is called Status in Go and `st`
-   * on the wire because `st` is the name the screens already read for this row.
-   */
-  st: ProviderStatus;
-  /**
-   * Masked is the key with its middle hidden, such as "sk-ant-…4f2a". For a local provider it
-   * is the server URL, which is not a secret. It is empty when no key is stored.
-   */
-  masked: string;
-  /**
-   * Models is one plain phrase naming what the provider offers, such as "Claude models". It is
-   * a description for the row, not a list: the models a person can pick are the agent
-   * catalog's, and they come from the providers that are set up.
-   */
-  models: string;
-  /**
-   * Error is one plain sentence saying what to do about a key the last check refused. It is
-   * empty unless Status is invalid.
-   */
-  error: string;
-  /**
-   * Local is true for a provider that runs on this machine and needs a server address rather
-   * than a key (Ollama, LM Studio). The screens swap the key field for a URL field.
-   */
-  local: boolean;
-  /**
-   * LastTest is the result of the last connection test of this provider, or nil when it has
-   * never been tested. It is the same shape every connection's test answers with
-   * (connection.go), so a screen shows a provider's test and an integration's test the same way.
-   * It is stored, not rebuilt: it is the last test's own answer, and it is what makes Status
-   * invalid when the last test's key check failed.
-   */
-  lastTest?: TestResult;
+	/**
+	 * ID is the provider's own id, such as "anthropic". It is the key the keychain stores the
+	 * secret under, so it is also what a save or a remove names.
+	 */
+	id: string;
+	/** Name is the words shown to people, such as "Google Gemini". */
+	name: string;
+	/**
+	 * Status says whether a key is stored and usable. The field is called Status in Go and `st`
+	 * on the wire because `st` is the name the screens already read for this row.
+	 */
+	st: ProviderStatus;
+	/**
+	 * Masked is the key with its middle hidden, such as "sk-ant-…4f2a". For a local provider it
+	 * is the server URL, which is not a secret. It is empty when no key is stored.
+	 */
+	masked: string;
+	/**
+	 * Models is one plain phrase naming what the provider offers, such as "Claude models". It is
+	 * a description for the row, not a list: the models a person can pick are the agent
+	 * catalog's, and they come from the providers that are set up.
+	 */
+	models: string;
+	/**
+	 * Error is one plain sentence saying what to do about a key the last check refused. It is
+	 * empty unless Status is invalid.
+	 */
+	error: string;
+	/**
+	 * Local is true for a provider that runs on this machine and needs a server address rather
+	 * than a key (Ollama, LM Studio). The screens swap the key field for a URL field.
+	 */
+	local: boolean;
+	/**
+	 * LastTest is the result of the last connection test of this provider, or nil when it has
+	 * never been tested. It is the same shape every connection's test answers with
+	 * (connection.go), so a screen shows a provider's test and an integration's test the same way.
+	 * It is stored, not rebuilt: it is the last test's own answer, and it is what makes Status
+	 * invalid when the last test's key check failed.
+	 */
+	lastTest?: TestResult;
 }
 /**
  * ProviderList is the answer to GET /v1/providers and to a change that returns the new list: every
  * provider Marshal knows, in the order the screens show them.
  */
 export interface ProviderList {
-  /**
-   * Providers has one entry for every provider Marshal knows, whether or not a key is stored
-   * for it, so the screen can show the ones that are not set up yet.
-   */
-  providers: Provider[];
-  /** ServerTime is the daemon's time when the answer was made. */
-  serverTime: Timestamp;
+	/**
+	 * Providers has one entry for every provider Marshal knows, whether or not a key is stored
+	 * for it, so the screen can show the ones that are not set up yet.
+	 */
+	providers: Provider[];
+	/** ServerTime is the daemon's time when the answer was made. */
+	serverTime: Timestamp;
 }
 /**
  * SaveProviderRequest is the body of a call that stores a provider's secret. The same field carries
@@ -3772,8 +4014,8 @@ export interface ProviderList {
  * which it is depends on the provider, not on the request.
  */
 export interface SaveProviderRequest {
-  /** Key is the API key to store, or the server URL for a local provider. */
-  key: string;
+	/** Key is the API key to store, or the server URL for a local provider. */
+	key: string;
 }
 /**
  * Limit is one ceiling: the most a scope may spend in a day or a month, or the most cards it may
@@ -3781,31 +4023,31 @@ export interface SaveProviderRequest {
  * count of cards for the awake limit.
  */
 export interface Limit {
-  /** Scope is LimitScopeGlobal for the whole install, or a project id for one project. */
-  scope: string;
-  /** Kind says what the ceiling measures. */
-  kind: LimitKind;
-  /** Value is the ceiling in the unit Kind measures. */
-  value: number /* int64 */;
+	/** Scope is LimitScopeGlobal for the whole install, or a project id for one project. */
+	scope: string;
+	/** Kind says what the ceiling measures. */
+	kind: LimitKind;
+	/** Value is the ceiling in the unit Kind measures. */
+	value: number /* int64 */;
 }
 /**
  * LimitList is the answer to every limits call: the ceilings that are set, global ones first. It is
  * the same shape whatever changed, so a screen redraws its form from one answer.
  */
 export interface LimitList {
-  /**
-   * Limits has one entry per ceiling that is set. A scope with no ceiling has no entry, so
-   * this is empty on a fresh install.
-   */
-  limits: Limit[];
+	/**
+	 * Limits has one entry per ceiling that is set. A scope with no ceiling has no entry, so
+	 * this is empty on a fresh install.
+	 */
+	limits: Limit[];
 }
 /**
  * SetLimitRequest is the body of a call that sets one ceiling. Which scope and kind it belongs to
  * comes from the path, so the body carries only the number.
  */
 export interface SetLimitRequest {
-  /** Value is the new ceiling, in the unit the path's kind measures. */
-  value: number /* int64 */;
+	/** Value is the new ceiling, in the unit the path's kind measures. */
+	value: number /* int64 */;
 }
 
 //////////
@@ -3820,12 +4062,12 @@ export interface SetLimitRequest {
  * Needs you when it passes one.
  */
 export interface RoleLimits {
-  /** Time is how long one turn may run, in minutes. */
-  time: number /* int */;
-  /** Cost is the most one card of this role may cost, in whole dollars. */
-  cost: number /* int */;
-  /** Rounds is the most turns one card of this role may take. */
-  rounds: number /* int */;
+	/** Time is how long one turn may run, in minutes. */
+	time: number /* int */;
+	/** Cost is the most one card of this role may cost, in whole dollars. */
+	cost: number /* int */;
+	/** Rounds is the most turns one card of this role may take. */
+	rounds: number /* int */;
 }
 /**
  * RoleSpec is the editable body of a role: everything but its name and the two flags that say where
@@ -3836,72 +4078,72 @@ export interface RoleLimits {
  * has [] and the screens can map over it without a check.
  */
 export interface RoleSpec {
-  /** Skills are the skill names the role's agent loads. */
-  skills: string[];
-  /** MCP are the MCP server names the role's agent may use. */
-  mcp: string[];
-  /** Limits are the role's own ceilings. */
-  limits: RoleLimits;
-  /** Backup is the model to fall back to when the main model is unavailable. Empty means none. */
-  backup: string;
-  /** Desc is one plain sentence saying what the role is for. */
-  desc: string;
-  /** Agent is the agent program the role runs, as the agent picker names it ("Claude Code"). */
-  agent: string;
-  /** Model is the model the role runs, as the model picker names it. */
-  model: string;
-  /** Think is the thinking label the role uses ("High"). Empty means the model's own default. */
-  think: string;
-  /** Perm is the permission label the role runs under ("Plan only"). */
-  perm: string;
-  /** Strength is the model strength the role is meant for ("Strong"). */
-  strength: string;
-  /** Instr is the role's system prompt: the instructions its agent is given. */
-  instr: string;
+	/** Skills are the skill names the role's agent loads. */
+	skills: string[];
+	/** MCP are the MCP server names the role's agent may use. */
+	mcp: string[];
+	/** Limits are the role's own ceilings. */
+	limits: RoleLimits;
+	/** Backup is the model to fall back to when the main model is unavailable. Empty means none. */
+	backup: string;
+	/** Desc is one plain sentence saying what the role is for. */
+	desc: string;
+	/** Agent is the agent program the role runs, as the agent picker names it ("Claude Code"). */
+	agent: string;
+	/** Model is the model the role runs, as the model picker names it. */
+	model: string;
+	/** Think is the thinking label the role uses ("High"). Empty means the model's own default. */
+	think: string;
+	/** Perm is the permission label the role runs under ("Plan only"). */
+	perm: string;
+	/** Strength is the model strength the role is meant for ("Strong"). */
+	strength: string;
+	/** Instr is the role's system prompt: the instructions its agent is given. */
+	instr: string;
 }
 /**
  * Role is one role template as a screen sees it: its name, whether Marshal shipped it, whether the
  * project being looked at keeps its own version of it, and the editable body.
  */
 export interface Role {
-  /**
-   * ID is the role's own opaque id. It never changes, so a rename keeps every reference to the
-   * role good. The screens address a role by its name, which is unique; the id is here for a
-   * client that wants something stable to hold on to.
-   */
-  id: string;
-  /**
-   * Name is the role's name, unique across every role Marshal knows. A card names its role by
-   * this, and so does a project chat that talks to a role.
-   */
-  name: string;
-  /**
-   * Starter is true for a role Marshal shipped. A starter role is reset rather than deleted; a
-   * role a person made is deleted. Reset clears only the overridden flag, it does not restore
-   * the starter text.
-   */
-  starter: boolean;
-  /**
-   * Overridden is true when the project this list was asked about keeps its own version of the
-   * role. A list asked for without a project reports false for every role, because no project
-   * is being looked at.
-   */
-  overridden: boolean;
-  /** Spec is the role's editable body. */
-  spec: RoleSpec;
+	/**
+	 * ID is the role's own opaque id. It never changes, so a rename keeps every reference to the
+	 * role good. The screens address a role by its name, which is unique; the id is here for a
+	 * client that wants something stable to hold on to.
+	 */
+	id: string;
+	/**
+	 * Name is the role's name, unique across every role Marshal knows. A card names its role by
+	 * this, and so does a project chat that talks to a role.
+	 */
+	name: string;
+	/**
+	 * Starter is true for a role Marshal shipped. A starter role is reset rather than deleted; a
+	 * role a person made is deleted. Reset clears only the overridden flag, it does not restore
+	 * the starter text.
+	 */
+	starter: boolean;
+	/**
+	 * Overridden is true when the project this list was asked about keeps its own version of the
+	 * role. A list asked for without a project reports false for every role, because no project
+	 * is being looked at.
+	 */
+	overridden: boolean;
+	/** Spec is the role's editable body. */
+	spec: RoleSpec;
 }
 /**
  * RoleList is the answer to GET /v1/roles and to a change that returns the new list: every role
  * Marshal knows, in the order the screens show them.
  */
 export interface RoleList {
-  /**
-   * Roles has one entry for every role, starters first in the order Marshal ships them and
-   * roles a person made after them in the order they were made.
-   */
-  roles: Role[];
-  /** ServerTime is the daemon's time when the answer was made. */
-  serverTime: Timestamp;
+	/**
+	 * Roles has one entry for every role, starters first in the order Marshal ships them and
+	 * roles a person made after them in the order they were made.
+	 */
+	roles: Role[];
+	/** ServerTime is the daemon's time when the answer was made. */
+	serverTime: Timestamp;
 }
 /**
  * CreateRoleRequest is the body of POST /v1/roles: a new role, or a role being imported. It is the
@@ -3910,20 +4152,20 @@ export interface RoleList {
  * and are ignored when they are sent.
  */
 export interface CreateRoleRequest {
-  /** Name is what to call the new role. A name another role already has is a conflict. */
-  name: string;
-  /** Spec is the role's body. A missing skills or MCP list becomes an empty one. */
-  spec: RoleSpec;
+	/** Name is what to call the new role. A name another role already has is a conflict. */
+	name: string;
+	/** Spec is the role's body. A missing skills or MCP list becomes an empty one. */
+	spec: RoleSpec;
 }
 /**
  * UpdateRoleRequest is the body of PATCH /v1/roles/{name}: the fields to change. A nil field is
  * left as it is, so a client that sends only a new name renames the role and changes nothing else.
  */
 export interface UpdateRoleRequest {
-  /** Name is a new name for the role. A name another role already has is a conflict. */
-  name?: string;
-  /** Spec replaces the role's body when it is sent. */
-  spec?: RoleSpec;
+	/** Name is a new name for the role. A name another role already has is a conflict. */
+	name?: string;
+	/** Spec replaces the role's body when it is sent. */
+	spec?: RoleSpec;
 }
 
 //////////
@@ -3931,66 +4173,66 @@ export interface UpdateRoleRequest {
 
 /** SavedView is one saved view of a project. */
 export interface SavedView {
-  /** ID is the view's opaque id. */
-  id: string;
-  /** ProjectID is the project the view belongs to. */
-  projectId: string;
-  /** Name is the text on the view's chip, such as "Needs me". It is unique inside its project. */
-  name: string;
-  /** Filters are the filter chips the view applies. Never null. */
-  filters: Filter[];
-  /** Swimlane is what the view groups the board's rows by. */
-  swimlane: Swimlane;
-  /** CreatedAt is when the view was first saved. */
-  createdAt: Timestamp;
-  /**
-   * UpdatedAt is when the view was last saved or changed. The list is in this order, so a view
-   * saved again moves to the end, as it does on the screen.
-   */
-  updatedAt: Timestamp;
+	/** ID is the view's opaque id. */
+	id: string;
+	/** ProjectID is the project the view belongs to. */
+	projectId: string;
+	/** Name is the text on the view's chip, such as "Needs me". It is unique inside its project. */
+	name: string;
+	/** Filters are the filter chips the view applies. Never null. */
+	filters: Filter[];
+	/** Swimlane is what the view groups the board's rows by. */
+	swimlane: Swimlane;
+	/** CreatedAt is when the view was first saved. */
+	createdAt: Timestamp;
+	/**
+	 * UpdatedAt is when the view was last saved or changed. The list is in this order, so a view
+	 * saved again moves to the end, as it does on the screen.
+	 */
+	updatedAt: Timestamp;
 }
 /** SavedViewListSnapshot is the answer to GET /v1/projects/{id}/saved-views. */
 export interface SavedViewListSnapshot {
-  /** ProjectID is the project the views belong to. */
-  projectId: string;
-  /** Views are the project's saved views, the one saved longest ago first. Never null. */
-  views: SavedView[];
-  /** ServerTime is the daemon's time when the list was made. */
-  serverTime: Timestamp;
+	/** ProjectID is the project the views belong to. */
+	projectId: string;
+	/** Views are the project's saved views, the one saved longest ago first. Never null. */
+	views: SavedView[];
+	/** ServerTime is the daemon's time when the list was made. */
+	serverTime: Timestamp;
 }
 /**
  * CreateSavedViewRequest is the body of POST /v1/projects/{id}/saved-views. Saving under a name the
  * project already uses replaces that view, as the board's "Save view" does, and keeps its id.
  */
 export interface CreateSavedViewRequest {
-  /** Name is the text on the view's chip. It cannot be empty. */
-  name: string;
-  /** Filters are the filter chips to keep. Absent means none. */
-  filters?: Filter[];
-  /** Swimlane is the grouping to keep. Empty means none. */
-  swimlane?: Swimlane;
+	/** Name is the text on the view's chip. It cannot be empty. */
+	name: string;
+	/** Filters are the filter chips to keep. Absent means none. */
+	filters?: Filter[];
+	/** Swimlane is the grouping to keep. Empty means none. */
+	swimlane?: Swimlane;
 }
 /**
  * UpdateSavedViewRequest is the body of PATCH /v1/saved-views/{id}. A field that is not set is left
  * alone.
  */
 export interface UpdateSavedViewRequest {
-  /** Name renames the view. It must stay unique in the project. */
-  name?: string;
-  /** Filters replaces the view's filter chips. */
-  filters?: Filter[];
-  /** Swimlane changes the view's grouping. */
-  swimlane?: Swimlane;
+	/** Name renames the view. It must stay unique in the project. */
+	name?: string;
+	/** Filters replaces the view's filter chips. */
+	filters?: Filter[];
+	/** Swimlane changes the view's grouping. */
+	swimlane?: Swimlane;
 }
 /**
  * SavedViewUpdatedEventData is the payload of saved_view.updated, on the project's topic. A view
  * that was deleted is not in the list it carries, so a client replaces its list with this one.
  */
 export interface SavedViewUpdatedEventData {
-  /** ProjectID is the project whose saved views changed. */
-  projectId: string;
-  /** Views are the project's saved views as they are now. */
-  views: SavedView[];
+	/** ProjectID is the project whose saved views changed. */
+	projectId: string;
+	/** Views are the project's saved views as they are now. */
+	views: SavedView[];
 }
 
 //////////
@@ -4005,62 +4247,120 @@ export const SearchHitsPerKind = 8;
 export const MaxSearchQueryChars = 200;
 /** ProjectHit is a project that matched a search, by its name or its folder. */
 export interface ProjectHit {
-  /** ProjectID is the project's short id, which opens it. */
-  projectId: string;
-  /** Name is the project's display name, which the palette shows. */
-  name: string;
-  /** Path is the top folder of the repository on the machine that runs the daemon. */
-  path: string;
-  /** Language is what the daemon found in the repository, which the palette shows as the hint. */
-  language: string;
+	/** ProjectID is the project's short id, which opens it. */
+	projectId: string;
+	/** Name is the project's display name, which the palette shows. */
+	name: string;
+	/** Path is the top folder of the repository on the machine that runs the daemon. */
+	path: string;
+	/** Language is what the daemon found in the repository, which the palette shows as the hint. */
+	language: string;
 }
 /** CardHit is a card that matched a search, by its number, its title, or its description. */
 export interface CardHit {
-  /** CardID is the card's opaque id, which routes and the `card:<id>` topic use. */
-  cardId: string;
-  /** Key is the card's project and number, such as "api#41", which the app names cards by. */
-  key: string;
-  /** Number is the card's number in its project, which the palette shows as "#41". */
-  number: number /* int */;
-  /** Title is the card's title. */
-  title: string;
-  /** State is the card's column, which picks the palette's icon and its color. */
-  state: CardState;
-  /** ProjectID is the project the card belongs to. */
-  projectId: string;
-  /**
-   * ProjectName is that project's display name, shown next to the number because one list mixes
-   * the cards of every project.
-   */
-  projectName: string;
+	/** CardID is the card's opaque id, which routes and the `card:<id>` topic use. */
+	cardId: string;
+	/** Key is the card's project and number, such as "api#41", which the app names cards by. */
+	key: string;
+	/** Number is the card's number in its project, which the palette shows as "#41". */
+	number: number /* int */;
+	/** Title is the card's title. */
+	title: string;
+	/** State is the card's column, which picks the palette's icon and its color. */
+	state: CardState;
+	/** ProjectID is the project the card belongs to. */
+	projectId: string;
+	/**
+	 * ProjectName is that project's display name, shown next to the number because one list mixes
+	 * the cards of every project.
+	 */
+	projectName: string;
 }
 /**
  * ChatHit is a project chat that matched a search, by its title. Only chats in the main list
  * are searched; archived chats stay behind the Archived toggle.
  */
 export interface ChatHit {
-  /** ChatID is the chat's opaque id, which opens it. */
-  chatId: string;
-  /** Title is the chat's name. */
-  title: string;
-  /** ProjectID is the project the chat belongs to. */
-  projectId: string;
-  /** ProjectName is that project's display name. */
-  projectName: string;
-  /** LastActiveAt is when the chat last had a message. */
-  lastActiveAt: Timestamp;
+	/** ChatID is the chat's opaque id, which opens it. */
+	chatId: string;
+	/** Title is the chat's name. */
+	title: string;
+	/** ProjectID is the project the chat belongs to. */
+	projectId: string;
+	/** ProjectName is that project's display name. */
+	projectName: string;
+	/** LastActiveAt is when the chat last had a message. */
+	lastActiveAt: Timestamp;
 }
 /**
  * SearchTotals says how many things of each kind matched, before each list was cut to
  * SearchHitsPerKind.
  */
 export interface SearchTotals {
-  /** Projects is how many projects matched. */
-  projects: number /* int */;
-  /** Cards is how many cards matched. */
-  cards: number /* int */;
-  /** Chats is how many chats matched. */
-  chats: number /* int */;
+	/** Projects is how many projects matched. */
+	projects: number /* int */;
+	/** Cards is how many cards matched. */
+	cards: number /* int */;
+	/** Chats is how many chats matched. */
+	chats: number /* int */;
+	/** Sessions is how many past session events matched. */
+	sessions: number /* int */;
+	/** Notes is how many card notes matched. */
+	notes: number /* int */;
+}
+/**
+ * SessionHit is a line of a card's past that matched a search: one stored event of a card's session
+ * whose summary holds the words (docs/architecture.md section 10). It is how the palette answers
+ * "when did we do this before" without opening every card: the hit names the card the work happened
+ * on, and opening that card's chat shows the event in place.
+ */
+export interface SessionHit {
+	/** CardID is the card the session belonged to, which opens it. */
+	cardId: string;
+	/** Key is the card's project and number, such as "api#41". */
+	key: string;
+	/** Title is the card's title, so the palette says what the past work was about. */
+	title: string;
+	/**
+	 * Excerpt is the stored summary of the event, clipped short. It is the one line the daemon kept
+	 * for that moment of the session, and the whole of what a search has to show.
+	 */
+	excerpt: string;
+	/** ProjectID is the project the card belongs to. */
+	projectId: string;
+	/** ProjectName is that project's display name. */
+	projectName: string;
+	/** At is when the event happened. */
+	at: Timestamp;
+}
+/**
+ * NoteHit is a card note that matched a search: the markdown file the vault keeps for a card, whose
+ * text holds the words (docs/architecture.md sections 10 and 12). The note itself is read at its own
+ * route; a search answer carries only the beginning of it, because an answer that carried whole
+ * notes would cost more than the reading it saves.
+ */
+export interface NoteHit {
+	/** CardID is the card the note belongs to, which opens it. */
+	cardId: string;
+	/** Key is the card's project and number, such as "api#41". */
+	key: string;
+	/** Title is the card's title, so the palette says which note this is. */
+	title: string;
+	/**
+	 * Path is where the note lives in the vault, relative to the vault root, in the shape
+	 * `<project>/cards/<number>-<title>.md`.
+	 */
+	path: string;
+	/** Excerpt is the beginning of the note, clipped short. */
+	excerpt: string;
+	/** Author is who last wrote the note: "person" or "agent". */
+	author: NoteAuthor;
+	/** ProjectID is the project the card belongs to. */
+	projectId: string;
+	/** ProjectName is that project's display name. */
+	projectName: string;
+	/** At is when the note was last saved. */
+	at: Timestamp;
 }
 /**
  * SearchSnapshot is the answer to GET /v1/search?q=. Each list is best match first and holds at
@@ -4068,21 +4368,28 @@ export interface SearchTotals {
  * commands until something is typed. The lists are never null.
  */
 export interface SearchSnapshot {
-  /**
-   * Query is the query the daemon searched for: the one sent, trimmed, with each run of spaces
-   * made one. A client typing ahead drops an answer whose query is not its latest.
-   */
-  query: string;
-  /** Projects are the projects that matched. */
-  projects: ProjectHit[];
-  /** Cards are the cards that matched, from every project. */
-  cards: CardHit[];
-  /** Chats are the chats that matched, from every project. */
-  chats: ChatHit[];
-  /** Totals are how many of each kind matched before the lists were cut. */
-  totals: SearchTotals;
-  /** ServerTime is the daemon's time when the search ran. */
-  serverTime: Timestamp;
+	/**
+	 * Query is the query the daemon searched for: the one sent, trimmed, with each run of spaces
+	 * made one. A client typing ahead drops an answer whose query is not its latest.
+	 */
+	query: string;
+	/** Projects are the projects that matched. */
+	projects: ProjectHit[];
+	/** Cards are the cards that matched, from every project. */
+	cards: CardHit[];
+	/** Chats are the chats that matched, from every project. */
+	chats: ChatHit[];
+	/**
+	 * Sessions are the past session events that matched, from every project, newest first among
+	 * equally good matches.
+	 */
+	sessions: SessionHit[];
+	/** Notes are the card notes that matched, from every project. */
+	notes: NoteHit[];
+	/** Totals are how many of each kind matched before the lists were cut. */
+	totals: SearchTotals;
+	/** ServerTime is the daemon's time when the search ran. */
+	serverTime: Timestamp;
 }
 
 //////////
@@ -4093,39 +4400,39 @@ export interface SearchSnapshot {
  * of its reasoning, or a full replacement of its plan.
  */
 export interface SessionOutputEventData {
-  /** CardID is the card whose session produced this output. It is empty when a chat's did. */
-  cardId: string;
-  /** ChatID is the chat whose session produced this output. It is left out when a card's did. */
-  chatId?: string;
-  /** Kind is "message", "thought", or "plan". */
-  kind: string;
-  /**
-   * Text is the chunk of text, for "message" and "thought". It is cut with agents.Truncate the
-   * same way tool output already is, so one event never carries more than agents.MaxContentBytes:
-   * the full text belongs in the session log (docs/architecture.md section 4.1). Empty for "plan".
-   */
-  text?: string;
-  /** Plan is the agent's whole plan, for "plan". Nil for every other kind. */
-  plan?: PlanStep[];
+	/** CardID is the card whose session produced this output. It is empty when a chat's did. */
+	cardId: string;
+	/** ChatID is the chat whose session produced this output. It is left out when a card's did. */
+	chatId?: string;
+	/** Kind is "message", "thought", or "plan". */
+	kind: string;
+	/**
+	 * Text is the chunk of text, for "message" and "thought". It is cut with agents.Truncate the
+	 * same way tool output already is, so one event never carries more than agents.MaxContentBytes:
+	 * the full text belongs in the session log (docs/architecture.md section 4.1). Empty for "plan".
+	 */
+	text?: string;
+	/** Plan is the agent's whole plan, for "plan". Nil for every other kind. */
+	plan?: PlanStep[];
 }
 /** PlanStep is one line of an agent's plan, on the wire. */
 export interface PlanStep {
-  text: string;
-  /** Status is "pending", "in_progress", or "completed" (agents.PlanStep's own Status constants). */
-  status: string;
+	text: string;
+	/** Status is "pending", "in_progress", or "completed" (agents.PlanStep's own Status constants). */
+	status: string;
 }
 /**
  * SessionToolCallEventData is the payload of session.tool_call: a tool call starting, or an
  * update to one that is already running.
  */
 export interface SessionToolCallEventData {
-  /** CardID is the card whose session made this tool call. It is empty when a chat's did. */
-  cardId: string;
-  /** ChatID is the chat whose session made this tool call. It is left out when a card's did. */
-  chatId?: string;
-  /** Kind is "tool_call" or "tool_call_update". */
-  kind: string;
-  toolCall: AgentToolCall;
+	/** CardID is the card whose session made this tool call. It is empty when a chat's did. */
+	cardId: string;
+	/** ChatID is the chat whose session made this tool call. It is left out when a card's did. */
+	chatId?: string;
+	/** Kind is "tool_call" or "tool_call_update". */
+	kind: string;
+	toolCall: AgentToolCall;
 }
 /**
  * AgentToolCall is a tool call, or an update to one, on the wire. A field that an update did not
@@ -4133,50 +4440,50 @@ export interface SessionToolCallEventData {
  * set by the call that starts the tool, so an update leaves them out.
  */
 export interface AgentToolCall {
-  /** ID names the call inside the session. An update shares the ID of the call it updates. */
-  id: string;
-  title?: string;
-  /**
-   * ToolKind is the agent's word for the kind of tool: read, edit, delete, move, search,
-   * execute, think, fetch, switch_mode, or other. Only set when the call starts.
-   */
-  toolKind?: string;
-  /**
-   * Status is "pending", "in_progress", "completed", or "failed" (agents.StatusPending and its
-   * siblings).
-   */
-  status?: string;
-  /** Path is the file the call is about, when it has one. Only set when the call starts. */
-  path?: string;
-  /** Command is the command line of an execute call. Only set when the call starts. */
-  command?: string;
-  /** Content is the text the tool has produced so far, cut to agents.MaxContentBytes. */
-  content?: string;
-  diffs?: FileDiff[];
-  /** Truncated says that Content or Diffs were cut short. The full text belongs in the session log. */
-  truncated?: boolean;
+	/** ID names the call inside the session. An update shares the ID of the call it updates. */
+	id: string;
+	title?: string;
+	/**
+	 * ToolKind is the agent's word for the kind of tool: read, edit, delete, move, search,
+	 * execute, think, fetch, switch_mode, or other. Only set when the call starts.
+	 */
+	toolKind?: string;
+	/**
+	 * Status is "pending", "in_progress", "completed", or "failed" (agents.StatusPending and its
+	 * siblings).
+	 */
+	status?: string;
+	/** Path is the file the call is about, when it has one. Only set when the call starts. */
+	path?: string;
+	/** Command is the command line of an execute call. Only set when the call starts. */
+	command?: string;
+	/** Content is the text the tool has produced so far, cut to agents.MaxContentBytes. */
+	content?: string;
+	diffs?: FileDiff[];
+	/** Truncated says that Content or Diffs were cut short. The full text belongs in the session log. */
+	truncated?: boolean;
 }
 /** FileDiff is a change a tool made to a file, on the wire. OldText is empty for a new file. */
 export interface FileDiff {
-  path: string;
-  oldText?: string;
-  newText?: string;
+	path: string;
+	oldText?: string;
+	newText?: string;
 }
 /** SessionStateChangedEventData is the payload of session.state_changed. */
 export interface SessionStateChangedEventData {
-  /** CardID is the card the session belongs to. It is empty for a chat's session. */
-  cardId: string;
-  /** ChatID is the chat the session belongs to. It is left out for a card's session. */
-  chatId?: string;
-  /** SessionID is the session's own opaque id (not the agent's session id). */
-  sessionId: string;
-  /** State is the state the session moved to. */
-  state: SessionState;
-  /**
-   * Reason is a plain sentence, set when the move needs an explanation (for example, a resume
-   * that failed). Empty for an ordinary move such as a turn ending.
-   */
-  reason?: string;
+	/** CardID is the card the session belongs to. It is empty for a chat's session. */
+	cardId: string;
+	/** ChatID is the chat the session belongs to. It is left out for a card's session. */
+	chatId?: string;
+	/** SessionID is the session's own opaque id (not the agent's session id). */
+	sessionId: string;
+	/** State is the state the session moved to. */
+	state: SessionState;
+	/**
+	 * Reason is a plain sentence, set when the move needs an explanation (for example, a resume
+	 * that failed). Empty for an ordinary move such as a turn ending.
+	 */
+	reason?: string;
 }
 
 //////////
@@ -4233,26 +4540,26 @@ export const SmellFamilyObfuscators = "obfuscators";
  */
 export const SmellFamilyObjectOrientedAbusers = "object-oriented-abusers";
 export type SmellFamily =
-  | typeof SmellFamilyBloaters
-  | typeof SmellFamilyChangePreventers
-  | typeof SmellFamilyCouplers
-  | typeof SmellFamilyDataDealers
-  | typeof SmellFamilyDispensables
-  | typeof SmellFamilyFunctionalAbusers
-  | typeof SmellFamilyLexicalAbusers
-  | typeof SmellFamilyObfuscators
-  | typeof SmellFamilyObjectOrientedAbusers;
+	| typeof SmellFamilyBloaters
+	| typeof SmellFamilyChangePreventers
+	| typeof SmellFamilyCouplers
+	| typeof SmellFamilyDataDealers
+	| typeof SmellFamilyDispensables
+	| typeof SmellFamilyFunctionalAbusers
+	| typeof SmellFamilyLexicalAbusers
+	| typeof SmellFamilyObfuscators
+	| typeof SmellFamilyObjectOrientedAbusers;
 /** Every SmellFamily, in the order the Go list gives them. */
 export const SmellFamilyValues: readonly SmellFamily[] = [
-  SmellFamilyBloaters,
-  SmellFamilyChangePreventers,
-  SmellFamilyCouplers,
-  SmellFamilyDataDealers,
-  SmellFamilyDispensables,
-  SmellFamilyFunctionalAbusers,
-  SmellFamilyLexicalAbusers,
-  SmellFamilyObfuscators,
-  SmellFamilyObjectOrientedAbusers,
+	SmellFamilyBloaters,
+	SmellFamilyChangePreventers,
+	SmellFamilyCouplers,
+	SmellFamilyDataDealers,
+	SmellFamilyDispensables,
+	SmellFamilyFunctionalAbusers,
+	SmellFamilyLexicalAbusers,
+	SmellFamilyObfuscators,
+	SmellFamilyObjectOrientedAbusers,
 ];
 /**
  * SmellCheck is one of Marshal's own built-in checks. A check's name is what a finding's Smell
@@ -4278,22 +4585,22 @@ export const SmellCheckMagicNumber = "magic-number";
  */
 export const SmellCheckDuplicateBlock = "duplicate-block";
 export type SmellCheck =
-  | typeof SmellCheckLongFunction
-  | typeof SmellCheckLargeFile
-  | typeof SmellCheckLongParameterList
-  | typeof SmellCheckDeepNesting
-  | typeof SmellCheckLongLine
-  | typeof SmellCheckMagicNumber
-  | typeof SmellCheckDuplicateBlock;
+	| typeof SmellCheckLongFunction
+	| typeof SmellCheckLargeFile
+	| typeof SmellCheckLongParameterList
+	| typeof SmellCheckDeepNesting
+	| typeof SmellCheckLongLine
+	| typeof SmellCheckMagicNumber
+	| typeof SmellCheckDuplicateBlock;
 /** Every SmellCheck, in the order the Go list gives them. */
 export const SmellCheckValues: readonly SmellCheck[] = [
-  SmellCheckLongFunction,
-  SmellCheckLargeFile,
-  SmellCheckLongParameterList,
-  SmellCheckDeepNesting,
-  SmellCheckLongLine,
-  SmellCheckMagicNumber,
-  SmellCheckDuplicateBlock,
+	SmellCheckLongFunction,
+	SmellCheckLargeFile,
+	SmellCheckLongParameterList,
+	SmellCheckDeepNesting,
+	SmellCheckLongLine,
+	SmellCheckMagicNumber,
+	SmellCheckDuplicateBlock,
 ];
 /** SmellSeverity is how much a finding matters. */
 /**
@@ -4309,14 +4616,14 @@ export const SmellSeverityWarning = "warning";
 /** SmellSeverityInfo is a finding shown only in the card's checks. */
 export const SmellSeverityInfo = "info";
 export type SmellSeverity =
-  | typeof SmellSeverityBlocking
-  | typeof SmellSeverityWarning
-  | typeof SmellSeverityInfo;
+	| typeof SmellSeverityBlocking
+	| typeof SmellSeverityWarning
+	| typeof SmellSeverityInfo;
 /** Every SmellSeverity, in the order the Go list gives them. */
 export const SmellSeverityValues: readonly SmellSeverity[] = [
-  SmellSeverityBlocking,
-  SmellSeverityWarning,
-  SmellSeverityInfo,
+	SmellSeverityBlocking,
+	SmellSeverityWarning,
+	SmellSeverityInfo,
 ];
 /** SmellStatus is what became of a finding. */
 /** SmellStatusOpen is a finding nobody has acted on. */
@@ -4326,69 +4633,69 @@ export const SmellStatusFixed = "fixed";
 /** SmellStatusDismissed is a finding a person waved away, with a reason. */
 export const SmellStatusDismissed = "dismissed";
 export type SmellStatus =
-  | typeof SmellStatusOpen
-  | typeof SmellStatusFixed
-  | typeof SmellStatusDismissed;
+	| typeof SmellStatusOpen
+	| typeof SmellStatusFixed
+	| typeof SmellStatusDismissed;
 /** Every SmellStatus, in the order the Go list gives them. */
 export const SmellStatusValues: readonly SmellStatus[] = [
-  SmellStatusOpen,
-  SmellStatusFixed,
-  SmellStatusDismissed,
+	SmellStatusOpen,
+	SmellStatusFixed,
+	SmellStatusDismissed,
 ];
 /** SmellFinding is one smell the checks found in one card's diff. */
 export interface SmellFinding {
-  /** ID is the finding's own opaque id. The calls that act on a finding address it. */
-  id: string;
-  /** CardID is the card the finding is about. */
-  cardId: string;
-  /**
-   * Commit is the commit the finding was found in. It is empty for a finding from uncommitted
-   * work. An answer is cached per commit, and a finding in an older commit is never re-blamed on
-   * a newer one.
-   */
-  commit: string;
-  /** Family is the kind of smell the finding is. */
-  family: SmellFamily;
-  /** Smell is the rule's own name: a built-in check's name, or a project linter's rule. */
-  smell: string;
-  /** File is the file the finding is in, relative to the repository, with forward slashes. */
-  file: string;
-  /** Line is the line the finding is on. Zero when the finding is about the whole file. */
-  line: number /* int */;
-  /** Severity is how much the finding matters. */
-  severity: SmellSeverity;
-  /** Message says why it matters, in one sentence. */
-  message: string;
-  /** Suggestion is the refactoring to make, in one sentence. */
-  suggestion: string;
-  /** Status is open, fixed, or dismissed. */
-  status: SmellStatus;
-  /** DismissReason is why a person waved the finding away. Empty unless Status is dismissed. */
-  dismissReason: string;
+	/** ID is the finding's own opaque id. The calls that act on a finding address it. */
+	id: string;
+	/** CardID is the card the finding is about. */
+	cardId: string;
+	/**
+	 * Commit is the commit the finding was found in. It is empty for a finding from uncommitted
+	 * work. An answer is cached per commit, and a finding in an older commit is never re-blamed on
+	 * a newer one.
+	 */
+	commit: string;
+	/** Family is the kind of smell the finding is. */
+	family: SmellFamily;
+	/** Smell is the rule's own name: a built-in check's name, or a project linter's rule. */
+	smell: string;
+	/** File is the file the finding is in, relative to the repository, with forward slashes. */
+	file: string;
+	/** Line is the line the finding is on. Zero when the finding is about the whole file. */
+	line: number /* int */;
+	/** Severity is how much the finding matters. */
+	severity: SmellSeverity;
+	/** Message says why it matters, in one sentence. */
+	message: string;
+	/** Suggestion is the refactoring to make, in one sentence. */
+	suggestion: string;
+	/** Status is open, fixed, or dismissed. */
+	status: SmellStatus;
+	/** DismissReason is why a person waved the finding away. Empty unless Status is dismissed. */
+	dismissReason: string;
 }
 /**
  * SmellFindingList is the answer to GET /v1/cards/{id}/findings: the findings of one card, as of one
  * commit, newest first is not guaranteed, so a client that cares sorts them.
  */
 export interface SmellFindingList {
-  /** CardID is the card the list is about. */
-  cardId: string;
-  /** Commit is the commit the findings are as of, empty when they came from uncommitted work. */
-  commit: string;
-  /** Findings are the card's findings. Never null. */
-  findings: SmellFinding[];
-  /**
-   * Blocking is how many of Findings block the card. It is carried so a screen can say the
-   * number without counting, and so the move to review can be refused without a second read.
-   */
-  blocking: number /* int */;
-  /**
-   * Checked is when the checks last ran for this card, or null when they never have: a card that
-   * has not been checked yet is not the same as one checked at the beginning of time.
-   */
-  checked?: Timestamp;
-  /** ServerTime is the daemon's time when the answer was made. */
-  serverTime: Timestamp;
+	/** CardID is the card the list is about. */
+	cardId: string;
+	/** Commit is the commit the findings are as of, empty when they came from uncommitted work. */
+	commit: string;
+	/** Findings are the card's findings. Never null. */
+	findings: SmellFinding[];
+	/**
+	 * Blocking is how many of Findings block the card. It is carried so a screen can say the
+	 * number without counting, and so the move to review can be refused without a second read.
+	 */
+	blocking: number /* int */;
+	/**
+	 * Checked is when the checks last ran for this card, or null when they never have: a card that
+	 * has not been checked yet is not the same as one checked at the beginning of time.
+	 */
+	checked?: Timestamp;
+	/** ServerTime is the daemon's time when the answer was made. */
+	serverTime: Timestamp;
 }
 /**
  * DismissFindingRequest is the body of POST /v1/cards/{id}/findings/{findingId}/dismiss. The reason
@@ -4396,8 +4703,8 @@ export interface SmellFindingList {
  * later phase learn from, so an empty one is refused.
  */
 export interface DismissFindingRequest {
-  /** Reason is why the finding is being dismissed, in the person's own words. */
-  reason: string;
+	/** Reason is why the finding is being dismissed, in the person's own words. */
+	reason: string;
 }
 /**
  * SmellCheckedEventData is the payload of quality.checked (architecture.md 11.2): the card's
@@ -4405,26 +4712,26 @@ export interface DismissFindingRequest {
  * asks again for what the event already carries.
  */
 export interface SmellCheckedEventData {
-  /** CardID is the card whose checks finished. */
-  cardId: string;
-  /** Commit is the commit the checks ran for. */
-  commit: string;
-  /** Findings are the card's findings for that commit. */
-  findings: SmellFinding[];
-  /** Blocking is how many of them block the card. */
-  blocking: number /* int */;
+	/** CardID is the card whose checks finished. */
+	cardId: string;
+	/** Commit is the commit the checks ran for. */
+	commit: string;
+	/** Findings are the card's findings for that commit. */
+	findings: SmellFinding[];
+	/** Blocking is how many of them block the card. */
+	blocking: number /* int */;
 }
 /**
  * SmellCheckSetting is one built-in check as a project has set it: whether it runs, and how much
  * its findings matter.
  */
 export interface SmellCheckSetting {
-  /** Check is the built-in check this setting is for. */
-  check: SmellCheck;
-  /** Enabled says whether the check runs. A check that is off produces no findings at all. */
-  enabled: boolean;
-  /** Severity is how much a finding from this check matters. */
-  severity: SmellSeverity;
+	/** Check is the built-in check this setting is for. */
+	check: SmellCheck;
+	/** Enabled says whether the check runs. A check that is off produces no findings at all. */
+	enabled: boolean;
+	/** Severity is how much a finding from this check matters. */
+	severity: SmellSeverity;
 }
 /**
  * SmellProfile is one project's own version of the smell checks (architecture.md section 17.3,
@@ -4437,35 +4744,35 @@ export interface SmellCheckSetting {
  * agent-written code in a card's project.
  */
 export interface SmellProfile {
-  /** ProjectID is the project the profile is for. */
-  projectId: string;
-  /** MaxFunctionLines is the longest a new function may be before it is flagged. */
-  maxFunctionLines: number /* int */;
-  /** MaxFileLines is the longest a file may be before it is flagged. */
-  maxFileLines: number /* int */;
-  /** MaxParameters is the most parameters a new function may have. */
-  maxParameters: number /* int */;
-  /** MaxNesting is the deepest a new block may nest. */
-  maxNesting: number /* int */;
-  /** MaxLineLength is the longest a new line may be. */
-  maxLineLength: number /* int */;
-  /**
-   * DuplicateBlockLines is how many lines in a row must repeat before the copy is called a
-   * duplicated block.
-   */
-  duplicateBlockLines: number /* int */;
-  /**
-   * Checks says which built-in checks run and how much each one matters. A check the list does
-   * not name uses its default.
-   */
-  checks: SmellCheckSetting[];
-  /**
-   * Linters are the project's own linters, if it has them (product scope 15.4, layer 1). Each is
-   * a program Marshal runs in the card's worktree, on the files the card changed, with the
-   * project's own configuration. A project with no linters has none, which is the usual case for
-   * a fresh install: the built-in checks run either way.
-   */
-  linters?: SmellLinter[];
+	/** ProjectID is the project the profile is for. */
+	projectId: string;
+	/** MaxFunctionLines is the longest a new function may be before it is flagged. */
+	maxFunctionLines: number /* int */;
+	/** MaxFileLines is the longest a file may be before it is flagged. */
+	maxFileLines: number /* int */;
+	/** MaxParameters is the most parameters a new function may have. */
+	maxParameters: number /* int */;
+	/** MaxNesting is the deepest a new block may nest. */
+	maxNesting: number /* int */;
+	/** MaxLineLength is the longest a new line may be. */
+	maxLineLength: number /* int */;
+	/**
+	 * DuplicateBlockLines is how many lines in a row must repeat before the copy is called a
+	 * duplicated block.
+	 */
+	duplicateBlockLines: number /* int */;
+	/**
+	 * Checks says which built-in checks run and how much each one matters. A check the list does
+	 * not name uses its default.
+	 */
+	checks: SmellCheckSetting[];
+	/**
+	 * Linters are the project's own linters, if it has them (product scope 15.4, layer 1). Each is
+	 * a program Marshal runs in the card's worktree, on the files the card changed, with the
+	 * project's own configuration. A project with no linters has none, which is the usual case for
+	 * a fresh install: the built-in checks run either way.
+	 */
+	linters?: SmellLinter[];
 }
 /**
  * SmellLinter is one of a project's own linters. Marshal runs its command in the card's worktree
@@ -4474,15 +4781,15 @@ export interface SmellProfile {
  * families on their own.
  */
 export interface SmellLinter {
-  /** Name labels the linter in a finding's message, such as "golangci-lint". */
-  name: string;
-  /**
-   * Command is the program and its arguments. The changed files are appended as the last
-   * arguments, and it is run directly and never through a shell.
-   */
-  command: string[];
-  /** Family is the smell family this linter's findings are filed under. */
-  family: SmellFamily;
+	/** Name labels the linter in a finding's message, such as "golangci-lint". */
+	name: string;
+	/**
+	 * Command is the program and its arguments. The changed files are appended as the last
+	 * arguments, and it is run directly and never through a shell.
+	 */
+	command: string[];
+	/** Family is the smell family this linter's findings are filed under. */
+	family: SmellFamily;
 }
 
 //////////
@@ -4541,44 +4848,44 @@ export const TerminalKeyCtrlL = "ctrl-l";
 /** TerminalKeyCtrlZ is Ctrl and Z, which suspends the program in front. */
 export const TerminalKeyCtrlZ = "ctrl-z";
 export type TerminalKey =
-  | typeof TerminalKeyEnter
-  | typeof TerminalKeyEsc
-  | typeof TerminalKeyTab
-  | typeof TerminalKeyShiftTab
-  | typeof TerminalKeyBackspace
-  | typeof TerminalKeyDelete
-  | typeof TerminalKeyUp
-  | typeof TerminalKeyDown
-  | typeof TerminalKeyLeft
-  | typeof TerminalKeyRight
-  | typeof TerminalKeyHome
-  | typeof TerminalKeyEnd
-  | typeof TerminalKeyPageUp
-  | typeof TerminalKeyPageDown
-  | typeof TerminalKeyCtrlC
-  | typeof TerminalKeyCtrlD
-  | typeof TerminalKeyCtrlL
-  | typeof TerminalKeyCtrlZ;
+	| typeof TerminalKeyEnter
+	| typeof TerminalKeyEsc
+	| typeof TerminalKeyTab
+	| typeof TerminalKeyShiftTab
+	| typeof TerminalKeyBackspace
+	| typeof TerminalKeyDelete
+	| typeof TerminalKeyUp
+	| typeof TerminalKeyDown
+	| typeof TerminalKeyLeft
+	| typeof TerminalKeyRight
+	| typeof TerminalKeyHome
+	| typeof TerminalKeyEnd
+	| typeof TerminalKeyPageUp
+	| typeof TerminalKeyPageDown
+	| typeof TerminalKeyCtrlC
+	| typeof TerminalKeyCtrlD
+	| typeof TerminalKeyCtrlL
+	| typeof TerminalKeyCtrlZ;
 /** Every TerminalKey, in the order the Go list gives them. */
 export const TerminalKeyValues: readonly TerminalKey[] = [
-  TerminalKeyEnter,
-  TerminalKeyEsc,
-  TerminalKeyTab,
-  TerminalKeyShiftTab,
-  TerminalKeyBackspace,
-  TerminalKeyDelete,
-  TerminalKeyUp,
-  TerminalKeyDown,
-  TerminalKeyLeft,
-  TerminalKeyRight,
-  TerminalKeyHome,
-  TerminalKeyEnd,
-  TerminalKeyPageUp,
-  TerminalKeyPageDown,
-  TerminalKeyCtrlC,
-  TerminalKeyCtrlD,
-  TerminalKeyCtrlL,
-  TerminalKeyCtrlZ,
+	TerminalKeyEnter,
+	TerminalKeyEsc,
+	TerminalKeyTab,
+	TerminalKeyShiftTab,
+	TerminalKeyBackspace,
+	TerminalKeyDelete,
+	TerminalKeyUp,
+	TerminalKeyDown,
+	TerminalKeyLeft,
+	TerminalKeyRight,
+	TerminalKeyHome,
+	TerminalKeyEnd,
+	TerminalKeyPageUp,
+	TerminalKeyPageDown,
+	TerminalKeyCtrlC,
+	TerminalKeyCtrlD,
+	TerminalKeyCtrlL,
+	TerminalKeyCtrlZ,
 ];
 /**
  * TerminalInput is a message from the app: what the person typed into a card's terminal. It carries
@@ -4588,14 +4895,14 @@ export const TerminalKeyValues: readonly TerminalKey[] = [
  * needs no encoding beyond JSON's. It is at most MaxTerminalInputBytes bytes.
  */
 export interface TerminalInput {
-  /** Type is always "terminal.input". */
-  type: typeof FrameTypeTerminalInput;
-  /** CardID is the card whose terminal it is. The connection must follow the card's topic. */
-  cardId: string;
-  /** Data is text to type as it is. Leave it out when Key is set. */
-  data?: string;
-  /** Key is a named key. Leave it out when Data is set. */
-  key?: TerminalKey;
+	/** Type is always "terminal.input". */
+	type: typeof FrameTypeTerminalInput;
+	/** CardID is the card whose terminal it is. The connection must follow the card's topic. */
+	cardId: string;
+	/** Data is text to type as it is. Leave it out when Key is set. */
+	data?: string;
+	/** Key is a named key. Leave it out when Data is set. */
+	key?: TerminalKey;
 }
 /**
  * TerminalResize is a message from the app: the size of the view that draws a card's terminal, in
@@ -4603,26 +4910,30 @@ export interface TerminalInput {
  * MaxTerminalRows.
  */
 export interface TerminalResize {
-  /** Type is always "terminal.resize". */
-  type: typeof FrameTypeTerminalResize;
-  /** CardID is the card whose terminal it is. The connection must follow the card's topic. */
-  cardId: string;
-  /** Cols is the width of the view in cells. */
-  cols: number /* int */;
-  /** Rows is the height of the view in cells. */
-  rows: number /* int */;
+	/** Type is always "terminal.resize". */
+	type: typeof FrameTypeTerminalResize;
+	/** CardID is the card whose terminal it is. The connection must follow the card's topic. */
+	cardId: string;
+	/** Cols is the width of the view in cells. */
+	cols: number /* int */;
+	/** Rows is the height of the view in cells. */
+	rows: number /* int */;
 }
-export type ClientFrame = Hello | TerminalInput | TerminalResize | TerminalSnapshotRequest;
+export type ClientFrame =
+	| Hello
+	| TerminalInput
+	| TerminalResize
+	| TerminalSnapshotRequest;
 /**
  * TerminalSnapshotRequest is a message from the app that asks for the recent screen of a card's
  * terminal. The answer is a TerminalScreen frame. An app asks when it opens the terminal view, after
  * it reconnects, and after a resync frame, because the output it missed is not replayed.
  */
 export interface TerminalSnapshotRequest {
-  /** Type is always "terminal.snapshot". */
-  type: typeof FrameTypeTerminalSnapshot;
-  /** CardID is the card whose terminal it is. The connection must follow the card's topic. */
-  cardId: string;
+	/** Type is always "terminal.snapshot". */
+	type: typeof FrameTypeTerminalSnapshot;
+	/** CardID is the card whose terminal it is. The connection must follow the card's topic. */
+	cardId: string;
 }
 /**
  * TerminalScreen is a frame from the daemon: the answer to a TerminalSnapshotRequest. Data is the
@@ -4634,20 +4945,20 @@ export interface TerminalSnapshotRequest {
  * just been switched to is empty.
  */
 export interface TerminalScreen {
-  /** Type is always "terminal.screen". Encoding sets it. */
-  type: typeof FrameTypeTerminalScreen;
-  /** CardID is the card the screen belongs to. */
-  cardId: string;
-  /** Cols and Rows are the size the terminal has now, which is the size Data was drawn for. */
-  cols: number /* int */;
-  rows: number /* int */;
-  /**
-   * ThroughSeq is the number of the newest output event that Data includes, or 0 when the
-   * program has printed nothing yet.
-   */
-  throughSeq: number /* uint64 */;
-  /** Data is the output, as base64 (the standard alphabet, with padding). */
-  data: string;
+	/** Type is always "terminal.screen". Encoding sets it. */
+	type: typeof FrameTypeTerminalScreen;
+	/** CardID is the card the screen belongs to. */
+	cardId: string;
+	/** Cols and Rows are the size the terminal has now, which is the size Data was drawn for. */
+	cols: number /* int */;
+	rows: number /* int */;
+	/**
+	 * ThroughSeq is the number of the newest output event that Data includes, or 0 when the
+	 * program has printed nothing yet.
+	 */
+	throughSeq: number /* uint64 */;
+	/** Data is the output, as base64 (the standard alphabet, with padding). */
+	data: string;
 }
 /**
  * TerminalRefusalReason is why a message about a card's terminal was refused. The sentence a person
@@ -4664,12 +4975,12 @@ export const TerminalRefusalReasonNotActive = "terminal_not_active";
  */
 export const TerminalRefusalReasonBusy = "terminal_busy";
 export type TerminalRefusalReason =
-  | typeof TerminalRefusalReasonNotActive
-  | typeof TerminalRefusalReasonBusy;
+	| typeof TerminalRefusalReasonNotActive
+	| typeof TerminalRefusalReasonBusy;
 /** Every TerminalRefusalReason, in the order the Go list gives them. */
 export const TerminalRefusalReasonValues: readonly TerminalRefusalReason[] = [
-  TerminalRefusalReasonNotActive,
-  TerminalRefusalReasonBusy,
+	TerminalRefusalReasonNotActive,
+	TerminalRefusalReasonBusy,
 ];
 /**
  * TerminalRefusal is a frame from the daemon: a terminal message was understood but cannot be done
@@ -4677,12 +4988,12 @@ export const TerminalRefusalReasonValues: readonly TerminalRefusalReason[] = [
  * details.reason. The connection stays open.
  */
 export interface TerminalRefusal {
-  /** Type is always "terminal.refused". Encoding sets it. */
-  type: typeof FrameTypeTerminalRefused;
-  /** CardID is the card the message was about. */
-  cardId: string;
-  /** Error is the same error shape that HTTP answers use. */
-  error: Error;
+	/** Type is always "terminal.refused". Encoding sets it. */
+	type: typeof FrameTypeTerminalRefused;
+	/** CardID is the card the message was about. */
+	cardId: string;
+	/** Error is the same error shape that HTTP answers use. */
+	error: Error;
 }
 /**
  * TerminalOutputEventData is the payload of session.terminal_output: a piece of what a card's
@@ -4690,19 +5001,19 @@ export interface TerminalRefusal {
  * event number is what orders it against the ThroughSeq of a TerminalScreen.
  */
 export interface TerminalOutputEventData {
-  /** CardID is the card whose terminal printed it. */
-  cardId: string;
-  /**
-   * Data is the output, as base64 (the standard alphabet, with padding). It is raw bytes, escape
-   * sequences included, and at most 16 KiB. A piece can end in the middle of a character or an
-   * escape sequence, so the app joins pieces before it decodes text.
-   */
-  data: string;
+	/** CardID is the card whose terminal printed it. */
+	cardId: string;
+	/**
+	 * Data is the output, as base64 (the standard alphabet, with padding). It is raw bytes, escape
+	 * sequences included, and at most 16 KiB. A piece can end in the middle of a character or an
+	 * escape sequence, so the app joins pieces before it decodes text.
+	 */
+	data: string;
 }
 /** SetViewRequest is the body of POST /v1/cards/{id}/view. */
 export interface SetViewRequest {
-  /** Mode is the view to show: chat or terminal. */
-  mode: CardViewMode;
+	/** Mode is the view to show: chat or terminal. */
+	mode: CardViewMode;
 }
 /**
  * CardView is the answer to POST /v1/cards/{id}/view: which view the card is in, and the state of
@@ -4710,17 +5021,17 @@ export interface SetViewRequest {
  * terminal, so a card whose session stops is back in the chat view.
  */
 export interface CardView {
-  /** CardID is the card. */
-  cardId: string;
-  /** Mode is the view the card is in now. */
-  mode: CardViewMode;
-  /**
-   * Session is the state of the card's session. It is awake, or working in the chat view while a
-   * turn runs.
-   */
-  session: SessionState;
-  /** ServerTime is the daemon's time when the answer was made. */
-  serverTime: Timestamp;
+	/** CardID is the card. */
+	cardId: string;
+	/** Mode is the view the card is in now. */
+	mode: CardViewMode;
+	/**
+	 * Session is the state of the card's session. It is awake, or working in the chat view while a
+	 * turn runs.
+	 */
+	session: SessionState;
+	/** ServerTime is the daemon's time when the answer was made. */
+	serverTime: Timestamp;
 }
 /**
  * ViewRefusalReason is why a switch of a card's view, or a message to a card that is in the
@@ -4750,8 +5061,8 @@ export const ViewRefusalReasonHoldingMessages = "view_holding_messages";
  */
 export const ViewRefusalReasonNoTerminal = "view_no_terminal";
 /**
- * ViewRefusalReasonSwitching is a request for a card that is being started, resumed, woken, or
- * switched at that moment.
+ * ViewRefusalReasonSwitching is a request for a card that is being started, resumed, woken,
+ * switched, or handed off to another agent at that moment.
  */
 export const ViewRefusalReasonSwitching = "view_switching";
 /**
@@ -4765,22 +5076,22 @@ export const ViewRefusalReasonTerminalActive = "view_terminal_active";
  */
 export const ViewRefusalReasonCannotResume = "view_cannot_resume";
 export type ViewRefusalReason =
-  | typeof ViewRefusalReasonNoAgent
-  | typeof ViewRefusalReasonTurnRunning
-  | typeof ViewRefusalReasonHoldingMessages
-  | typeof ViewRefusalReasonNoTerminal
-  | typeof ViewRefusalReasonSwitching
-  | typeof ViewRefusalReasonTerminalActive
-  | typeof ViewRefusalReasonCannotResume;
+	| typeof ViewRefusalReasonNoAgent
+	| typeof ViewRefusalReasonTurnRunning
+	| typeof ViewRefusalReasonHoldingMessages
+	| typeof ViewRefusalReasonNoTerminal
+	| typeof ViewRefusalReasonSwitching
+	| typeof ViewRefusalReasonTerminalActive
+	| typeof ViewRefusalReasonCannotResume;
 /** Every ViewRefusalReason, in the order the Go list gives them. */
 export const ViewRefusalReasonValues: readonly ViewRefusalReason[] = [
-  ViewRefusalReasonNoAgent,
-  ViewRefusalReasonTurnRunning,
-  ViewRefusalReasonHoldingMessages,
-  ViewRefusalReasonNoTerminal,
-  ViewRefusalReasonSwitching,
-  ViewRefusalReasonTerminalActive,
-  ViewRefusalReasonCannotResume,
+	ViewRefusalReasonNoAgent,
+	ViewRefusalReasonTurnRunning,
+	ViewRefusalReasonHoldingMessages,
+	ViewRefusalReasonNoTerminal,
+	ViewRefusalReasonSwitching,
+	ViewRefusalReasonTerminalActive,
+	ViewRefusalReasonCannotResume,
 ];
 
 //////////
@@ -4818,18 +5129,18 @@ export const TopicKindChat = "chat";
  */
 export const TopicKindMe = "me";
 export type TopicKind =
-  | typeof TopicKindHome
-  | typeof TopicKindProject
-  | typeof TopicKindCard
-  | typeof TopicKindChat
-  | typeof TopicKindMe;
+	| typeof TopicKindHome
+	| typeof TopicKindProject
+	| typeof TopicKindCard
+	| typeof TopicKindChat
+	| typeof TopicKindMe;
 /** Every TopicKind, in the order the Go list gives them. */
 export const TopicKindValues: readonly TopicKind[] = [
-  TopicKindHome,
-  TopicKindProject,
-  TopicKindCard,
-  TopicKindChat,
-  TopicKindMe,
+	TopicKindHome,
+	TopicKindProject,
+	TopicKindCard,
+	TopicKindChat,
+	TopicKindMe,
 ];
 /** HomeTopic is the topic of the Home dashboard. */
 export const HomeTopic: Topic = "home";
