@@ -44,6 +44,10 @@ type fakeAgent struct {
 	// specs is every StartSpec a Start or a Resume was given, in order, so a test can check where
 	// and with what settings the manager asked for a process.
 	specs []agents.StartSpec
+	// sent is every message text Send was given, in order, once the fake has taken it. It is what a
+	// test reads to see exactly what a turn's message was - including the board-awareness summary
+	// the manager puts in front of it (aware.go).
+	sent []string
 	// open maps a permission request's id to the session it was asked on, so Respond can find the
 	// request it answers; a request is removed once it is answered, exactly as a real adapter
 	// forgets one.
@@ -150,8 +154,18 @@ func (a *fakeAgent) Send(_ context.Context, h agents.SessionHandle, msg agents.U
 	}
 	s.busy = true
 	s.mu.Unlock()
+	a.mu.Lock()
+	a.sent = append(a.sent, msg.Text)
+	a.mu.Unlock()
 	go a.runTurn(s, msg)
 	return nil
+}
+
+// sentTexts copies the messages the fake was given, in the order it took them.
+func (a *fakeAgent) sentTexts() []string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return append([]string(nil), a.sent...)
 }
 
 // runTurn plays one turn: a message naming its turn number (so a test can prove a resumed session

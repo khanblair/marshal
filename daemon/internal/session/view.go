@@ -134,7 +134,9 @@ func (m *Manager) viewAnswer(cardID string, mode protocol.CardViewMode, state pr
 }
 
 // beginSwitch claims a card for a view switch, refusing while the card is being started, resumed,
-// woken, or switched already, and while the manager is shutting down. Call endSwitch when done.
+// woken, switched, or handed off to another agent already, and while the manager is shutting down.
+// A handoff (handoff.go) marks a card the same way, because it is the same shape of work: one process
+// stops and another starts for the same card. Call endSwitch when done.
 func (m *Manager) beginSwitch(cardID string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -248,11 +250,16 @@ func (m *Manager) swap(ctx context.Context, card protocol.Card, old *liveSession
 		old.clearStopRequested()
 		return protocol.CardView{}, fmt.Errorf("stop the process of card %s to switch its view: %w", card.ID, err)
 	}
+	// The old session has let go of the card's internal server before the new one is attached to
+	// it, so the two cannot both hold it and the switch cannot leave the new agent without one.
+	if !m.waitPump(old) {
+		m.log.Warn("a card's old session did not finish before its view switch", "card_id", card.ID)
+	}
 	m.forget(card.ID, old)
 
 	resumeCtx, cancelResume := context.WithTimeout(ctx, resumeTimeout)
 	defer cancelResume()
-	handle, err := plan.agent.Resume(resumeCtx, plan.row.AgentSessionID, resumeSpec(card, plan.path))
+	handle, err := plan.agent.Resume(resumeCtx, plan.row.AgentSessionID, resumeSpec(card, plan.path, m.attach(ctx, card).Servers))
 	if err != nil {
 		return protocol.CardView{}, m.failSwitch(ctx, plan.row, err)
 	}

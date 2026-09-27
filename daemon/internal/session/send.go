@@ -63,7 +63,7 @@ func (m *Manager) deliver(ctx context.Context, ls *liveSession, text string) err
 	// write "awake", before this goroutine gets back to write "working", which would leave an idle
 	// session marked as working. A send that then fails is reverted in afterSendFailed.
 	m.markTurnStarting(ctx, ls)
-	if err := ls.agent.Send(ctx, ls.handle, agents.UserMessage{Text: text}); err != nil {
+	if err := m.sendTurn(ctx, ls, text); err != nil {
 		return m.afterSendFailed(ctx, ls, text, err)
 	}
 	// Stored only here, once the agent has taken the message: a message that never reached the

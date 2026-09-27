@@ -98,8 +98,13 @@ func (m *Manager) resumeRow(ctx context.Context, row db.Session) (protocol.Card,
 	}
 	rctx, cancel := context.WithTimeout(ctx, resumeTimeout)
 	defer cancel()
-	handle, err := agent.Resume(rctx, row.AgentSessionID, resumeSpec(card, path))
+	// A resumed session is given the internal MCP server again, because the list is part of the
+	// request that brings the session back; the context is not repeated, because Instructions go to
+	// the agent with the first message of a new session only.
+	handle, err := agent.Resume(rctx, row.AgentSessionID, resumeSpec(card, path, m.attach(ctx, card).Servers))
 	if err != nil {
+		// The agent never came back, so no pump will release what its session was given.
+		m.detachCard(card.ID)
 		if ctx.Err() != nil {
 			// The caller's own context ended (the daemon is shutting down, most likely), not the
 			// resume itself: leave the row exactly as it is, so the next start still resumes it,
@@ -108,15 +113,21 @@ func (m *Manager) resumeRow(ctx context.Context, row db.Session) (protocol.Card,
 		}
 		return m.failResume(ctx, row, err)
 	}
-	return m.registerResumedSession(ctx, card, row, startedAgent{agent: agent, handle: handle, view: view})
+	registered, err := m.registerResumedSession(ctx, card, row, startedAgent{agent: agent, handle: handle, view: view})
+	if err != nil {
+		// The session never became live, so no pump will release what it was given.
+		m.detachCard(card.ID)
+	}
+	return registered, err
 }
 
 // resumeSpec is how a card's agent is asked to resume its session: in the card's worktree, with the
-// settings the card has now.
-func resumeSpec(card protocol.Card, path string) agents.StartSpec {
+// settings the card has now, and given the MCP servers the card's session is handed again (the
+// context is not repeated: it goes with a new session's first message).
+func resumeSpec(card protocol.Card, path string, servers []agents.MCPServer) agents.StartSpec {
 	return agents.StartSpec{
 		Cwd: path, Model: card.Model, Thinking: thinkingOrEmpty(card.Thinking), PermissionMode: string(card.PermissionMode),
-		Instructions: "", Label: card.ID,
+		Instructions: "", MCPServers: servers, Label: card.ID,
 	}
 }
 

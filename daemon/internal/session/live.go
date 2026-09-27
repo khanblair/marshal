@@ -33,6 +33,14 @@ type liveSession struct {
 	diskLog *sessionLog
 	ring    *entryRing
 
+	// done is closed once the pump goroutine has finished: the channel closed, every event handled,
+	// and finishPump's own cleanup - giving up the internal MCP server above all - done. Nothing
+	// waits on it in the ordinary way, where a session ends and no one takes its place; it exists
+	// for the one case where a card's process is stopped and another started for the same card in a
+	// single step (a view switch, and a handoff), so the new session is not attached before the old
+	// one has let go of the card's server (see waitPump).
+	done chan struct{}
+
 	// term is set while the card's agent runs in a terminal (the terminal view): its screen, its input
 	// queue, and the calls that reach the pseudo-terminal. It is nil for a session in the chat view,
 	// and for every chat's session, which has no terminal.

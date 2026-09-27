@@ -2,6 +2,7 @@ package session
 
 import (
 	"context"
+	"time"
 
 	"github.com/khanblair/marshal/daemon/internal/agents"
 	"github.com/khanblair/marshal/daemon/internal/protocol"
@@ -16,9 +17,37 @@ import (
 // chat's session is pumped the same way, and has no card to move.
 func (m *Manager) pump(ls *liveSession) {
 	defer m.pumpWG.Done()
+	// Closed last of the three, so a waiter that sees it released knows finishPump's cleanup - and the
+	// giving up of the card's internal server that happens there - is done (see waitPump).
+	defer close(ls.done)
 	defer m.finishPump(ls)
 	for ev := range ls.events {
 		m.handleEvent(ls, ev)
+	}
+}
+
+// waitPump waits for a session's pump goroutine to finish. A view switch and a handoff both stop one
+// process and start the next for the same card in a single step, and both re-attach the card's
+// internal MCP server as they do it. The server is one per card, so the ending session's own cleanup
+// would otherwise take it away from the session that replaced it - leaving the new agent with a tool
+// command that answers nothing - whenever the pump happened to run after the new attachment. Waiting
+// makes the order certain: the old session has let go before the card is given to the new one.
+//
+// It answers false when the wait ran out, which the caller logs and carries on from: the restart is
+// still the right thing to do, and a pump that has not finished by then is a session whose agent is
+// ignoring its stop.
+func (m *Manager) waitPump(ls *liveSession) bool {
+	timer := time.NewTimer(pumpDrainTimeout)
+	defer timer.Stop()
+	select {
+	case <-ls.done:
+		return true
+	case <-timer.C:
+		return false
+	case <-m.ctx.Done():
+		// The daemon is shutting down: the new session will not be started either, so there is
+		// nothing left to order against.
+		return false
 	}
 }
 
@@ -173,7 +202,7 @@ func (m *Manager) deliverQueued(ctx context.Context, ls *liveSession, text strin
 	// they are now, the same way a message sent into an idle session does (B3.6).
 	m.applyCardSettings(ctx, ls)
 	m.markTurnStarting(ctx, ls)
-	if err := ls.agent.Send(ctx, ls.handle, agents.UserMessage{Text: text}); err != nil {
+	if err := m.sendTurn(ctx, ls, text); err != nil {
 		m.log.Error("could not deliver a queued message", ls.noun()+"_id", ls.key(), "error", err)
 		ls.release()
 		m.revertTurnStarting(ctx, ls)
@@ -194,6 +223,10 @@ func (m *Manager) deliverQueued(ctx context.Context, ls *liveSession, text strin
 // the chat's next message tries to pick the conversation back up.
 func (m *Manager) finishPump(ls *liveSession) {
 	defer m.forget(ls.key(), ls)
+	// What the session was given at its start - the internal MCP server - is given up here, which
+	// is the one place every ending passes through: a stop, a sleep, a view switch, a crash, and the
+	// daemon closing.
+	defer m.detach(ls)
 	if ls.term != nil {
 		// The terminal's writer stops with its session.
 		defer ls.term.close()

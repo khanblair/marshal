@@ -79,6 +79,18 @@ type Manager struct {
 	limitsMu sync.RWMutex
 	limits   RoleLimitsReader
 
+	// attachMu guards attacher, the module that gives a card's session the internal MCP server and
+	// the context it starts with (attach.go). It is built after the manager for the same reason the
+	// roles module is, and set once at start-up with SetAttacher.
+	attachMu     sync.RWMutex
+	attachModule Attacher
+
+	// awareMu guards awareModule, the module that builds the board-awareness summary a card's agent
+	// is given at the start of every turn (aware.go). It is built after the manager and set once at
+	// start-up with SetAwareness, for the same reason attachModule is.
+	awareMu     sync.RWMutex
+	awareModule Awareness
+
 	// sleepMu guards the two readers of the automatic sleep (B5.6): the sleep settings and the
 	// awake limit. Both modules are built after the manager for the same reason the roles module
 	// is, so both are set once at start-up rather than passed to NewManager.
@@ -106,7 +118,7 @@ func NewManager(st *store.Store, bus *events.Bus, proj *projects.Service, regist
 	if err != nil {
 		return nil, err
 	}
-	if cfg.History == nil || cfg.Plans == nil {
+	if cfg.History == nil || cfg.Plans == nil || cfg.Approvals == nil {
 		recorder, err := history.New(st)
 		if err != nil {
 			return nil, fmt.Errorf("make the history store: %w", err)
@@ -116,6 +128,9 @@ func NewManager(st *store.Store, bus *events.Bus, proj *projects.Service, regist
 		}
 		if cfg.Plans == nil {
 			cfg.Plans = recorder
+		}
+		if cfg.Approvals == nil {
+			cfg.Approvals = recorder
 		}
 	}
 	if cfg.Audit == nil {
@@ -248,7 +263,9 @@ func (m *Manager) goLive(ls *liveSession) error {
 			m.log.Error("could not stop a session that finished starting during shutdown",
 				ls.noun()+"_id", ls.key(), "error", err)
 		}
-		// No pump will ever run for it, so nothing else would close its log.
+		// No pump will ever run for it, so nothing else would close its log or give up what its
+		// session was given at its start.
+		m.detach(ls)
 		if err := ls.diskLog.close(); err != nil {
 			m.log.Error("could not close the log of a session that finished starting during shutdown",
 				ls.noun()+"_id", ls.key(), "error", err)
@@ -300,7 +317,7 @@ func (m *Manager) newLiveSession(o owner, sessionRowID string, sa startedAgent) 
 			permissionMode: sa.handle.PermissionMode,
 		},
 		diskLog: diskLog, ring: newEntryRing(m.cfg.RingBytes), term: term,
-		loop: harness.NewStuckDetector(),
+		loop: harness.NewStuckDetector(), done: make(chan struct{}),
 	}, nil
 }
 

@@ -11,6 +11,7 @@ import (
 	"github.com/khanblair/marshal/daemon/internal/protocol"
 	"github.com/khanblair/marshal/daemon/internal/security"
 	"github.com/khanblair/marshal/daemon/internal/store"
+	"github.com/khanblair/marshal/daemon/internal/store/db"
 )
 
 // harnessConfig builds the harness's view of one live session: the permission mode it runs under,
@@ -44,6 +45,31 @@ func (m *Manager) harnessConfig(ls *liveSession) (harness.Config, bool) {
 		}
 		return harness.Config{}, false
 	}
+	return m.configForCardRow(row)
+}
+
+// HarnessConfigFor answers the harness's view of a card as it is now, for the internal MCP server's
+// permission checks (docs/architecture.md section 13): the card's mode, Marshal's profile and
+// blocklist, and the card's worktree rule. It is the card half of harnessConfig, reachable without a
+// live session, because the server checks a call the same way whether or not the session's own
+// permission requests are what raised it.
+//
+// It answers false in the same cases harnessConfig does for a card: no mode, an unreadable row, or a
+// worktree whose project cannot be read. A decision made without those would be a guess.
+func (m *Manager) HarnessConfigFor(cardID string) (harness.Config, bool) {
+	row, err := m.store.Queries().GetCard(m.ctx, cardID)
+	if err != nil {
+		if !store.IsNotFound(err) {
+			m.log.Error("could not read a card to decide a tool call", "card_id", cardID, "error", err)
+		}
+		return harness.Config{}, false
+	}
+	return m.configForCardRow(row)
+}
+
+// configForCardRow builds a card's harness rules from its row, or reports false when there is nothing
+// careful to decide with.
+func (m *Manager) configForCardRow(row db.Card) (harness.Config, bool) {
 	if row.PermissionMode == "" {
 		return harness.Config{}, false
 	}
@@ -54,7 +80,7 @@ func (m *Manager) harnessConfig(ls *liveSession) (harness.Config, bool) {
 	if err != nil {
 		// A card with a worktree whose project cannot be read would otherwise be decided without the
 		// one rule every mode keeps; the careful direction is the person's, not a guess.
-		m.log.Error("could not build a card's worktree rule", "card_id", ls.cardID, "error", err)
+		m.log.Error("could not build a card's worktree rule", "card_id", row.ID, "error", err)
 		return harness.Config{}, false
 	}
 	if hasWorktree {
@@ -106,6 +132,16 @@ func (m *Manager) answerWithoutAsking(ls *liveSession, e agents.PermissionReques
 			"title": e.Title, "path": e.Path, "command": e.Command,
 		},
 	})
+	// This request never goes through holdPermission, so it is never given an approval id or a row
+	// in the approvals table (S8b) - there is nothing for a person to answer, since the daemon just
+	// did. It still gets its own history row, already resolved, the way every PermissionRequested
+	// did before this change; a card is never left with an unrecorded permission decision just
+	// because nobody was asked.
+	resolved := history.StateOK
+	if decision == protocol.ApprovalDecisionDenied {
+		resolved = history.StateFailed
+	}
+	m.appendApprovalHistory(ls, "", resolved, e)
 	if decision == protocol.ApprovalDecisionDenied {
 		m.noteRefusal(ls, e, out, mode)
 	}

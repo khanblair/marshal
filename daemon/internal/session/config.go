@@ -28,6 +28,11 @@ const (
 	resumeTimeout = 30 * time.Second
 	// closeStopTimeout bounds one agent.Stop call inside Manager.Close.
 	closeStopTimeout = 15 * time.Second
+	// pumpDrainTimeout bounds how long a view switch or a handoff waits for the old session's pump
+	// goroutine to finish, so what the ending session gives up - above all the card's internal MCP
+	// server - is let go before the card is handed to the session that replaces it. It is a drain,
+	// not a start: the process is already gone when the wait begins.
+	pumpDrainTimeout = 10 * time.Second
 	// logFlushInterval is how often a session's on-disk log is flushed on a timer, so a crash
 	// loses at most this much unflushed chat text.
 	logFlushInterval = time.Second
@@ -66,6 +71,11 @@ type Config struct {
 	// store it already has; set it to share the history module's own store, which is what pages a
 	// card's plan back in its chat.
 	Plans PlanStore
+	// Approvals reads and writes the one history row an approval keeps (docs/backend-checklist.md
+	// B3.4, S8b): written with the approval's own id once it exists, and rewritten in place when
+	// the approval is answered. Left unset, the manager writes to the store it already has, the way
+	// History and Plans do.
+	Approvals ApprovalHistory
 	// Terminals makes the agent that runs a card's CLI in a pseudo-terminal, for the terminal view
 	// (docs/architecture.md 4.3), by the same kinds as the registry the manager starts chat sessions
 	// through. Every agent it makes must also be an agents.Terminal, as the PTY adapter is. A kind

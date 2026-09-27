@@ -94,10 +94,19 @@ func (m *Manager) startFresh(ctx context.Context, cardID string) (protocol.Card,
 	}
 	sa, err := m.startAgent(ctx, card, path)
 	if err != nil {
+		// The agent never started, so nothing will ever pump this session, and what attach gave it
+		// would otherwise be held for a card with no session at all.
+		m.detachCard(card.ID)
 		m.undoWorktree(project, path, branch, cardID)
 		return protocol.Card{}, err
 	}
-	return m.registerNewSession(ctx, card, sa)
+	registered, err := m.registerNewSession(ctx, card, sa)
+	if err != nil {
+		// The session never became live, so no pump will release what it was given.
+		m.detachCard(card.ID)
+		return protocol.Card{}, err
+	}
+	return registered, nil
 }
 
 // makeWorktree creates the card's worktree and branch, sparse in a monorepo, and records them on
@@ -154,12 +163,14 @@ func (m *Manager) undoWorktree(project protocol.Project, path, branch, cardID st
 // its whole life, so there is nothing to share, and Registry.New already documents "every call
 // makes a new one".
 func (m *Manager) startAgent(ctx context.Context, card protocol.Card, path string) (startedAgent, error) {
+	// The internal MCP server and the context the session starts with (architecture sections 7 and
+	// 11.4). Both are empty when nothing is set up, or when the module that builds them cannot: a
+	// card whose memory cannot be read is started without it rather than refused, and the failure is
+	// logged by attach.
+	attached := m.attach(ctx, card)
 	spec := agents.StartSpec{
 		Cwd: path, Model: card.Model, Thinking: thinkingOrEmpty(card.Thinking), PermissionMode: string(card.PermissionMode),
-		// Instructions (role instructions, project memory, board awareness: architecture section 7)
-		// are always empty in Phase 1: the roles module (Phase 5) and the memory module (Phase 7)
-		// that would fill them do not exist yet.
-		Instructions: "", Label: card.ID,
+		Instructions: attached.Instructions, MCPServers: attached.Servers, Label: card.ID,
 	}
 	return m.launch(ctx, cardOwner(card), card.Agent, spec)
 }

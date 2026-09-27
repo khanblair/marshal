@@ -35,7 +35,22 @@ func (s *StoredStates) CardSession(ctx context.Context, cardID string) (*project
 	row, err := s.store.Queries().GetSessionByCard(ctx, cardID)
 	switch {
 	case err == nil:
-		return &projects.SessionInfo{State: protocol.SessionState(row.State), View: protocol.CardViewMode(row.ViewMode)}, nil
+		info := projects.SessionInfo{State: protocol.SessionState(row.State), View: protocol.CardViewMode(row.ViewMode)}
+		if info.State == protocol.SessionStateWaitingApproval {
+			// A query only when the state says it might be waiting on one: every other card read
+			// pays nothing for this (S8b).
+			approval, err := s.store.Queries().GetPendingApprovalBySession(ctx, row.ID)
+			switch {
+			case err == nil:
+				info.ApprovalID = approval.ID
+			case store.IsNotFound(err):
+				// The session says waiting-approval but nothing is pending: it was just answered and
+				// the card has not moved off Needs you yet. Empty is the right answer, not an error.
+			default:
+				return nil, fmt.Errorf("read the waiting approval of card %s: %w", cardID, err)
+			}
+		}
+		return &info, nil
 	case store.IsNotFound(err):
 		return nil, nil
 	default:
@@ -51,8 +66,27 @@ func (s *StoredStates) ProjectSessions(ctx context.Context, projectID string) (m
 		return nil, fmt.Errorf("read the sessions of project %s: %w", projectID, err)
 	}
 	infos := make(map[string]projects.SessionInfo, len(rows))
+	waiting := false
 	for _, row := range rows {
 		infos[row.CardID] = projects.SessionInfo{State: protocol.SessionState(row.State), View: protocol.CardViewMode(row.ViewMode)}
+		if protocol.SessionState(row.State) == protocol.SessionStateWaitingApproval {
+			waiting = true
+		}
+	}
+	if !waiting {
+		// Nothing in this project is waiting on an approval right now, so the batched read below
+		// (S8b) is skipped: the common case of a board with no waiting approvals costs nothing more
+		// than it did before this project's cards ever carried one.
+		return infos, nil
+	}
+	approvals, err := s.store.Queries().ListPendingApprovalsByProject(ctx, projectID)
+	if err != nil {
+		return nil, fmt.Errorf("read the waiting approvals of project %s: %w", projectID, err)
+	}
+	for _, approval := range approvals {
+		info := infos[approval.CardID]
+		info.ApprovalID = approval.ApprovalID
+		infos[approval.CardID] = info
 	}
 	return infos, nil
 }
