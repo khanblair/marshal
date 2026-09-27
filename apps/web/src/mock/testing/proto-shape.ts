@@ -6,9 +6,9 @@
  * This module translates between the two so the differential tests can keep comparing the
  * whole state: call arguments go to the prototype in its numbers, and the port's values are
  * read back in the prototype's shape. A project from the daemon also has three fields the
- * prototype's projects lack, and the state has one list the prototype's lacks (`agents`, the
- * daemon's catalog; the prototype's fixed table is in `M.AGENTS`), and they are left out. Nothing
- * here hides any other difference.
+ * prototype's projects lack, and the state has some of its own the prototype's lacks (the daemon's
+ * catalog, the stored Home numbers, a card's restore points, and the keep-awake length), and they
+ * are left out. Nothing here hides any other difference.
  */
 import { cardNumber, parseCardKey } from "../card-key";
 import type { Marshal } from "../marshal";
@@ -48,13 +48,29 @@ function projectFields(project: Json): Json {
 }
 
 /**
- * The whole state without what the port keeps beyond the prototype's fields: `agents`, the daemon's
- * catalog, and `stats`, the stored Home numbers (`sync/home-stats.ts`). Anything else is left as it
- * is.
+ * The whole state without what the port keeps beyond the prototype's fields:
+ *
+ * - `agents`, the daemon's catalog (the prototype's fixed table is in `M.AGENTS`), and `stats`, the
+ *   stored Home numbers (`sync/home-stats.ts`).
+ * - `checkpoints`, a card's restore points, which the port keeps in the store (Phase 5, B5.3) and
+ *   fills from the daemon's own activity. The prototype keeps no such state: its `CardDetail.dc.html`
+ *   makes three fake rows inside `renderVals`, so there is nothing here to compare them against.
+ * - A sleep settings object's `keepAwake`, the length "Keep awake" holds a card. It has no field on
+ *   the screen, and the prototype writes the number straight into its sentence
+ *   (`design/store.js`, "Kept awake for 15 more minutes").
+ *
+ * Anything else is left as it is.
  */
 function withoutPortOnly(value: unknown): unknown {
   if (!isObject(value) || !Array.isArray(value.cards) || !("agents" in value)) return value;
-  const { agents: _daemon, stats: _numbers, ...rest } = value;
+  const { agents: _daemon, stats: _numbers, checkpoints: _restorePoints, ...rest } = value;
+  const sleep = rest.sleep;
+  return isObject(sleep) ? { ...rest, sleep: sleepFields(sleep) } : rest;
+}
+
+/** A sleep settings object without the port-only `keepAwake` length. */
+function sleepFields(sleep: Json): Json {
+  const { keepAwake: _kept, ...rest } = sleep;
   return rest;
 }
 

@@ -1,5 +1,6 @@
-import type { Agent } from "@marshal/protocol";
+import type { Agent, Preview } from "@marshal/protocol";
 import type { ConnectionState } from "~/data/connection-machine";
+import type { CheckpointRow } from "~/data/mappers/checkpoints";
 import type { CardKey } from "./card-key";
 import type { CalEvent, Integration, Profile, Provider, Role, Schedule } from "./settings-types";
 import type {
@@ -13,7 +14,7 @@ import type {
   Dialog,
   FeedItem,
   Filter,
-  Limits,
+  LimitsByScope,
   MobileTab,
   Mode,
   Msg,
@@ -26,14 +27,13 @@ import type {
   ResolvedTheme,
   Route,
   SavedView,
+  SleepChoice,
   SortSpec,
   SwimKey,
   Theme,
   Toast,
   ViewKey,
 } from "./types";
-
-type PreviewState = "stopped" | "starting" | "running";
 
 /** The link with the daemon as the screens see it. The store follows `data.connection` into this. */
 interface ConnectionView {
@@ -63,6 +63,8 @@ export interface State {
   cards: Card[];
   chat: Record<CardKey, Msg[]>;
   act: Record<CardKey, Activity[]>;
+  /** A card's restore points, newest first (section S10, B5.3), read from the daemon when it opens. */
+  checkpoints: Record<CardKey, CheckpointRow[]>;
   chats: Record<string, Chat[]>;
   checks: Record<CardKey, Check[]>;
   chatOpen: Record<string, string | null>;
@@ -92,8 +94,8 @@ export interface State {
   sidebarCollapsed: boolean;
   mobileTab: MobileTab;
   menu: string | null;
-  limits: { global: Limits; [pid: string]: Limits };
-  sleep: { idle: number; warn: number; channel: string; restore: string };
+  limits: LimitsByScope;
+  sleep: SleepChoice;
   roles: Role[];
   providers: Provider[];
   integrations: Integration[];
@@ -129,7 +131,12 @@ export interface State {
   sideOpen?: boolean;
   settingsPid?: string;
   schedEdit?: string | null;
-  preview?: Record<CardKey, PreviewState>;
+  /**
+   * A card's live preview (section S13): the daemon's own value, kept whole so a snapshot and a
+   * `preview.state_changed` event are applied the same way and can never disagree. A card with no
+   * entry has no preview read for it yet, which the tab draws as stopped.
+   */
+  preview?: Record<CardKey, Preview>;
   notes?: Record<CardKey, string>;
   allKind?: "activity" | "ci";
   quickAddAt?: string | null;

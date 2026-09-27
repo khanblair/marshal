@@ -1,5 +1,6 @@
 import type { CardKey } from "../card-key";
 import type { IdCounters } from "../ids";
+import type { CheckpointRow } from "~/data/mappers/checkpoints";
 import type { CalEvent, Integration, Profile, Provider, Role, Schedule } from "../settings-types";
 import type { Activity, Card, Chat, Check, FeedItem, Msg, Notice, Person } from "../types";
 import { seedCalEvents, seedSchedules } from "./calendar";
@@ -20,6 +21,8 @@ export interface Seed {
   chat: Record<CardKey, Msg[]>;
   chats: Record<string, Chat[]>;
   act: Record<CardKey, Activity[]>;
+  /** A card's restore points. The mock makes none: they are Marshal's own commits (B5.3, S10). */
+  checkpoints: Record<CardKey, CheckpointRow[]>;
   checks: Record<CardKey, Check[]>;
   roles: Role[];
   providers: Provider[];
@@ -51,6 +54,7 @@ export function buildSeed(ids: IdCounters, loadedAt: number): Seed {
     chat,
     chats,
     act,
+    checkpoints: {},
     checks,
     roles: seedRoles(),
     providers: seedProviders(),

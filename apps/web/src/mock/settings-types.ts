@@ -1,36 +1,40 @@
 /* Settings entities: roles, provider keys, integrations, schedules, calendar, profile. */
 
-export interface Role {
-  name: string;
-  starter: boolean;
-  overridden: boolean;
-  skills: string[];
-  mcp: string[];
-  limits: { time: number; cost: number; rounds: number };
-  backup: string;
-  desc: string;
-  agent: string;
-  model: string;
-  think: string;
-  perm: string;
-  strength: string;
-  instr: string;
-}
-export interface Provider {
-  id: string;
-  name: string;
-  st: "saved" | "empty" | "invalid";
-  masked: string;
-  models: string;
-  error?: string;
-  local?: boolean;
-}
+import type { IntegrationTest } from "~/data/mappers/integrations";
+
+/**
+ * A provider row: the daemon's, mapped by `~/data/mappers/providers.ts`. It is defined there, not
+ * here, so the mapper never depends on the mock, and re-exported here because the screens import
+ * their store types from `~/mock`.
+ */
+export type {
+  ProviderRow as Provider,
+  ProviderTest,
+  ProviderTestCheck,
+} from "~/data/mappers/providers";
+/**
+ * A role row: the daemon's, mapped by `~/data/mappers/roles.ts`. It is defined there, not here, so
+ * the mapper never depends on the mock, and re-exported here because the screens import their store
+ * types from `~/mock`.
+ */
+export type { Role, RoleRows } from "~/data/mappers/roles";
+/**
+ * A connection's last test, and the state a snapshot writes onto a connection's row: the daemon's,
+ * mapped by `~/data/mappers/integrations.ts` and re-exported here for the same reason.
+ */
+export type { IntegrationState, IntegrationTest } from "~/data/mappers/integrations";
 export interface Integration {
   id: string;
   name: string;
   icon: string;
   st: "connected" | "none" | "error";
   detail: string;
+  /**
+   * The last connection test's result, or absent when the connection was never tested. It is the
+   * daemon's, filled by `sync/integrations.ts` for a connection whose section is switched, and the
+   * empty form is dropped so the screen can ask `if (row.lastTest)`.
+   */
+  lastTest?: IntegrationTest;
 }
 export interface Schedule {
   id: string;

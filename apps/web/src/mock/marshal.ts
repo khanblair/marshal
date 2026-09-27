@@ -6,19 +6,30 @@ import { sendToCard } from "~/sync/card-session";
 import * as cardView from "~/sync/card-view";
 import * as chatWrites from "~/sync/chat-actions";
 import { retryChat, sendToChat } from "~/sync/chat-session";
+import * as ciWrites from "~/sync/ci-actions";
 import * as connection from "~/sync/connection-actions";
 import { loadCardDiff, loadFileHunks } from "~/sync/diff";
 import { homeActivityPage } from "~/sync/home-feed";
+import * as integrationWrites from "~/sync/integration-actions";
+import * as integrations from "~/sync/integrations";
+import * as limitWrites from "~/sync/limit-actions";
+import * as noticeWrites from "~/sync/notice-actions";
 import * as onboardingWrites from "~/sync/onboarding-actions";
 import * as profileWrites from "~/sync/profile-actions";
 import * as projects from "~/sync/project-actions";
+import * as providerWrites from "~/sync/provider-actions";
+import * as previewWrites from "~/sync/preview";
+import * as roleWrites from "~/sync/role-actions";
+import { roleNames } from "~/sync/roles";
 import * as savedViews from "~/sync/saved-views";
 import { createPaletteSearch } from "~/sync/search";
+import * as sleepWrites from "~/sync/sleep-actions";
 import * as approvals from "./actions/approvals";
 import * as cardCreate from "./actions/card-create";
 import * as cards from "./actions/cards";
 import * as chats from "./actions/chats";
 import * as checklists from "./actions/checklists";
+import * as checkpoints from "./actions/checkpoints";
 import * as comments from "./actions/comments";
 import * as filters from "./actions/filters";
 import * as messages from "./actions/messages";
@@ -95,6 +106,33 @@ function queries(ctx: Ctx) {
     // The terminal view's decoded, escape-stripped text (section S9): empty for a mock-only card,
     // or a real one nothing has ever applied to.
     terminalText: cardView.terminalTextOf,
+    // True while the cost and awake limits (S26b) are the daemon's: the limits form then saves
+    // through `saveLimits` rather than writing the store itself.
+    limitsOnDaemon: (c: Ctx) => isDaemon("S26b", sectionsOf(c.env)),
+    // True while the roles (S27) are the daemon's: the role editor then saves, renames, duplicates,
+    // resets, deletes, and imports through it rather than writing the store itself.
+    rolesOnDaemon: (c: Ctx) => isDaemon("S27", sectionsOf(c.env)),
+    // True while the notices (S23) are the daemon's, and while the sleep settings (S26a) are: the
+    // notice's buttons and the Sessions panel of Settings then go through the daemon.
+    noticesOnDaemon: (c: Ctx) => isDaemon("S23", sectionsOf(c.env)),
+    sleepOnDaemon: (c: Ctx) => isDaemon("S26a", sectionsOf(c.env)),
+    // True while "Simulate CI failure" is the daemon's for this card (N28, B6.4): the card is the
+    // daemon's own and that daemon runs in dev mode, which is the only mode that has the routes. The
+    // card menu reads it to decide which items to draw, so the rule lives beside the action that
+    // uses it (`sync/ci-actions.ts`). `ciOnDaemon` is the first half of the same pair - whether a
+    // daemon owns the card at all - which is what tells a card the mock made from one it did not.
+    ciOnDaemon: ciWrites.ciOnDaemon,
+    simulateOnDaemon: ciWrites.simulateOnDaemon,
+    // True while a card's live preview (S13) is the daemon's: the Preview tab then starts, stops, and
+    // shoots through it rather than drawing the mock's own story, which is gone with the section.
+    previewOnDaemon: previewWrites.previewOnDaemon,
+    // The bytes of a screenshot, fetched with the token and shown as an object URL, the way an
+    // avatar is (`sync/avatar.ts`). Null when there is nothing to show.
+    previewShotImage: previewWrites.readPreviewShotImage,
+    // True while a connection's row in Settings (S29a for GitHub) is the daemon's: the row then
+    // reads its status, its sentence, and its last test from the daemon, and its buttons call the
+    // daemon's routes rather than the mock's own "connect" story.
+    connectionOnDaemon: integrations.connectionOnDaemon,
   });
 }
 
@@ -147,7 +185,21 @@ function appActions(ctx: Ctx) {
     endTour: onboardingOnDaemon ? onboardingWrites.endTour : onboarding.endTour,
     setTheme: settings.setTheme,
     runChecks: settings.runChecks,
-    simulateCiFailure: settings.simulateCiFailure,
+    // "Simulate CI failure" (N28, B6.4) is the mock's own story until the card is the daemon's and
+    // that daemon runs in dev mode, where the two modes are the daemon's own work. It is decided per
+    // call rather than once per store, because one store holds both a card the mock made and one the
+    // daemon did, exactly like `setMode` above.
+    simulateCiFailure: (c: Ctx, id?: CardKey) => {
+      const card = id === undefined ? undefined : q.card(c, id);
+      if (id !== undefined && ciWrites.simulateOnDaemon(c, card))
+        void ciWrites.simulateSynthetic(c, id);
+      else settings.simulateCiFailure(c, id);
+    },
+    // The real mode (B6.4) has no mock story at all: it pushes a failing change to the card's own
+    // branch on GitHub, which only a dev daemon can do, so nothing happens without one.
+    simulateCiFailureReal: (c: Ctx, id: CardKey) => {
+      if (ciWrites.simulateOnDaemon(c, q.card(c, id))) ciWrites.simulateReal(c, id);
+    },
     addFilter: filters.addFilter,
     removeFilter: filters.removeFilter,
     clearFilters: filters.clearFilters,
@@ -155,6 +207,35 @@ function appActions(ctx: Ctx) {
     saveView: viewsOnDaemon ? savedViews.saveView : filters.saveView,
     saveProfile: profileOnDaemon ? profileWrites.saveProfile : settings.saveProfile,
     chooseAvatar: profileOnDaemon ? profileWrites.chooseAvatar : settings.chooseAvatar,
+    // The provider keys (S28) are the daemon's: the key lives in the OS keychain, only the masked
+    // form ever comes back, and the test runs in the daemon, so there is no mock behaviour to fall
+    // back to. A store with no data layer answers "not connected" the way every other daemon
+    // action does.
+    saveProviderKey: providerWrites.saveProviderKey,
+    testProviderKey: providerWrites.testProviderKey,
+    // The connections (S29a for GitHub) are the daemon's once their section is switched: the
+    // settings row saves the App's whole setup, forgets it, and runs its test through the daemon,
+    // which owns the keychain entry and the last test's result. The mock's own "connect" story
+    // stays in the screen for the rows whose sections are still the mock's.
+    connectGitHub: integrationWrites.connectGitHub,
+    disconnectIntegration: integrationWrites.disconnectIntegration,
+    testIntegration: integrationWrites.testIntegration,
+    // The limits (S26b) are the daemon's once the section is switched: the save compares the form
+    // with the store and PUTs or DELETEs one ceiling at a time. The mock's own save lives in the
+    // form itself, which picks this or that by `limitsOnDaemon`.
+    saveLimits: limitWrites.saveLimits,
+    // The roles (S27) are the daemon's once the section is switched: the editor saves, renames,
+    // duplicates, resets, deletes, and imports through it. The mock's own writes stay in the
+    // screen's `role-actions.ts`, which picks this or that by `rolesOnDaemon`.
+    saveRole: roleWrites.saveRole,
+    createRole: roleWrites.createRole,
+    duplicateRole: roleWrites.duplicateRole,
+    resetRole: roleWrites.resetRole,
+    deleteRole: roleWrites.deleteRole,
+    importRoles: roleWrites.importRoles,
+    // The sleep settings (S26a) are the daemon's once the section is switched. The mock's own write
+    // stays in the screen's `sleep-actions.ts`, which picks this or that by `sleepOnDaemon`.
+    saveSleepSettings: sleepWrites.saveSleepSettings,
     addProject: projects.addProject,
     renameProject: projects.renameProject,
     saveProject: projects.saveProject,
@@ -173,6 +254,15 @@ function cardActions(ctx: Ctx) {
   // The session hold (pause, sleep, wake, pin) is its own section, S7c, switched on its own
   // schedule: a card can be the daemon's (S5a) before its hold controls are.
   const holdOnDaemon = isDaemon("S7c", sectionsOf(ctx.env));
+  // The notices are their own section too (S23). While the hold controls are the daemon's but the
+  // notices are still the mock's, the notice's own buttons change nothing and say so
+  // (`sync/card-hold.ts`); once S23 is switched they are the daemon's, and they are the ones that
+  // win, because a notice is what those buttons are about.
+  const noticesOnDaemon = isDaemon("S23", sectionsOf(ctx.env));
+  // Bypass is its own section too (S7b): the confirmation is the screen's either way, and the grant
+  // is the daemon's once the section is switched, because it is the daemon that holds the project
+  // lock and writes the audit row.
+  const bypassOnDaemon = isDaemon("S7b", sectionsOf(ctx.env));
   return bindActions(ctx, {
     dragStart,
     moveCard: onDaemon ? cardWrites.moveCard : cards.moveCard,
@@ -180,8 +270,8 @@ function cardActions(ctx: Ctx) {
     deleteCard: onDaemon ? cardWrites.deleteCard : cards.deleteCard,
     rename: onDaemon ? cardWrites.rename : cards.rename,
     setSetting: onDaemon ? cardWrites.setSetting : cards.setSetting,
-    requestBypass: cards.requestBypass,
-    turnOffBypass: cards.turnOffBypass,
+    requestBypass: bypassOnDaemon ? cardWrites.requestBypass : cards.requestBypass,
+    turnOffBypass: bypassOnDaemon ? cardWrites.turnOffBypass : cards.turnOffBypass,
     quickAdd: onDaemon ? cardWrites.quickAdd : cardCreate.quickAdd,
     newCard: cardCreate.newCard,
     createCard: onDaemon ? cardWrites.createCard : cardCreate.createCard,
@@ -191,16 +281,34 @@ function cardActions(ctx: Ctx) {
     wake: holdOnDaemon ? cardHold.wake : sessions.wake,
     pin: holdOnDaemon ? cardHold.pin : sessions.pin,
     stopSession: holdOnDaemon ? cardHold.stopSession : sessions.stopSession,
-    keepAwake: holdOnDaemon ? cardHold.keepAwake : sessions.keepAwake,
-    sleepAll: holdOnDaemon ? cardHold.sleepAll : sessions.sleepAll,
-    keepAllAwake: holdOnDaemon ? cardHold.keepAllAwake : sessions.keepAllAwake,
-    dismissNotice: sessions.dismissNotice,
+    keepAwake: noticesOnDaemon
+      ? noticeWrites.keepAwake
+      : holdOnDaemon
+        ? cardHold.keepAwake
+        : sessions.keepAwake,
+    sleepAll: noticesOnDaemon
+      ? noticeWrites.sleepAll
+      : holdOnDaemon
+        ? cardHold.sleepAll
+        : sessions.sleepAll,
+    keepAllAwake: noticesOnDaemon
+      ? noticeWrites.keepAllAwake
+      : holdOnDaemon
+        ? cardHold.keepAllAwake
+        : sessions.keepAllAwake,
+    dismissNotice: noticesOnDaemon ? noticeWrites.dismissNotice : sessions.dismissNotice,
     toggleItem: checklists.toggleItem,
     addItem: checklists.addItem,
     removeItem: checklists.removeItem,
     addChecklist: checklists.addChecklist,
     deleteChecklist: checklists.deleteChecklist,
     toggleHideDone: checklists.toggleHideDone,
+    restoreCheckpoint: checkpoints.restoreCheckpoint,
+    // A card's live preview (S13): the daemon owns whether a dev server runs and which screenshots
+    // exist, so these ask it and the tab draws whatever it last answered.
+    startPreview: previewWrites.startCardPreview,
+    stopPreview: previewWrites.stopCardPreview,
+    takePreviewShot: previewWrites.takeCardPreviewShot,
     addComment: comments.addComment,
     deleteComment: comments.deleteComment,
     toggleMember: comments.toggleMember,
@@ -255,7 +363,6 @@ export function createMarshalIn(ctx: Ctx) {
     CI,
     THINK,
     PERMS,
-    ROLE_NAMES,
     VIEWS,
     T0: ctx.today,
     D: DAY_MS,
@@ -287,6 +394,14 @@ export function createMarshalIn(ctx: Ctx) {
     /** The models in the catalog that have no thinking setting. */
     get NO_THINK(): readonly string[] {
       return agents.noThink(ctx);
+    },
+    /**
+     * The role names every picker lists (N18). Once the roles (S27) are the daemon's, they are its
+     * own roles, so a person's own roles appear in the New card dialog and the chat target picker;
+     * until then they are the prototype's eight.
+     */
+    get ROLE_NAMES(): readonly string[] {
+      return isDaemon("S27", sectionsOf(ctx.env)) ? roleNames(ctx) : ROLE_NAMES;
     },
     ...queries(ctx),
     ...appActions(ctx),

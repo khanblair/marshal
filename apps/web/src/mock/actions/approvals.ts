@@ -1,3 +1,9 @@
+import {
+  approvePlan as approvePlanOnDaemon,
+  plansOnDaemon,
+  rejectPlan as rejectPlanOnDaemon,
+  savePlan as savePlanOnDaemon,
+} from "~/sync/plan-actions";
 import { type CardKey, cardLabel } from "../card-key";
 import type { Ctx } from "../context";
 import { addAct, feed, runTool, seq, setState, streamCard, toast } from "../engine";
@@ -125,7 +131,24 @@ export function deny(ctx: Ctx, id: CardKey): void {
 
 const PLAN_FIRST_FILE_MS = 2200;
 
+/**
+ * Starts work on the plan. Once the plans are the daemon's (section S8c) the answer is one of its
+ * routes: the card it answers for, the plan message it stores, and the activity row it writes are
+ * all the daemon's, so nothing here changes the store and the `plan.updated` that follows draws what
+ * changed. Until then the plan is the mock's own and the write below is.
+ *
+ * The switch is at this module's own door rather than at each button, because the buttons are not
+ * the only way in: the card's action row, the `A` key, and the plan block all arrive here.
+ */
 export function approvePlan(ctx: Ctx, id: CardKey): void {
+  if (plansOnDaemon(ctx)) {
+    void approvePlanOnDaemon(ctx, id);
+    return;
+  }
+  approvePlanLocally(ctx, id);
+}
+
+function approvePlanLocally(ctx: Ctx, id: CardKey): void {
   const c = card(ctx, id);
   const p = waitingPlan(ctx, id);
   if (!p || !c) return;
@@ -158,6 +181,14 @@ export function approvePlan(ctx: Ctx, id: CardKey): void {
 }
 
 export function rejectPlan(ctx: Ctx, id: CardKey): void {
+  if (plansOnDaemon(ctx)) {
+    void rejectPlanOnDaemon(ctx, id);
+    return;
+  }
+  rejectPlanLocally(ctx, id);
+}
+
+function rejectPlanLocally(ctx: Ctx, id: CardKey): void {
   const c = card(ctx, id);
   const p = waitingPlan(ctx, id);
   if (!p || !c) return;
@@ -179,13 +210,30 @@ export function rejectPlan(ctx: Ctx, id: CardKey): void {
   );
 }
 
+/**
+ * Opens or closes the plan's editor. This is the screen's own state and not the plan's: whether a
+ * person is holding the steps open says nothing about where the plan stands, so it is the mock's
+ * even once the plan itself is the daemon's.
+ */
 export function editPlan(ctx: Ctx, id: CardKey, on: boolean): void {
   const p = waitingPlan(ctx, id);
   if (p) p.editing = on;
 }
 
-/** Saves edited plan steps, one per line; blank lines are dropped. */
+/**
+ * Saves edited plan steps, one per line; blank lines are dropped. Once the plans are the daemon's
+ * (S8c) the same text goes to it, which drops the blank lines and refuses a plan left with no steps
+ * in its own words. The plan stays waiting either way.
+ */
 export function savePlan(ctx: Ctx, id: CardKey, text: string): void {
+  if (plansOnDaemon(ctx)) {
+    void savePlanOnDaemon(ctx, id, text);
+    return;
+  }
+  savePlanLocally(ctx, id, text);
+}
+
+function savePlanLocally(ctx: Ctx, id: CardKey, text: string): void {
   const p = waitingPlan(ctx, id);
   if (!p) return;
   p.steps = text

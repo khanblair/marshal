@@ -19,8 +19,20 @@ const env = (): Env => ({
   viewport: { w: window.innerWidth, h: window.innerHeight },
   applyTheme: () => {},
   // This suite proves the seed the reservoir draws from, so the Home feed stays on the mock too,
-  // whatever the register says.
-  sections: { ...MOCK_CARDS_AND_HISTORY, ...MOCK_PERSON_SECTIONS, S17: "mock", S20: "mock" },
+  // whatever the register says, and so do the sections the daemon holds once they are switched: the
+  // provider keys, whose values are the keychain's now, the limits (S26b), the roles (S27), whose
+  // own list the store would otherwise start empty, and the GitHub row (S29a), which the daemon's
+  // own connection empties.
+  sections: {
+    ...MOCK_CARDS_AND_HISTORY,
+    ...MOCK_PERSON_SECTIONS,
+    S17: "mock",
+    S20: "mock",
+    S26b: "mock",
+    S27: "mock",
+    S28: "mock",
+    S29a: "mock",
+  },
 });
 
 describe("seed", () => {

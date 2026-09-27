@@ -139,10 +139,11 @@ describe("the agent a new card starts with", () => {
   });
 
   it("is the built-in agent when the daemon has none that can be used, and never a missing one", () => {
-    const none = wireCatalog([
+    const noneUsable = wireCatalog([
       wireAgent({ kind: "claude", name: "Claude Code", status: "missing" }),
+      wireAgent({ kind: "builtin", name: "Built-in agent", status: "supported" }),
     ]);
-    expect(defaultAgent(storeWith(none).ctx)).toBe("Built-in agent");
+    expect(defaultAgent(storeWith(noneUsable).ctx)).toBe("Built-in agent");
     expect(defaultAgentOf([])).toBe("Claude Code");
   });
 });

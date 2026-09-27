@@ -1,6 +1,8 @@
+import { microsToDollars } from "~/data/mappers/limits";
+import { isDaemon } from "~/data/sections";
 import { type CardKey, cardLabelIn } from "./card-key";
 import { colOf, isAwake, PHONE_MAX_WIDTH_PX } from "./constants";
-import type { Ctx } from "./context";
+import { type Ctx, sectionsOf } from "./context";
 import { relTime } from "./format";
 import type { State } from "./state-types";
 import type { ApprovalMsg, Card, Chat, Column, Person, PlanMsg, Project } from "./types";
@@ -75,8 +77,42 @@ export interface Costs {
 const TODAY_SHARE = 0.92;
 const ORCHESTRATOR_TODAY_USD = { project: 0.42, all: 1.26 };
 
+/**
+ * The spend stored for a scope (section S19b): the daemon's own `costMicros`, in dollars. "Today" is
+ * the stored day whose midnight is today; "month" adds the stored days in the current calendar
+ * month. A scope the daemon has no days for spends nothing.
+ */
+function storedSpend(ctx: Ctx, pid?: string | null): { today: number; month: number } {
+  const days = pid
+    ? (ctx.S.stats.projects.find((row) => row.projectId === pid)?.days ?? [])
+    : ctx.S.stats.days;
+  const now = new Date(ctx.today);
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  let todayMicros = 0;
+  let monthMicros = 0;
+  for (const day of days) {
+    const at = new Date(day.day);
+    if (at.getFullYear() === year && at.getMonth() === month) monthMicros += day.costMicros;
+    if (day.day === ctx.today) todayMicros += day.costMicros;
+  }
+  return { today: microsToDollars(todayMicros), month: microsToDollars(monthMicros) };
+}
+
 export function costs(ctx: Ctx, pid?: string | null): Costs {
   const { S } = ctx;
+  // A ceiling the daemon has not set is absent, which the screens read as no ceiling at all: it
+  // comes out here as 0, and 0 means "no ceiling" everywhere a limit is read.
+  const limits = (pid && S.limits[pid]) || S.limits.global;
+  const ceilings = {
+    day: limits.day ?? 0,
+    monthL: limits.month ?? 0,
+    awakeL: limits.awake ?? 0,
+  };
+  // Once S19b is the daemon's, the cost numbers are its own stored spend rather than made up.
+  if (isDaemon("S19b", sectionsOf(ctx.env))) {
+    return { ...storedSpend(ctx, pid), ...ceilings };
+  }
   const open = S.cards.filter((c) => inProject(c, pid) && c.state !== "done");
   const spent = open.reduce((a, c) => a + c.cost, 0);
   const today =
@@ -84,13 +120,10 @@ export function costs(ctx: Ctx, pid?: string | null): Costs {
   const base = pid
     ? (proj(ctx, pid)?.monthBase ?? 0)
     : S.projects.reduce((a, p) => a + (p.monthBase ?? 0), 0);
-  const limits = (pid && S.limits[pid]) || S.limits.global;
   return {
     today,
     month: base + today,
-    day: limits.day,
-    monthL: limits.month,
-    awakeL: limits.awake,
+    ...ceilings,
   };
 }
 

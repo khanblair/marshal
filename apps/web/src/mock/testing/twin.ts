@@ -73,11 +73,40 @@ export function makeTwin(hash = "#nosim"): Twin {
     sections: {
       ...sectionStatus,
       S5a: "mock",
+      // Bypass permissions is the daemon's since its cutover (S7b), and the twin runs no daemon, so
+      // it is pinned to the mock like the other sections this suite exercises. The daemon path has
+      // its own tests, with a fake daemon (sync/card-actions.test.ts).
+      S7b: "mock",
       S7c: "mock",
       S8a: "mock",
+      // The plans (S8c) are the daemon's since their cutover, and a plan lives in the card's chat,
+      // which this suite keeps on the mock: the twin approves, rejects, and edits the prototype's
+      // own plan blocks. The daemon path has its own tests (sync/plan-actions.test.ts).
+      S8c: "mock",
       S10: "mock",
       S17: "mock",
       S20: "mock",
+      // The provider keys are the daemon's since their cutover (S28), and the keys themselves live
+      // in the OS keychain, so the twin keeps the prototype's rows.
+      S28: "mock",
+      // The cost numbers (S19b) and the limits (S26b) are the daemon's since their cutover too, and
+      // the twin runs no daemon, so it keeps the prototype's fabricated spend and its own scopes.
+      S19b: "mock",
+      S26b: "mock",
+      // The roles (S27) are the daemon's since their cutover too. The twin edits the prototype's own
+      // eight roles, so it keeps the mock's list and its own writes.
+      S27: "mock",
+      // The notices (S23) and the sleep choices (S26a) are the daemon's since their cutover, and the
+      // twin runs no daemon. The prototype's own sleep group is what its notice tests press, and
+      // "Keep awake" is the mock's own there: with the daemon owning them the actions could only say
+      // they are not available. The daemon path has its own tests (`daemon-notices-store.ts`).
+      S23: "mock",
+      S26a: "mock",
+      // The GitHub connection (S29a) is the daemon's since its cutover, and the twin runs no daemon:
+      // the prototype's own "installed on 3 repositories" row is what its settings tests draw. The
+      // connections of later phases (S29b to S29g) are the mock's whatever the register says, so only
+      // GitHub's own row is pinned here.
+      S29a: "mock",
       // The person too: the prototype's people, saved views, and profile are the mock's own.
       ...MOCK_PERSON_SECTIONS,
     },

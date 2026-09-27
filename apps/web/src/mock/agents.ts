@@ -1,23 +1,23 @@
+import type { AgentCatalog } from "@marshal/protocol";
 import {
   type AgentOption,
   thinkSupportedIn,
   toAgentOptions,
   toLegacyAgents,
 } from "~/data/mappers/agents";
-import { withBuiltIn } from "~/sync/agents";
 import type { Ctx } from "./context";
 import type { AgentInfo } from "./types";
 
 /* Queries on the agent catalog. It is mirrored from the daemon into `S.agents` (`sync/agents.ts`);
-   these read it, with the built-in agent added after the daemon's own, so the pickers, the card
-   settings, and the mock's own actions all see the same list. A name or model the catalog does not
-   know is never an error: it reads as "no models" and "no thinking". */
+   these read it as it is, so the pickers, the card settings, and the mock's own actions all see the
+   same list the daemon sent - built-in agent included, which the daemon lists last. A name or model
+   the catalog does not know is never an error: it reads as "no models" and "no thinking". */
 
 const PREFERRED_AGENT = "Claude Code";
 
-const catalogOf = (ctx: Ctx) => withBuiltIn(ctx.S.agents);
+const catalogOf = (ctx: Ctx): Pick<AgentCatalog, "agents"> => ({ agents: ctx.S.agents });
 
-/** Every agent a card can use, in the order to show them: the daemon's, then the built-in agent. A missing agent is in it, marked. */
+/** Every agent a card can use, in the daemon's order, the built-in agent last. A missing agent is in it, marked. */
 export const agentOptions = (ctx: Ctx): AgentOption[] => toAgentOptions(catalogOf(ctx));
 
 /** The catalog in the shape of the prototype's `AGENTS` table: by name, with model ids, an icon, and a version. */

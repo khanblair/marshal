@@ -12,9 +12,18 @@ import type { SleepNotice } from "../types";
 // The only way a daemon card gets into one is the mock's seeded notice, which names the prototype's
 // card keys: a daemon that holds the prototype fixture has cards under them.
 
-const ON_DAEMON = { ...sectionStatus, S5a: "daemon" as const, S7c: "daemon" as const };
+const ON_DAEMON = {
+  ...sectionStatus,
+  S5a: "daemon" as const,
+  S7c: "daemon" as const,
+  // The notices are their own section (S23) and are deliberately left on the mock here: this file is
+  // about what the notice's buttons say while the hold controls are the daemon's but the notices are
+  // still the mock's. Once S23 is the daemon's those buttons ask the daemon, which
+  // `daemon-notices-store.ts` covers.
+  S23: "mock" as const,
+};
 /** The mock's own cards and hold controls, whatever the register says. */
-const MOCK_HOLD = { ...MOCK_CARDS, S7c: "mock" as const };
+const MOCK_HOLD = { ...MOCK_CARDS, S7c: "mock" as const, S23: "mock" as const };
 
 let daemon: FakeDaemon | null = null;
 afterEach(() => {

@@ -63,6 +63,9 @@ const projectState = () =>
       ],
     },
     savedView: { api: "All cards", web: "All cards", mobile: "By package" },
+    // The prototype's own ceilings, for a store whose limits are still the mock's (S26b). Once the
+    // section is the daemon's the seed keeps only `{ global: {} }` (see `context.ts`), and a project
+    // with no ceiling set simply has no entry (`ensureProjectState`).
     limits: {
       global: { day: 25, month: 400, awake: 18 },
       api: { day: 10, month: 150, awake: 8 },
@@ -91,7 +94,16 @@ const uiState = () =>
     sidebarCollapsed: false,
     mobileTab: "home",
     menu: null,
-    sleep: { idle: 15, warn: 2, channel: "In app only", restore: "Auto-restore on startup" },
+    // The sleep settings (section S26a). The daemon holds them once the section is switched; the mock
+    // is the whole truth until then. `keepAwake` has no field on the screen: it is the length "Keep
+    // awake" holds a card, and it travels in every save (see `data/mappers/sleep-settings.ts`).
+    sleep: {
+      idle: 15,
+      warn: 2,
+      keepAwake: 15,
+      channel: "In app only",
+      restore: "Auto-restore on startup",
+    },
     settingsSection: "general",
     roleSel: "Worker",
     listCols: { ...DEFAULT_LIST_COLS },

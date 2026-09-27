@@ -43,6 +43,7 @@ const API = [
   "chatSend",
   "chatsOf",
   "chooseAvatar",
+  "ciOnDaemon",
   "endTour",
   "clearFilters",
   "closeCard",
@@ -51,20 +52,26 @@ const API = [
   "colOf",
   "commands",
   "confirm",
+  "connectGitHub",
+  "connectionOnDaemon",
   "costTone",
   "costs",
   "createCard",
+  "createRole",
   "deco",
   "decoMsgs",
   "deleteCard",
   "deleteChat",
   "deleteChecklist",
   "deleteComment",
+  "deleteRole",
   "deny",
   "diffFor",
+  "disconnectIntegration",
   "dismissNotice",
   "dragStart",
   "dupes",
+  "duplicateRole",
   "editPlan",
   "emit",
   "filesFor",
@@ -73,9 +80,12 @@ const API = [
   "fork",
   "full",
   "go",
+  "importRoles",
   "isAwake",
   "keepAllAwake",
   "keepAwake",
+  "limitsOnDaemon",
+  "noticesOnDaemon",
   "loadActivityPage",
   "loadCardDiff",
   "loadFileHunks",
@@ -94,6 +104,8 @@ const API = [
   "person",
   "meId",
   "pin",
+  "previewOnDaemon",
+  "previewShotImage",
   "proj",
   "quickAdd",
   "refuse",
@@ -107,12 +119,19 @@ const API = [
   "renameProject",
   "saveProject",
   "saveProfile",
+  "saveProviderKey",
+  "saveRole",
   "setOnboardingStep",
   "requestBypass",
   "resetFirstLaunch",
+  "resetRole",
+  "restoreCheckpoint",
   "retryChat",
+  "rolesOnDaemon",
   "runChecks",
+  "saveLimits",
   "savePlan",
+  "saveSleepSettings",
   "saveView",
   "send",
   "set",
@@ -124,15 +143,23 @@ const API = [
   "setViewport",
   "signIn",
   "simulateCiFailure",
+  "simulateCiFailureReal",
+  "simulateOnDaemon",
   "sleep",
   "sleepAll",
+  "sleepOnDaemon",
   "start",
+  "startPreview",
   "startSearch",
   "startTour",
+  "stopPreview",
   "stopSession",
+  "takePreviewShot",
   "terminalKey",
   "terminalSend",
   "terminalText",
+  "testIntegration",
+  "testProviderKey",
   "thinkSupported",
   "toast",
   "toggleHideDone",
@@ -209,6 +236,30 @@ describe("index.ts boot", () => {
       "cardLabelOf",
       "saveProject",
       "saveProfile",
+      "saveProviderKey",
+      "saveLimits",
+      "limitsOnDaemon",
+      "testProviderKey",
+      // The roles screen's own actions. The prototype keeps them in its view's script rather than
+      // in its store, and the port declares them all up front; the names differ because the port's
+      // list is the daemon's (a save, a create, a duplicate, a reset, a delete, an import) and the
+      // query beside them says whether the daemon is the one being edited.
+      "saveRole",
+      "createRole",
+      "duplicateRole",
+      "resetRole",
+      "deleteRole",
+      // A card's restore points are the daemon's own commits (B5.3), so the prototype has nothing
+      // to restore from and no member for it.
+      "restoreCheckpoint",
+      "importRoles",
+      "rolesOnDaemon",
+      // The notices (S23) and the sleep settings (S26a): the prototype keeps the notice actions in
+      // its store but has no sleep settings of its own to save, and each of these says whether the
+      // daemon is the one behind that section.
+      "noticesOnDaemon",
+      "sleepOnDaemon",
+      "saveSleepSettings",
       "chooseAvatar",
       "endTour",
       "setOnboardingStep",
@@ -225,6 +276,34 @@ describe("index.ts boot", () => {
       "terminalKey",
       "terminalSend",
       "terminalText",
+      // "Simulate CI failure" is the prototype's, but only its one synthetic story: the daemon is
+      // the one that runs both modes, and the second half of the pair is the real mode, which pushes
+      // a failing change to GitHub. `simulateOnDaemon` is the query that says whether the daemon,
+      // rather than the mock, is the one behind the item, and `ciOnDaemon` whether a daemon owns the
+      // card at all (N28, B6.4).
+      "ciOnDaemon",
+      "simulateCiFailureReal",
+      "simulateOnDaemon",
+      // A card's live preview (S13, B6.6) is the daemon's own: it starts and stops a dev server on
+      // the machine and takes the before and after screenshots of it, so the prototype has no member
+      // for any of it, and the two queries beside the calls say whether the daemon is the one behind
+      // the tab at all. A shot's image needs the token, so it is read through the client and drawn
+      // from an object URL, the way an avatar is.
+      "startPreview",
+      "stopPreview",
+      "takePreviewShot",
+      "previewOnDaemon",
+      "previewShotImage",
+      // The GitHub connection (S29a, B6.1 and B6.7) is the daemon's own: it holds the App's key and
+      // its webhook secret in the OS keychain, installs the App, and tests the connection, so the
+      // prototype has no member for any of it. The prototype's own connection rows are a drawing,
+      // and what a person could press there turned a state in the mock.
+      "connectGitHub",
+      "disconnectIntegration",
+      "testIntegration",
+      // The query beside them says whether the daemon owns a connection's row, the way `rolesOnDaemon`
+      // and the rest do, so a row of a later phase still reads as the mock's own.
+      "connectionOnDaemon",
     ];
     const proto = loadPrototype("#nosim").keys.filter((k) => !dropped.includes(k));
     expect([...proto, ...added].sort()).toEqual([...API].sort());

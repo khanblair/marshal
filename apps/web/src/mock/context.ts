@@ -12,6 +12,7 @@ import { buildSeed } from "./seed";
 import { createMsgFactory, type MsgFactory } from "./seed/messages";
 import { initialState } from "./state";
 import type { State } from "./state-types";
+import type { Integration } from "./settings-types";
 import { ONBOARDED_KEY } from "./storage";
 
 /** Everything the store needs from its host. The browser values come from `index.ts`. */
@@ -64,6 +65,16 @@ function startOfToday(): number {
   return d.getTime();
 }
 
+/**
+ * The mock's GitHub row once the GitHub connection is the daemon's (S29a): the prototype's own
+ * "installed on 3 repositories" sentence and its "connected" state must not show for a connection
+ * nothing is stored for, so the row reads as not connected until the daemon's first answer lands.
+ * The app's own words (the name and the icon) stay, and so do the rows of the later phases.
+ */
+function withoutConnectionSeed(rows: Integration[]): Integration[] {
+  return rows.map((row) => (row.id === "github" ? { ...row, st: "none", detail: "" } : row));
+}
+
 /** The sections table a store uses: the test's own, or the real one. */
 export const sectionsOf = (env: Env): Readonly<Record<SectionId, SectionStatus>> =>
   env.sections ?? sectionStatus;
@@ -81,6 +92,22 @@ export function createContext(env: Env): Ctx {
     ...seed,
     ...(isDaemon("S8a", table) ? { chat: {} } : {}),
     ...(isDaemon("S10", table) ? { act: {} } : {}),
+    // The provider keys are the daemon's once S28 is switched: only the masked value ever leaves the
+    // daemon, so the mock's rows would otherwise show a key that is not stored anywhere.
+    ...(isDaemon("S28", table) ? { providers: [] } : {}),
+    // The GitHub row is the daemon's once S29a is switched: the prototype's own "installed on 3
+    // repositories" sentence and its "connected" state would otherwise show for a connection nothing
+    // is stored for. Only that row is emptied; the connections of later phases (S29b to S29g) are
+    // left as the mock's until their own sections switch.
+    ...(isDaemon("S29a", table) ? { integrations: withoutConnectionSeed(seed.integrations) } : {}),
+    // The cost and awake limits are the daemon's once S26b is switched, and it ships with none: the
+    // mock's four fabricated scopes are dropped, and only `global` stays so `selectors.costs` and the
+    // awake section always find a scope to read.
+    ...(isDaemon("S26b", table) ? { limits: { global: {} } } : {}),
+    // The roles are the daemon's once S27 is switched, and it ships only its own starters: the
+    // mock's eight are dropped so they cannot show through the daemon's own list. The screens read
+    // an empty list until the first snapshot lands, and `ready` gates drawing until it has.
+    ...(isDaemon("S27", table) ? { roles: [] } : {}),
     // The person is the daemon's once S2a is switched: the prototype's Ada, Blair, and the rest are
     // its own, and the profile's name, email, and time zone are filled by `sync/profile.ts`. The
     // tailnet, the node, and the devices stay the mock's until Phase 9.
