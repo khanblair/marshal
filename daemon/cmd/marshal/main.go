@@ -20,6 +20,7 @@ Commands:
   status [--dev] [--port N]              Show whether the daemon is running
   token [--dev] [--show]                 Show where the token file is, or the token itself with --show
   service install|uninstall|status [--dev]   Install, remove, or check the daemon's login service
+  keys set|list|remove [provider] [--dev]    Store, list, or remove a model provider's API key
   dev reset [--yes]                      Delete the dev daemon's data (dev mode only)
   version                                Print the version`
 
@@ -50,6 +51,8 @@ func runWith(env platform.Env, args []string, term terminal) int {
 		return runToken(env, args[1:], term)
 	case "service":
 		return runService(args[1:], term, platform.NewServiceInstaller, os.Executable)
+	case "keys":
+		return runKeys(env, args[1:], term, keychainFor)
 	case "dev":
 		return runDev(env, args[1:], term)
 	case "help", "-h", "--help":

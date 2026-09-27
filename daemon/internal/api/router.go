@@ -53,6 +53,23 @@ func (r *router) stream(pattern string, handler http.HandlerFunc) {
 	r.mux.Handle(pattern, handler)
 }
 
+// webhookCeilingBytes is the most any signed-webhook delivery reads, whatever the route allows
+// itself. It matches the verifier's own limit, so a delivery that is too large to be believed is
+// also too large to be read.
+const webhookCeilingBytes = 1 << 20
+
+// signedWebhook adds a route that carries no bearer token and is instead authorized by a signature
+// over its raw body, such as a GitHub delivery (B6.1, architecture.md section 8). A webhook is the
+// one kind of caller that cannot be given a token - GitHub does not have one - so the route takes
+// the body rules off and puts a size limit on the body itself: the handler reads the raw bytes to
+// check the signature before it reads them as anything else.
+func (r *router) signedWebhook(pattern string, handler http.HandlerFunc) {
+	r.mux.Handle(pattern, http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		req.Body = http.MaxBytesReader(w, req.Body, webhookCeilingBytes)
+		handler(w, req)
+	}))
+}
+
 // ServeHTTP sends a request to its route, or answers in the error shape when there is none.
 func (r *router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	handler, pattern := r.mux.Handler(req)
@@ -61,9 +78,14 @@ func (r *router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		r.mux.ServeHTTP(w, req)
 		return
 	}
-	// No route matches. The standard library says whether the address exists for another
-	// method, but in plain text, so it is asked into a writer that keeps only its status and
-	// its Allow header.
+	// No route matches. Before answering not_found, give the embedded web app a chance: it
+	// serves any GET or HEAD that is not under /v1 or /hooks (webui.go), so the app's own
+	// client-side routes work without a route of their own here.
+	if r.s.serveWebUI(w, req) {
+		return
+	}
+	// The standard library says whether the address exists for another method, but in plain
+	// text, so it is asked into a writer that keeps only its status and its Allow header.
 	probe := &probeWriter{header: http.Header{}}
 	handler.ServeHTTP(probe, req)
 	if probe.status == http.StatusMethodNotAllowed {

@@ -12,11 +12,13 @@ import (
 )
 
 const (
-	sampleProjectID = "sample"
-	sampleCardID    = "01M3C107JB041061050R3GG28A"
-	sampleDiffPath  = "src/util.js"
-	unauthorizedMsg = "Sign in again. This device's token is missing or no longer valid."
-	nothingThereMsg = "Marshal has nothing at that address. Check the address and try again."
+	sampleProjectID    = "sample"
+	sampleCardID       = "01M3C107JB041061050R3GG28A"
+	sampleCheckpointID = "01M3C107JB041061050R3GG28B"
+	sampleFindingID    = "01M3C107JB041061050R3GG28C"
+	sampleDiffPath     = "src/util.js"
+	unauthorizedMsg    = "Sign in again. This device's token is missing or no longer valid."
+	nothingThereMsg    = "Marshal has nothing at that address. Check the address and try again."
 )
 
 // concretePath fills the ids of a route pattern with ids of the right shape, so the request gets
@@ -29,7 +31,19 @@ func concretePath(pattern string) (method, path string) {
 		path = strings.Replace(path, "{id}", sampleCardID, 1)
 	}
 	// A route that names a file inside a card carries the rest of the address as its path.
-	return method, strings.Replace(path, "{path...}", sampleDiffPath, 1)
+	path = strings.Replace(path, "{path...}", sampleDiffPath, 1)
+	// A limits route names the scope and the kind, so they are filled with a pair that exists.
+	path = strings.Replace(path, "{scope}", "global", 1)
+	// A roles route names a role, so it is filled with one of Marshal's own.
+	path = strings.Replace(path, "{name}", "Worker", 1)
+	// A checkpoint restore names the checkpoint, so it is filled with an id of the right shape.
+	path = strings.Replace(path, "{cp}", sampleCheckpointID, 1)
+	// A call that acts on a finding names the finding, so it is filled with an id of the right shape.
+	path = strings.Replace(path, "{findingId}", sampleFindingID, 1)
+	// A preview screenshot route names the image file, so it is filled with one of the two kinds
+	// Marshal takes. Whether that card has a shot is the service's business, not the router's.
+	path = strings.Replace(path, "{file}", "before.png", 1)
+	return method, strings.Replace(path, "{kind}", "cost-day", 1)
 }
 
 // Every domain route refuses a request without a valid token, in the one error shape, before it
@@ -44,7 +58,7 @@ func TestEveryRouteRequiresAToken(t *testing.T) {
 	for _, pattern := range patterns {
 		method, path := concretePath(pattern)
 		var body any
-		if method == http.MethodPost || method == http.MethodPatch {
+		if method == http.MethodPost || method == http.MethodPatch || method == http.MethodPut {
 			body = `{}` // a valid body, so only the missing token can be the reason for the refusal
 		}
 		tests := []struct {
@@ -97,11 +111,23 @@ func TestARouteIsRegisteredOnlyWhenItsServiceIsThere(t *testing.T) {
 	}
 	sessionRoutes := []string{
 		"POST /v1/cards/{id}/messages", "POST /v1/cards/{id}/stop", "POST /v1/cards/{id}/resume", "POST /v1/cards/{id}/view",
+		"POST /v1/approvals/{id}",
+		"POST /v1/cards/{id}/bypass", "DELETE /v1/cards/{id}/bypass",
 	}
 	holdRoutes := []string{
 		"POST /v1/cards/{id}/pause", "POST /v1/cards/{id}/unpause",
 		"POST /v1/cards/{id}/sleep", "POST /v1/cards/{id}/wake",
 		"POST /v1/cards/{id}/pin", "POST /v1/cards/{id}/unpin",
+	}
+	// The plan routes need both projects and sessions: the session manager holds the plan, and the
+	// card it belongs to is read through the projects service.
+	planRoutes := []string{
+		"POST /v1/cards/{id}/plan/approve", "POST /v1/cards/{id}/plan/reject", "PUT /v1/cards/{id}/plan",
+	}
+	// The checkpoint routes need both services too: the session manager holds the card's worktree,
+	// and the card itself is read through the projects service.
+	checkpointRoutes := []string{
+		"GET /v1/cards/{id}/checkpoints", "POST /v1/cards/{id}/checkpoints/{cp}/restore",
 	}
 	cardRoutes := []string{"POST /v1/cards/{id}/move", "PATCH /v1/cards/{id}", "DELETE /v1/cards/{id}", "POST /v1/cards/{id}/fork"}
 	labelRoutes := []string{"GET /v1/projects/{id}/labels", "POST /v1/projects/{id}/labels", "PATCH /v1/labels/{id}", "DELETE /v1/labels/{id}"}
@@ -130,11 +156,72 @@ func TestARouteIsRegisteredOnlyWhenItsServiceIsThere(t *testing.T) {
 		"PATCH /v1/saved-views/{id}", "DELETE /v1/saved-views/{id}",
 	}
 	devRoutes := []string{"POST /v1/dev/reset-first-launch"}
+	auditRoutes := []string{"GET /v1/audit", "GET /v1/audit/search", "GET /v1/audit/export"}
+	providerRoutes := []string{"GET /v1/providers", "PUT /v1/providers/{id}", "DELETE /v1/providers/{id}"}
+	connectionTestRoutes := []string{"POST /v1/providers/{id}/test"}
+	// The connection routes list, save, and remove the connections Marshal is set up with: they
+	// follow the connections service the GitHub app is reached through.
+	integrationRoutes := []string{
+		"GET /v1/integrations", "PUT /v1/integrations/{id}", "DELETE /v1/integrations/{id}",
+	}
+	// Asking a connection to test itself needs the connections service and the runner that runs it.
+	integrationTestRoutes := []string{"POST /v1/integrations/{id}/test"}
+	limitRoutes := []string{"GET /v1/limits", "PUT /v1/limits/{scope}/{kind}", "DELETE /v1/limits/{scope}/{kind}"}
+	roleRoutes := []string{
+		"GET /v1/roles", "POST /v1/roles", "GET /v1/roles/{name}", "PATCH /v1/roles/{name}",
+		"DELETE /v1/roles/{name}", "POST /v1/roles/{name}/reset", "PUT /v1/roles/{name}/override",
+	}
+	// The pull-request route needs both projects and a GitHub client, so it follows the pair.
+	pullRequestRoutes := []string{"POST /v1/cards/{id}/pull-request"}
+	// The review route needs the projects, the review service, and the roles the Reviewer reads.
+	reviewRoutes := []string{"POST /v1/cards/{id}/review"}
+	// The merge route needs both projects and the merge queue.
+	integratorRoutes := []string{"POST /v1/cards/{id}/merge"}
+	// The notice routes are the session manager's: a sleep notice names live sessions and the
+	// moment they sleep, so they follow the sessions service and need nothing else.
+	noticeRoutes := []string{
+		"GET /v1/notices", "POST /v1/notices/{id}/actions", "DELETE /v1/notices/{id}",
+	}
+	// The sleep settings are their own service: they are the numbers the idle timer is driven by,
+	// and they outlive every session.
+	sleepSettingsRoutes := []string{"GET /v1/settings/sleep", "PUT /v1/settings/sleep"}
+	// The quality routes need both the projects service, which owns the card and the project the
+	// findings and the profile belong to, and the quality module, which owns the checks.
+	qualityRoutes := []string{
+		"GET /v1/cards/{id}/findings", "POST /v1/cards/{id}/findings/{findingId}/fix",
+		"POST /v1/cards/{id}/findings/{findingId}/dismiss",
+		"GET /v1/projects/{id}/smell-profile", "PUT /v1/projects/{id}/smell-profile",
+	}
+	// The CI route needs the CI monitor, which reads the projects a run belongs to and the roles
+	// whose ceilings the fix loop counts rounds against.
+	ciRoutes := []string{"GET /v1/ci"}
+	// Simulating a failure needs the same monitor and, in its real mode, spends Actions minutes on
+	// the person's own GitHub account, so it exists only on a dev daemon - the same reason the dev
+	// reset route does.
+	ciSimulateRoutes := []string{"POST /v1/cards/{id}/ci-failure"}
+	// Running a card's workflow steps locally needs the projects service, which reads the worktree
+	// the steps run in. Nothing else: a local run keeps no state and sends no event.
+	localCIRoutes := []string{"POST /v1/cards/{id}/local-ci"}
+	// The preview routes need the projects service, which owns the card, its worktree, and its
+	// project's dev command, and the preview module, which owns the dev server and its screenshots.
+	previewRoutes := []string{
+		"GET /v1/cards/{id}/preview", "POST /v1/cards/{id}/preview/start",
+		"POST /v1/cards/{id}/preview/stop", "POST /v1/cards/{id}/preview/shots",
+		"GET /v1/cards/{id}/preview/shots/{file}",
+	}
 	groups := map[string][]string{
 		"projects": projectRoutes, "sessions": sessionRoutes, "hold": holdRoutes, "start": startRoute,
 		"cards": cardRoutes, "labels": labelRoutes, "home": homeRoutes,
 		"agents": agentRoutes, "history": historyRoutes, "diff": diffRoutes, "chats": chatRoutes,
 		"search": searchRoutes, "accounts": accountRoutes, "saved views": savedViewRoutes, "dev": devRoutes,
+		"audit": auditRoutes, "providers": providerRoutes, "limits": limitRoutes,
+		"connection tests": connectionTestRoutes, "roles": roleRoutes, "plans": planRoutes,
+		"integrations": integrationRoutes, "integration tests": integrationTestRoutes,
+		"checkpoints": checkpointRoutes, "pull requests": pullRequestRoutes,
+		"integrator": integratorRoutes, "review": reviewRoutes,
+		"notices": noticeRoutes, "sleep settings": sleepSettingsRoutes, "quality": qualityRoutes,
+		"ci": ciRoutes, "ci simulation": ciSimulateRoutes, "local ci": localCIRoutes,
+		"preview": previewRoutes,
 	}
 	count := 0
 	for _, group := range groups {
@@ -161,8 +248,16 @@ func TestARouteIsRegisteredOnlyWhenItsServiceIsThere(t *testing.T) {
 		{"no search", []stackOption{withoutSearch()}, []string{"projects", "sessions", "hold", "start", "cards", "labels", "home", "agents", "history", "diff", "chats"}},
 		{"nothing", []stackOption{withoutProjects(), withoutSessions(), withoutCatalog(), withoutDashboard(), withoutHistory(), withoutDiff(), withoutChats(), withoutSearch()}, nil},
 	}
-	// A stack without the accounts service, and a normal daemon, have every other group.
-	for name, opt := range map[string]stackOption{"no accounts": withoutAccounts(), "a normal daemon": normalDaemon()} {
+	// A stack without the accounts service, without the audit-log service, and a normal daemon, have
+	// every other group.
+	for name, opt := range map[string]stackOption{
+		"no accounts": withoutAccounts(), "no audit": withoutAudit(), "a normal daemon": normalDaemon(), "no connection tests": withoutConnectionTests(), "no roles": withoutRoles(),
+		"no pull requests": withoutPullRequests(), "no integrator": withoutIntegrator(),
+		"no review": withoutReview(), "no sleep settings": withoutSleepSettings(),
+		"no quality": withoutQuality(), "no integrations": withoutIntegrations(),
+		"no ci": withoutCI(), "no local ci": withoutLocalCI(),
+		"no preview": withoutPreview(),
+	} {
 		tests = append(tests, struct {
 			name    string
 			opts    []stackOption
@@ -177,11 +272,52 @@ func TestARouteIsRegisteredOnlyWhenItsServiceIsThere(t *testing.T) {
 				have[name] = true
 			}
 			// The accounts routes follow the accounts service, the saved view routes follow the
-			// projects service, and the dev route needs the accounts service and a dev daemon. The
-			// stack knows which it was built with, so the rows above do not name these groups.
+			// projects service, the dev route needs the accounts service and a dev daemon, the audit
+			// routes follow the audit-log service, and the provider, limits, connection-test, and role
+			// routes follow their own services. The stack knows which it was built with, so the rows
+			// above do not name these groups.
 			have["accounts"] = !st.cfg.noAccounts
 			have["saved views"] = !st.cfg.noProjects
 			have["dev"] = !st.cfg.noAccounts && !st.cfg.normal
+			have["audit"] = !st.cfg.noAudit
+			have["providers"] = !st.cfg.noProviders
+			have["limits"] = !st.cfg.noCostLimits
+			have["connection tests"] = !st.cfg.noConnectionTests
+			have["roles"] = !st.cfg.noRoles
+			// The connection routes follow the connections service, and asking one to test itself
+			// also needs the runner that runs the test.
+			have["integrations"] = !st.cfg.noIntegrations
+			have["integration tests"] = !st.cfg.noIntegrations && !st.cfg.noConnectionTests
+			// The pull-request route needs both services and a GitHub client, so it follows the pair.
+			have["pull requests"] = !st.cfg.noPullRequests && !st.cfg.noProjects
+			// The review route follows the review service, which the stack builds only with the
+			// projects and the roles its Reviewer reads.
+			have["review"] = !st.cfg.noReview && !st.cfg.noProjects && !st.cfg.noRoles
+			// The merge route needs both services too.
+			have["integrator"] = !st.cfg.noIntegrator && !st.cfg.noProjects
+			// The notice routes are the session manager's own.
+			have["notices"] = !st.cfg.noSessions
+			// The sleep settings follow their own service.
+			have["sleep settings"] = !st.cfg.noSleepSettings
+			// The quality routes need the quality module and the projects service it reads a card
+			// and a project through.
+			have["quality"] = !st.cfg.noQuality && !st.cfg.noProjects
+			// The plan routes need both services, so they follow the pair rather than either one.
+			have["plans"] = !st.cfg.noProjects && !st.cfg.noSessions
+			// The checkpoint routes need both services too, for the same reason as the plans.
+			have["checkpoints"] = !st.cfg.noProjects && !st.cfg.noSessions
+			// The CI route follows the monitor, which the stack builds only with the projects the
+			// runs belong to and the roles whose ceilings the fix loop counts against.
+			have["ci"] = !st.cfg.noCI && !st.cfg.noProjects && !st.cfg.noRoles
+			// Simulating a failure needs the same monitor and a dev daemon, because its real mode
+			// spends Actions minutes on the person's own GitHub account.
+			have["ci simulation"] = have["ci"] && !st.cfg.normal
+			// The local-CI route reads the card's worktree through the projects service, which is
+			// the only thing it needs besides itself.
+			have["local ci"] = !st.cfg.noLocalCI && !st.cfg.noProjects
+			// The preview routes need the preview module and the projects service it reads a card, its
+			// worktree, and its project's dev command through.
+			have["preview"] = !st.cfg.noPreview && !st.cfg.noProjects
 			for name, group := range groups {
 				for _, pattern := range group {
 					method, path := concretePath(pattern)

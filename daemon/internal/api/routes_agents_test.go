@@ -29,9 +29,18 @@ func TestAgentsThroughHTTP(t *testing.T) {
 					t.Errorf("agent %s is %+v, want the stub's supported agent with a list of models", agent.Kind, agent)
 				}
 			}
-			want := []protocol.AgentKind{protocol.AgentKindClaude, protocol.AgentKindGemini, protocol.AgentKindCodex}
-			if len(kinds) != len(want) || kinds[0] != want[0] || kinds[1] != want[1] || kinds[2] != want[2] {
-				t.Errorf("kinds = %v, want %v", kinds, want)
+			want := []protocol.AgentKind{
+				protocol.AgentKindClaude, protocol.AgentKindGemini, protocol.AgentKindCodex,
+				protocol.AgentKindBuiltin,
+			}
+			if len(kinds) != len(want) {
+				t.Fatalf("kinds = %v, want %v", kinds, want)
+			}
+			for i := range want {
+				if kinds[i] != want[i] {
+					t.Errorf("kinds = %v, want %v (the built-in agent is last)", kinds, want)
+					break
+				}
 			}
 		})
 	}
