@@ -6,14 +6,20 @@
  */
 import type {
   ActivityItem,
+  BypassRequest,
   ChatMessageDetail,
+  CiRun,
   MoveCardRequest,
   SessionState,
+  SimulateCIFailureRequest,
+  SimulateCIFailureResult,
   Card as WireCard,
 } from "@marshal/protocol";
 import { emptyAnswer, errorAnswer, type FakeRequest, jsonAnswer } from "~/data/testing/fake-fetch";
+import { golden } from "~/data/testing/golden";
 import {
   BOARD_COLUMNS,
+  BYPASS,
   type CardStore,
   DEFAULT_LIMIT,
   freshCardId,
@@ -29,6 +35,9 @@ import { answerCardView } from "./fake-terminal";
 
 /** How many trailing characters of a card's id its fake session id borrows. */
 const ID_TAIL = 15;
+
+/** The commit the real mode reports having pushed. It is not a real object; the app never reads it back. */
+const MARKED_COMMIT = "4f0b1c2d3e4a5b6c7d8e9f0a1b2c3d4e5f607182";
 
 function moveCard(store: CardStore, card: WireCard, request: FakeRequest): Response {
   const body = JSON.parse(request.body ?? "{}") as MoveCardRequest;
@@ -242,6 +251,61 @@ function unpinCard(store: CardStore, card: WireCard): Response {
   return jsonAnswer(card);
 }
 
+/**
+ * The bypass routes (section S7b, docs/backend-checklist.md B3.2): POST turns bypass on for a card
+ * and DELETE turns it off. Turning it on is the one card setting that is not a plain field change,
+ * so the POST carries the acknowledgement a person gave and a body that does not acknowledge it is
+ * refused, as is a card of a project whose settings lock bypass. Turning it off is always allowed
+ * and leaves the card in full auto, the way the daemon's own `setBypass` does. Both answer the card
+ * as it now is, with no body when nothing changed.
+ */
+export function cardBypass(
+  store: CardStore,
+  card: WireCard,
+  request: FakeRequest,
+  method: string,
+  locked: boolean,
+): Response | undefined {
+  if (method === "POST") return grantBypass(store, card, request, locked);
+  if (method === "DELETE") return clearBypass(store, card);
+  return undefined;
+}
+
+/** POST /v1/cards/{id}/bypass: the acknowledgement first, then the project's lock, then the write. */
+function grantBypass(
+  store: CardStore,
+  card: WireCard,
+  request: FakeRequest,
+  locked: boolean,
+): Response {
+  const body = JSON.parse(request.body ?? "{}") as BypassRequest;
+  if (body.acknowledged !== true) {
+    return refused("unacknowledged", BYPASS.unacknowledged, {
+      permissionMode: "bypass",
+      cardId: card.id,
+    });
+  }
+  if (locked) {
+    return refused("locked", BYPASS.locked, { cardId: card.id, projectId: card.projectId });
+  }
+  return setPermissionMode(store, card, "bypass");
+}
+
+/** DELETE /v1/cards/{id}/bypass: the card is left in full auto, whatever mode it held before. */
+function clearBypass(store: CardStore, card: WireCard): Response {
+  return setPermissionMode(store, card, "full-auto");
+}
+
+/** Writes a card's permission mode and announces it, unless it already holds that mode. */
+function setPermissionMode(store: CardStore, card: WireCard, mode: string): Response {
+  if (card.permissionMode !== mode) {
+    card.permissionMode = mode as WireCard["permissionMode"];
+    card.updatedAt = store.now();
+    publishCard(store, card, "card.updated");
+  }
+  return jsonAnswer(card);
+}
+
 /** What a GET under one card answers: the card itself, its chat, its activity, or one message. */
 export function cardRead(
   store: CardStore,
@@ -322,6 +386,34 @@ export function cardAction(
     pin: () => pinCard(store, card),
     unpin: () => unpinCard(store, card),
     view: () => answerCardView(store, card, request),
+    "ci-failure": () => simulateCIFailure(card, request),
   };
   return Object.hasOwn(actions, action) ? actions[action]?.() : undefined;
+}
+
+/**
+ * A simulated CI failure (N28, B6.4). The fake daemon answers the wire shape of both modes and the
+ * body is what a test reads; the run it names is the golden one, renamed for the card it was asked
+ * about, and a mode Marshal does not know is refused the way the real route refuses it. The card's
+ * own CI is left as it is: the real daemon says what changed through its own `card.updated` and
+ * `ci.updated` events, which a test publishes for itself.
+ */
+function simulateCIFailure(card: WireCard, request: FakeRequest): Response {
+  const body = JSON.parse(request.body ?? "{}") as SimulateCIFailureRequest;
+  if (body.mode !== "synthetic" && body.mode !== "real") {
+    return errorAnswer(STATUS.badRequest, "invalid_argument", "That is not a mode Marshal knows.");
+  }
+  const run: CiRun = {
+    ...golden<CiRun>("ci-run"),
+    cardId: card.id,
+    projectId: card.projectId,
+    branch: card.branch,
+  };
+  return jsonAnswer({
+    cardId: card.id,
+    mode: body.mode,
+    run,
+    fixStarted: true,
+    commit: body.mode === "real" ? MARKED_COMMIT : "",
+  } satisfies SimulateCIFailureResult);
 }

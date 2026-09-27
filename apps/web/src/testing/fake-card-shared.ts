@@ -18,9 +18,11 @@ import type {
   FeedEntry,
   Label,
   Card as WireCard,
+  Checkpoint as WireCheckpoint,
 } from "@marshal/protocol";
 import { errorAnswer, type FakeRequest, jsonAnswer } from "~/data/testing/fake-fetch";
 import { golden } from "~/data/testing/golden";
+import type { PreviewStore } from "./fake-previews";
 
 /** The board's columns, in the order the daemon answers them. */
 export const BOARD_COLUMNS: readonly CardState[] = [
@@ -99,9 +101,36 @@ export const notFound = () =>
 /**
  * A refusal, as the daemon answers one: the code says the change was refused, and the stable
  * reason a client branches on is in the details, which is what `protocol.Refused(...).With` sends.
+ * The extra details a refusal carries (the card, the mode, the project) are added the same way.
  */
-export const refused = (reason: string, message: string): Response =>
-  jsonAnswer({ error: { code: "refused", message, details: { reason } } }, STATUS.refused);
+export const refused = (
+  reason: string,
+  message: string,
+  details: Record<string, unknown> = {},
+): Response =>
+  jsonAnswer(
+    { error: { code: "refused", message, details: { reason, ...details } } },
+    STATUS.refused,
+  );
+
+/**
+ * The sentences the daemon refuses a bypass grant with, word for word (projects/update.go,
+ * projects/cards.go, projects/bypass.go). Bypass is not a card field an edit or a create sets, so
+ * those two routes refuse it with the reason `unacknowledged`, and the project's own lock refuses
+ * it with `locked`; the app shows its own words for the reason rather than the daemon's sentence.
+ */
+export const BYPASS = {
+  /** POST /v1/cards/{id}/bypass with a body that did not acknowledge what bypass means. */
+  unacknowledged:
+    "Turning on bypass permissions takes an acknowledgement: the agent will run every command and edit in this card's worktree without asking.",
+  /** A card of a project whose settings forbid bypass. */
+  locked: "Bypass permissions is locked for this project. Nobody can turn it on for its cards.",
+  /** PATCH /v1/cards/{id} that tried to set the mode straight to bypass. */
+  edit: "Bypass permissions is turned on from this card's permission menu, so the warning is shown and acknowledged first.",
+  /** POST /v1/projects/{id}/cards that tried to create a card already in bypass. */
+  create:
+    "A new card cannot start in bypass permissions. Turn it on from the card's permission menu, so the warning is shown first.",
+} as const;
 
 /** What the card routes change and tell the stream about. */
 export interface CardStore {
@@ -115,6 +144,10 @@ export interface CardStore {
   activity: FeedEntry[];
   /** A card's diff (section S11), by card id: the changed files, and each one's hunks by path. */
   diffs: Record<string, FakeCardDiff>;
+  /** A card's restore points (B5.3), by card id, newest first, as the daemon holds them. */
+  checkpoints: Record<string, WireCheckpoint[]>;
+  /** Every card's live preview (section S13, B6.6), by the daemon's own card id. */
+  previews: PreviewStore;
   /** Sends an event on a topic, as the daemon does after a change. */
   publish: (topic: string, type: string, data: unknown) => void;
   now: () => string;

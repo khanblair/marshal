@@ -17,21 +17,25 @@ import type {
   Card as WireCard,
 } from "@marshal/protocol";
 import { emptyAnswer, errorAnswer, type FakeRequest, jsonAnswer } from "~/data/testing/fake-fetch";
-import { cardAction, cardRead } from "./fake-card-actions";
+import { cardAction, cardBypass, cardRead } from "./fake-card-actions";
 import { createLabel, labelRoute, labelsOf } from "./fake-card-labels";
+import { planRoute } from "./fake-card-plan";
 import {
   BOARD_COLUMNS,
+  BYPASS,
   type CardStore,
   cardOf,
   freshCardId,
   notFound,
   publishCard,
   type Route,
+  refused,
   STATUS,
   topic,
   wireCard,
 } from "./fake-card-shared";
 import { homeActivity, homeDashboard } from "./fake-home";
+import { answerPreviewRoute } from "./fake-previews";
 
 const noProject = () =>
   errorAnswer(
@@ -84,6 +88,11 @@ function createCard(store: CardStore, projectId: string, request: FakeRequest): 
   if (!body.title?.trim()) {
     return errorAnswer(STATUS.badRequest, "invalid_argument", "Give the card a name.");
   }
+  // A card cannot be born bypassed (B3.2): the grant is a warning a person accepts on a card that
+  // exists, so a create that asks for the mode is refused, the way the daemon refuses it.
+  if (body.permissionMode === "bypass") {
+    return refused("unacknowledged", BYPASS.create, { permissionMode: "bypass", projectId });
+  }
   const numbers = store.cards
     .filter((card) => card.projectId === projectId)
     .map((card) => card.number);
@@ -122,6 +131,14 @@ function updateCard(store: CardStore, card: WireCard, request: FakeRequest): Res
   const body = JSON.parse(request.body ?? "{}") as UpdateCardRequest;
   if (body.title !== undefined && !body.title?.trim()) {
     return errorAnswer(STATUS.badRequest, "invalid_argument", "Card names can't be empty.");
+  }
+  // Bypass is not a field an edit sets (B3.2): the grant carries an acknowledgement, so a plain
+  // edit that tries to set the mode is refused, the way the daemon refuses it.
+  if (body.permissionMode === "bypass") {
+    return refused("unacknowledged", BYPASS.edit, {
+      permissionMode: "bypass",
+      cardId: card.id,
+    });
   }
   // A field that is not in the body is not touched, which is the whole point of the route.
   const fields: (keyof UpdateCardRequest)[] = [
@@ -181,6 +198,8 @@ export function answerCardRoute(
   request: FakeRequest,
   projectExists: (id: string) => boolean,
   projectNames: (id: string) => string,
+  /** Whether a project's settings lock bypass, which only the bypass grant reads (B3.2). */
+  projectLocked: (id: string) => boolean = () => false,
 ): Response | undefined {
   const [rawPath, query] = request.url.replace(/^https?:\/\/[^/]+/, "").split("?");
   const path = rawPath ?? "";
@@ -208,7 +227,67 @@ export function answerCardRoute(
   if (kind === "cards" && first && second === "diff") {
     return diffRoute(store, first, segments);
   }
-  if (kind === "cards" && first) return cardRoute(route, first, second, third);
+  // A card's restore points (B5.3): `/checkpoints` lists them and `/checkpoints/{cp}/restore` puts
+  // the card back to one. The restore has one segment more than `cardRoute` names, so both are read
+  // here, the way the diff routes are.
+  if (kind === "cards" && first && second === "checkpoints") {
+    return checkpointRoute(store, first, segments, request);
+  }
+  // A card's live preview (section S13, B6.6): `/preview` reads it and starts nothing, and its three
+  // actions and its image live one segment deeper, so the group is read here the way the diff and
+  // the checkpoints are.
+  if (kind === "cards" && first && second === "preview") {
+    return previewRoute(store, first, segments, request);
+  }
+  if (kind === "cards" && first) return cardRoute(route, first, second, third, projectLocked);
+  return undefined;
+}
+
+/** A card's preview routes: the group `cardRoute` cannot reach, because its actions are a second
+ * segment and its image a third. The card is looked up the same way every card route looks one up. */
+function previewRoute(
+  store: CardStore,
+  cardId: string,
+  segments: readonly string[],
+  request: FakeRequest,
+): Response | undefined {
+  const card = cardOf(store, cardId);
+  if (!card) return notFound();
+  return answerPreviewRoute(store.previews, card, segments, request);
+}
+
+/** How many named segments come before a checkpoint id: `["v1", "cards", <id>, "checkpoints"]`. */
+const CHECKPOINT_PATH_SEGMENTS = 4;
+
+/**
+ * A card's restore points (B5.3). The list is newest first, the order the daemon keeps them in; the
+ * restore names the checkpoint in the path and answers the card, which is what the restore route
+ * does. A restore point the card does not have is not found, exactly as the daemon refuses it.
+ */
+function checkpointRoute(
+  store: CardStore,
+  cardId: string,
+  segments: readonly string[],
+  request: FakeRequest,
+): Response | undefined {
+  const card = cardOf(store, cardId);
+  if (!card) return notFound();
+  const rest = segments.slice(CHECKPOINT_PATH_SEGMENTS);
+  if (request.method === "GET" && rest.length === 0) {
+    return jsonAnswer({
+      cardId,
+      checkpoints: store.checkpoints[cardId] ?? [],
+      serverTime: store.now(),
+    });
+  }
+  if (request.method === "POST" && rest.length === 2 && rest[1] === "restore") {
+    const id = rest[0] ?? "";
+    if (!(store.checkpoints[cardId] ?? []).some((one) => one.id === id)) return notFound();
+    // A restore resets the worktree and the branch, which moves nothing the wire shows but the
+    // card's own time: the card the route answers is the card as it now is.
+    card.updatedAt = store.now();
+    return jsonAnswer(card);
+  }
   return undefined;
 }
 
@@ -254,16 +333,25 @@ function cardRoute(
   id: string,
   action: string | undefined,
   extra: string | undefined,
+  projectLocked: (id: string) => boolean,
 ): Response | undefined {
   const card = cardOf(store, id);
   if (!card) return notFound();
   if (method === "GET") return cardRead(store, card, request, action, extra);
+  // A card's plan is its own route group (section S8c): `/v1/cards/{id}/plan/approve` and
+  // `/plan/reject` are POSTs, and `/plan` itself is the PUT that replaces the steps. It is read
+  // before the two-segment guard below, which would otherwise take `plan` for a plain action.
+  if (action === "plan") return planRoute(store, card, request, method, extra);
   if (extra) return undefined;
   if (!action) {
     if (method === "PATCH") return updateCard(store, card, request);
     if (method === "DELETE") return removeCard(store, card);
     return undefined;
   }
+  // Bypass is the one card setting that is not a plain field change (B3.2), so it is set through its
+  // own routes and refused through the card edit and the create route instead.
+  if (action === "bypass")
+    return cardBypass(store, card, request, method, projectLocked(card.projectId));
   if (method !== "POST") return undefined;
   return cardAction(store, card, request, action);
 }
