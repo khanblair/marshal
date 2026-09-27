@@ -80,6 +80,10 @@ const (
 	// profile. It carries needsProjects beside it, because a card's worktree and its project's dev
 	// command are read through the projects service.
 	needsPreview
+	// needsMemory registers the two routes that read and write a card's note (B7.4, N11, build-plan
+	// task 7.12). It carries needsProjects beside it, because the card a note belongs to is read
+	// through the projects service - the note's file is found from the card's number and title.
+	needsMemory
 	// rawBody marks a route that reads its body as it is and not as JSON, such as an image upload.
 	// It is not a service, and has ignores it.
 	rawBody
@@ -120,8 +124,16 @@ func domainRoutes() []routeSpec {
 		{"POST /v1/cards/{id}/pin", needsSessions, (*Server).pinCard},
 		{"POST /v1/cards/{id}/unpin", needsSessions, (*Server).unpinCard},
 		{"POST /v1/cards/{id}/view", needsSessions, (*Server).setCardView},
+		{"POST /v1/cards/{id}/handoff", needsProjects | needsSessions, (*Server).handoffCard},
 		{"POST /v1/cards/{id}/bypass", needsSessions, (*Server).setCardBypass},
 		{"DELETE /v1/cards/{id}/bypass", needsSessions, (*Server).clearCardBypass},
+		{"GET /v1/cards/{id}/note", needsProjects | needsMemory, (*Server).getNote},
+		{"PUT /v1/cards/{id}/note", needsProjects | needsMemory, (*Server).saveNote},
+		{"GET /v1/projects/{id}/lessons", needsProjects | needsMemory, (*Server).listLessons},
+		{"POST /v1/projects/{id}/lessons", needsProjects | needsMemory, (*Server).saveLesson},
+		{"GET /v1/projects/{id}/lessons/{slug}", needsProjects | needsMemory, (*Server).getLesson},
+		{"PUT /v1/projects/{id}/lessons/{slug}", needsProjects | needsMemory, (*Server).saveLesson},
+		{"DELETE /v1/projects/{id}/lessons/{slug}", needsProjects | needsMemory, (*Server).deleteLesson},
 		{"POST /v1/cards/{id}/plan/approve", needsProjects | needsSessions, (*Server).approvePlan},
 		{"POST /v1/cards/{id}/plan/reject", needsProjects | needsSessions, (*Server).rejectPlan},
 		{"PUT /v1/cards/{id}/plan", needsProjects | needsSessions, (*Server).editPlan},
@@ -275,6 +287,8 @@ func (s *Server) has(needs routeNeeds) bool {
 	case needs&needsLocalCI != 0 && s.localCI == nil:
 		return false
 	case needs&needsPreview != 0 && s.preview == nil:
+		return false
+	case needs&needsMemory != 0 && s.memory == nil:
 		return false
 	case needs&needsDevMode != 0 && !s.settings.Dev():
 		return false

@@ -9,7 +9,7 @@ import (
 // reservedPrefixes are the address spaces the web UI is never served under, even if a caller
 // somehow reaches this handler for one of them (every route above already answers its own
 // prefix; this is a second, cheap guard against ever serving a page in their place).
-var reservedPrefixes = []string{"/v1/", "/hooks/"}
+func reservedPrefixes() []string { return []string{"/v1/", "/hooks/"} }
 
 // serveWebUI answers a request from the embedded web app when nothing above matched it, and says
 // whether it did. A path that names a real file gets that file; anything else, including a
@@ -20,7 +20,7 @@ func (s *Server) serveWebUI(w http.ResponseWriter, req *http.Request) bool {
 	if s.webUI == nil || (req.Method != http.MethodGet && req.Method != http.MethodHead) {
 		return false
 	}
-	for _, prefix := range reservedPrefixes {
+	for _, prefix := range reservedPrefixes() {
 		if strings.HasPrefix(req.URL.Path, prefix) {
 			return false
 		}

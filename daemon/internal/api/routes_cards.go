@@ -183,3 +183,26 @@ func (s *Server) resumeCard(w http.ResponseWriter, r *http.Request) {
 	}
 	s.writeNoContent(w)
 }
+
+// handoffCard is POST /v1/cards/{id}/handoff: continue the card's work on a different agent, from a
+// summary of where it got to. Like starting a card, it can take a minute or more, because a new
+// process starts, so it gets a longer time to answer. The answer is the card, now on its new agent.
+func (s *Server) handoffCard(w http.ResponseWriter, r *http.Request) {
+	id, err := cardIDOf(r)
+	if err != nil {
+		s.writeError(w, err)
+		return
+	}
+	var req protocol.HandoffRequest
+	if err := s.decodeJSON(r, &req); err != nil {
+		s.writeError(w, err)
+		return
+	}
+	s.allowSlowAnswer(w)
+	card, err := s.sessions.Handoff(r.Context(), id, req)
+	if err != nil {
+		s.writeError(w, translate(err))
+		return
+	}
+	s.writeJSON(w, http.StatusOK, card)
+}

@@ -30,6 +30,8 @@ import (
 	githubapp "github.com/khanblair/marshal/daemon/internal/integrations/github"
 	"github.com/khanblair/marshal/daemon/internal/integrator"
 	"github.com/khanblair/marshal/daemon/internal/localci"
+	"github.com/khanblair/marshal/daemon/internal/mcpserver"
+	"github.com/khanblair/marshal/daemon/internal/memory"
 	"github.com/khanblair/marshal/daemon/internal/preview"
 	"github.com/khanblair/marshal/daemon/internal/projects"
 	"github.com/khanblair/marshal/daemon/internal/protocol"
@@ -83,9 +85,15 @@ type Deps struct {
 	// restoring one, and deleting one. When it is set, and Projects is too, the chat routes are
 	// registered.
 	Chats *chats.Service
-	// Search answers the command palette's search over projects, cards, and chats. When it is set,
-	// the search route is registered.
+	// Search answers the command palette's search over projects, cards, chats, past sessions, and
+	// notes. When it is set, the search route is registered. It answers the session and note kinds
+	// through the memory module, which is wired into it where the daemon is built.
 	Search *search.Service
+	// Memory owns the vault: a card's note, the files it claims, and the search over notes and past
+	// sessions (B7.2, B7.4, build-plan tasks 7.3, 7.6, and 7.12). When it is set, and Projects is
+	// too, the two routes that read and write a card's note are registered. The internal MCP
+	// server's tools reach the same module, which is wired where the daemon is built.
+	Memory *memory.Service
 	// Accounts serves the person's profile, avatar, progress, and preferences, and the users list.
 	// When it is set, those routes are registered, and so is the dev-only reset of first-launch
 	// progress on a dev daemon.
@@ -162,6 +170,11 @@ type Deps struct {
 	// one. It is a service of its own because a preview is a dev server on the person's machine, not
 	// a look at a project.
 	Preview *preview.Service
+	// MCP is the internal MCP server endpoint, served over the daemon's own listener to the agents
+	// of live cards (docs/architecture.md section 11.4). It carries its own per-card authentication,
+	// so it is mounted as a stream route and not behind the owner-token check. Nil when the daemon
+	// has no memory module, and then no agent is given a server.
+	MCP http.Handler
 	// WebUI is the built web app (internal/webui.FS()), served for any address that is not a
 	// route above. Without it, an address nothing else matches answers not_found, as it always
 	// did before this field existed.
@@ -189,6 +202,7 @@ type Server struct {
 	diff      *diff.Service
 	chats     *chats.Service
 	search    *search.Service
+	memory    *memory.Service
 	accounts  *accounts.Service
 	auditlog  *auditlog.Service
 
@@ -210,6 +224,10 @@ type Server struct {
 	localCI       *localci.Service
 	preview       *preview.Service
 	webUI         fs.FS
+	// mcp is the daemon's internal MCP server endpoint (docs/architecture.md section 11.4): one
+	// server per live card, reached only by the card's own agent. It lives outside the domain routes
+	// because it authenticates itself with a per-card secret rather than the daemon's owner token.
+	mcp http.Handler
 }
 
 // New makes a server. `now` is the clock, so tests can fix the time.
@@ -218,7 +236,7 @@ func New(settings config.Settings, log *slog.Logger, now func() time.Time, deps 
 		settings: settings, log: log, now: now, limits: deps.Limits.withDefaults(),
 		projects: deps.Projects, sessions: deps.Sessions, catalog: deps.Catalog,
 		dashboard: deps.Dashboard, history: deps.History, diff: deps.Diff, chats: deps.Chats,
-		search: deps.Search, accounts: deps.Accounts, auditlog: deps.Auditlog,
+		search: deps.Search, memory: deps.Memory, accounts: deps.Accounts, auditlog: deps.Auditlog,
 		providers: deps.Providers, costLimits: deps.CostLimits,
 		connectionTests: deps.ConnectionTests,
 		roles:           deps.Roles,
@@ -233,6 +251,7 @@ func New(settings config.Settings, log *slog.Logger, now func() time.Time, deps 
 		localCI:         deps.LocalCI,
 		preview:         deps.Preview,
 		webUI:           deps.WebUI,
+		mcp:             deps.MCP,
 	}
 	if deps.Store == nil {
 		return s
@@ -272,6 +291,12 @@ func (s *Server) handler(extra ...func(*router)) http.Handler {
 			routes.stream("GET /v1/events", s.eventStream)
 		}
 		s.addDomainRoutes(routes)
+	}
+	// The internal MCP server is mounted as a stream route (a raw handler with no body rules and no
+	// owner-token check): it authenticates each request with the per-card secret minted when that
+	// card's session started, so an agent reaches its own card's tools and nothing else.
+	if s.mcp != nil {
+		routes.stream(mcpserver.PathPrefix, s.mcp.ServeHTTP)
 	}
 	for _, add := range extra {
 		add(routes)

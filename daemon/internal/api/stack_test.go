@@ -35,6 +35,7 @@ import (
 	"github.com/khanblair/marshal/daemon/internal/integrations"
 	"github.com/khanblair/marshal/daemon/internal/integrator"
 	"github.com/khanblair/marshal/daemon/internal/localci"
+	"github.com/khanblair/marshal/daemon/internal/memory"
 	"github.com/khanblair/marshal/daemon/internal/platform"
 	"github.com/khanblair/marshal/daemon/internal/preview"
 	"github.com/khanblair/marshal/daemon/internal/projects"
@@ -140,6 +141,13 @@ type stackConfig struct {
 	// cmd/marshald always builds it. It is here because every service the server can be given has a
 	// stack without it, so a route that needs one is proven to follow it.
 	noPreview bool
+	// noMemory leaves the memory module out, so the routes that read and write a card's note are not
+	// registered and there is no search either (the search answers the session and note kinds through
+	// the same module). This is not a case the daemon ships in: the module needs only the store, the
+	// projects service, and the data folder, and cmd/marshald always builds it. It is here for the
+	// same reason the other no-service options are: every service the server can be given has a
+	// stack without it, so a route that needs one is proven to follow it.
+	noMemory bool
 	// previewOptions, when it is set, replaces the seams the preview module starts a dev server and
 	// takes a screenshot through, so an API test proves the wire without starting a process or
 	// launching a browser. Nil leaves every seam at the real default, which is what the daemon uses.
@@ -159,6 +167,9 @@ type stackConfig struct {
 	// terminals are the agents that run a card's CLI in a terminal (the terminal view). Nil leaves
 	// every card without a terminal view.
 	terminals *agents.Registry
+	// secondAgent registers a second agent kind (gemini) with the same stub-agent factory as the
+	// default card agent, so a card can be handed off from one agent to another over the wire.
+	secondAgent bool
 }
 
 type stackOption func(*stackConfig)
@@ -195,6 +206,9 @@ func withLocalCIRunner(r localci.Runner) stackOption {
 	return func(c *stackConfig) { c.localCIRunner = r }
 }
 func withoutPreview() stackOption { return func(c *stackConfig) { c.noPreview = true } }
+
+// withoutMemory leaves the memory module out.
+func withoutMemory() stackOption { return func(c *stackConfig) { c.noMemory = true } }
 func withPreviewOptions(o preview.Options) stackOption {
 	return func(c *stackConfig) { c.previewOptions = o }
 }
@@ -204,6 +218,7 @@ func withProviderFailure(err error) stackOption {
 func withTerminals(reg *agents.Registry) stackOption {
 	return func(c *stackConfig) { c.terminals = reg }
 }
+func withSecondAgent() stackOption { return func(c *stackConfig) { c.secondAgent = true } }
 func withResumeMode(m session.ResumeMode) stackOption {
 	return func(c *stackConfig) { c.resumeMode = m }
 }
@@ -222,6 +237,7 @@ type stack struct {
 	cfg      stackConfig
 	dir      string // the temp folder of the whole stack
 	dataDir  string // the data folder that worktrees and session logs go under
+	vault    string // the vault folder the memory module writes under, inside dataDir
 	stateDir string // where the stub agent keeps its sessions, so a new process can resume them
 	store    *store.Store
 	bus      *events.Bus
@@ -239,6 +255,9 @@ type stack struct {
 	skew    time.Duration // how far the server's clock is ahead of the real one
 	mgr     *session.Manager
 	hist    *history.Store
+	// mem is the memory module, which owns the vault under the stack's data folder. It is nil when
+	// the stack was built without it (withoutMemory, or withoutProjects, which it needs).
+	mem *memory.Service
 	// webhookSink records the deliveries that reach the daemon's webhook receiver, so a test can
 	// prove a verified event arrived and that an unverified one did not.
 	webhookSink *webhookRecorder
@@ -286,6 +305,7 @@ func newStack(t *testing.T, opts ...stackOption) *stack {
 	st := &stack{t: t, cfg: cfg, dir: t.TempDir(), logs: &lockedBuffer{}}
 	st.dataDir = filepath.Join(st.dir, "data")
 	st.stateDir = filepath.Join(st.dataDir, "dev-agent-state")
+	st.vault = filepath.Join(st.dataDir, "vault")
 	st.log = slog.New(slog.NewTextHandler(st.logs, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	st.settings = config.Settings{Mode: platform.ModeDev, Port: 0, Agent: config.AgentStub}
 	if cfg.normal {
@@ -301,6 +321,13 @@ func newStack(t *testing.T, opts ...stackOption) *stack {
 	}
 	if err := st.reg.Register(protocol.AgentKindClaude, factory); err != nil {
 		t.Fatalf("register the agent: %v", err)
+	}
+	if cfg.secondAgent {
+		// A second kind behind the same program, so "hand this card off to another agent" has
+		// somewhere to go without a second real agent being installed.
+		if err := st.reg.Register(protocol.AgentKindGemini, factory); err != nil {
+			t.Fatalf("register the second agent: %v", err)
+		}
 	}
 	st.startModules()
 	return st
@@ -439,6 +466,19 @@ func (st *stack) startModules() {
 	if !st.cfg.noProjects {
 		deps.Projects = st.proj
 	}
+	// The memory module (B7.2, B7.4, B7.5): the one note each card keeps in the vault, the files a
+	// card has claimed, and the search over the notes and the past sessions. Its vault is a folder
+	// under the stack's own data folder, which is a temporary directory - a test never writes into
+	// the real `<data>/vault`.
+	if !st.cfg.noMemory && !st.cfg.noProjects {
+		mem, err := memory.New(memory.Deps{Store: st.store, Cards: st.proj, Root: st.vault},
+			memory.WithClock(st.now))
+		if err != nil {
+			t.Fatalf("make the memory module: %v", err)
+		}
+		deps.Memory = mem
+		st.mem = mem
+	}
 	if !st.cfg.noDiff && !st.cfg.noProjects {
 		// The diff module reads a card's worktree through the projects module, so a stack without
 		// projects has no diff service either.
@@ -491,10 +531,12 @@ func (st *stack) startModules() {
 			t.Fatalf("make the chats service: %v", err)
 		}
 		deps.Chats = projectChats
-		if !st.cfg.noSearch && !st.cfg.noProjects {
-			// Search reads through the projects and chats services, so a stack without either has
-			// no search either.
-			finder, err := search.New(search.Deps{Projects: st.proj, Chats: projectChats})
+		if !st.cfg.noSearch && !st.cfg.noProjects && st.mem != nil {
+			// Search reads through the projects, chats, and memory services, so a stack without any
+			// of them has no search either.
+			finder, err := search.New(search.Deps{
+				Projects: st.proj, Chats: projectChats, Sessions: st.mem, Notes: st.mem,
+			})
 			if err != nil {
 				t.Fatalf("make the search service: %v", err)
 			}

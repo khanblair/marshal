@@ -10,9 +10,11 @@ import (
 	"io"
 	"io/fs"
 	"log/slog"
+	"net"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"syscall"
@@ -32,6 +34,7 @@ import (
 	"github.com/khanblair/marshal/daemon/internal/cardhistory"
 	"github.com/khanblair/marshal/daemon/internal/chats"
 	"github.com/khanblair/marshal/daemon/internal/ci"
+	"github.com/khanblair/marshal/daemon/internal/codemap"
 	"github.com/khanblair/marshal/daemon/internal/config"
 	"github.com/khanblair/marshal/daemon/internal/connectiontest"
 	"github.com/khanblair/marshal/daemon/internal/dashboard"
@@ -44,6 +47,9 @@ import (
 	"github.com/khanblair/marshal/daemon/internal/integrations"
 	"github.com/khanblair/marshal/daemon/internal/integrator"
 	"github.com/khanblair/marshal/daemon/internal/localci"
+	"github.com/khanblair/marshal/daemon/internal/mcpattach"
+	"github.com/khanblair/marshal/daemon/internal/mcpserver"
+	"github.com/khanblair/marshal/daemon/internal/memory"
 	"github.com/khanblair/marshal/daemon/internal/platform"
 	"github.com/khanblair/marshal/daemon/internal/preview"
 	"github.com/khanblair/marshal/daemon/internal/projects"
@@ -93,6 +99,12 @@ func main() {
 // run starts the daemon and returns the process exit code. It is separate from main so tests
 // can call it.
 func run(args []string, stdout, stderr io.Writer) int {
+	// `mcp` is the same binary in another mode: the stdio server an agent runs to reach the daemon's
+	// tools (mcp.go). It is handled before the daemon's own flags, because everything below opens the
+	// data folder, takes the run lock, and serves - none of which a short-lived forwarder does.
+	if len(args) > 0 && args[0] == "mcp" {
+		return runMCP(args[1:], stdout, stderr)
+	}
 	env, err := platform.CurrentEnv()
 	if err != nil {
 		say(stderr, "%v", err)
@@ -168,7 +180,7 @@ func serve(ctx context.Context, settings config.Settings, env platform.Env, log 
 	}
 	defer bus.Close()
 
-	mods, err := buildModules(st, bus, settings, env, log)
+	mods, err := buildModules(ctx, st, bus, settings, env, log)
 	if err != nil {
 		return err
 	}
@@ -244,6 +256,7 @@ func serve(ctx context.Context, settings config.Settings, env platform.Env, log 
 		SleepSettings: mods.sleepSettings, Quality: mods.quality,
 		Integrations: mods.integrations, Webhooks: mods.integrations.Receiver(),
 		CI: mods.ci, LocalCI: mods.localCI, Preview: mods.preview,
+		MCP:   mods.mcpHost,
 		WebUI: webUIFS(),
 	}).Run(ctx)
 }
@@ -323,13 +336,27 @@ type daemonModules struct {
 	// folder for the shots and the browser profiles. Its dev servers are stopped when the daemon
 	// returns, so a person's machine is not left running one.
 	preview *preview.Service
+	// memory is the knowledge base: the card notes, the file claims, and the vault they live in
+	// (B7.2, B7.4, architecture.md section 12). It is the reader and writer the note routes and the
+	// internal MCP server's note and claim tools use.
+	memory *memory.Service
+	// mcpHost serves the internal MCP server to live cards' agents (B7.1, section 11.4). It is
+	// handed to the API as the endpoint that mounts it, and the session manager's attacher reaches it
+	// to add and remove a card's server.
+	mcpHost *mcpserver.Host
+	// codemap is the codebase map: the light per-project index of files and symbols that lets an
+	// agent ask where a name is (B7.5, build-plan task 7.9). It is what the internal MCP server's
+	// search_codebase answers from.
+	codemap *codemap.Map
 }
 
 // buildModules makes git, projects, the agent registry and catalog, and the session manager, in
-// the order each depends on the last.
-func buildModules(st *store.Store, bus *events.Bus, settings config.Settings, env platform.Env, log *slog.Logger) (daemonModules, error) {
+// the order each depends on the last. ctx is the daemon's own context, which the long-lived
+// watchers it starts - the vault watcher - stop with.
+func buildModules(ctx context.Context, st *store.Store, bus *events.Bus, settings config.Settings, env platform.Env, log *slog.Logger) (daemonModules, error) {
 	git := gitx.New()
 	late := &lateSessions{}
+	lateMem := &lateMemory{}
 	// A card's session state is read from the stored session rows, not from the manager, so the
 	// projects service can have it before the manager is built.
 	states, err := session.NewStoredStates(st)
@@ -338,7 +365,7 @@ func buildModules(st *store.Store, bus *events.Bus, settings config.Settings, en
 	}
 	proj, err := projects.New(projects.Deps{Store: st, Bus: bus, Git: git, DataDir: settings.DataDir},
 		projects.WithLogger(log), projects.WithSessionStopper(late), projects.WithAwakeCounter(late),
-		projects.WithSessionStates(states))
+		projects.WithSessionStates(states), projects.WithMemoryRemover(lateMem))
 	if err != nil {
 		return daemonModules{}, fmt.Errorf("start the projects module: %w", err)
 	}
@@ -428,9 +455,26 @@ func buildModules(st *store.Store, bus *events.Bus, settings config.Settings, en
 	if err != nil {
 		return daemonModules{}, fmt.Errorf("start the chats module: %w", err)
 	}
-	// Search reads the projects, their cards, and their chats through the two services that own
-	// them, never their tables.
-	finder, err := search.New(search.Deps{Projects: proj, Chats: projectChats})
+	// The memory module (B7.2, B7.4, B7.5, architecture.md section 12): the one note each card keeps,
+	// the files a card has claimed, and the search over them. Its vault is `<data>/vault`, so the
+	// whole knowledge base is one folder a person can open in Obsidian, and the note files - not the
+	// rows - are what that person edits.
+	mem, err := memory.New(memory.Deps{Store: st, Cards: proj, Root: vaultRoot(settings.DataDir)},
+		memory.WithClock(time.Now))
+	if err != nil {
+		return daemonModules{}, fmt.Errorf("start the memory module: %w", err)
+	}
+	// The projects service is told where a removed project's memory goes. It is set after the module
+	// is built because the two need each other: memory reads a project's cards, and the project's
+	// removal deletes its memory folder.
+	lateMem.svc.Store(mem)
+	// The vault watcher brings the index up to date after a note is edited in Obsidian (B7.4, task
+	// 7.8). It stops with the daemon's own context, so nothing sweeps a vault after the store closes.
+	mem.StartVaultWatch(ctx)
+	// Search reads the projects, their cards, their chats, their past sessions, and their notes
+	// through the services that own them, never their tables: the memory module answers the two
+	// kinds that are searched through a full-text index rather than read whole.
+	finder, err := search.New(search.Deps{Projects: proj, Chats: projectChats, Sessions: mem, Notes: mem})
 	if err != nil {
 		return daemonModules{}, fmt.Errorf("start the search module: %w", err)
 	}
@@ -500,13 +544,16 @@ func buildModules(st *store.Store, bus *events.Bus, settings config.Settings, en
 		return daemonModules{}, fmt.Errorf("start the code-smell module: %w", err)
 	}
 	proj.SetReviewGate(qualitySvc)
-	// The connections Marshal is set up with apart from model providers (B6.1, B6.7, architecture.md
-	// section 18): the GitHub App today. It owns the GitHub delivery receiver the webhook route
-	// hands deliveries to, and it reads the webhook secret from the keychain on every delivery, so
-	// saving the App in Settings takes effect without a restart - which is why the receiver exists
-	// even on a daemon nobody has connected GitHub to. Until then every delivery is refused.
+	// The connections Marshal is set up with apart from model providers (B6.1, B6.7, B7.4,
+	// architecture.md section 18): the GitHub App today, and the Obsidian vault, which is a folder
+	// rather than a service. It owns the GitHub delivery receiver the webhook route hands deliveries
+	// to, and it reads the webhook secret from the keychain on every delivery, so saving the App in
+	// Settings takes effect without a restart - which is why the receiver exists even on a daemon
+	// nobody has connected GitHub to. Until then every delivery is refused. The vault root is handed
+	// in from the memory module, so the Obsidian row and the test name the one folder Marshal writes
+	// memory in rather than a second copy of the same path.
 	integrationSvc, err := integrations.New(st, security.NewOSKeychain(platform.AppName(settings.Mode)),
-		integrations.Options{Logger: log, Now: time.Now})
+		integrations.Options{Logger: log, Now: time.Now, VaultRoot: mem.Root()})
 	if err != nil {
 		return daemonModules{}, fmt.Errorf("start the integrations module: %w", err)
 	}
@@ -545,6 +592,43 @@ func buildModules(st *store.Store, bus *events.Bus, settings config.Settings, en
 	if err != nil {
 		return daemonModules{}, fmt.Errorf("start the preview module: %w", err)
 	}
+	// The codebase map (B7.5, build-plan task 7.9): a light index of each project's files and
+	// symbols, so an agent asks where a name is instead of reading the tree to find it. Symbols come
+	// from universal ctags when the machine has it, and from file names alone when it does not
+	// (internal/codemap says so in every answer).
+	codeMap, err := codemap.New(codemap.Deps{
+		Roots: func(ctx context.Context, projectID string) (string, error) {
+			project, err := proj.Get(ctx, projectID)
+			if err != nil {
+				return "", err
+			}
+			return project.Path, nil
+		},
+		Logger: log,
+	})
+	if err != nil {
+		return daemonModules{}, fmt.Errorf("start the codebase map: %w", err)
+	}
+	// The internal MCP server (B7.1, architecture.md section 11.4): one server per live card, served
+	// over the daemon's own listener and reached by that card's own agent through `marshald mcp`. The
+	// host holds the servers; the attacher builds one when a session starts and gives it up when the
+	// session ends (internal/session's Attacher).
+	mcpHost := mcpserver.NewHost(mcpserver.WithHostLogger(log))
+	attacher, err := mcpattach.New(mcpattach.Deps{
+		Host: mcpHost, Cards: proj, Notes: mem, Claims: mem, Agents: sessions,
+		Codebase: codeMap, Roles: roleSvc, Harness: sessions.HarnessConfigFor,
+		Command: daemonExecutable(log), Address: loopbackAddress(settings.Port),
+		Logger: log, Now: time.Now,
+	})
+	if err != nil {
+		return daemonModules{}, fmt.Errorf("start the internal MCP server: %w", err)
+	}
+	sessions.SetAttacher(attacher)
+	// The same module builds the board-awareness summary a card's agent is given at the start of
+	// every turn (internal/session's Awareness). It is a seam of its own rather than a third method
+	// on the attacher because a daemon that could not resolve its own executable still gives its
+	// sessions the summary, and because it is read per turn rather than once (session/aware.go).
+	sessions.SetAwareness(attacher)
 	return daemonModules{
 		proj: proj, sessions: sessions, catalog: catalogSrc, dashboard: home, homeSub: homeSub,
 		history: cards, diff: cardDiff, chats: projectChats, search: finder, accounts: you,
@@ -552,8 +636,32 @@ func buildModules(st *store.Store, bus *events.Bus, settings config.Settings, en
 		connectionTests: connectionTests, roles: roleSvc, pullRequests: pullReq,
 		review: reviewSvc, integrator: mergeQueue, sleepSettings: sleepSettingsSvc,
 		quality: qualitySvc, integrations: integrationSvc, ci: ciSvc, localCI: localCISvc,
-		preview: previewSvc,
+		preview: previewSvc, memory: mem, mcpHost: mcpHost, codemap: codeMap,
 	}, nil
+}
+
+// vaultRoot is where the memory module keeps a person's knowledge base: one `vault` folder under the
+// daemon's data folder (docs/architecture.md section 12).
+func vaultRoot(dataDir string) string {
+	return filepath.Join(dataDir, "vault")
+}
+
+// loopbackAddress is where the daemon is reached on this machine: the address its own `mcp` mode and
+// the agent it serves connect back to.
+func loopbackAddress(port int) string {
+	return net.JoinHostPort("127.0.0.1", strconv.Itoa(port))
+}
+
+// daemonExecutable is the absolute path of the running daemon, which is the command an agent runs as
+// `mcp`. A daemon that cannot resolve its own path logs it and serves no tools rather than failing
+// to start: everything else it does still works.
+func daemonExecutable(log *slog.Logger) string {
+	exe, err := os.Executable()
+	if err != nil {
+		log.Warn("could not resolve the daemon's own path, so no agent is given the internal tools", "error", err)
+		return ""
+	}
+	return exe
 }
 
 // appForge is the CI monitor's forge, answered from the GitHub App saved in Settings (B6.2,
@@ -686,6 +794,21 @@ func (l *lateSessions) AwakeCards(ctx context.Context, projectID string) (int, e
 		return m.AwakeCards(ctx, projectID)
 	}
 	return 0, nil
+}
+
+// lateMemory lets the projects service reach the memory module, which is built after it because the
+// module reads a project's cards through the projects service. It does nothing until the module is
+// set, which means a project removed before then leaves its memory folder alone - a folder the
+// person can delete themselves, where deleting it on a guess is not something to do.
+type lateMemory struct {
+	svc atomic.Pointer[memory.Service]
+}
+
+func (l *lateMemory) RemoveProjectMemory(ctx context.Context, projectID string) error {
+	if s := l.svc.Load(); s != nil {
+		return s.RemoveProjectMemory(ctx, projectID)
+	}
+	return nil
 }
 
 // applyResumeSetting gives the session manager the "After a restart" setting a person saved on

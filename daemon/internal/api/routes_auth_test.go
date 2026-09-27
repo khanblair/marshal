@@ -129,6 +129,21 @@ func TestARouteIsRegisteredOnlyWhenItsServiceIsThere(t *testing.T) {
 	checkpointRoutes := []string{
 		"GET /v1/cards/{id}/checkpoints", "POST /v1/cards/{id}/checkpoints/{cp}/restore",
 	}
+	// Handing a card off needs both services as well: the session manager holds the session being
+	// replaced and the worktree the new agent starts in, and the card the handoff continues is read
+	// through the projects service.
+	handoffRoutes := []string{"POST /v1/cards/{id}/handoff"}
+	// The two note routes need the projects service, which reads the card a note's file is found
+	// from, and the memory module, which owns the vault the note is written in.
+	noteRoutes := []string{"GET /v1/cards/{id}/note", "PUT /v1/cards/{id}/note"}
+	// The lesson routes need the same pair as the note routes, and for the same reason: the memory
+	// module owns the vault a lesson's file lives in, and the projects service is what its project
+	// id is checked against.
+	lessonRoutes := []string{
+		"GET /v1/projects/{id}/lessons", "POST /v1/projects/{id}/lessons",
+		"GET /v1/projects/{id}/lessons/{slug}", "PUT /v1/projects/{id}/lessons/{slug}",
+		"DELETE /v1/projects/{id}/lessons/{slug}",
+	}
 	cardRoutes := []string{"POST /v1/cards/{id}/move", "PATCH /v1/cards/{id}", "DELETE /v1/cards/{id}", "POST /v1/cards/{id}/fork"}
 	labelRoutes := []string{"GET /v1/projects/{id}/labels", "POST /v1/projects/{id}/labels", "PATCH /v1/labels/{id}", "DELETE /v1/labels/{id}"}
 	homeRoutes := []string{"GET /v1/home/dashboard", "GET /v1/home/activity"}
@@ -218,6 +233,7 @@ func TestARouteIsRegisteredOnlyWhenItsServiceIsThere(t *testing.T) {
 		"connection tests": connectionTestRoutes, "roles": roleRoutes, "plans": planRoutes,
 		"integrations": integrationRoutes, "integration tests": integrationTestRoutes,
 		"checkpoints": checkpointRoutes, "pull requests": pullRequestRoutes,
+		"handoffs": handoffRoutes, "notes": noteRoutes, "lessons": lessonRoutes,
 		"integrator": integratorRoutes, "review": reviewRoutes,
 		"notices": noticeRoutes, "sleep settings": sleepSettingsRoutes, "quality": qualityRoutes,
 		"ci": ciRoutes, "ci simulation": ciSimulateRoutes, "local ci": localCIRoutes,
@@ -246,6 +262,9 @@ func TestARouteIsRegisteredOnlyWhenItsServiceIsThere(t *testing.T) {
 		{"no diff", []stackOption{withoutDiff()}, []string{"projects", "sessions", "hold", "start", "cards", "labels", "home", "agents", "history", "chats", "search"}},
 		{"no chats", []stackOption{withoutChats()}, []string{"projects", "sessions", "hold", "start", "cards", "labels", "home", "agents", "history", "diff"}},
 		{"no search", []stackOption{withoutSearch()}, []string{"projects", "sessions", "hold", "start", "cards", "labels", "home", "agents", "history", "diff", "chats"}},
+		// A stack with no memory module has no search either: two of the kinds search answers with
+		// are read through it.
+		{"no memory", []stackOption{withoutMemory()}, []string{"projects", "sessions", "hold", "start", "cards", "labels", "home", "agents", "history", "diff", "chats"}},
 		{"nothing", []stackOption{withoutProjects(), withoutSessions(), withoutCatalog(), withoutDashboard(), withoutHistory(), withoutDiff(), withoutChats(), withoutSearch()}, nil},
 	}
 	// A stack without the accounts service, without the audit-log service, and a normal daemon, have
@@ -306,6 +325,14 @@ func TestARouteIsRegisteredOnlyWhenItsServiceIsThere(t *testing.T) {
 			have["plans"] = !st.cfg.noProjects && !st.cfg.noSessions
 			// The checkpoint routes need both services too, for the same reason as the plans.
 			have["checkpoints"] = !st.cfg.noProjects && !st.cfg.noSessions
+			// The handoff route needs both services as well: the session being replaced and the
+			// card that continues on the new agent live in different services.
+			have["handoffs"] = !st.cfg.noProjects && !st.cfg.noSessions
+			// The note routes need the memory module, which owns the vault, and the projects
+			// service, which reads the card a note is found from.
+			have["notes"] = !st.cfg.noMemory && !st.cfg.noProjects
+			// The lesson routes follow the same pair, for the same reason.
+			have["lessons"] = !st.cfg.noMemory && !st.cfg.noProjects
 			// The CI route follows the monitor, which the stack builds only with the projects the
 			// runs belong to and the roles whose ceilings the fix loop counts against.
 			have["ci"] = !st.cfg.noCI && !st.cfg.noProjects && !st.cfg.noRoles
