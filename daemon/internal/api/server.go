@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"net"
 	"net/http"
@@ -15,17 +16,31 @@ import (
 
 	"github.com/khanblair/marshal/daemon/internal/accounts"
 	"github.com/khanblair/marshal/daemon/internal/agents/catalog"
+	"github.com/khanblair/marshal/daemon/internal/auditlog"
 	"github.com/khanblair/marshal/daemon/internal/buildinfo"
 	"github.com/khanblair/marshal/daemon/internal/cardhistory"
 	"github.com/khanblair/marshal/daemon/internal/chats"
+	ci "github.com/khanblair/marshal/daemon/internal/ci"
 	"github.com/khanblair/marshal/daemon/internal/config"
+	"github.com/khanblair/marshal/daemon/internal/connectiontest"
 	"github.com/khanblair/marshal/daemon/internal/dashboard"
 	"github.com/khanblair/marshal/daemon/internal/diff"
 	"github.com/khanblair/marshal/daemon/internal/events"
+	"github.com/khanblair/marshal/daemon/internal/integrations"
+	githubapp "github.com/khanblair/marshal/daemon/internal/integrations/github"
+	"github.com/khanblair/marshal/daemon/internal/integrator"
+	"github.com/khanblair/marshal/daemon/internal/localci"
+	"github.com/khanblair/marshal/daemon/internal/preview"
 	"github.com/khanblair/marshal/daemon/internal/projects"
 	"github.com/khanblair/marshal/daemon/internal/protocol"
+	"github.com/khanblair/marshal/daemon/internal/providers"
+	"github.com/khanblair/marshal/daemon/internal/pullrequest"
+	"github.com/khanblair/marshal/daemon/internal/quality"
+	"github.com/khanblair/marshal/daemon/internal/review"
+	"github.com/khanblair/marshal/daemon/internal/roles"
 	"github.com/khanblair/marshal/daemon/internal/search"
 	"github.com/khanblair/marshal/daemon/internal/session"
+	"github.com/khanblair/marshal/daemon/internal/settings"
 	"github.com/khanblair/marshal/daemon/internal/store"
 )
 
@@ -75,6 +90,82 @@ type Deps struct {
 	// When it is set, those routes are registered, and so is the dev-only reset of first-launch
 	// progress on a dev daemon.
 	Accounts *accounts.Service
+	// Auditlog reads the audit log back for the read-only list, search, and export routes
+	// (B3.5). When it is set, those routes are registered.
+	Auditlog *auditlog.Service
+	// Providers lists the model providers Marshal knows and stores, replaces, and removes their
+	// keys (N18). When it is set, those three routes are registered. The key itself is never in an
+	// answer: only a masked value is.
+	Providers *providers.Service
+	// CostLimits reads and writes the cost and awake limits (B4.5). When it is set, those routes are
+	// registered. It is separate from Providers because a ceiling needs the store and not the
+	// keychain: a daemon sets limits whether or not a key has been saved.
+	CostLimits *providers.Limits
+	// ConnectionTests runs a connection's test and remembers its result (B4.6, section 18). When it
+	// is set, POST /v1/providers/{id}/test is registered, and every provider row carries the last
+	// test that was saved for it. It is separate from Providers because the runner belongs to the
+	// daemon and not to a provider: later phases' integrations and MCP servers are tested through
+	// the same one.
+	ConnectionTests *connectiontest.Runner
+	// Roles lists Marshal's role templates and adds, edits, deletes, resets, and overrides them
+	// (B5.1, N18). When it is set, the role routes are registered. It needs the store and not the
+	// keychain: a role is a name and a spec, and nothing in it is a secret.
+	Roles *roles.Service
+	// PullRequests opens a card's branch as a real pull request on the project's forge (B5.4,
+	// build-plan 5.6). When it is set, and Projects is too, POST /v1/cards/{id}/pull-request is
+	// registered. It stays unset until a forge token is saved, so on a machine with no GitHub
+	// connection the route does not exist at all.
+	PullRequests *pullrequest.Service
+	// Integrator runs the merge queue (B5.5, build-plan 5.8). When it is set, and Projects is too,
+	// POST /v1/cards/{id}/merge is registered: a card in Ready to merge is merged into the
+	// project's default branch, one card at a time per project.
+	Integrator *integrator.Service
+	// Review runs the Reviewer role over a card's pull request (B5.4, build-plan 5.7). When it is
+	// set, and Projects is too, POST /v1/cards/{id}/review is registered. It stays unset until a
+	// forge token is saved, the same as PullRequests, and it is wired as that service's own
+	// "after a pull request is opened" step, so every pull request is read without a person asking.
+	Review *review.Service
+	// SleepSettings reads and writes the settings the automatic sleep is driven by (B5.6, N5): the
+	// idle time, the warning time, the keep-awake time, what happens at restart, and where a warning
+	// goes. When it is set, GET and PUT /v1/settings/sleep are registered. The notices themselves
+	// come from Sessions, which owns the groups, so the notice routes need no service of their own.
+	SleepSettings *settings.Service
+	// Quality reads a card's code-smell findings, asks the card's agent to fix one, dismisses one
+	// with a reason, and reads and writes a project's smell profile (B5.8, architecture.md section
+	// 17). When it is set, and Projects is too, the five quality routes are registered.
+	Quality *quality.Service
+	// Integrations owns the connections Marshal is set up with apart from model providers: today
+	// the GitHub App, in later phases Trello, a calendar, Gmail, Telegram, Discord, and a vault
+	// (B6.1, B6.7, section 18). When it is set, GET /v1/integrations and the save, remove, and test
+	// routes beneath it are registered.
+	Integrations *integrations.Service
+	// CI is the CI monitor: it turns a workflow run on a card's branch into a card's CI state and
+	// runs the failure loop of section 9 (B6.2, B6.3, B6.4). When it is set, GET /v1/ci is
+	// registered, and on a dev daemon so is POST /v1/cards/{id}/ci-failure, the simulated failure.
+	// The monitor is also the sink the webhook route's deliveries reach, which is wired where the
+	// daemon is built and not here.
+	CI *ci.Service
+	// Webhooks receives GitHub's deliveries for the App (B6.1, build-plan 6.1). When it is set,
+	// POST /hooks/github is registered. It is the one route with no bearer token: GitHub cannot
+	// send one, so the delivery is authorized by its own signature instead (the signedWebhook
+	// category). A delivery is refused while no webhook secret is saved, so an unconfigured daemon
+	// answers 401 to every delivery rather than believing one.
+	Webhooks *githubapp.Receiver
+	// LocalCI runs a card's own workflow steps on this machine (B6.5, build-plan 6.5). When it is
+	// set, and Projects is too, POST /v1/cards/{id}/local-ci is registered. It is a service of its
+	// own rather than part of CI because the two know nothing of each other: the CI monitor watches
+	// the forge, and this runs a project's own workflow files in a worktree.
+	LocalCI *localci.Service
+	// Preview runs one dev server per card and takes its before and after screenshots (B6.6,
+	// build-plan 6.6 and 6.7, section 11.2). When it is set, and Projects is too, the five preview
+	// routes are registered: read a card's preview, start it, stop it, take a screenshot, and serve
+	// one. It is a service of its own because a preview is a dev server on the person's machine, not
+	// a look at a project.
+	Preview *preview.Service
+	// WebUI is the built web app (internal/webui.FS()), served for any address that is not a
+	// route above. Without it, an address nothing else matches answers not_found, as it always
+	// did before this field existed.
+	WebUI fs.FS
 	// Limits are the sizes and times. A zero field takes its default.
 	Limits Limits
 }
@@ -99,6 +190,26 @@ type Server struct {
 	chats     *chats.Service
 	search    *search.Service
 	accounts  *accounts.Service
+	auditlog  *auditlog.Service
+
+	providers  *providers.Service
+	costLimits *providers.Limits
+
+	connectionTests *connectiontest.Runner
+
+	roles        *roles.Service
+	pullRequests *pullrequest.Service
+	integrator   *integrator.Service
+	review       *review.Service
+
+	sleepSettings *settings.Service
+	quality       *quality.Service
+	integrations  *integrations.Service
+	webhooks      *githubapp.Receiver
+	ci            *ci.Service
+	localCI       *localci.Service
+	preview       *preview.Service
+	webUI         fs.FS
 }
 
 // New makes a server. `now` is the clock, so tests can fix the time.
@@ -107,7 +218,21 @@ func New(settings config.Settings, log *slog.Logger, now func() time.Time, deps 
 		settings: settings, log: log, now: now, limits: deps.Limits.withDefaults(),
 		projects: deps.Projects, sessions: deps.Sessions, catalog: deps.Catalog,
 		dashboard: deps.Dashboard, history: deps.History, diff: deps.Diff, chats: deps.Chats,
-		search: deps.Search, accounts: deps.Accounts,
+		search: deps.Search, accounts: deps.Accounts, auditlog: deps.Auditlog,
+		providers: deps.Providers, costLimits: deps.CostLimits,
+		connectionTests: deps.ConnectionTests,
+		roles:           deps.Roles,
+		pullRequests:    deps.PullRequests,
+		integrator:      deps.Integrator,
+		review:          deps.Review,
+		sleepSettings:   deps.SleepSettings,
+		quality:         deps.Quality,
+		integrations:    deps.Integrations,
+		webhooks:        deps.Webhooks,
+		ci:              deps.CI,
+		localCI:         deps.LocalCI,
+		preview:         deps.Preview,
+		webUI:           deps.WebUI,
 	}
 	if deps.Store == nil {
 		return s
@@ -136,6 +261,11 @@ func (s *Server) Handler() http.Handler {
 func (s *Server) handler(extra ...func(*router)) http.Handler {
 	routes := newRouter(s)
 	routes.public("GET /v1/health", s.health)
+	// The webhook route is registered outside the token check on purpose: GitHub has no token, and
+	// its deliveries are authorized by a signature over their raw body instead (B6.1).
+	if s.webhooks != nil {
+		routes.signedWebhook("POST /hooks/github", s.githubWebhook)
+	}
 	if s.auth != nil {
 		routes.protected("GET /v1/auth/whoami", s.whoami)
 		if s.hub != nil {
