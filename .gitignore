@@ -16,11 +16,19 @@ coverage/
 test-results/
 playwright-report/
 
-# Tauri (desktop shell, not built yet)
+# Tauri (desktop shell)
 apps/desktop/src-tauri/target/
 apps/desktop/src-tauri/binaries/
+apps/desktop/src-tauri/gen/
 
-# Go and Rust build artifacts (daemon and desktop, not built yet)
+# The web build copied into the daemon's embed (internal/webui/webui.go) is generated, like the
+# rest of `dist/` above, but its directory holds one committed placeholder that has to survive a
+# fresh checkout: without it, `//go:embed all:dist` has nothing to embed before the first build.
+!daemon/internal/webui/dist/
+daemon/internal/webui/dist/*
+!daemon/internal/webui/dist/.gitkeep
+
+# Go and Rust build artifacts (daemon and desktop)
 *.exe
 *.test
 *.out

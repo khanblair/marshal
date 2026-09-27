@@ -3,6 +3,9 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,6 +16,10 @@ import (
 	"regexp"
 	"strings"
 )
+
+// SignatureHeader is the header a GitHub delivery is signed with. It is mirrored here rather than
+// imported, because this tool is its own module and must not depend on the daemon.
+const SignatureHeader = "X-Hub-Signature-256"
 
 // recording is one webhook saved from a real delivery: the headers it came with, and its body
 // exactly as it was sent. The body is kept as raw JSON, so its bytes are not changed and a
@@ -54,8 +61,19 @@ type target struct {
 	provider string
 }
 
-// send posts a recording to <baseURL>/hooks/<provider> and returns the daemon's status line.
-func send(ctx context.Context, client *http.Client, to target, rec recording) (string, error) {
+// sign returns the signature header value for body under secret: "sha256=<hex>". It is the same
+// HMAC the daemon checks, computed here so a fixture recorded without a signature can still be
+// replayed against a daemon that knows the secret.
+func sign(secret string, body []byte) string {
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write(body)
+	return "sha256=" + hex.EncodeToString(mac.Sum(nil))
+}
+
+// send posts a recording to <baseURL>/hooks/<provider> and returns the daemon's status line. When
+// secret is non-empty the body is signed with it, and the result replaces any signature the
+// recording carried, so a replay always matches the daemon's own secret.
+func send(ctx context.Context, client *http.Client, to target, rec recording, secret string) (string, error) {
 	url := strings.TrimRight(to.baseURL, "/") + "/hooks/" + to.provider
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(rec.Body))
 	if err != nil {
@@ -64,6 +82,9 @@ func send(ctx context.Context, client *http.Client, to target, rec recording) (s
 	req.Header.Set("Content-Type", "application/json")
 	for key, value := range rec.Headers {
 		req.Header.Set(key, value)
+	}
+	if secret != "" {
+		req.Header.Set(SignatureHeader, sign(secret, rec.Body))
 	}
 	resp, err := client.Do(req)
 	if err != nil {
