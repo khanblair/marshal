@@ -114,6 +114,13 @@ export interface Card {
   doing: string;
   reason: string;
   /**
+   * The id of the approval the card is waiting on, set only while `reason` names one (section S8b,
+   * B3.4). It is what lets Home's needs-you card approve or deny without opening the card: undefined
+   * on a card the mock made (the mock's own Approve button still reads the open chat,
+   * `mock/selectors.ts`'s `pendingApproval`) and on a daemon card that is not waiting on one.
+   */
+  approvalId?: string;
+  /**
    * The stored state of the card's session, as the daemon sends it (section S7c). It is undefined on
    * a card the mock made, which has no session of its own, and null on a daemon card that never had
    * one. `asleep` and `waking` below are its two flags for the screens, and "awake" is read from it
@@ -202,6 +209,12 @@ export interface PlanMsg {
 }
 export interface ApprovalMsg {
   id: string;
+  /**
+   * The approval's own opaque id, the one `POST /v1/approvals/{id}` takes (section S8b). It is
+   * undefined for a block the mock made, which has no daemon id, and for a bypass note (which
+   * carries no approval, only its own past-tense sentence).
+   */
+  approvalId?: string;
   k: "approval";
   st: ApprovalState;
   cmd: string;

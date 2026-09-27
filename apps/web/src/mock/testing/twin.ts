@@ -79,6 +79,11 @@ export function makeTwin(hash = "#nosim"): Twin {
       S7b: "mock",
       S7c: "mock",
       S8a: "mock",
+      // Approvals (S8b) are the daemon's since their cutover, and an approval lives in the card's
+      // chat and in its NeedsReason, both of which this suite keeps on the mock: the twin approves
+      // and denies the prototype's own approval blocks. The daemon path has its own tests
+      // (sync/approval-actions.test.ts).
+      S8b: "mock",
       // The plans (S8c) are the daemon's since their cutover, and a plan lives in the card's chat,
       // which this suite keeps on the mock: the twin approves, rejects, and edits the prototype's
       // own plan blocks. The daemon path has its own tests (sync/plan-actions.test.ts).
@@ -102,11 +107,12 @@ export function makeTwin(hash = "#nosim"): Twin {
       // they are not available. The daemon path has its own tests (`daemon-notices-store.ts`).
       S23: "mock",
       S26a: "mock",
-      // The GitHub connection (S29a) is the daemon's since its cutover, and the twin runs no daemon:
-      // the prototype's own "installed on 3 repositories" row is what its settings tests draw. The
-      // connections of later phases (S29b to S29g) are the mock's whatever the register says, so only
-      // GitHub's own row is pinned here.
+      // The GitHub and Obsidian connections (S29a, S29b) are the daemon's since their cutovers, and
+      // the twin runs no daemon: the prototype's own "installed on 3 repositories" and "Vault at
+      // ~/Notes/Marshal" rows are what its settings tests draw. The connections of later phases
+      // (S29c to S29g) are the mock's whatever the register says, so only these two are pinned here.
       S29a: "mock",
+      S29b: "mock",
       // The person too: the prototype's people, saved views, and profile are the mock's own.
       ...MOCK_PERSON_SECTIONS,
     },

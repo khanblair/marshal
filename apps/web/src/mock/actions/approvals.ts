@@ -1,3 +1,4 @@
+import { approvalsOnDaemon, approveOnDaemon, denyOnDaemon } from "~/sync/approval-actions";
 import {
   approvePlan as approvePlanOnDaemon,
   plansOnDaemon,
@@ -65,14 +66,34 @@ function afterUpgrade(ctx: Ctx, id: CardKey): void {
   ]);
 }
 
-/** Approves the card's waiting command, or its waiting plan when there is no command. */
+/**
+ * Approves the card's waiting command, or its waiting plan when there is no command.
+ *
+ * Once approvals are the daemon's (section S8b) the answer is one of its routes,
+ * `POST /v1/approvals/{id}`, taking the approval's own id rather than the card's; the daemon owns
+ * where the request stands and what runs next, so there is nothing here to script the way the
+ * mock's own `approveLocally` does. The switch is at this module's own door, the way plans' is
+ * (`approvePlan` below), so the card's action row, the `A` key, and the approval block all arrive
+ * here.
+ */
 export function approve(ctx: Ctx, id: CardKey): void {
-  const c = card(ctx, id);
-  const a = waitingApproval(ctx, id);
-  if (!a) {
-    if (waitingPlan(ctx, id)) approvePlan(ctx, id);
-    return;
+  if (approvalsOnDaemon(ctx)) {
+    if (waitingApproval(ctx, id) || card(ctx, id)?.approvalId) {
+      void approveOnDaemon(ctx, id);
+      return;
+    }
+  } else {
+    const a = waitingApproval(ctx, id);
+    if (a) {
+      approveLocally(ctx, id, a);
+      return;
+    }
   }
+  if (waitingPlan(ctx, id)) approvePlan(ctx, id);
+}
+
+function approveLocally(ctx: Ctx, id: CardKey, a: ApprovalMsg): void {
+  const c = card(ctx, id);
   if (!c) return;
   a.st = "approved";
   syncProjectApproval(ctx, id, "approved");
@@ -102,10 +123,19 @@ export function approve(ctx: Ctx, id: CardKey): void {
   });
 }
 
+/** Denies the card's waiting command. Once approvals are the daemon's (S8b), see `approve`'s own note. */
 export function deny(ctx: Ctx, id: CardKey): void {
-  const c = card(ctx, id);
+  if (approvalsOnDaemon(ctx) && (waitingApproval(ctx, id) || card(ctx, id)?.approvalId)) {
+    void denyOnDaemon(ctx, id);
+    return;
+  }
   const a = waitingApproval(ctx, id);
-  if (!a || !c) return;
+  if (a) denyLocally(ctx, id, a);
+}
+
+function denyLocally(ctx: Ctx, id: CardKey, a: ApprovalMsg): void {
+  const c = card(ctx, id);
+  if (!c) return;
   a.st = "denied";
   syncProjectApproval(ctx, id, "denied");
   addAct(ctx, id, {

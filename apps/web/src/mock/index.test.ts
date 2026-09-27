@@ -129,6 +129,7 @@ const API = [
   "retryChat",
   "rolesOnDaemon",
   "runChecks",
+  "saveCardNote",
   "saveLimits",
   "savePlan",
   "saveSleepSettings",
@@ -252,6 +253,10 @@ describe("index.ts boot", () => {
       // A card's restore points are the daemon's own commits (B5.3), so the prototype has nothing
       // to restore from and no member for it.
       "restoreCheckpoint",
+      // A card's note (S14) is saved through `card-note.ts`'s own `saveNote`, which calls this one
+      // member only once the section is the daemon's; the prototype's `card-note.ts` writes its
+      // store directly and has no member for a daemon write at all.
+      "saveCardNote",
       "importRoles",
       "rolesOnDaemon",
       // The notices (S23) and the sleep settings (S26a): the prototype keeps the notice actions in

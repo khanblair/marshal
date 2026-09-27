@@ -13,6 +13,7 @@ import { homeActivityPage } from "~/sync/home-feed";
 import * as integrationWrites from "~/sync/integration-actions";
 import * as integrations from "~/sync/integrations";
 import * as limitWrites from "~/sync/limit-actions";
+import { saveCardNote } from "~/sync/notes";
 import * as noticeWrites from "~/sync/notice-actions";
 import * as onboardingWrites from "~/sync/onboarding-actions";
 import * as profileWrites from "~/sync/profile-actions";
@@ -304,6 +305,10 @@ function cardActions(ctx: Ctx) {
     deleteChecklist: checklists.deleteChecklist,
     toggleHideDone: checklists.toggleHideDone,
     restoreCheckpoint: checkpoints.restoreCheckpoint,
+    // A card's note (S14): `card-note.ts`'s own `saveNote` decides whether to call this (the
+    // section is the daemon's) or write the mock's store directly, so this is never reached while
+    // S14 is still the mock's.
+    saveCardNote,
     // A card's live preview (S13): the daemon owns whether a dev server runs and which screenshots
     // exist, so these ask it and the tab draws whatever it last answered.
     startPreview: previewWrites.startCardPreview,

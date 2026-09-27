@@ -1,6 +1,7 @@
 import type { Agent, Preview } from "@marshal/protocol";
 import type { ConnectionState } from "~/data/connection-machine";
 import type { CheckpointRow } from "~/data/mappers/checkpoints";
+import type { NoteInfo } from "~/data/mappers/notes";
 import type { CardKey } from "./card-key";
 import type { CalEvent, Integration, Profile, Provider, Role, Schedule } from "./settings-types";
 import type {
@@ -138,6 +139,12 @@ export interface State {
    */
   preview?: Record<CardKey, Preview>;
   notes?: Record<CardKey, string>;
+  /**
+   * A card's note, the daemon's own half (section S14): where it really lives in the vault, who
+   * wrote it last, and when. Absent for a card the mock still owns, or one nothing has been read
+   * for yet - `card-note.ts`'s `notePath` falls back to the mock's guessed path in either case.
+   */
+  noteInfo?: Record<CardKey, NoteInfo>;
   allKind?: "activity" | "ci";
   quickAddAt?: string | null;
   mobileCol?: Column;

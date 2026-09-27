@@ -66,13 +66,26 @@ function startOfToday(): number {
 }
 
 /**
- * The mock's GitHub row once the GitHub connection is the daemon's (S29a): the prototype's own
- * "installed on 3 repositories" sentence and its "connected" state must not show for a connection
- * nothing is stored for, so the row reads as not connected until the daemon's first answer lands.
- * The app's own words (the name and the icon) stay, and so do the rows of the later phases.
+ * The mock's GitHub and Obsidian rows once each connection is the daemon's own (S29a, S29b): the
+ * prototype's sentence must not show for what the daemon has not actually answered yet. GitHub is a
+ * person's own connection with nothing stored until they connect it, so it reads as not connected.
+ * Obsidian is Marshal's own - the daemon always has a vault - so it reads as connected with no
+ * detail rather than "none", and without the mock's made-up path, until the daemon's first answer
+ * names the real one. The app's own words (the name and the icon) stay for both, and each row is
+ * only touched when its own section has switched, so the other stays exactly as the seed made it
+ * while its section is still the mock's.
  */
-function withoutConnectionSeed(rows: Integration[]): Integration[] {
-  return rows.map((row) => (row.id === "github" ? { ...row, st: "none", detail: "" } : row));
+function withoutConnectionSeed(
+  rows: Integration[],
+  table: Readonly<Record<SectionId, SectionStatus>>,
+): Integration[] {
+  return rows.map((row) => {
+    if (row.id === "github" && isDaemon("S29a", table)) return { ...row, st: "none", detail: "" };
+    if (row.id === "obsidian" && isDaemon("S29b", table)) {
+      return { ...row, st: "connected", detail: "" };
+    }
+    return row;
+  });
 }
 
 /** The sections table a store uses: the test's own, or the real one. */
@@ -95,11 +108,13 @@ export function createContext(env: Env): Ctx {
     // The provider keys are the daemon's once S28 is switched: only the masked value ever leaves the
     // daemon, so the mock's rows would otherwise show a key that is not stored anywhere.
     ...(isDaemon("S28", table) ? { providers: [] } : {}),
-    // The GitHub row is the daemon's once S29a is switched: the prototype's own "installed on 3
-    // repositories" sentence and its "connected" state would otherwise show for a connection nothing
-    // is stored for. Only that row is emptied; the connections of later phases (S29b to S29g) are
-    // left as the mock's until their own sections switch.
-    ...(isDaemon("S29a", table) ? { integrations: withoutConnectionSeed(seed.integrations) } : {}),
+    // GitHub's and Obsidian's rows are the daemon's once S29a and S29b switch, each on its own
+    // (withoutConnectionSeed): the prototype's own sentences would otherwise show for what the
+    // daemon has not actually answered yet. The connections of later phases (S29c to S29g) are left
+    // as the mock's until their own sections switch.
+    ...(isDaemon("S29a", table) || isDaemon("S29b", table)
+      ? { integrations: withoutConnectionSeed(seed.integrations, table) }
+      : {}),
     // The cost and awake limits are the daemon's once S26b is switched, and it ships with none: the
     // mock's four fabricated scopes are dropped, and only `global` stays so `selectors.costs` and the
     // awake section always find a scope to read.
