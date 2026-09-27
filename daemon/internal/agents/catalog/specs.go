@@ -2,25 +2,37 @@ package catalog
 
 import "github.com/khanblair/marshal/daemon/internal/protocol"
 
+// BuiltinName is the built-in agent as the screens name it. It is here, next to the other names,
+// so the daemon and the design's fixtures cannot drift apart.
+const BuiltinName = "Built-in agent"
+
 // spec is what Marshal knows about one kind of agent before it looks at the machine.
 type spec struct {
 	kind protocol.AgentKind
 	// name is the words shown to people.
 	name string
-	// program is the name of the command that starts the agent.
+	// program is the name of the command that starts the agent. It is empty for the built-in
+	// agent, which is part of Marshal and has no program to look for.
 	program string
 	// installHint is the plain sentence for the disabled row of a missing agent.
 	installHint string
 	// startable is false for an agent that Marshal can find but cannot start sessions with yet.
 	startable bool
+	// builtIn is true for the agent Marshal runs itself. There is nothing to look for on the
+	// machine and nothing to test against a version, so it is always present and always
+	// supported, and it is the one kind detection does not probe.
+	builtIn bool
 	// capabilities is what Marshal can do with the agent through its adapter.
 	capabilities protocol.AgentCapabilities
 }
 
-// Kinds lists the kinds of agent that the catalog reports, in the order the pickers show them.
-// The built-in agent is not here: it has no program to look for.
+// Kinds lists the kinds of agent that the catalog reports, in the order the pickers show them. The
+// built-in agent is last: the design lists the agents Marshal found first, and Marshal's own agent
+// after them.
 func Kinds() []protocol.AgentKind {
-	return []protocol.AgentKind{protocol.AgentKindClaude, protocol.AgentKindGemini, protocol.AgentKindCodex}
+	return []protocol.AgentKind{
+		protocol.AgentKindClaude, protocol.AgentKindGemini, protocol.AgentKindCodex, protocol.AgentKindBuiltin,
+	}
 }
 
 // specFor returns what is known about a kind. A kind that the catalog does not report gets an
@@ -33,8 +45,24 @@ func specFor(kind protocol.AgentKind) spec {
 		return geminiSpec()
 	case protocol.AgentKindCodex:
 		return codexSpec()
+	case protocol.AgentKindBuiltin:
+		return builtinSpec()
 	}
 	return spec{kind: kind}
+}
+
+// builtinSpec is Marshal's own agent (agents/builtin). It is always there, so it is never missing
+// and needs no install hint. Its capabilities are the adapter's own: it resumes by replaying the
+// stored conversation, it reports messages and tool calls as events, a card chooses its model and
+// its thinking mode, and it asks the person before a tool that the permission rules send to them.
+// It does not take Marshal's MCP servers yet (agents.Capabilities.MCP is false), so MCP is false.
+func builtinSpec() spec {
+	return spec{
+		kind: protocol.AgentKindBuiltin, name: BuiltinName, startable: true, builtIn: true,
+		capabilities: protocol.AgentCapabilities{
+			Resume: true, StructuredEvents: true, ModelSwitching: true, Thinking: true, Approvals: true,
+		},
+	}
 }
 
 // claudeSpec is Claude Code. Its adapter (agents/claude) reads the CLI's streaming JSON mode, which

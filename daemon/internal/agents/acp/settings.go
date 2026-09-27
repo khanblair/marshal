@@ -85,6 +85,34 @@ func mapped(names map[string]string, value string) string {
 	return value
 }
 
+// setControls keeps what the handshake learned about the session's own controls.
+func (s *session) setControls(ctl controls) {
+	s.mu.Lock()
+	s.ctl = ctl
+	s.mu.Unlock()
+}
+
+// controlsNow is what the session's agent offers, and what it is running with. It is a shallow copy:
+// the modes and the options are the agent's own answers, shared with the session so that a change
+// applied through them is remembered by them.
+func (s *session) controlsNow() controls {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.ctl
+}
+
+// applyLiveSettings gives a running session settings a person changed after it started, through the
+// same controls the handshake used (agents.SettingsApplier, docs/backend-checklist.md B3.6). The
+// turn that follows it runs with them. An agent that offers no control for a setting keeps what it
+// had, and says so in the Applied it returns - the same answer Start's own applies give.
+func (s *session) applyLiveSettings(
+	ctx context.Context, settings agents.SessionSettings,
+) (agents.Applied, error) {
+	return s.applySettings(ctx, agents.StartSpec{
+		Model: settings.Model, Thinking: settings.Thinking, PermissionMode: settings.PermissionMode,
+	}, s.controlsNow())
+}
+
 // setting is one setting that was asked for: what it is called in a message, and the value wanted.
 type setting struct {
 	what string
@@ -116,6 +144,9 @@ func (s *session) applyOption(
 	if err != nil {
 		return false, fmt.Errorf("set the %s to %q: %w", st.what, st.want, err)
 	}
+	// The option now holds this value, and says so: a later change is compared against what the
+	// session is really running with, not against what the handshake first found.
+	sel.CurrentValue = pick.Value
 	return true, nil
 }
 
@@ -137,6 +168,7 @@ func (s *session) applyMode(ctx context.Context, ctl controls, want string) (boo
 		}); err != nil {
 			return false, fmt.Errorf("set the permission mode to %q: %w", want, err)
 		}
+		ctl.modes.CurrentModeId = m.Id
 		return true, nil
 	}
 	names := make([]string, 0, len(ctl.modes.AvailableModes))

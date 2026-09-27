@@ -117,6 +117,15 @@ func agentOfKind(t *testing.T, list protocol.AgentCatalog, kind protocol.AgentKi
 	return protocol.Agent{}
 }
 
+// modelIDs is the ids of a model list, for comparing a picker's contents.
+func modelIDs(models []protocol.AgentModel) []string {
+	out := make([]string, 0, len(models))
+	for _, m := range models {
+		out = append(out, m.ID)
+	}
+	return out
+}
+
 func TestListReportsEachAgent(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -242,7 +251,7 @@ func TestListReportsEachAgent(t *testing.T) {
 	}
 }
 
-func TestListHasTheThreeAgentsInOrder(t *testing.T) {
+func TestListHasTheFourAgentsInOrder(t *testing.T) {
 	clock := newClock()
 	c := New(Options{Probe: installedProbe(), Now: clock.Now, Logger: quiet()})
 	list, err := c.List(t.Context())
@@ -253,9 +262,11 @@ func TestListHasTheThreeAgentsInOrder(t *testing.T) {
 	for _, agent := range list.Agents {
 		kinds = append(kinds, agent.Kind)
 	}
-	want := []protocol.AgentKind{protocol.AgentKindClaude, protocol.AgentKindGemini, protocol.AgentKindCodex}
+	want := []protocol.AgentKind{
+		protocol.AgentKindClaude, protocol.AgentKindGemini, protocol.AgentKindCodex, protocol.AgentKindBuiltin,
+	}
 	if fmt.Sprint(kinds) != fmt.Sprint(want) {
-		t.Errorf("kinds = %v, want %v (the built-in agent is not listed)", kinds, want)
+		t.Errorf("kinds = %v, want %v (the built-in agent is last)", kinds, want)
 	}
 	if !list.ServerTime.Time().Equal(clock.Now()) {
 		t.Errorf("server time = %v, want %v", list.ServerTime.Time(), clock.Now())
@@ -266,8 +277,86 @@ func TestListHasTheThreeAgentsInOrder(t *testing.T) {
 	}
 	if statuses[protocol.AgentKindClaude] != protocol.AgentStatusSupported ||
 		statuses[protocol.AgentKindGemini] != protocol.AgentStatusSupported ||
-		statuses[protocol.AgentKindCodex] != protocol.AgentStatusMissing {
-		t.Errorf("statuses = %v, want claude and gemini supported and codex missing", statuses)
+		statuses[protocol.AgentKindCodex] != protocol.AgentStatusMissing ||
+		statuses[protocol.AgentKindBuiltin] != protocol.AgentStatusSupported {
+		t.Errorf("statuses = %v, want claude, gemini, and the built-in agent supported and codex missing", statuses)
+	}
+}
+
+// The built-in agent is Marshal's own, so detection never looks for it and nothing about it can be
+// missing: no program, no version to test against, and no install hint.
+func TestTheBuiltInAgentIsAlwaysThere(t *testing.T) {
+	probe := installedProbe()
+	c := New(Options{Probe: probe, Logger: quiet()})
+	list, err := c.List(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	builtin := agentOfKind(t, list, protocol.AgentKindBuiltin)
+	if builtin.Name != BuiltinName {
+		t.Errorf("name = %q, want %q", builtin.Name, BuiltinName)
+	}
+	if builtin.Version != "" || builtin.InstallHint != "" {
+		t.Errorf("version = %q hint = %q, want neither: there is nothing installed to report",
+			builtin.Version, builtin.InstallHint)
+	}
+	asked := map[protocol.AgentKind]bool{}
+	probe.mu.Lock()
+	for kind, n := range probe.calls {
+		asked[kind] = n > 0
+	}
+	probe.mu.Unlock()
+	if asked[protocol.AgentKindBuiltin] {
+		t.Error("the probe was asked about the built-in agent, which has no program to look for")
+	}
+}
+
+// The built-in agent's models are not a table Marshal ships: they are the models of the providers
+// that are set up, so they are asked for on every List, and a key saved since the last look shows
+// up without waiting for the detection cache to expire.
+func TestTheBuiltInAgentsModelsComeFromTheProvidersThatAreSetUp(t *testing.T) {
+	clock := newClock()
+	models := []protocol.AgentModel{{ID: "gpt-5-mini", Name: "GPT-5 mini", Thinking: true}}
+	c := New(Options{
+		Probe:         installedProbe(),
+		Now:           clock.Now,
+		Logger:        quiet(),
+		BuiltinModels: func() []protocol.AgentModel { return models },
+	})
+	list, err := c.List(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := modelIDs(agentOfKind(t, list, protocol.AgentKindBuiltin).Models)
+	if fmt.Sprint(got) != fmt.Sprint([]string{"gpt-5-mini"}) {
+		t.Errorf("built-in models = %v, want the provider's", got)
+	}
+	models = append(models, protocol.AgentModel{ID: "deepseek-chat", Name: "DeepSeek Chat"})
+	list, err = c.List(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := modelIDs(agentOfKind(t, list, protocol.AgentKindBuiltin).Models); len(got) != 2 {
+		t.Errorf("built-in models = %v, want the new provider model too, without another detection run", got)
+	}
+}
+
+// With nothing set up there is no model to run, and the row says so rather than looking broken.
+func TestTheBuiltInAgentSaysSoWhenNoProviderIsSetUp(t *testing.T) {
+	c := New(Options{Probe: installedProbe(), Logger: quiet()})
+	list, err := c.List(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	builtin := agentOfKind(t, list, protocol.AgentKindBuiltin)
+	if builtin.Status != protocol.AgentStatusSupported {
+		t.Errorf("status = %q, want supported: the agent itself is there", builtin.Status)
+	}
+	if len(builtin.Models) != 0 {
+		t.Errorf("models = %v, want none", modelIDs(builtin.Models))
+	}
+	if builtin.Warning != noProvidersWarning {
+		t.Errorf("warning = %q, want %q", builtin.Warning, noProvidersWarning)
 	}
 }
 
@@ -496,6 +585,8 @@ func TestACallerThatGivesUpDoesNotStopTheRun(t *testing.T) {
 	}
 }
 
+// The built-in agent is not looked for, so a run that runs out of time still reports it: there is
+// nothing about it that a slow program can take away.
 func TestARunThatTakesTooLongMarksTheAgentsMissing(t *testing.T) {
 	probe := installedProbe()
 	probe.gate = make(chan struct{})
@@ -510,6 +601,12 @@ func TestARunThatTakesTooLongMarksTheAgentsMissing(t *testing.T) {
 		t.Errorf("List took %v with a 100ms limit", took)
 	}
 	for _, agent := range list.Agents {
+		if agent.Kind == protocol.AgentKindBuiltin {
+			if agent.Status != protocol.AgentStatusSupported {
+				t.Errorf("builtin status = %q, want supported whatever the programs did", agent.Status)
+			}
+			continue
+		}
 		if agent.Status != protocol.AgentStatusMissing {
 			t.Errorf("%s status = %q, want missing when the check ran out of time", agent.Kind, agent.Status)
 		}

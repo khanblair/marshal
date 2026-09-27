@@ -49,6 +49,11 @@ type session struct {
 	id           sdk.SessionId
 	accepting    bool
 	instructions string
+	// ctl is what the agent said a session offers - its modes and its options - kept from the
+	// handshake so that a setting a person changes while the session runs can be given to the
+	// agent on its own controls (Adapter.ApplySettings, B3.6). Its CurrentValue and CurrentModeId
+	// are moved on as settings are applied, so they always say what the session is running with.
+	ctl          controls
 	turnActive   bool
 	interrupted  bool
 	turnCancel   context.CancelFunc

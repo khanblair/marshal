@@ -64,15 +64,19 @@ type Options struct {
 	Timeout time.Duration
 	// Logger receives one line per agent for each run. The default is slog.Default().
 	Logger *slog.Logger
+	// BuiltinModels lists the models of the built-in agent, which are the models of the providers
+	// that are set up (see BuiltinModels). Nil means none are, and the row lists no models.
+	BuiltinModels BuiltinModels
 }
 
 // Catalog detects the installed agents and keeps the answer. It is safe for concurrent use.
 type Catalog struct {
-	probe   Probe
-	now     func() time.Time
-	ttl     time.Duration
-	timeout time.Duration
-	log     *slog.Logger
+	probe         Probe
+	now           func() time.Time
+	ttl           time.Duration
+	timeout       time.Duration
+	log           *slog.Logger
+	builtinModels BuiltinModels
 
 	mu     sync.Mutex
 	cached *snapshot
@@ -98,6 +102,7 @@ type flight struct {
 func New(opts Options) *Catalog {
 	c := &Catalog{
 		probe: opts.Probe, now: opts.Now, ttl: opts.TTL, timeout: opts.Timeout, log: opts.Logger,
+		builtinModels: opts.BuiltinModels,
 	}
 	if c.probe == nil {
 		c.probe = DefaultProbe()
@@ -125,7 +130,7 @@ func (c *Catalog) List(ctx context.Context) (protocol.AgentCatalog, error) {
 	if err != nil {
 		return protocol.AgentCatalog{}, err
 	}
-	return catalogOf(snap, c.now()), nil
+	return catalogOf(snap, c.now(), c.builtinModels), nil
 }
 
 // Refresh looks again, whatever is kept, and returns the new catalog.
@@ -134,7 +139,7 @@ func (c *Catalog) Refresh(ctx context.Context) (protocol.AgentCatalog, error) {
 	if err != nil {
 		return protocol.AgentCatalog{}, err
 	}
-	return catalogOf(snap, c.now()), nil
+	return catalogOf(snap, c.now(), c.builtinModels), nil
 }
 
 // Detect returns what detection found, with the place of each program.
@@ -200,6 +205,13 @@ func (c *Catalog) detectAll(ctx context.Context) []Detected {
 // detectOne turns what the probe says about one kind into a Detected.
 func (c *Catalog) detectOne(ctx context.Context, kind protocol.AgentKind) Detected {
 	sp := specFor(kind)
+	if sp.builtIn {
+		// Marshal's own agent is not found on the machine: it is part of the daemon, so there is
+		// no program to look for, no version to test, and nothing that can be missing.
+		d := Detected{Kind: kind, Status: protocol.AgentStatusSupported, Startable: sp.startable}
+		c.log.Info("agent checked", "kind", string(kind), "status", string(d.Status))
+		return d
+	}
 	found, err := c.probe.Probe(ctx, kind)
 	d := Detected{Kind: kind, Status: protocol.AgentStatusMissing}
 	switch {
@@ -246,25 +258,33 @@ func unreadableWarning(sp spec) string {
 		"Try running \"" + sp.program + " --version\" in a terminal."
 }
 
+// noProvidersWarning is the sentence for the built-in agent when no provider is set up: it is
+// there and it is supported, but it has no model to run until a key is saved.
+const noProvidersWarning = "No model provider is set up yet, so the built-in agent has no models to choose."
+
 // catalogOf makes the wire catalog from a snapshot. It is stamped with the time of the answer, not
 // with the time of the check, like every other answer that shows state.
-func catalogOf(snap snapshot, now time.Time) protocol.AgentCatalog {
+func catalogOf(snap snapshot, now time.Time, builtin BuiltinModels) protocol.AgentCatalog {
 	agents := make([]protocol.Agent, 0, len(snap.found))
 	for _, d := range snap.found {
-		agents = append(agents, agentOf(d))
+		agents = append(agents, agentOf(d, builtin))
 	}
 	return protocol.NewAgentCatalog(agents, now)
 }
 
 // agentOf makes the wire form of one detected agent. The place of the program is left out.
-func agentOf(d Detected) protocol.Agent {
+func agentOf(d Detected, builtin BuiltinModels) protocol.Agent {
 	sp := specFor(d.Kind)
+	models := modelsFor(d.Kind, builtin)
 	agent := protocol.Agent{
 		Kind: d.Kind, Name: sp.name, Version: d.Version, Status: d.Status, Warning: d.Warning,
-		Models: modelsFor(d.Kind), Capabilities: sp.capabilities,
+		Models: models, Capabilities: sp.capabilities,
 	}
 	if d.Status == protocol.AgentStatusMissing {
 		agent.InstallHint = sp.installHint
+	}
+	if d.Kind == protocol.AgentKindBuiltin && len(models) == 0 {
+		agent.Warning = noProvidersWarning
 	}
 	return agent
 }

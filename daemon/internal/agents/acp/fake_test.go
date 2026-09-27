@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	sdk "github.com/coder/acp-go-sdk"
+
 	"github.com/khanblair/marshal/daemon/internal/agents"
 )
 
@@ -341,4 +343,64 @@ func TestStopWhileTheAgentIsHung(t *testing.T) {
 		t.Errorf("a requested stop reported a failure: %s", describe(got))
 	}
 	mustBe(t, a.Send(t.Context(), h, agents.UserMessage{Text: "x"}), agents.ErrUnknownSession)
+}
+
+func TestALiveChangeGoesThroughTheAgentsControls(t *testing.T) {
+	withMaps := func(c *Config) {
+		c.PermissionModes = map[string]string{"ask": "default", "auto-edits": "acceptEdits", "bypass": "bypassPermissions"}
+		c.ThinkingModes = map[string]string{"extra-high": "high"}
+	}
+	a := newFakeAdapter(t, "controls,close", withMaps)
+	h := start(t, a, stubSpec(t))
+	applied, err := a.ApplySettings(t.Context(), h, agents.SessionSettings{
+		Model: "opus", Thinking: "extra-high", PermissionMode: "auto-edits",
+	})
+	if err != nil {
+		t.Fatalf("ApplySettings: %v", err)
+	}
+	if want := (agents.Applied{Model: true, Thinking: true, PermissionMode: true}); applied != want {
+		t.Errorf("applied = %+v, want %+v", applied, want)
+	}
+	send(t, a, h, "status")
+	if text := messageText(untilTurnEnds(t, a.Events(h))); !strings.Contains(text, "mode=acceptEdits model=opus thinking=high") {
+		t.Errorf("agent state = %q, want it to contain the change", text)
+	}
+	// The session remembers what it is now running with, so the same values asked for again are
+	// seen as already current rather than handed over a second time.
+	ctl := sessionFor(t, a, h).controlsNow()
+	if sel := ctl.selectOption(sdk.SessionConfigOptionCategoryModel); sel == nil || sel.CurrentValue != "opus" {
+		t.Errorf("the session's model option = %+v, want it to hold opus", sel)
+	}
+	if ctl.modes == nil || ctl.modes.CurrentModeId != "acceptEdits" {
+		t.Errorf("the session's modes = %+v, want the current mode to be acceptEdits", ctl.modes)
+	}
+}
+
+func TestALiveChangeTheAgentCannotTakeIsRefused(t *testing.T) {
+	a := newFakeAdapter(t, "controls,close")
+	h := start(t, a, stubSpec(t))
+	_, err := a.ApplySettings(t.Context(), h, agents.SessionSettings{Model: "gpt-9"})
+	mustBe(t, err, agents.ErrUnsupportedSetting)
+	if !strings.Contains(err.Error(), "sonnet, opus") {
+		t.Errorf("error = %q, want it to list the models the agent offers", err)
+	}
+	// The session is still running and still on the model it started with.
+	send(t, a, h, "status")
+	if text := messageText(untilTurnEnds(t, a.Events(h))); !strings.Contains(text, "model=sonnet") {
+		t.Errorf("agent state = %q, want it to still be on the model it started with", text)
+	}
+}
+
+func TestALiveChangeOnAnUnknownSessionIsRefused(t *testing.T) {
+	a := newFakeAdapter(t, "controls,close")
+	h, err := a.Start(t.Context(), stubSpec(t))
+	if err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	if err := a.Stop(t.Context(), h); err != nil {
+		t.Fatalf("Stop: %v", err)
+	}
+	drain(t, a.Events(h))
+	_, err = a.ApplySettings(t.Context(), h, agents.SessionSettings{Model: "opus"})
+	mustBe(t, err, agents.ErrUnknownSession)
 }

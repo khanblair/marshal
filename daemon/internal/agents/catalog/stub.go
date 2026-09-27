@@ -70,7 +70,9 @@ func (s *Stub) detected() []Detected {
 	out := make([]Detected, 0, len(Kinds()))
 	for _, kind := range Kinds() {
 		d := Detected{Kind: kind, Status: protocol.AgentStatusSupported, Version: StubVersion, Startable: true}
-		if slices.Contains(s.missing, kind) {
+		// The built-in agent is never one of the ones that can be missing, whatever a test asks
+		// for: it is Marshal's own, like in the real catalog.
+		if !specFor(kind).builtIn && slices.Contains(s.missing, kind) {
 			d = Detected{Kind: kind, Status: protocol.AgentStatusMissing}
 		}
 		out = append(out, d)
@@ -101,6 +103,10 @@ func everything() protocol.AgentCapabilities {
 // prototypeModels are the models that the prototype's pickers list for each agent (the AGENTS table
 // in apps/web/src/mock/constants.ts), so that the screens look the same in dev mode. The scripted
 // stub agent takes any model.
+//
+// The built-in agent is the one kind whose real models are not a table Marshal ships: they are the
+// models of the providers that are set up (see BuiltinModels). Dev mode has no providers, so it
+// keeps the prototype's handful instead.
 func prototypeModels(kind protocol.AgentKind) []protocol.AgentModel {
 	switch kind {
 	case protocol.AgentKindClaude:
@@ -109,8 +115,16 @@ func prototypeModels(kind protocol.AgentKind) []protocol.AgentModel {
 			{ID: "claude-opus-4-1", Name: "Claude Opus 4.1", Thinking: true},
 			{ID: "claude-haiku-4-5", Name: "Claude Haiku 4.5", Thinking: true},
 		}
+	case protocol.AgentKindBuiltin:
+		return []protocol.AgentModel{
+			{ID: "claude-sonnet-4-5", Name: "Claude Sonnet 4.5", Thinking: true},
+			{ID: "gpt-5-mini", Name: "GPT-5 mini", Thinking: true},
+			{ID: "deepseek-chat", Name: "DeepSeek Chat", Thinking: false},
+			{ID: "gemini-2.5-flash", Name: "Gemini 2.5 Flash", Thinking: true},
+			{ID: "qwen2.5-coder:32b", Name: "Qwen2.5 Coder 32B", Thinking: false},
+		}
 	case protocol.AgentKindGemini, protocol.AgentKindCodex:
-		return modelsFor(kind)
+		return modelsFor(kind, nil)
 	}
 	return []protocol.AgentModel{}
 }

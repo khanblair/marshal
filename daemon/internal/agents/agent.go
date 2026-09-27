@@ -74,6 +74,36 @@ type UserMessage struct {
 	Text string
 }
 
+// SessionSettings are the settings a session can be given without starting another process: the
+// ones a card's settings row offers (docs/ui-rules.md 3.4). Each field holds the same value and
+// means the same thing as the field of the same name in StartSpec.
+type SessionSettings struct {
+	// Model is the model to use. Empty means the agent's own default.
+	Model string
+	// Thinking is the value of a protocol.ThinkingMode. Empty means the agent's own default.
+	Thinking string
+	// PermissionMode is the value of a protocol.PermissionMode. Empty means the agent's own
+	// default.
+	PermissionMode string
+}
+
+// SettingsApplier is the optional half of an Agent: an agent that can change the settings of a
+// session that is already running, so a change a person makes while the session is live is in
+// force for the turn that follows it, without a restart (docs/backend-checklist.md B3.6, N8).
+//
+// It is deliberately not part of Agent. An agent whose program only takes these settings on the
+// command line has nowhere to put a change: making every adapter carry a method it cannot honour
+// would say more than the truth. The session manager asks for this interface and, when the agent
+// does not implement it, keeps the session as it started and lets the next Start or Resume read
+// the card again - which is where a change takes effect for such an agent.
+type SettingsApplier interface {
+	// ApplySettings gives the running session the settings asked for, and reports which of them
+	// the agent took, the way Start's own Applied does. A field that is empty is left alone. An
+	// agent that is not running, or does not offer a control for a setting, reports it as not
+	// applied rather than failing the caller's turn.
+	ApplySettings(ctx context.Context, h SessionHandle, settings SessionSettings) (Applied, error)
+}
+
 // ApprovalResponse answers a permission request.
 type ApprovalResponse struct {
 	// RequestID is the RequestID of the PermissionRequested event.

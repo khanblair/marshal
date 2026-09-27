@@ -119,6 +119,9 @@ func (s *session) handshake(
 	if err != nil {
 		return agents.SessionHandle{}, agents.Capabilities{}, err
 	}
+	// The controls are kept for the whole life of the session: giving the agent a setting a person
+	// changed mid-session goes through them (Adapter.ApplySettings).
+	s.setControls(ctl)
 	applied, err := s.applySettings(ctx, spec, ctl)
 	if err != nil {
 		return agents.SessionHandle{}, agents.Capabilities{}, err

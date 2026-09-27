@@ -21,6 +21,7 @@ type Adapter struct {
 }
 
 var _ agents.Agent = (*Adapter)(nil)
+var _ agents.SettingsApplier = (*Adapter)(nil)
 
 // New returns an adapter for the agent program in cfg. It does not start anything.
 func New(cfg Config) (*Adapter, error) {
@@ -109,6 +110,20 @@ func (a *Adapter) Capabilities() agents.Capabilities {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	return a.caps
+}
+
+// ApplySettings gives a running session the model, thinking mode, or permission mode a person
+// changed while it was running, through the session's own controls, so the turn that follows it
+// runs with the change (agents.SettingsApplier, docs/backend-checklist.md B3.6). A value the agent
+// does not offer is an error and changes nothing.
+func (a *Adapter) ApplySettings(
+	ctx context.Context, h agents.SessionHandle, settings agents.SessionSettings,
+) (agents.Applied, error) {
+	s, err := a.usable(ctx, h, "change the session's settings")
+	if err != nil {
+		return agents.Applied{}, err
+	}
+	return s.applyLiveSettings(ctx, settings)
 }
 
 // usable checks that the caller's context is still alive, and returns the running session that a
