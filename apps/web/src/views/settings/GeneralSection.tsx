@@ -1,6 +1,7 @@
 import { Button, Field, Icon, ItemText, Select, SettingsPanel, SettingsSection } from "@marshal/ui";
 import { M } from "~/mock";
 import { GRID_MIN_220 } from "./auto-fit-grid";
+import { setSleepChoice } from "./sleep-actions";
 import { ThemeCards } from "./ThemeCards";
 
 const RESTORE_OPTIONS = ["Auto-restore on startup", "Show a resume button on each card"];
@@ -19,30 +20,21 @@ function SessionSettings() {
         <Select
           options={RESTORE_OPTIONS}
           value={M.S.sleep.restore}
-          onChange={(e) => {
-            M.S.sleep.restore = e.currentTarget.value;
-            M.toast("Saved");
-          }}
+          onChange={(e) => setSleepChoice({ restore: e.currentTarget.value })}
         />
       </Field>
       <Field label="Sleep idle cards after" hint="You get a notice 2 minutes before a card sleeps.">
         <Select
           options={IDLE_OPTIONS}
           value={String(M.S.sleep.idle)}
-          onChange={(e) => {
-            M.S.sleep.idle = +e.currentTarget.value;
-            M.toast("Saved");
-          }}
+          onChange={(e) => setSleepChoice({ idle: +e.currentTarget.value })}
         />
       </Field>
       <Field label="Sleep warnings go to">
         <Select
           options={CHANNEL_OPTIONS}
           value={M.S.sleep.channel}
-          onChange={(e) => {
-            M.S.sleep.channel = e.currentTarget.value;
-            M.toast("Saved");
-          }}
+          onChange={(e) => setSleepChoice({ channel: e.currentTarget.value })}
         />
       </Field>
     </SettingsPanel>

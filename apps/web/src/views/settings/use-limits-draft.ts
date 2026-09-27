@@ -1,20 +1,23 @@
 import { batch, createMemo, createSignal } from "solid-js";
-import { M, type State } from "~/mock";
+import type { LimitsByScope } from "~/data/mappers/limits";
+import { M } from "~/mock";
 import { cloneJson, sameJson } from "./json";
 import { GLOBAL_SCOPE, type LimitKey } from "./limit-rows";
 
-type LimitsByScope = State["limits"];
-
-/** Whether any of a scope's limits is zero or less, which the design will not save. */
+/** Whether any of a scope's set ceilings is zero or less, which the design will not save. */
 const hasBadLimit = (scope: LimitsByScope[string] | undefined): boolean =>
-  !!scope && (scope.day <= 0 || scope.month <= 0 || scope.awake <= 0);
+  !!scope &&
+  [scope.day, scope.month, scope.awake].some((value) => value !== undefined && value <= 0);
 
-/** Scopes whose day or month cost limit goes up. */
+/** Scopes whose day or month cost ceiling goes up, with both the old and the new ceiling set. */
 function raisedScopes(next: LimitsByScope): string[] {
   return Object.keys(next).filter((scope) => {
     const to = next[scope];
     const from = M.S.limits[scope];
-    return !!to && !!from && (to.day > from.day || to.month > from.month);
+    if (!to || !from) return false;
+    const dayUp = to.day !== undefined && from.day !== undefined && to.day > from.day;
+    const monthUp = to.month !== undefined && from.month !== undefined && to.month > from.month;
+    return dayUp || monthUp;
   });
 }
 
@@ -35,7 +38,8 @@ export function createLimitsDraft() {
       const next = cloneJson(limits());
       const row = next[scope];
       if (!row) return;
-      row[key] = +value;
+      // An emptied field means no ceiling at all, not a zero; anything else is the typed number.
+      row[key] = value.trim() === "" ? undefined : +value;
       setEdited(next);
     },
     save(): void {
@@ -45,12 +49,21 @@ export function createLimitsDraft() {
         M.toast("Fix the limits marked in red before saving.");
         return;
       }
-      const apply = () =>
+      const apply = (): void => {
+        // The daemon owns the limits once S26b is switched: it answers each PUT and DELETE, and the
+        // form keeps the person's edits until it says yes. The mock saves at once.
+        if (M.limitsOnDaemon()) {
+          void M.saveLimits(next).then((ok) => {
+            if (ok && sameJson(limits(), next)) discard();
+          });
+          return;
+        }
         batch(() => {
           M.S.limits = cloneJson(next);
           discard();
           M.toast("Limits saved");
         });
+      };
       const raised = raisedScopes(next);
       if (raised.length === 0) {
         apply();

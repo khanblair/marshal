@@ -41,6 +41,10 @@ export function limitHelp(
   used: number,
   value: number,
 ): { text: string; tone: HelpTone } {
+  // A field with no ceiling is `NaN` (a scope the daemon has no limit for, and the form leaves an
+  // absent limit alone); a real number at or below zero is a value the design will not save.
+  if (Number.isNaN(value))
+    return { text: `${usageText(spec, used)}. No limit set.`, tone: "normal" };
   if (value <= 0) return { text: "Enter a limit above zero.", tone: "danger" };
   const ratio = used / value;
   if (ratio >= 1) return { text: `${usageText(spec, used)}. Over this limit.`, tone: "danger" };

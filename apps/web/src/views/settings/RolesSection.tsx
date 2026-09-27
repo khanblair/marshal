@@ -1,7 +1,8 @@
 import { Badge, Button, cx, SettingsPanel, SettingsSection } from "@marshal/ui";
-import { For, Show } from "solid-js";
+import { createSignal, For, Show } from "solid-js";
 import { M, type Role } from "~/mock";
 import { RoleEditor } from "./RoleEditor";
+import { RoleExportDialog, RoleImportDialog, type TransferMode } from "./RolesTransfer";
 import { createRole } from "./role-actions";
 import type { RoleDraft } from "./use-role-draft";
 
@@ -38,14 +39,24 @@ function RoleOption(props: { role: Role; selected: boolean; onSelect: () => void
 
 /** Roles: the list of roles, and the editor for the picked one. */
 export function RolesSection(props: { draft: RoleDraft }) {
+  // Which transfer dialog is open, or none. It is the section's own state: nothing else reads it.
+  const [transfer, setTransfer] = createSignal<TransferMode | null>(null);
   return (
     <SettingsSection
       title="Roles"
       description="Roles decide how an agent behaves. Marshal ships starter templates, and you can edit every field. Projects can override a role."
       actions={
-        <Button icon="plus" onClick={() => createRole(props.draft)}>
-          New role
-        </Button>
+        <>
+          <Button variant="quiet" onClick={() => setTransfer("export")}>
+            Export
+          </Button>
+          <Button variant="quiet" onClick={() => setTransfer("import")}>
+            Import
+          </Button>
+          <Button icon="plus" onClick={() => createRole(props.draft)}>
+            New role
+          </Button>
+        </>
       }
     >
       <div
@@ -71,6 +82,12 @@ export function RolesSection(props: { draft: RoleDraft }) {
           {(role) => <RoleEditor draft={props.draft} role={role} />}
         </Show>
       </div>
+      <Show when={transfer() === "export"}>
+        <RoleExportDialog onClose={() => setTransfer(null)} />
+      </Show>
+      <Show when={transfer() === "import"}>
+        <RoleImportDialog onClose={() => setTransfer(null)} />
+      </Show>
     </SettingsSection>
   );
 }

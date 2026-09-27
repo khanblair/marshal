@@ -2,7 +2,7 @@ import { render } from "@solidjs/testing-library";
 import { batch } from "solid-js";
 import { unwrap } from "solid-js/store";
 import { M, type State } from "~/mock";
-import { createTestMarshal, MOCK_PERSON } from "~/testing/test-store";
+import { createTestMarshal, MOCK_PERSON, MOCK_SETTINGS_SECTIONS } from "~/testing/test-store";
 import { SettingsView } from "./SettingsView";
 
 /** The store fields the settings page reads or writes. */
@@ -39,8 +39,10 @@ const pristine = unwrap(
     storage: null,
     viewport: { w: DESKTOP_WIDTH_PX, h: 900 },
     applyTheme: () => {},
-    // The settings screens are tested on the mock's person; the daemon's own is tested beside them.
-    sections: MOCK_PERSON,
+    // The settings screens are tested on the mock's person and on the mock's own settings data; the
+    // daemon's own is tested beside them. It is the same table the shared store is built from, so
+    // resetting a field to this copy cannot reset it to a daemon's empty state (MOCK_SETTINGS_SECTIONS).
+    sections: { ...MOCK_PERSON, ...MOCK_SETTINGS_SECTIONS },
   }).S,
 );
 

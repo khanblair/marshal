@@ -7,9 +7,12 @@ import {
   SettingsPanel,
   SettingsSection,
 } from "@marshal/ui";
-import { batch, For } from "solid-js";
+import { batch, For, Show } from "solid-js";
 import { type Integration, M } from "~/mock";
 import { GRID_MIN_240 } from "./auto-fit-grid";
+import { createEditState, type EditState } from "./edit-state";
+import { GitHubAppForm } from "./GitHubAppForm";
+import { TestChecks } from "./TestChecks";
 
 interface StatusSpec {
   label: string;
@@ -43,6 +46,10 @@ const STATUSES: Record<Integration["st"], StatusSpec> = {
 const CONNECTED_DETAIL = 'Labeled emails with "marshal" become cards';
 const DISCORD_DETAIL = "Approvals and notices go to #marshal in your server";
 
+/**
+ * The mock's own connect: it flips the row to connected and says so. Only a row whose section is
+ * still the mock's uses it; a daemon-backed row opens its form instead.
+ */
 function runIntegration(integration: Integration): void {
   if (integration.st === "connected") {
     M.toast(`${integration.name} settings opened`);
@@ -55,9 +62,15 @@ function runIntegration(integration: Integration): void {
   });
 }
 
-function IntegrationCard(props: { integration: Integration }) {
+function IntegrationCard(props: { integration: Integration; edit: EditState }) {
   const status = () => STATUSES[props.integration.st];
   const connected = () => props.integration.st === "connected";
+  const onDaemon = () => M.connectionOnDaemon(props.integration.id);
+  const open = () => props.edit.id() === props.integration.id;
+  // A daemon-backed row's one button manages the connection: it opens the form, which carries the
+  // save, the test, and the disconnect. A mock row keeps the design's own flip.
+  const click = () =>
+    onDaemon() ? props.edit.toggle(props.integration.id) : runIntegration(props.integration);
   return (
     <SettingsPanel class="flex flex-col gap-2.5 py-3.5 px-4">
       <div class="flex items-center gap-2.5">
@@ -71,33 +84,42 @@ function IntegrationCard(props: { integration: Integration }) {
           {status().label}
         </IconLabel>
       </div>
-      <span
-        class={cx(
-          "flex-1 text-small leading-4.5",
-          props.integration.st === "error" ? "text-status-danger-text" : "text-secondary",
-        )}
-      >
-        {props.integration.detail}
-      </span>
+      {/* A connection nothing is stored for has no sentence, so the line is not drawn empty. */}
+      <Show when={props.integration.detail}>
+        <span
+          class={cx(
+            "flex-1 text-small leading-4.5",
+            props.integration.st === "error" ? "text-status-danger-text" : "text-secondary",
+          )}
+        >
+          {props.integration.detail}
+        </span>
+      </Show>
       <Button
         size={28}
         variant={connected() ? "secondary" : "primary"}
         class={cx("self-start", connected() && "font-semibold!")}
-        onClick={() => runIntegration(props.integration)}
+        onClick={click}
       >
         {status().button}
       </Button>
+      {/* What the last connection test looked at, as a provider row shows its own. */}
+      <Show when={props.integration.lastTest}>{(test) => <TestChecks test={test()} />}</Show>
+      <Show when={onDaemon() && open()}>
+        <GitHubAppForm integration={props.integration} edit={props.edit} />
+      </Show>
     </SettingsPanel>
   );
 }
 
 /** Integrations: a card per service with its state and a Connect, Manage, or Reconnect button. */
 export function IntegrationsSection() {
+  const edit = createEditState();
   return (
     <SettingsSection title="Integrations">
       <div class={GRID_MIN_240}>
         <For each={M.S.integrations}>
-          {(integration) => <IntegrationCard integration={integration} />}
+          {(integration) => <IntegrationCard integration={integration} edit={edit} />}
         </For>
       </div>
     </SettingsSection>

@@ -6,10 +6,11 @@ import {
   SettingsPanel,
   SettingsSection,
 } from "@marshal/ui";
-import { For, Show } from "solid-js";
+import { createSignal, For, Show } from "solid-js";
 import { M, type Provider } from "~/mock";
 import type { EditState } from "./edit-state";
 import { ProviderKeyForm } from "./ProviderKeyForm";
+import { TestChecks } from "./TestChecks";
 
 interface KeyBadge {
   label: string;
@@ -31,6 +32,11 @@ function editLabel(provider: Provider): string {
 function ProviderRow(props: { provider: Provider; edit: EditState }) {
   const editing = () => props.edit.id() === props.provider.id;
   const badge = () => KEY_BADGES[props.provider.st];
+  const [testing, setTesting] = createSignal(false);
+  const runTest = (): void => {
+    setTesting(true);
+    void M.testProviderKey(props.provider.id).finally(() => setTesting(false));
+  };
   return (
     <div class="flex flex-col gap-2 py-3.5 px-4 border-b border-border">
       <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -47,14 +53,23 @@ function ProviderRow(props: { provider: Provider; edit: EditState }) {
           <code class="font-mono text-caption text-secondary">{props.provider.masked}</code>
         </Show>
         <Show when={!editing()}>
-          <Button size={28} onClick={() => props.edit.open(props.provider.id)}>
-            {editLabel(props.provider)}
-          </Button>
+          <div class="flex gap-2">
+            <Button size={28} onClick={() => props.edit.open(props.provider.id)}>
+              {editLabel(props.provider)}
+            </Button>
+            {/* A provider with nothing stored has nothing to test, so the button is not shown. */}
+            <Show when={props.provider.st !== "empty"}>
+              <Button size={28} disabled={testing()} onClick={runTest}>
+                {testing() ? "Testing…" : "Test"}
+              </Button>
+            </Show>
+          </div>
         </Show>
       </div>
       <Show when={props.provider.st === "invalid" && !editing()}>
         <span class="text-small leading-4.5 text-status-danger-text">{props.provider.error}</span>
       </Show>
+      <Show when={props.provider.lastTest}>{(test) => <TestChecks test={test()} />}</Show>
       <Show when={editing()}>
         <ProviderKeyForm provider={props.provider} edit={props.edit} />
       </Show>

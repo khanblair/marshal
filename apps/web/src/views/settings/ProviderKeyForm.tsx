@@ -1,41 +1,39 @@
 import { Button, Field, Input } from "@marshal/ui";
-import { batch, Show } from "solid-js";
+import { Show } from "solid-js";
 import { M, type Provider } from "~/mock";
 import type { EditState } from "./edit-state";
 import { fieldValue } from "./form-field";
 
 /** A key shorter than this is refused. The Ollama URL is held to it too, as in the design. */
 const MIN_KEY_LENGTH = 12;
-const MASK_HEAD_LENGTH = 6;
-const MASK_TAIL_LENGTH = 4;
 
-function saveKey(provider: Provider, form: HTMLFormElement, edit: EditState): void {
-  const value = fieldValue(form, "key").trim();
-  if (value.length < MIN_KEY_LENGTH) {
-    edit.fail(
-      `This key is too short. Copy the full key from your ${provider.name} dashboard and paste it again.`,
-    );
-    return;
-  }
-  batch(() => {
-    provider.st = "saved";
-    provider.masked = provider.local
-      ? value
-      : `${value.slice(0, MASK_HEAD_LENGTH)}…${value.slice(-MASK_TAIL_LENGTH)}`;
-    edit.close();
-    M.toast("Key saved");
-  });
-}
-
-/** The inline form under a provider row: one key (or server URL) field, Save key, and Cancel. */
+/**
+ * The inline form under a provider row: one key (or server URL) field, Save key, and Cancel.
+ *
+ * The shortest-value check is the design's, so it is judged here. Everything else - whether the
+ * key works, what it is masked as - is the daemon's, and its refusal is shown as its own sentence.
+ * The form closes only once the daemon has stored the value.
+ */
 export function ProviderKeyForm(props: { provider: Provider; edit: EditState }) {
   const error = () => props.edit.errorFor(props.provider.id);
+  const submit = (form: HTMLFormElement): void => {
+    const value = fieldValue(form, "key").trim();
+    if (value.length < MIN_KEY_LENGTH) {
+      props.edit.fail(
+        `This key is too short. Copy the full key from your ${props.provider.name} dashboard and paste it again.`,
+      );
+      return;
+    }
+    void M.saveProviderKey(props.provider.id, value).then((saved) => {
+      if (saved) props.edit.close();
+    });
+  };
   return (
     <form
       class="flex flex-col gap-1.5"
       onSubmit={(event) => {
         event.preventDefault();
-        saveKey(props.provider, event.currentTarget, props.edit);
+        submit(event.currentTarget);
       }}
     >
       <Field label={props.provider.local ? "Server URL" : `${props.provider.name} API key`}>
