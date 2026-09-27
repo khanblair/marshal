@@ -1,0 +1,63 @@
+{
+  "integrations": [
+    {
+      "id": "github",
+      "kind": "github",
+      "st": "connected",
+      "detail": "GitHub App installed on 3 repositories",
+      "lastTest": {
+        "connectionId": "github",
+        "checks": [
+          {
+            "name": "App",
+            "state": "passed",
+            "message": "The GitHub App is installed."
+          },
+          {
+            "name": "Repositories",
+            "state": "passed",
+            "message": "3 repositories are visible."
+          },
+          {
+            "name": "Permissions",
+            "state": "passed",
+            "message": "Issues, pull requests, and Actions are allowed."
+          },
+          {
+            "name": "Webhook",
+            "state": "passed",
+            "message": "A ping reached Marshal."
+          }
+        ],
+        "ok": true,
+        "ranAt": "2026-09-27T09:30:00.000Z"
+      }
+    },
+    {
+      "id": "trello",
+      "kind": "trello",
+      "st": "none",
+      "detail": ""
+    },
+    {
+      "id": "calendar",
+      "kind": "calendar",
+      "st": "error",
+      "detail": "The Google Calendar connection needs attention",
+      "lastTest": {
+        "connectionId": "calendar",
+        "checks": [
+          {
+            "name": "Token",
+            "state": "failed",
+            "message": "Google refused this connection's token.",
+            "fix": "Connect the calendar again in Settings."
+          }
+        ],
+        "ok": false,
+        "ranAt": "2026-09-27T07:30:00.000Z"
+      }
+    }
+  ],
+  "serverTime": "2026-09-27T09:30:00.000Z"
+}

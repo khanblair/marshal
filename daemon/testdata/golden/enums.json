@@ -23,6 +23,14 @@
     "untested",
     "missing"
   ],
+  "ApprovalDecision": [
+    "approved",
+    "denied"
+  ],
+  "BypassRefusalReason": [
+    "unacknowledged",
+    "locked"
+  ],
   "CIState": [
     "queued",
     "running",
@@ -73,6 +81,11 @@
     "orchestrator",
     "role",
     "card"
+  ],
+  "CheckState": [
+    "passed",
+    "failed",
+    "warning"
   ],
   "DeviceKind": [
     "web",
@@ -130,10 +143,13 @@
     "session.terminal_output",
     "approval.requested",
     "approval.resolved",
+    "plan.updated",
     "ci.updated",
+    "preview.state_changed",
     "quality.checked",
     "merge.progress",
     "notice.created",
+    "notice.dismissed",
     "usage.updated",
     "budget.warning"
   ],
@@ -172,6 +188,11 @@
     "sleep_no_session",
     "sleep_holding_messages"
   ],
+  "IntegrationStatus": [
+    "connected",
+    "none",
+    "error"
+  ],
   "LabelColor": [
     "slate",
     "blue",
@@ -180,6 +201,23 @@
     "red",
     "purple"
   ],
+  "LimitKind": [
+    "cost-day",
+    "cost-month",
+    "awake"
+  ],
+  "LocalCIKind": [
+    "test",
+    "lint",
+    "build",
+    "other"
+  ],
+  "LocalCIStatus": [
+    "passed",
+    "failed",
+    "unsupported",
+    "skipped"
+  ],
   "MoveRefusalReason": [
     "move_from_done",
     "move_to_done",
@@ -187,7 +225,8 @@
     "move_needs_pull_request",
     "move_needs_review",
     "move_checks_not_passed",
-    "move_card_merging"
+    "move_card_merging",
+    "move_quality_blocking"
   ],
   "NeedsReasonKind": [
     "plan-ready",
@@ -196,7 +235,8 @@
     "limit",
     "ci-failed",
     "conflict",
-    "question"
+    "question",
+    "secret-detected"
   ],
   "NoticeKind": [
     "sleep",
@@ -211,6 +251,19 @@
     "plan",
     "full-auto",
     "bypass"
+  ],
+  "PreviewShotKind": [
+    "before",
+    "after"
+  ],
+  "PreviewShotOutcome": [
+    "taken",
+    "skipped"
+  ],
+  "PreviewState": [
+    "stopped",
+    "starting",
+    "running"
   ],
   "ProgressStatus": [
     "pending",
@@ -230,6 +283,11 @@
     "timeline",
     "calendar"
   ],
+  "ProviderStatus": [
+    "saved",
+    "empty",
+    "invalid"
+  ],
   "ResyncReason": [
     "epoch-changed",
     "too-far-behind",
@@ -244,6 +302,40 @@
     "asleep",
     "waking",
     "stopped"
+  ],
+  "SimulateMode": [
+    "synthetic",
+    "real"
+  ],
+  "SmellCheck": [
+    "long-function",
+    "large-file",
+    "long-parameter-list",
+    "deep-nesting",
+    "long-line",
+    "magic-number",
+    "duplicate-block"
+  ],
+  "SmellFamily": [
+    "bloaters",
+    "change-preventers",
+    "couplers",
+    "data-dealers",
+    "dispensables",
+    "functional-abusers",
+    "lexical-abusers",
+    "obfuscators",
+    "object-oriented-abusers"
+  ],
+  "SmellSeverity": [
+    "blocking",
+    "warning",
+    "info"
+  ],
+  "SmellStatus": [
+    "open",
+    "fixed",
+    "dismissed"
   ],
   "SortDirection": [
     "asc",

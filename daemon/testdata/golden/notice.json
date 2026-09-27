@@ -1,0 +1,11 @@
+{
+  "id": "sleep:web-dashboard",
+  "kind": "sleep",
+  "cards": [
+    "01JD7Q4M2X8K9V0P5T3RB6NHC3",
+    "01JD7Q4M2X8K9V0P5T3RB6NHC4"
+  ],
+  "deadline": "2026-09-27T09:32:00.000Z",
+  "projectId": "web-dashboard",
+  "createdAt": "2026-09-27T09:30:00.000Z"
+}

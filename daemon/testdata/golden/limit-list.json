@@ -1,0 +1,24 @@
+{
+  "limits": [
+    {
+      "scope": "global",
+      "kind": "cost-day",
+      "value": 25000000
+    },
+    {
+      "scope": "global",
+      "kind": "cost-month",
+      "value": 400000000
+    },
+    {
+      "scope": "global",
+      "kind": "awake",
+      "value": 18
+    },
+    {
+      "scope": "01JD7Q4M2X8K9V0P5T3RB6NHAE",
+      "kind": "cost-day",
+      "value": 5000000
+    }
+  ]
+}

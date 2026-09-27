@@ -1,0 +1,54 @@
+{
+  "cardId": "01M3C107JB041061050R3GG28A",
+  "branch": "marshal/card-12-fix-the-report",
+  "workflows": [
+    {
+      "file": ".github/workflows/ci.yml",
+      "name": "CI",
+      "status": "failed",
+      "steps": [
+        {
+          "job": "test",
+          "name": "Run the tests",
+          "kind": "test",
+          "status": "failed",
+          "reason": "",
+          "command": "pnpm install \u0026\u0026 pnpm test",
+          "output": "FAIL src/util.test.ts\n  add() adds two numbers\n  1 test failed",
+          "tookMs": 4210
+        },
+        {
+          "job": "test",
+          "name": "Typecheck",
+          "kind": "lint",
+          "status": "skipped",
+          "reason": "An earlier step in this job failed, so this step did not run.",
+          "command": "pnpm exec tsc --noEmit",
+          "output": "",
+          "tookMs": 0
+        },
+        {
+          "job": "build",
+          "name": "Build the packages",
+          "kind": "build",
+          "status": "passed",
+          "reason": "",
+          "command": "pnpm build",
+          "output": "built in 3.1s",
+          "tookMs": 3120
+        },
+        {
+          "job": "release",
+          "name": "Publish to npm",
+          "kind": "other",
+          "status": "unsupported",
+          "reason": "This step deploys or publishes something, so Marshal did not run it here.",
+          "command": "pnpm publish --access public",
+          "output": "",
+          "tookMs": 0
+        }
+      ]
+    }
+  ],
+  "serverTime": "2026-09-27T09:30:00.000Z"
+}

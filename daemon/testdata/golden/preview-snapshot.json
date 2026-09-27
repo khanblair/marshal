@@ -1,0 +1,28 @@
+{
+  "preview": {
+    "cardId": "01M3C107JB041061050R3GG28A",
+    "state": "running",
+    "url": "http://127.0.0.1:5112/reports",
+    "port": 5112,
+    "command": "pnpm dev",
+    "startedAt": "2026-09-27T09:28:30.000Z",
+    "error": "",
+    "shots": [
+      {
+        "kind": "before",
+        "url": "/v1/cards/01M3C107JB041061050R3GG28A/preview/shots/before.png?v=1790488200000",
+        "width": 1440,
+        "height": 900,
+        "takenAt": "2026-09-27T09:29:30.000Z"
+      },
+      {
+        "kind": "after",
+        "url": "/v1/cards/01M3C107JB041061050R3GG28A/preview/shots/after.png?v=1790488260000",
+        "width": 1440,
+        "height": 900,
+        "takenAt": "2026-09-27T09:30:00.000Z"
+      }
+    ]
+  },
+  "serverTime": "2026-09-27T09:30:00.000Z"
+}
