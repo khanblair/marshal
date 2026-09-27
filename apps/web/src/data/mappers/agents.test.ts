@@ -1,6 +1,5 @@
 import type { AgentCatalog } from "@marshal/protocol";
 import { describe, expect, it } from "vitest";
-import { withBuiltIn } from "~/sync/agents";
 import { PROTOTYPE_CATALOG } from "~/testing/agents";
 import { golden } from "../testing/golden";
 import { thinkSupportedIn, toAgentOptions, toLegacyAgents } from "./agents";
@@ -15,6 +14,7 @@ describe("toAgentOptions", () => {
       ["claude", "Claude Code", "2.1.282", "supported", false],
       ["gemini", "Gemini CLI", "0.36.0", "untested", false],
       ["codex", "Codex", "", "missing", true],
+      ["builtin", "Built-in agent", "", "supported", false],
     ]);
   });
 
@@ -49,6 +49,17 @@ describe("toLegacyAgents", () => {
       "Claude Code": { models: ["sonnet", "haiku"], icon: "terminal-square", version: "2.1.282" },
       "Gemini CLI": { models: ["gemini-2.5-pro"], icon: "terminal-square", version: "0.36.0" },
       Codex: { models: ["gpt-5-codex"], icon: "terminal-square", version: "" },
+      "Built-in agent": {
+        models: [
+          "claude-sonnet-4-5",
+          "gpt-5-mini",
+          "deepseek-chat",
+          "gemini-2.5-flash",
+          "qwen2.5-coder:32b",
+        ],
+        icon: "cpu",
+        version: "",
+      },
     });
   });
 
@@ -70,6 +81,17 @@ describe("toLegacyAgents", () => {
         icon: "terminal-square",
         version: "0.8.1",
       },
+      "Built-in agent": {
+        models: [
+          "claude-sonnet-4-5",
+          "gpt-5-mini",
+          "deepseek-chat",
+          "gemini-2.5-flash",
+          "qwen2.5-coder:32b",
+        ],
+        icon: "cpu",
+        version: "Marshal 0.9",
+      },
     });
     for (const [name, info] of Object.entries(legacy)) {
       expect(prototype[name]?.icon).toBe(info.icon);
@@ -77,8 +99,8 @@ describe("toLegacyAgents", () => {
     expect(Object.keys(prototype)).toEqual(expect.arrayContaining(Object.keys(legacy)));
   });
 
-  it("has no built-in agent, because the daemon's catalog does not list it", () => {
-    expect(legacy["Built-in agent"]).toBeUndefined();
+  it("lists Marshal's own agent too, with the icon of its row", () => {
+    expect(legacy["Built-in agent"]?.icon).toBe("cpu");
   });
 
   it("keeps a missing agent in the map", () => {
@@ -103,15 +125,14 @@ describe("thinkSupportedIn", () => {
   });
 
   it("says no for a model the catalog does not list", () => {
-    expect(supports("claude-sonnet-4-5")).toBe(false);
+    expect(supports("no-agent-lists-this")).toBe(false);
     expect(supports("")).toBe(false);
   });
 
   it("keeps the two built-in models without a thinking setting off, as the prototype's fixed list did", () => {
-    const withBuiltInAgent = thinkSupportedIn(withBuiltIn(catalog.agents));
-    expect(withBuiltInAgent("deepseek-chat")).toBe(false);
-    expect(withBuiltInAgent("qwen2.5-coder:32b")).toBe(false);
-    expect(withBuiltInAgent("gpt-5-mini")).toBe(true);
+    expect(supports("deepseek-chat")).toBe(false);
+    expect(supports("qwen2.5-coder:32b")).toBe(false);
+    expect(supports("gpt-5-mini")).toBe(true);
     expect(thinkSupportedIn({ agents: [], serverTime: catalog.serverTime })("sonnet")).toBe(false);
   });
 });

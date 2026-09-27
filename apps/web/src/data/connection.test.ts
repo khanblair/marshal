@@ -36,6 +36,20 @@ describe("the first check", () => {
     }
   });
 
+  it("learns the daemon's mode from its health answer, and stays normal without one", async () => {
+    const t = setup();
+    // The mode a daemon answers with is `dev` here, which is what turns the developer actions on.
+    expect(t.connection.mode()).toBe("normal");
+    await online(t);
+    expect(t.connection.mode()).toBe("dev");
+    // A later check that cannot reach the daemon does not change the mode it last heard.
+    t.api.health.mockRejectedValue(clientError("unreachable"));
+    t.connection.retryNow();
+    await flush();
+    expect(t.connection.state()).toBe("unreachable");
+    expect(t.connection.mode()).toBe("dev");
+  });
+
   it("does not tell the owner it came back the first time it is online", async () => {
     const t = setup();
     await online(t);

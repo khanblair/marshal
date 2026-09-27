@@ -144,9 +144,12 @@ export const hasLiveSession = (session: SessionState | null | undefined): boolea
 
 /**
  * A card the daemon fills, in the words the screens use for the same things. It is not the mock's
- * `Card`: that type also carries cost, dependencies, members, checklists, comments, the merge
- * percent, and the bypass flag, which the daemon does not speak about yet (their own phases). The
- * sync layer joins the two, which is why this type names only what the daemon owns.
+ * `Card`: that type also carries cost, dependencies, members, checklists, comments, and the merge
+ * percent, which are their own phases. The sync layer joins the two, which is why this type names
+ * only what the daemon owns.
+ *
+ * The bypass flag is one of the daemon's now (B3.2): a card is in bypass when its permission mode
+ * is, so `bypass` is derived from the mode here rather than kept as a flag of its own.
  */
 export interface DaemonCard {
   /** The card's key, `<projectId>#<number>`, which is how every screen and map names it. */
@@ -163,6 +166,8 @@ export interface DaemonCard {
   model: string;
   think: string | null;
   perm: string;
+  /** True while the card's permission mode is bypass, which is what the banner and the shield draw. */
+  bypass: boolean;
   branch: string | null;
   ci: CIState | null;
   doing: string;
@@ -201,6 +206,7 @@ export function toStoredCard(card: WireCard, now: number): DaemonCard {
     model: card.model,
     think: card.thinking ? (THINK_NAMES[card.thinking] ?? null) : null,
     perm: PERM_NAMES[card.permissionMode] ?? card.permissionMode,
+    bypass: card.permissionMode === "bypass",
     branch: card.branch === "" ? null : card.branch,
     ci: card.ci ?? null,
     doing: card.doingNow,

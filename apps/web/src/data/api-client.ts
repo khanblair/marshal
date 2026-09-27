@@ -2,6 +2,7 @@ import type {
   ActivityItem,
   AgentCatalog,
   BoardSnapshot,
+  BypassRequest,
   Card,
   CardDiff,
   CardView,
@@ -9,30 +10,54 @@ import type {
   ChatListSnapshot,
   ChatMessage,
   ChatMessageDetail,
+  CheckpointList,
+  CISnapshot,
   CreateCardRequest,
   CreateChatRequest,
   CreateLabelRequest,
   CreateProjectRequest,
+  CreateRoleRequest,
   CreateSavedViewRequest,
+  EditPlanRequest,
   FeedEntry,
   FileHunks,
   Health,
   HomeSnapshot,
+  IntegrationList,
   Label,
   LabelSnapshot,
+  LimitList,
   MoveCardRequest,
+  NoticeActionRequest,
+  NoticeActionResult,
+  NoticeList,
   Page,
   Preferences,
+  PreviewShotRequest,
+  PreviewShotResult,
+  PreviewSnapshot,
   Profile,
   Progress,
   Project,
   ProjectListSnapshot,
+  ProviderList,
   RemoveProjectRequest,
+  RestoreCheckpointRequest,
+  Role,
+  RoleList,
+  RoleSpec,
   SavedView,
   SavedViewListSnapshot,
+  SaveGitHubRequest,
+  SaveProviderRequest,
   SearchSnapshot,
   SendMessageRequest,
+  SetLimitRequest,
   SetViewRequest,
+  SimulateCIFailureRequest,
+  SimulateCIFailureResult,
+  SleepSettings,
+  TestResult,
   UpdateCardRequest,
   UpdateChatRequest,
   UpdateLabelRequest,
@@ -40,6 +65,7 @@ import type {
   UpdateProfileRequest,
   UpdateProgressRequest,
   UpdateProjectRequest,
+  UpdateRoleRequest,
   UpdateSavedViewRequest,
   UserListSnapshot,
   WhoAmI,
@@ -49,7 +75,7 @@ import type { DaemonClock } from "./daemon-clock";
 import { isRecord } from "./guards";
 import { guardRequest } from "./request-guard";
 
-type Method = "GET" | "POST" | "PATCH" | "DELETE";
+type Method = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 /** Starting or resuming a card makes a worktree and starts a program, so the daemon may take minutes. */
@@ -132,6 +158,39 @@ export interface ApiClient {
   removeCard(id: string, options?: CallOptions): Promise<void>;
   /** Adds a card in the backlog that starts from this card's latest commit. */
   forkCard(id: string, options?: CallOptions): Promise<Card>;
+  /**
+   * Simulates a CI failure on the card (N28, B6.4). `synthetic` injects a failed run through the CI
+   * monitor's own path - the same rerun, the same trimmed log, the same loop limits - and never
+   * touches GitHub; `real` pushes a deliberately failing change to the card's own branch, which runs
+   * for real and uses Actions minutes. Both answer the run they made. A daemon that is not in dev
+   * mode does not have this route at all, so the answer is `not_found`.
+   */
+  simulateCIFailure(
+    id: string,
+    body: SimulateCIFailureRequest,
+    options?: CallOptions,
+  ): Promise<SimulateCIFailureResult>;
+  /**
+   * Turns bypass permissions on for a card (B3.2). The body carries the acknowledgement the person
+   * gave: a request without it is refused with the reason `unacknowledged`, and a card of a project
+   * that locks bypass is refused with `locked`.
+   */
+  setCardBypass(id: string, body: BypassRequest, options?: CallOptions): Promise<Card>;
+  /** Turns bypass permissions off, leaving the card in full auto. Always allowed. */
+  clearCardBypass(id: string, options?: CallOptions): Promise<Card>;
+  /**
+   * Answers the plan a card is waiting on (section S8c, B5.2): the plan is stored as approved, the
+   * card starts working on it, and it leaves plan-only mode. A card with no plan is `not_found`, and
+   * one whose plan has already been answered is `conflict`.
+   */
+  approvePlan(id: string, options?: CallOptions): Promise<Card>;
+  /** Sends the plan back: it is stored as rejected and the card returns to planning. Refused the same way. */
+  rejectPlan(id: string, options?: CallOptions): Promise<Card>;
+  /**
+   * Replaces the steps of the plan a card is waiting on. It stays waiting, so the card is not
+   * moved, and an empty list of steps is refused.
+   */
+  editPlan(id: string, body: EditPlanRequest, options?: CallOptions): Promise<Card>;
   listLabels(projectId: string, options?: CallOptions): Promise<LabelSnapshot>;
   createLabel(projectId: string, body: CreateLabelRequest, options?: CallOptions): Promise<Label>;
   updateLabel(id: string, body: UpdateLabelRequest, options?: CallOptions): Promise<Label>;
@@ -140,6 +199,12 @@ export interface ApiClient {
   home(options?: HomeOptions): Promise<HomeSnapshot>;
   /** The Home activity stream, newest first, one page at a time, filtered by kind and project. */
   homeActivity(page?: HomeActivityOptions, options?: CallOptions): Promise<Page<FeedEntry>>;
+  /**
+   * Every project's CI health, and the moment the daemon answered, so ages are counted from the
+   * daemon's own clock (section S21, docs/backend-checklist.md B6.2 to B6.4). A project Marshal has
+   * no run for is left out on purpose, which is what Home draws as "GitHub is not connected".
+   */
+  ciSnapshot(options?: CallOptions): Promise<CISnapshot>;
   /** A card's chat, newest first, one page at a time. */
   messages(cardId: string, page?: PageOptions, options?: CallOptions): Promise<Page<ChatMessage>>;
   /** A card's activity, newest first, one page at a time, optionally one kind of it. */
@@ -148,6 +213,51 @@ export interface ApiClient {
     page?: ActivityOptions,
     options?: CallOptions,
   ): Promise<Page<ActivityItem>>;
+  /**
+   * A card's restore points, newest first (section S10, docs/backend-checklist B5.3): the commits
+   * Marshal made before its turns, which its worktree can be put back to. A card that never started
+   * has none.
+   */
+  checkpoints(cardId: string, options?: CallOptions): Promise<CheckpointList>;
+  /**
+   * Puts a card's worktree and branch back to one of its restore points, and answers the card as it
+   * now is. Refused while the card's agent is running a turn, with the daemon's own sentence.
+   */
+  restoreCheckpoint(
+    cardId: string,
+    checkpointId: string,
+    body?: RestoreCheckpointRequest,
+    options?: CallOptions,
+  ): Promise<Card>;
+  /**
+   * A card's live preview (section S13, docs/backend-checklist.md B6.6): its state, the address it
+   * answers on, and the before and after screenshots taken of it. Reading it starts nothing, so
+   * looking at the tab never starts a dev server on the person's machine.
+   */
+  preview(cardId: string, options?: CallOptions): Promise<PreviewSnapshot>;
+  /**
+   * Runs the project's dev command for the card in the card's own worktree, on a port picked for
+   * it, and answers the preview as it is now. Starting a dev server may take a while, so it takes
+   * the slow limit. A card with no worktree, or a project with no dev command, is refused with the
+   * daemon's own sentence rather than shown a spinner that never ends.
+   */
+  startPreview(cardId: string, options?: CallOptions): Promise<PreviewSnapshot>;
+  /** Stops the card's dev server. Stopping a preview that is not running is not an error. */
+  stopPreview(cardId: string, options?: CallOptions): Promise<PreviewSnapshot>;
+  /**
+   * Takes one half of a running preview's before and after screenshot pair. A browser Marshal
+   * cannot find is not an error: the answer says the check was skipped and why.
+   */
+  takePreviewShot(
+    cardId: string,
+    body: PreviewShotRequest,
+    options?: CallOptions,
+  ): Promise<PreviewShotResult>;
+  /**
+   * The bytes of a screenshot, from the address a shot carries. Like an avatar it needs the token,
+   * so a bare `img` tag cannot fetch it; the client fetches it and the screen shows the bytes.
+   */
+  previewShotImage(shotUrl: string, options?: CallOptions): Promise<Blob>;
   /** One chat message in full: a tool call's output and the files it changed. */
   messageDetail(
     cardId: string,
@@ -259,6 +369,109 @@ export interface ApiClient {
     options?: CallOptions,
   ): Promise<SavedView>;
   removeSavedView(id: string, options?: CallOptions): Promise<void>;
+  /** Every model provider Marshal knows, in the order the screen shows them (sections S28, S4). */
+  listProviders(options?: CallOptions): Promise<ProviderList>;
+  /**
+   * Stores a provider's secret: an API key, or the server URL of a local provider. The key is never
+   * sent back, only the masked form. The daemon tests the key as part of this call, so the answer
+   * already says whether it works.
+   */
+  saveProvider(id: string, body: SaveProviderRequest, options?: CallOptions): Promise<ProviderList>;
+  /** Forgets a stored key. Removing one that was never stored is not an error. */
+  removeProvider(id: string, options?: CallOptions): Promise<ProviderList>;
+  /**
+   * Runs one connection test now and answers what it found. A test that ran and found a bad key is
+   * a success with a failed check; only a test that could not run, or one asked for inside the
+   * cooldown, is an error.
+   */
+  testProvider(id: string, options?: CallOptions): Promise<TestResult>;
+  /**
+   * Every connection Marshal can be set up with (section S29a): GitHub, and the connections later
+   * phases build, each read as "not connected" until it is. The answer is the whole list, whether or
+   * not a connection is set up, and never carries a secret.
+   */
+  listIntegrations(options?: CallOptions): Promise<IntegrationList>;
+  /**
+   * Stores a connection's settings. Today that is the GitHub App's whole setup - the App's id, its
+   * installation id, its private key, and its webhook secret - which arrives together because no
+   * part of it is any use alone. The key and the secret go to the OS keychain and never come back.
+   * The daemon tests the connection as part of this call, so the answered row already carries the
+   * last test's result.
+   */
+  saveIntegration(
+    id: string,
+    body: SaveGitHubRequest,
+    options?: CallOptions,
+  ): Promise<IntegrationList>;
+  /** Forgets a connection's settings and its secret. Removing one that was never set up is not an error. */
+  removeIntegration(id: string, options?: CallOptions): Promise<IntegrationList>;
+  /**
+   * Runs one connection's test now and answers what it found. A test that ran and found something
+   * wrong is a success with a failed check; only a test that could not run, or one asked for inside
+   * the daemon's cooldown, is an error.
+   */
+  testIntegration(id: string, options?: CallOptions): Promise<TestResult>;
+  /** Every cost and awake ceiling that is set, global ones first (sections S26b, S19b). */
+  listLimits(options?: CallOptions): Promise<LimitList>;
+  /** Sets one ceiling. The scope and kind come from the path; the body carries only the number. */
+  setLimit(
+    scope: string,
+    kind: string,
+    body: SetLimitRequest,
+    options?: CallOptions,
+  ): Promise<LimitList>;
+  /** Removes one ceiling. A scope that had none of that kind is not an error. */
+  deleteLimit(scope: string, kind: string, options?: CallOptions): Promise<LimitList>;
+  /**
+   * Every role Marshal knows (section S27): Marshal's starter roles first, then the roles a person
+   * made. The project is optional and changes only whether a role reads as overridden, because the
+   * roles themselves are global.
+   */
+  listRoles(project?: string, options?: CallOptions): Promise<RoleList>;
+  /** Adds a role, or imports one. The body is the export document; a name another role has is a conflict. */
+  createRole(body: CreateRoleRequest, project?: string, options?: CallOptions): Promise<RoleList>;
+  /** One role by its name. */
+  getRole(name: string, project?: string, options?: CallOptions): Promise<Role>;
+  /** Renames a role, replaces its body, or both. A field left out is not touched. */
+  updateRole(
+    name: string,
+    body: UpdateRoleRequest,
+    project?: string,
+    options?: CallOptions,
+  ): Promise<RoleList>;
+  /** Removes a role a person made. One of Marshal's own is refused; reset it instead. */
+  deleteRole(name: string, project?: string, options?: CallOptions): Promise<RoleList>;
+  /** Clears one project's own version of a role, leaving the role itself exactly as it is. */
+  resetRole(name: string, project: string, options?: CallOptions): Promise<RoleList>;
+  /** Gives one project its own version of a role. The body is the spec alone, not an export document. */
+  setRoleOverride(
+    name: string,
+    project: string,
+    spec: RoleSpec,
+    options?: CallOptions,
+  ): Promise<RoleList>;
+  /**
+   * Every notice that is standing (section S23), the idle-card sleep groups today. It is never null,
+   * so an empty answer is an empty array and a client never handles both.
+   */
+  listNotices(options?: CallOptions): Promise<NoticeList>;
+  /**
+   * One of the four calls a person makes on a notice (inventory N5): keep one card awake, sleep one
+   * card now, keep every card the notice names awake, or sleep them all now. The notice id names the
+   * group and the two per-card calls carry the card. The answer is how many cards it changed, so a
+   * toast can say a number.
+   */
+  noticeAction(
+    notice: string,
+    body: NoticeActionRequest,
+    options?: CallOptions,
+  ): Promise<NoticeActionResult>;
+  /** Takes one notice off the panel. A notice that is already gone is not an error. */
+  dismissNotice(notice: string, options?: CallOptions): Promise<void>;
+  /** The numbers and choices behind automatic sleep (section S26a). */
+  sleepSettings(options?: CallOptions): Promise<SleepSettings>;
+  /** Saves them. A value the screen would not offer is refused with the sentence the form shows. */
+  saveSleepSettings(body: SleepSettings, options?: CallOptions): Promise<SleepSettings>;
 }
 
 function parseJson(text: string): unknown {
@@ -434,6 +647,15 @@ function searchQuery(text: string): string {
   return `?${new URLSearchParams({ q: text })}`;
 }
 
+/**
+ * The project a roles request is being made about, as a query string. It is left out when there is
+ * none, which is what a caller that is not looking at a project asks for: the routes then report
+ * every role as not overridden, because no project is being looked at.
+ */
+function roleQuery(project: string | undefined): string {
+  return project ? `?${new URLSearchParams({ project })}` : "";
+}
+
 /** The typed method of each route. Path segments are escaped, and a call with no body sends none. */
 function routeMethods({ request, command, bytes }: Transport): Omit<ApiClient, "request"> {
   const id = encodeURIComponent;
@@ -447,11 +669,8 @@ function routeMethods({ request, command, bytes }: Transport): Omit<ApiClient, "
     removeProject: (pid, body, o) => command("DELETE", `/v1/projects/${id(pid)}`, { ...o, body }),
     board: (pid, o) => request("GET", `/v1/projects/${id(pid)}/board`, o),
     createCard: (pid, body, o) => request("POST", `/v1/projects/${id(pid)}/cards`, { ...o, body }),
-    getCard: (cid, o) => request("GET", `/v1/cards/${id(cid)}`, o),
-    moveCard: (cid, body, o) => request("POST", `/v1/cards/${id(cid)}/move`, { ...o, body }),
-    updateCard: (cid, body, o) => request("PATCH", `/v1/cards/${id(cid)}`, { ...o, body }),
-    removeCard: (cid, o) => command("DELETE", `/v1/cards/${id(cid)}`, o),
-    forkCard: (cid, o) => request("POST", `/v1/cards/${id(cid)}/fork`, slow(o)),
+    // Everything a person does while looking at one card, restore points included: `cardMethods`.
+    ...cardMethods({ request, command }),
     listLabels: (pid, o) => request("GET", `/v1/projects/${id(pid)}/labels`, o),
     createLabel: (pid, body, o) =>
       request("POST", `/v1/projects/${id(pid)}/labels`, { ...o, body }),
@@ -459,26 +678,8 @@ function routeMethods({ request, command, bytes }: Transport): Omit<ApiClient, "
     removeLabel: (lid, o) => command("DELETE", `/v1/labels/${id(lid)}`, o),
     home: (o) => request("GET", `/v1/home/dashboard${rangeQuery(o?.range)}`, o),
     homeActivity: (page, o) => request("GET", `/v1/home/activity${homeActivityQuery(page)}`, o),
-    messages: (cid, page, o) => request("GET", `/v1/cards/${id(cid)}/messages${query(page)}`, o),
-    activity: (cid, page, o) => request("GET", `/v1/cards/${id(cid)}/activity${query(page)}`, o),
-    messageDetail: (cid, mid, o) => request("GET", `/v1/cards/${id(cid)}/messages/${id(mid)}`, o),
-    diff: (cid, o) => request("GET", `/v1/cards/${id(cid)}/diff`, o),
-    // The path is a wildcard segment on the daemon's own route (`{path...}`), so its slashes stay
-    // literal; only each segment between them is escaped.
-    fileHunks: (cid, path, o) =>
-      request("GET", `/v1/cards/${id(cid)}/diff/${path.split("/").map(id).join("/")}`, o),
-    startCard: (cid, o) => request("POST", `/v1/cards/${id(cid)}/start`, slow(o)),
-    sendMessage: (cid, body, o) => command("POST", `/v1/cards/${id(cid)}/messages`, { ...o, body }),
-    stopCard: (cid, o) => command("POST", `/v1/cards/${id(cid)}/stop`, o),
-    resumeCard: (cid, o) => command("POST", `/v1/cards/${id(cid)}/resume`, slow(o)),
-    pauseCard: (cid, o) => request("POST", `/v1/cards/${id(cid)}/pause`, o),
-    unpauseCard: (cid, o) => request("POST", `/v1/cards/${id(cid)}/unpause`, o),
-    sleepCard: (cid, o) => command("POST", `/v1/cards/${id(cid)}/sleep`, o),
-    wakeCard: (cid, o) => command("POST", `/v1/cards/${id(cid)}/wake`, slow(o)),
-    pinCard: (cid, o) => request("POST", `/v1/cards/${id(cid)}/pin`, o),
-    unpinCard: (cid, o) => request("POST", `/v1/cards/${id(cid)}/unpin`, o),
-    setCardView: (cid, body, o) =>
-      request("POST", `/v1/cards/${id(cid)}/view`, { ...slow(o), body }),
+    // Every project's CI health in one answer (section S21, B6.2 to B6.4).
+    ciSnapshot: (o) => request("GET", "/v1/ci", o),
     agents: (o) => request("GET", "/v1/agents", o),
     refreshAgents: (o) => request("POST", "/v1/agents/refresh", o),
     listChats: (pid, archived, o) =>
@@ -501,6 +702,8 @@ function routeMethods({ request, command, bytes }: Transport): Omit<ApiClient, "
     removeAvatar: (o) => request("DELETE", "/v1/me/avatar", o),
     // The address is the one the profile carries, which already has the daemon's own version in it.
     avatarImage: (avatarUrl, o) => bytes("GET", avatarUrl, o),
+    // A screenshot's address is the one the shot carries, with the daemon's own version in it.
+    previewShotImage: (shotUrl, o) => bytes("GET", shotUrl, o),
     users: (o) => request("GET", "/v1/users", o),
     progress: (o) => request("GET", "/v1/me/progress", o),
     updateProgress: (body, o) => request("PATCH", "/v1/me/progress", { ...o, body }),
@@ -513,6 +716,141 @@ function routeMethods({ request, command, bytes }: Transport): Omit<ApiClient, "
     updateSavedView: (vid, body, o) =>
       request("PATCH", `/v1/saved-views/${id(vid)}`, { ...o, body }),
     removeSavedView: (vid, o) => command("DELETE", `/v1/saved-views/${id(vid)}`, o),
+    listProviders: (o) => request("GET", "/v1/providers", o),
+    // Saving runs a test of the new key, which calls the provider, so it is given the slow limit.
+    saveProvider: (pid, body, o) =>
+      request("PUT", `/v1/providers/${id(pid)}`, { ...slow(o), body }),
+    removeProvider: (pid, o) => request("DELETE", `/v1/providers/${id(pid)}`, o),
+    testProvider: (pid, o) => request("POST", `/v1/providers/${id(pid)}/test`, slow(o)),
+    // The connections Marshal can be set up with (section S29a). Saving is slow because the daemon
+    // runs the connection's own test right after it stores the settings.
+    listIntegrations: (o) => request("GET", "/v1/integrations", o),
+    saveIntegration: (iid, body, o) =>
+      request("PUT", `/v1/integrations/${id(iid)}`, { ...slow(o), body }),
+    removeIntegration: (iid, o) => request("DELETE", `/v1/integrations/${id(iid)}`, o),
+    testIntegration: (iid, o) => request("POST", `/v1/integrations/${id(iid)}/test`, slow(o)),
+    listLimits: (o) => request("GET", "/v1/limits", o),
+    setLimit: (scope, kind, body, o) =>
+      request("PUT", `/v1/limits/${id(scope)}/${id(kind)}`, { ...o, body }),
+    deleteLimit: (scope, kind, o) => request("DELETE", `/v1/limits/${id(scope)}/${id(kind)}`, o),
+    listRoles: (project, o) => request("GET", `/v1/roles${roleQuery(project)}`, o),
+    createRole: (body, project, o) =>
+      request("POST", `/v1/roles${roleQuery(project)}`, { ...o, body }),
+    getRole: (name, project, o) => request("GET", `/v1/roles/${id(name)}${roleQuery(project)}`, o),
+    updateRole: (name, body, project, o) =>
+      request("PATCH", `/v1/roles/${id(name)}${roleQuery(project)}`, { ...o, body }),
+    // A delete answers the whole list, so it is a `request` and not a `command`.
+    deleteRole: (name, project, o) =>
+      request("DELETE", `/v1/roles/${id(name)}${roleQuery(project)}`, o),
+    resetRole: (name, project, o) =>
+      request("POST", `/v1/roles/${id(name)}/reset${roleQuery(project)}`, o),
+    setRoleOverride: (name, project, spec, o) =>
+      request("PUT", `/v1/roles/${id(name)}/override${roleQuery(project)}`, { ...o, body: spec }),
+    listNotices: (o) => request("GET", "/v1/notices", o),
+    noticeAction: (notice, body, o) =>
+      request("POST", `/v1/notices/${id(notice)}/actions`, { ...o, body }),
+    // Taking a notice off the panel answers no body, so it is a `command`.
+    dismissNotice: (notice, o) => command("DELETE", `/v1/notices/${id(notice)}`, o),
+    sleepSettings: (o) => request("GET", "/v1/settings/sleep", o),
+    saveSleepSettings: (body, o) => request("PUT", "/v1/settings/sleep", { ...o, body }),
+  };
+}
+
+/** Every route of the client that acts on one card. `cardMethods` answers exactly these. */
+type CardRoute =
+  | "getCard"
+  | "moveCard"
+  | "updateCard"
+  | "removeCard"
+  | "forkCard"
+  | "simulateCIFailure"
+  | "setCardBypass"
+  | "clearCardBypass"
+  | "approvePlan"
+  | "rejectPlan"
+  | "editPlan"
+  | "checkpoints"
+  | "restoreCheckpoint"
+  | "preview"
+  | "startPreview"
+  | "stopPreview"
+  | "takePreviewShot"
+  | "messages"
+  | "activity"
+  | "messageDetail"
+  | "diff"
+  | "fileHunks"
+  | "startCard"
+  | "sendMessage"
+  | "stopCard"
+  | "resumeCard"
+  | "pauseCard"
+  | "unpauseCard"
+  | "sleepCard"
+  | "wakeCard"
+  | "pinCard"
+  | "unpinCard"
+  | "setCardView";
+
+/**
+ * The routes that act on one card, gathered so the group can grow without crowding `routeMethods`.
+ * Two of them are shaped by the rules around them: the plan routes (section S8c) name the card and
+ * not the message, because the plan a card waits on is the newest one it holds
+ * (docs/architecture.md 10.4); and a restore's body is optional, so putting a card's worktree back
+ * to a restore point sends none. The diff path is a wildcard segment on the daemon's own route
+ * (`{path...}`), so its slashes stay literal and only each segment between them is escaped.
+ */
+function cardMethods({
+  request,
+  command,
+}: Pick<Transport, "request" | "command">): Pick<ApiClient, CardRoute> {
+  const id = encodeURIComponent;
+  return {
+    getCard: (cid, o) => request("GET", `/v1/cards/${id(cid)}`, o),
+    moveCard: (cid, body, o) => request("POST", `/v1/cards/${id(cid)}/move`, { ...o, body }),
+    updateCard: (cid, body, o) => request("PATCH", `/v1/cards/${id(cid)}`, { ...o, body }),
+    removeCard: (cid, o) => command("DELETE", `/v1/cards/${id(cid)}`, o),
+    forkCard: (cid, o) => request("POST", `/v1/cards/${id(cid)}/fork`, slow(o)),
+    // Starting a real simulated failure pushes a commit and waits for the forge, so both modes take
+    // the slow limit; the route is the daemon's own and is refused outright in normal mode.
+    simulateCIFailure: (cid, body, o) =>
+      request("POST", `/v1/cards/${id(cid)}/ci-failure`, { ...slow(o), body }),
+    setCardBypass: (cid, body, o) => request("POST", `/v1/cards/${id(cid)}/bypass`, { ...o, body }),
+    clearCardBypass: (cid, o) => request("DELETE", `/v1/cards/${id(cid)}/bypass`, o),
+    approvePlan: (cid, o) => request("POST", `/v1/cards/${id(cid)}/plan/approve`, o),
+    rejectPlan: (cid, o) => request("POST", `/v1/cards/${id(cid)}/plan/reject`, o),
+    editPlan: (cid, body, o) => request("PUT", `/v1/cards/${id(cid)}/plan`, { ...o, body }),
+    // The restore points of a card (B5.3, section S10): the list is a read, and a restore names the
+    // checkpoint in the path.
+    checkpoints: (cid, o) => request("GET", `/v1/cards/${id(cid)}/checkpoints`, o),
+    restoreCheckpoint: (cid, cp, body, o) =>
+      request("POST", `/v1/cards/${id(cid)}/checkpoints/${id(cp)}/restore`, { ...o, body }),
+    // A card's live preview (section S13, B6.6): reading starts nothing; starting runs the project's
+    // dev command, which may take a while, so it takes the slow limit; and taking a screenshot drives
+    // a browser, which is slower still, so that takes the slow limit too.
+    preview: (cid, o) => request("GET", `/v1/cards/${id(cid)}/preview`, o),
+    startPreview: (cid, o) => request("POST", `/v1/cards/${id(cid)}/preview/start`, slow(o)),
+    stopPreview: (cid, o) => request("POST", `/v1/cards/${id(cid)}/preview/stop`, o),
+    takePreviewShot: (cid, body, o) =>
+      request("POST", `/v1/cards/${id(cid)}/preview/shots`, { ...slow(o), body }),
+    messages: (cid, page, o) => request("GET", `/v1/cards/${id(cid)}/messages${query(page)}`, o),
+    activity: (cid, page, o) => request("GET", `/v1/cards/${id(cid)}/activity${query(page)}`, o),
+    messageDetail: (cid, mid, o) => request("GET", `/v1/cards/${id(cid)}/messages/${id(mid)}`, o),
+    diff: (cid, o) => request("GET", `/v1/cards/${id(cid)}/diff`, o),
+    fileHunks: (cid, path, o) =>
+      request("GET", `/v1/cards/${id(cid)}/diff/${path.split("/").map(id).join("/")}`, o),
+    startCard: (cid, o) => request("POST", `/v1/cards/${id(cid)}/start`, slow(o)),
+    sendMessage: (cid, body, o) => command("POST", `/v1/cards/${id(cid)}/messages`, { ...o, body }),
+    stopCard: (cid, o) => command("POST", `/v1/cards/${id(cid)}/stop`, o),
+    resumeCard: (cid, o) => command("POST", `/v1/cards/${id(cid)}/resume`, slow(o)),
+    pauseCard: (cid, o) => request("POST", `/v1/cards/${id(cid)}/pause`, o),
+    unpauseCard: (cid, o) => request("POST", `/v1/cards/${id(cid)}/unpause`, o),
+    sleepCard: (cid, o) => command("POST", `/v1/cards/${id(cid)}/sleep`, o),
+    wakeCard: (cid, o) => command("POST", `/v1/cards/${id(cid)}/wake`, slow(o)),
+    pinCard: (cid, o) => request("POST", `/v1/cards/${id(cid)}/pin`, o),
+    unpinCard: (cid, o) => request("POST", `/v1/cards/${id(cid)}/unpin`, o),
+    setCardView: (cid, body, o) =>
+      request("POST", `/v1/cards/${id(cid)}/view`, { ...slow(o), body }),
   };
 }
 

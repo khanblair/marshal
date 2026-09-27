@@ -131,6 +131,8 @@ describe("one typed method for each route", () => {
     [`PATCH /v1/cards/${card.id}`]: () => jsonAnswer(card),
     [`DELETE /v1/cards/${card.id}`]: () => emptyAnswer(),
     [`POST /v1/cards/${card.id}/fork`]: () => jsonAnswer(card, 201),
+    [`POST /v1/cards/${card.id}/ci-failure`]: () =>
+      jsonAnswer(golden("simulate-ci-failure-result")),
     "GET /v1/projects/web-dashboard/labels": () => jsonAnswer(labelSnapshot),
     "POST /v1/projects/web-dashboard/labels": () => jsonAnswer(label, 201),
     [`PATCH /v1/labels/${label.id}`]: () => jsonAnswer(label),
@@ -176,6 +178,9 @@ describe("one typed method for each route", () => {
     expect(await client.updateCard(card.id, { title: "New" })).toEqual(card);
     expect(await client.removeCard(card.id)).toBeUndefined();
     expect(await client.forkCard(card.id)).toEqual(card);
+    expect(await client.simulateCIFailure(card.id, { mode: "synthetic" })).toEqual(
+      golden("simulate-ci-failure-result"),
+    );
     expect(await client.listLabels("web-dashboard")).toEqual(labelSnapshot);
     expect(await client.createLabel("web-dashboard", { name: "auth" })).toEqual(label);
     expect(await client.updateLabel(label.id, { color: "red" })).toEqual(label);
@@ -271,6 +276,17 @@ describe("one typed method for each route", () => {
     await client.startCard(card.id);
     await client.stopCard(card.id);
     expect(calls.every((c) => c.body === null)).toBe(true);
+  });
+
+  it("asks for a simulated CI failure on the card's own route, with the mode it was given", async () => {
+    const result = golden("simulate-ci-failure-result");
+    const { client, calls } = make({
+      [`POST /v1/cards/${card.id}/ci-failure`]: () => jsonAnswer(result),
+    });
+    expect(await client.simulateCIFailure(card.id, { mode: "real" })).toEqual(result);
+    expect(calls[0]?.method).toBe("POST");
+    expect(calls[0]?.url).toBe(`/v1/cards/${card.id}/ci-failure`);
+    expect(JSON.parse(calls[0]?.body ?? "")).toEqual({ mode: "real" });
   });
 
   it("has a generic request for a route that has no method yet", async () => {

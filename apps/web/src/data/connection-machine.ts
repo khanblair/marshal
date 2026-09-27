@@ -16,12 +16,21 @@ export type ConnectionState =
   | "unreachable"
   | "unauthorized";
 
+/**
+ * The daemon's own mode, from its health answer. `dev` is the mode a daemon started with
+ * `--dev` runs in, which is what turns on the actions only a developer uses (B6.4). A daemon that
+ * has not answered yet, or one that says anything else, reads as `normal`.
+ */
+export type DaemonMode = "normal" | "dev";
+
 interface ConnectionSnapshot {
   state: ConnectionState;
   /** Why the last check failed, or null while things work. */
   lastError: ApiError | null;
   /** When the next check happens, in ms on the local clock, or null when none is planned. */
   retryAt: number | null;
+  /** The mode of the daemon in the last health answer that arrived. */
+  mode: DaemonMode;
 }
 
 export interface MachineDeps {
@@ -67,6 +76,8 @@ class Machine implements ConnectionMachine {
   private state: ConnectionState = "starting";
   private lastError: ApiError | null = null;
   private retryAt: number | null = null;
+  /** The daemon's mode, kept from its last health answer. The machine's own, so every snapshot carries it. */
+  private mode: DaemonMode = "normal";
   private started = false;
   private everOnline = false;
   private checking = false;
@@ -152,11 +163,11 @@ class Machine implements ConnectionMachine {
     if (this.state === "unauthorized" && !this.checking) void this.check();
   }
 
-  private commit(next: ConnectionSnapshot): void {
+  private commit(next: Omit<ConnectionSnapshot, "mode">): void {
     this.state = next.state;
     this.lastError = next.lastError;
     this.retryAt = next.retryAt;
-    this.deps.onChange({ ...next });
+    this.deps.onChange({ ...next, mode: this.mode });
   }
 
   private clearRetryTimer(): void {
@@ -191,7 +202,10 @@ class Machine implements ConnectionMachine {
   private async ask(signal: AbortSignal): Promise<Outcome> {
     const call = { signal, timeoutMs: CHECK_TIMEOUT_MS };
     try {
-      await this.deps.api.health(call);
+      const health = await this.deps.api.health(call);
+      // The mode comes with health, which needs no token, so it is known as soon as the daemon
+      // answers, and a daemon that is restarted into another mode is followed on the next check.
+      this.mode = health.mode === "dev" ? "dev" : "normal";
       // After health, so that a dev daemon that has just started has made its token file.
       await this.deps.tokens.load();
       await this.deps.api.whoami(call);

@@ -68,8 +68,8 @@ export function toAgentOptions(catalog: CatalogAgents): AgentOption[] {
 
 /**
  * The catalog in the shape of the mock's `AGENTS`: keyed by the name shown to people, with the
- * model ids (what a card sends back to the daemon), an icon, and the version. The built-in agent
- * is not in the daemon's catalog, so it has no key here. A missing agent has one, with an empty version.
+ * model ids (what a card sends back to the daemon), an icon, and the version. A missing agent has
+ * a key too, with an empty version.
  */
 export function toLegacyAgents(catalog: CatalogAgents): Record<string, AgentInfo> {
   return Object.fromEntries(
