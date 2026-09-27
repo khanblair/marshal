@@ -112,9 +112,9 @@ func (s *session) handshake(
 	s.closeSupported = hello.AgentCapabilities.SessionCapabilities.Close != nil
 	var ctl controls
 	if resumeID == "" {
-		ctl, err = s.newSession(ctx, spec.Cwd, hello.AuthMethods)
+		ctl, err = s.newSession(ctx, spec.Cwd, spec.MCPServers, hello.AuthMethods)
 	} else {
-		ctl, err = s.resumeSession(ctx, resumeID, spec.Cwd, hello)
+		ctl, err = s.resumeSession(ctx, resumeID, spec.Cwd, spec.MCPServers, hello)
 	}
 	if err != nil {
 		return agents.SessionHandle{}, agents.Capabilities{}, err
@@ -161,11 +161,11 @@ type controls struct {
 }
 
 // newSession asks the agent for a new session.
-func (s *session) newSession(ctx context.Context, cwd string, methods []sdk.AuthMethod) (controls, error) {
+func (s *session) newSession(ctx context.Context, cwd string, servers []agents.MCPServer, methods []sdk.AuthMethod) (controls, error) {
 	var resp sdk.NewSessionResponse
 	err := s.authRetry(ctx, methods, func(ctx context.Context) error {
 		var err error
-		resp, err = s.conn.NewSession(ctx, sdk.NewSessionRequest{Cwd: cwd, McpServers: noServers()})
+		resp, err = s.conn.NewSession(ctx, sdk.NewSessionRequest{Cwd: cwd, McpServers: mcpServers(servers)})
 		return err
 	})
 	if err != nil {
@@ -179,7 +179,7 @@ func (s *session) newSession(ctx context.Context, cwd string, methods []sdk.Auth
 // else by loading the session, which replays its history. The replay is dropped, because the
 // session logs already hold it.
 func (s *session) resumeSession(
-	ctx context.Context, id, cwd string, hello sdk.InitializeResponse,
+	ctx context.Context, id, cwd string, servers []agents.MCPServer, hello sdk.InitializeResponse,
 ) (controls, error) {
 	s.setID(sdk.SessionId(id))
 	caps := hello.AgentCapabilities
@@ -190,7 +190,7 @@ func (s *session) resumeSession(
 	var ctl controls
 	call := func(ctx context.Context) error {
 		var err error
-		ctl, err = s.reopen(ctx, id, cwd, caps.SessionCapabilities.Resume != nil)
+		ctl, err = s.reopen(ctx, id, cwd, servers, caps.SessionCapabilities.Resume != nil)
 		return err
 	}
 	err := s.authRetry(ctx, hello.AuthMethods, call)
@@ -205,20 +205,59 @@ func (s *session) resumeSession(
 	return ctl, nil
 }
 
-// reopen sends the request that brings an earlier session back: resume, or else load.
-func (s *session) reopen(ctx context.Context, id, cwd string, resume bool) (controls, error) {
+// reopen sends the request that brings an earlier session back: resume, or else load. Both carry
+// the MCP servers, so a session that comes back is given the same tools it was given when it
+// started; an agent that took the list at the first session and kept it is given it again, which is
+// what the protocol asks for.
+func (s *session) reopen(ctx context.Context, id, cwd string, servers []agents.MCPServer, resume bool) (controls, error) {
 	sid := sdk.SessionId(id)
 	if resume {
-		resp, err := s.conn.ResumeSession(ctx, sdk.ResumeSessionRequest{SessionId: sid, Cwd: cwd})
+		resp, err := s.conn.ResumeSession(ctx, sdk.ResumeSessionRequest{
+			SessionId: sid, Cwd: cwd, McpServers: mcpServers(servers),
+		})
 		return controls{resp.Modes, resp.ConfigOptions}, err
 	}
-	resp, err := s.conn.LoadSession(ctx, sdk.LoadSessionRequest{SessionId: sid, Cwd: cwd, McpServers: noServers()})
+	resp, err := s.conn.LoadSession(ctx, sdk.LoadSessionRequest{
+		SessionId: sid, Cwd: cwd, McpServers: mcpServers(servers),
+	})
 	return controls{resp.Modes, resp.ConfigOptions}, err
 }
 
-// noServers is the list of MCP servers that a session is given: none yet. The protocol wants the
-// list to exist.
-func noServers() []sdk.McpServer { return []sdk.McpServer{} }
+// mcpServers turns what a session is given into the list the protocol carries. The list is always
+// built, never nil, because the protocol asks for the field to exist on every session request: an
+// agent is told "no servers" rather than not being told at all.
+func mcpServers(servers []agents.MCPServer) []sdk.McpServer {
+	out := make([]sdk.McpServer, 0, len(servers))
+	for _, server := range servers {
+		out = append(out, sdk.McpServer{Stdio: &sdk.McpServerStdio{
+			Name:    server.Name,
+			Command: server.Command,
+			Args:    nonNil(server.Args),
+			Env:     envVariables(server.Env),
+		}})
+	}
+	return out
+}
+
+// envVariables turns KEY=value entries into the protocol's name and value pairs. An entry with no
+// separator is a name with an empty value, which is what a person writing KEY= means.
+func envVariables(entries []string) []sdk.EnvVariable {
+	out := make([]sdk.EnvVariable, 0, len(entries))
+	for _, entry := range entries {
+		name, value, _ := strings.Cut(entry, "=")
+		out = append(out, sdk.EnvVariable{Name: name, Value: value})
+	}
+	return out
+}
+
+// nonNil answers an empty list for a nil one, so the protocol's array fields encode as [] and not
+// as null.
+func nonNil(list []string) []string {
+	if list == nil {
+		return []string{}
+	}
+	return list
+}
 
 // setID records the agent's session id.
 func (s *session) setID(id sdk.SessionId) {

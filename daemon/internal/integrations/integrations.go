@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -36,8 +37,16 @@ import (
 // entry, and its test result are filed under.
 const GitHubID = "github"
 
+// ObsidianID is the Obsidian vault connection's own id (B7.4, build-plan 7.7). It is the connection
+// Marshal owns rather than one a person connects: the vault is a folder in Marshal's own data
+// directory, so there is no setting and no secret, and its row says where the vault is.
+const ObsidianID = "obsidian"
+
 // KindGitHub is the kind the GitHub App connection's row and its test are filed under.
 const KindGitHub = connectiontest.KindGitHub
+
+// KindObsidian is the kind the Obsidian vault's row and its test are filed under.
+const KindObsidian = connectiontest.KindObsidian
 
 // Info is one connection Marshal can be set up with. The id is the row's id, and the kind is what
 // its test is filed under.
@@ -63,7 +72,7 @@ func known() []Info {
 		{ID: "gmail", Kind: "gmail"},
 		{ID: "telegram", Kind: "telegram"},
 		{ID: "discord", Kind: "discord"},
-		{ID: "obsidian", Kind: "obsidian"},
+		{ID: ObsidianID, Kind: KindObsidian, Wired: true},
 	}
 }
 
@@ -84,8 +93,13 @@ type Options struct {
 	Logger *slog.Logger
 	// Now is the clock. Nil uses time.Now.
 	Now func() time.Time
-	// Tester overrides how one connection's test is run, replacing the real one that talks to
-	// GitHub. Nil uses the real one (test.go). It exists so a route test never dials GitHub.
+	// VaultRoot is where the memory module keeps a person's vault
+	// (`<data>/vault`, docs/architecture.md section 12). The Obsidian connection is a folder and not
+	// a service, so its row and its test ask the file system here. An empty root is "Marshal does
+	// not know where its vault is yet", which its row and its test say rather than guess.
+	VaultRoot string
+	// Tester overrides how one connection's test is run, replacing the real ones (test.go,
+	// obsidian.go). Nil uses the real ones. It exists so a route test never dials GitHub.
 	Tester func(ctx context.Context, info Info) (protocol.TestResult, error)
 	// App overrides how the GitHub App client is built, so the connection test's own checks can be
 	// driven against a fake server without a live App. Nil builds it from the stored connection,
@@ -101,6 +115,7 @@ type Service struct {
 	keys  security.Keychain
 	log   *slog.Logger
 	now   func() time.Time
+	vault string
 	test  func(ctx context.Context, info Info) (protocol.TestResult, error)
 	appFn func(ctx context.Context) (*githubapp.App, error)
 
@@ -130,7 +145,10 @@ func New(st *store.Store, keys security.Keychain, opts Options) (*Service, error
 	if keys == nil {
 		return nil, errors.New("integrations: a keychain is required")
 	}
-	s := &Service{store: st, keys: keys, log: opts.Logger, now: opts.Now, test: opts.Tester, appFn: opts.App}
+	s := &Service{
+		store: st, keys: keys, log: opts.Logger, now: opts.Now, vault: opts.VaultRoot,
+		test: opts.Tester, appFn: opts.App,
+	}
 	if s.log == nil {
 		s.log = slog.Default()
 	}
@@ -138,7 +156,7 @@ func New(st *store.Store, keys security.Keychain, opts Options) (*Service, error
 		s.now = time.Now
 	}
 	if s.test == nil {
-		s.test = s.testGitHub
+		s.test = s.testFor
 	}
 	if s.appFn == nil {
 		s.appFn = s.App
@@ -196,26 +214,60 @@ func (s *Service) List(ctx context.Context) ([]protocol.Integration, error) {
 	return out, nil
 }
 
-// rowToWire folds one connection's stored row and last test into the shape a screen reads. The
-// status is the whole answer: no row or no secret is "not connected"; a saved connection whose last
-// test failed is "needs attention" with that test's own sentence; anything else that is saved is
-// "connected".
+// rowToWire folds one connection's stored row and last test into the shape a screen reads.
+//
+// It has two shapes, because Marshal has two kinds of connection. A connection a person sets up
+// (GitHub, and the integrations of later phases) is "not connected" until a setting and a secret are
+// both saved, and its status is its last test's own answer. A connection Marshal owns (the Obsidian
+// vault) has nothing for a person to save, so its status is what Marshal can see for itself, and a
+// test that failed is what turns it to "needs attention".
 func (s *Service) rowToWire(ctx context.Context, info Info, row integrationRow, ok bool) protocol.Integration {
 	wire := protocol.Integration{ID: info.ID, Kind: info.Kind, Status: protocol.IntegrationStatusNone}
-	if !ok || !row.saved() {
-		return wire
-	}
 	last, tested, err := s.lastTest(ctx, info.ID)
 	if err != nil {
-		// A last test Marshal cannot read is not a failure of the connection: the row is saved,
-		// which is what the status is about, and the reading is logged and left out.
-		s.log.Warn("a saved connection test could not be read", "connection", info.ID, "err", err)
-	} else if tested {
+		// A last test Marshal cannot read is not a failure of the connection: the reading is logged
+		// and left out, and the status is decided by what the connection itself is.
+		s.log.Warn("a connection test could not be read", "connection", info.ID, "err", err)
+	}
+	if tested {
 		wire.LastTest = &last
+	}
+	if s.selfOwned(info) {
+		wire.Status, wire.Detail = s.vaultStatus()
+		if tested && !last.OK {
+			// A test that asked about the vault and got a bad answer is exactly what the row is for:
+			// the checks say what is wrong and the detail says how to fix it.
+			wire.Status, wire.Detail = protocol.IntegrationStatusError, detailFor(info, last, true)
+		}
+		return wire
+	}
+	if !ok || !row.saved() {
+		wire.Status, wire.LastTest = protocol.IntegrationStatusNone, nil
+		return wire
 	}
 	wire.Status = statusFor(last, tested)
 	wire.Detail = detailFor(info, last, tested)
 	return wire
+}
+
+// selfOwned reports whether Marshal owns a connection itself rather than a person setting it up. The
+// Obsidian vault is the one: it is a folder in Marshal's own data directory, so there is no setting
+// to fill in, no secret to keep, and nothing for a "not connected" row to mean.
+func (s *Service) selfOwned(info Info) bool { return info.Kind == KindObsidian }
+
+// vaultStatus is the Obsidian row's own answer: where the vault is, and whether Marshal can see it.
+// It is "connected" even before the folder exists, because the vault is Marshal's own folder and a
+// person has nothing to connect - the sentence says where it will be, and the test says whether it
+// is there and whether Marshal can write in it.
+func (s *Service) vaultStatus() (protocol.IntegrationStatus, string) {
+	if s.vault == "" {
+		return protocol.IntegrationStatusNone, ""
+	}
+	if info, err := os.Stat(s.vault); err != nil || !info.IsDir() {
+		return protocol.IntegrationStatusConnected,
+			fmt.Sprintf("Vault at %s. Marshal makes the folder when the first note is saved.", s.vault)
+	}
+	return protocol.IntegrationStatusConnected, fmt.Sprintf("Vault at %s.", s.vault)
 }
 
 // statusFor decides a saved connection's status from its last test. A test that failed any check

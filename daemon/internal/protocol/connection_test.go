@@ -28,6 +28,18 @@ func TestTestResultFailedGolden(t *testing.T) {
 	testutil.Golden(t, "test-result-failed", result)
 }
 
+// The Obsidian vault connection's own test result (section S29b, build-plan task 7.7): a summary
+// check first, then the two the vault folder itself answers (daemon/internal/integrations/
+// obsidian.go), all passed - the shape a vault that is there and writable produces.
+func TestTestResultObsidianGolden(t *testing.T) {
+	result := protocol.NewTestResult("obsidian", []protocol.TestCheck{
+		{Name: "Summary", State: protocol.CheckStatePassed, Message: "Marshal's vault is ready to open in Obsidian."},
+		{Name: "Vault folder", State: protocol.CheckStatePassed, Message: "The vault folder is at /Users/person/Notes/Marshal."},
+		{Name: "Vault writable", State: protocol.CheckStatePassed, Message: "The vault folder's permissions let Marshal write in it."},
+	}, testResultNow)
+	testutil.Golden(t, "test-result-obsidian", result)
+}
+
 func TestNewTestResultIsOKWhenNoCheckFailed(t *testing.T) {
 	tests := []struct {
 		name   string

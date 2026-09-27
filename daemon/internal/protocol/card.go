@@ -101,6 +101,13 @@ type NeedsReason struct {
 	Kind NeedsReasonKind `json:"kind"`
 	// Text is the plain sentence shown under the card. It may be empty.
 	Text string `json:"text"`
+	// ApprovalID is the id of the approval the card is waiting on, set only when Kind is
+	// ApprovalNeeded, so Home's needs-you list can answer it (POST /v1/approvals/{id}) for a card
+	// nobody has opened (S8b, B3.4). It is read fresh from the approvals table every time the card
+	// is read rather than stored on the card row, so it can never go stale: empty means either the
+	// card is waiting for a different reason, or this exact approval has already been answered and
+	// the card has not been moved off Needs you yet.
+	ApprovalID string `json:"approvalId,omitempty"`
 }
 
 // BoardSnapshot is the answer to GET /v1/projects/{id}/board: the columns and every card.

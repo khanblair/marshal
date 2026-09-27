@@ -76,6 +76,21 @@ func (s *Service) Test(ctx context.Context, id string) (protocol.TestResult, err
 	return s.test(ctx, info)
 }
 
+// testFor is the dispatcher the service uses when no Tester override was handed in: it picks the
+// test that belongs to a connection's kind. A connection whose kind has no test yet is not reached
+// here, because Test refuses a connection Marshal has not wired (see Info.Wired); this is only the
+// list of kinds that have one.
+func (s *Service) testFor(ctx context.Context, info Info) (protocol.TestResult, error) {
+	switch info.Kind {
+	case KindGitHub:
+		return s.testGitHub(ctx, info)
+	case KindObsidian:
+		return s.testObsidian(ctx, info)
+	default:
+		return protocol.TestResult{}, protocol.NotFound("connection").With("id", info.ID)
+	}
+}
+
 // testGitHub is the real GitHub test. It is behind Options.Tester so that no route test ever dials
 // GitHub, and so the checks themselves are driven from a fake without a live App.
 func (s *Service) testGitHub(ctx context.Context, info Info) (protocol.TestResult, error) {
@@ -105,7 +120,9 @@ func (s *Service) testGitHub(ctx context.Context, info Info) (protocol.TestResul
 	checks = append(checks, repositoriesCheck(repos, reposErr))
 
 	checks = append(checks, webhookCheck(s.webhooks.Deliveries()))
-	checks = append([]protocol.TestCheck{summaryCheck(checks)}, checks...)
+	checks = append([]protocol.TestCheck{summaryCheck(checks,
+		"The GitHub App works and Marshal can use it.",
+		"The GitHub App works, with something to check.")}, checks...)
 	return protocol.NewTestResult(info.ID, checks, s.now()), nil
 }
 
@@ -251,8 +268,9 @@ func kindPhrase(kind string) string {
 }
 
 // summaryCheck is the one sentence the connection row shows, built from the checks themselves: the
-// first failure if there is one, and otherwise a short account of what was proven.
-func summaryCheck(checks []protocol.TestCheck) protocol.TestCheck {
+// first failure if there is one, and otherwise a short account of what was proven. The two
+// sentences are the caller's, because only the caller knows what its own test proved.
+func summaryCheck(checks []protocol.TestCheck, works, partly string) protocol.TestCheck {
 	for _, check := range checks {
 		if check.State == protocol.CheckStateFailed {
 			return protocol.TestCheck{
@@ -272,10 +290,10 @@ func summaryCheck(checks []protocol.TestCheck) protocol.TestCheck {
 	summary := protocol.TestCheck{Name: CheckSummary, State: protocol.CheckStatePassed}
 	switch warned {
 	case 0:
-		summary.Message = "The GitHub App works and Marshal can use it."
+		summary.Message = works
 	default:
 		summary.State = protocol.CheckStateWarning
-		summary.Message = "The GitHub App works, with something to check."
+		summary.Message = partly
 	}
 	return summary
 }

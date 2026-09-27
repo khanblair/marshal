@@ -40,6 +40,11 @@ const (
 	// "github", so the connection's id and its kind are the same word, which is true of the
 	// integrations whose id a person never sees doubled.
 	KindGitHub = "github"
+	// KindObsidian is the kind of the Obsidian vault connection (B7.4, build-plan 7.7). It is the
+	// one connection Marshal owns rather than a person setting it up: the vault is a folder in
+	// Marshal's own data directory, so its test asks the file system rather than a service, and its
+	// row reads what Marshal can see for itself.
+	KindObsidian = "obsidian"
 )
 
 // Cooldown and time limit defaults (docs/architecture.md section 18: "Each test has a time limit and

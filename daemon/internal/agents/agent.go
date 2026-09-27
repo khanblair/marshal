@@ -60,6 +60,12 @@ type StartSpec struct {
 	// Instructions are the role instructions. They go to the agent with the first message of a
 	// new session, and are not sent again when a session is resumed.
 	Instructions string
+	// MCPServers are the MCP servers this session is given, each served over stdio: the agent runs
+	// the command itself. Marshal's internal server (docs/architecture.md section 11.4) is the one
+	// every card's session gets. An agent that accepts no servers, or an adapter whose protocol
+	// carries them another way, ignores this list; the request that carries it is built by the
+	// adapter, not here.
+	MCPServers []MCPServer
 	// Env is added to the agent's environment as KEY=value entries, for example a provider key.
 	// The agent gets nothing else from the daemon's environment beyond the short list that
 	// internal/proc lets through.
@@ -67,6 +73,25 @@ type StartSpec struct {
 	// Label is a name the caller picks for logs and errors, for example the card id. It is never
 	// interpreted.
 	Label string
+}
+
+// MCPServer is one MCP server a session is given, served over stdio: the agent starts Command
+// itself and speaks the protocol over the process's own standard input and output.
+//
+// It is deliberately not the ACP SDK's own server type. The agents package describes what a session
+// is given in its own terms, and each adapter turns that into whatever its protocol carries - the
+// ACP adapter into an sdk.McpServer, and a future adapter into its own shape - so a change in the
+// SDK does not reach this package or the daemon above it.
+type MCPServer struct {
+	// Name is the server's name, as the agent knows it, for example "marshal".
+	Name string
+	// Command is the program to run, as an absolute path where the caller can give one.
+	Command string
+	// Args are the arguments that program is given, in order.
+	Args []string
+	// Env is the environment the program is run in, as KEY=value entries, added to the agent's
+	// own. It is how a server is told which session it speaks for.
+	Env []string
 }
 
 // UserMessage is what the user says to the agent.
