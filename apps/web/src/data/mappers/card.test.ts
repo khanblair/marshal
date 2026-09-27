@@ -63,6 +63,21 @@ describe("a card from the daemon", () => {
     });
   });
 
+  it("carries the id of the approval it is waiting on, set only when the reason names one (S8b)", () => {
+    const waiting = toStoredCard(
+      wireCard({
+        needsReason: {
+          kind: "approval-needed",
+          text: "Approval needed to run go test ./....",
+          approvalId: "app_01JQZ0000000000000000000AD",
+        },
+      }),
+      NOW,
+    );
+    expect(waiting.approvalId).toBe("app_01JQZ0000000000000000000AD");
+    expect(toStoredCard(wireCard(), NOW).approvalId).toBeUndefined();
+  });
+
   it("shows an empty branch and package as absent, not as an empty string", () => {
     expect(toStoredCard(wireCard(), NOW)).toMatchObject({ branch: null, pkg: null });
     const working = toStoredCard(

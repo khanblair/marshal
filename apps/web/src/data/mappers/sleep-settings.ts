@@ -28,6 +28,7 @@ export interface SleepChoice {
 }
 
 /** The idle times the form offers and the daemon accepts, in minutes (`settings.idleChoices`). */
+// biome-ignore lint/style/noMagicNumbers: the choices themselves, not a quantity
 export const IDLE_CHOICE_MINUTES: readonly number[] = [5, 15, 30, 60];
 
 /** The form's label for each answer to "After a restart", by the wire value behind it. */

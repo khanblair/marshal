@@ -1,4 +1,8 @@
-import type { Integration as WireIntegration, IntegrationList, IntegrationStatus } from "@marshal/protocol";
+import type {
+  Integration as WireIntegration,
+  IntegrationList,
+  IntegrationStatus,
+} from "@marshal/protocol";
 import { type ProviderTest, toProviderTest } from "./providers";
 
 /**

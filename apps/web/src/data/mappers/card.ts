@@ -172,6 +172,8 @@ export interface DaemonCard {
   ci: CIState | null;
   doing: string;
   reason: string;
+  /** The id of the approval the card is waiting on. See `Card.approvalId` (mock/types.ts). */
+  approvalId?: string;
   pinned: boolean;
   paused: boolean;
   /** The stored state of the card's session, or null when it never had one (section S7c). */
@@ -211,6 +213,7 @@ export function toStoredCard(card: WireCard, now: number): DaemonCard {
     ci: card.ci ?? null,
     doing: card.doingNow,
     reason: card.needsReason?.text ?? "",
+    approvalId: card.needsReason?.approvalId,
     pinned: card.pinned,
     paused: card.paused,
     session: card.session ?? null,

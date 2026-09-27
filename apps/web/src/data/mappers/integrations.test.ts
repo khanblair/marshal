@@ -1,7 +1,8 @@
-import type { IntegrationList } from "@marshal/protocol";
+import type { IntegrationList, TestResult } from "@marshal/protocol";
 import { describe, expect, it } from "vitest";
 import { golden } from "~/data/testing/golden";
 import { toIntegrationStates } from "./integrations";
+import { toProviderTest } from "./providers";
 
 // Section S29a: the GitHub row in Settings. The mapper is tested from the golden the daemon's own
 // contract test writes (`daemon/testdata/golden/integration-list.json`), so the two sides cannot
@@ -42,5 +43,21 @@ describe("the integration mapper", () => {
     const states = toIntegrationStates(answer);
     answer.integrations[0]!.detail = "Changed later";
     expect(states[0]?.detail).toBe("GitHub App installed on 3 repositories");
+  });
+
+  // Section S29b: the Obsidian vault row. A connection's test is the same shape a provider's is
+  // (docs/architecture.md section 18, IntegrationTest = ProviderTest), so the Obsidian vault's own
+  // result golden (`daemon/testdata/golden/test-result-obsidian.json`, written by
+  // internal/protocol's TestTestResultObsidianGolden) is read by the same mapper GitHub's test uses.
+  it("reads the Obsidian vault's own test result the same way a provider's is read", () => {
+    const result = golden<TestResult>("test-result-obsidian");
+    const test = toProviderTest(result);
+    expect(test.ok).toBe(true);
+    expect(test.checks.map((check) => check.name)).toEqual([
+      "Summary",
+      "Vault folder",
+      "Vault writable",
+    ]);
+    expect(test.checks.every((check) => check.state === "passed")).toBe(true);
   });
 });

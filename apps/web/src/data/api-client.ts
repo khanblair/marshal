@@ -18,6 +18,7 @@ import type {
   CreateProjectRequest,
   CreateRoleRequest,
   CreateSavedViewRequest,
+  DecideApprovalRequest,
   EditPlanRequest,
   FeedEntry,
   FileHunks,
@@ -26,8 +27,10 @@ import type {
   IntegrationList,
   Label,
   LabelSnapshot,
+  Lesson,
   LimitList,
   MoveCardRequest,
+  Note,
   NoticeActionRequest,
   NoticeActionResult,
   NoticeList,
@@ -49,6 +52,8 @@ import type {
   SavedView,
   SavedViewListSnapshot,
   SaveGitHubRequest,
+  SaveLessonRequest,
+  SaveNoteRequest,
   SaveProviderRequest,
   SearchSnapshot,
   SendMessageRequest,
@@ -191,6 +196,40 @@ export interface ApiClient {
    * moved, and an empty list of steps is refused.
    */
   editPlan(id: string, body: EditPlanRequest, options?: CallOptions): Promise<Card>;
+  /**
+   * A card's note, whole (section S14, B7.4, N11, task 7.12). A card nothing has been saved for
+   * answers the note the daemon would start one from, with no save time; reading never writes one.
+   */
+  note(cardId: string, options?: CallOptions): Promise<Note>;
+  /** Replaces a card's note with the body, and answers it as a read would. */
+  saveNote(cardId: string, body: SaveNoteRequest, options?: CallOptions): Promise<Note>;
+  /**
+   * A project's lessons, newest first (section 7.13, B7.6): what an agent has learned worth
+   * remembering next time, for the lessons screen.
+   */
+  listLessons(projectId: string, options?: CallOptions): Promise<Lesson[]>;
+  /** One project's lesson by its slug. */
+  lesson(projectId: string, slug: string, options?: CallOptions): Promise<Lesson>;
+  /**
+   * Writes a lesson, making it the first time when slug is omitted. The slug that is actually saved
+   * to is made fresh from the title in the body, so retitling one moves it to a new slug; read the
+   * new one back from the answer.
+   */
+  saveLesson(
+    projectId: string,
+    body: SaveLessonRequest,
+    slug?: string,
+    options?: CallOptions,
+  ): Promise<Lesson>;
+  /** Removes a lesson outright, file and row. */
+  removeLesson(projectId: string, slug: string, options?: CallOptions): Promise<void>;
+  /**
+   * Answers one permission request an agent is blocked on (section S8b, B3.4, N7). The id is the
+   * approval's own, not the card's - it is what the chat's approval block and Home's needs-you card
+   * both carry (`ChatApproval.id`, `Card.needsReason.approvalId`). A request already answered is
+   * `conflict`, and one that does not exist is `not_found`.
+   */
+  decideApproval(id: string, body: DecideApprovalRequest, options?: CallOptions): Promise<void>;
   listLabels(projectId: string, options?: CallOptions): Promise<LabelSnapshot>;
   createLabel(projectId: string, body: CreateLabelRequest, options?: CallOptions): Promise<Label>;
   updateLabel(id: string, body: UpdateLabelRequest, options?: CallOptions): Promise<Label>;
@@ -671,6 +710,19 @@ function routeMethods({ request, command, bytes }: Transport): Omit<ApiClient, "
     createCard: (pid, body, o) => request("POST", `/v1/projects/${id(pid)}/cards`, { ...o, body }),
     // Everything a person does while looking at one card, restore points included: `cardMethods`.
     ...cardMethods({ request, command }),
+    // A project's lessons (task 7.13, B7.6): listed for the lessons screen, saved without a slug the
+    // first time and with one to edit an existing lesson, removed by slug.
+    listLessons: (pid, o) => request("GET", `/v1/projects/${id(pid)}/lessons`, o),
+    lesson: (pid, slug, o) => request("GET", `/v1/projects/${id(pid)}/lessons/${id(slug)}`, o),
+    saveLesson: (pid, body, slug, o) =>
+      slug
+        ? request("PUT", `/v1/projects/${id(pid)}/lessons/${id(slug)}`, { ...o, body })
+        : request("POST", `/v1/projects/${id(pid)}/lessons`, { ...o, body }),
+    removeLesson: (pid, slug, o) =>
+      command("DELETE", `/v1/projects/${id(pid)}/lessons/${id(slug)}`, o),
+    // Not a card route (`cardMethods`): the id this takes is the approval's own, not a card's (see
+    // the interface's doc comment above).
+    decideApproval: (aid, body, o) => command("POST", `/v1/approvals/${id(aid)}`, { ...o, body }),
     listLabels: (pid, o) => request("GET", `/v1/projects/${id(pid)}/labels`, o),
     createLabel: (pid, body, o) =>
       request("POST", `/v1/projects/${id(pid)}/labels`, { ...o, body }),
@@ -790,7 +842,9 @@ type CardRoute =
   | "wakeCard"
   | "pinCard"
   | "unpinCard"
-  | "setCardView";
+  | "setCardView"
+  | "note"
+  | "saveNote";
 
 /**
  * The routes that act on one card, gathered so the group can grow without crowding `routeMethods`.
@@ -820,6 +874,9 @@ function cardMethods({
     approvePlan: (cid, o) => request("POST", `/v1/cards/${id(cid)}/plan/approve`, o),
     rejectPlan: (cid, o) => request("POST", `/v1/cards/${id(cid)}/plan/reject`, o),
     editPlan: (cid, body, o) => request("PUT", `/v1/cards/${id(cid)}/plan`, { ...o, body }),
+    // A card's note (section S14, B7.4, N11, task 7.12): one file per card, read and replaced whole.
+    note: (cid, o) => request("GET", `/v1/cards/${id(cid)}/note`, o),
+    saveNote: (cid, body, o) => request("PUT", `/v1/cards/${id(cid)}/note`, { ...o, body }),
     // The restore points of a card (B5.3, section S10): the list is a read, and a restore names the
     // checkpoint in the path.
     checkpoints: (cid, o) => request("GET", `/v1/cards/${id(cid)}/checkpoints`, o),
