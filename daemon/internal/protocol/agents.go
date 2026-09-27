@@ -64,7 +64,9 @@ type Agent struct {
 // AgentCatalog is the answer to GET /v1/agents.
 type AgentCatalog struct {
 	// Agents has one entry for each kind of agent that a card can use, whether or not it is
-	// installed. The built-in agent is not listed here.
+	// installed. The built-in agent is last, and it is always there: Marshal runs it itself, so
+	// there is nothing to install. The three CLI kinds come first, in the order the pickers show
+	// them.
 	Agents []Agent `json:"agents"`
 	// ServerTime is the daemon's time when the answer was made. The catalog itself may come from
 	// a check that was made a few minutes earlier.

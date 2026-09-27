@@ -11,7 +11,8 @@ import (
 
 var agentsNow = time.Date(2026, time.September, 25, 10, 20, 0, 0, time.UTC)
 
-// sampleAgents has one agent of each status, so the golden file shows every field in use.
+// sampleAgents has one agent of each status, so the golden file shows every field in use, and the
+// built-in agent, which is the one kind that is never missing and has no version to report.
 func sampleAgents() []protocol.Agent {
 	return []protocol.Agent{
 		{
@@ -38,6 +39,21 @@ func sampleAgents() []protocol.Agent {
 			Kind: protocol.AgentKindCodex, Name: "Codex", Status: protocol.AgentStatusMissing,
 			InstallHint: "Codex is not installed. Install it with: npm install -g @openai/codex",
 			Models:      []protocol.AgentModel{{ID: "gpt-5-codex", Name: "GPT-5 Codex", Thinking: true}},
+		},
+		{
+			Kind: protocol.AgentKindBuiltin, Name: "Built-in agent", Status: protocol.AgentStatusSupported,
+			// The built-in agent's models are the models of the providers that are set up, so a
+			// sample shows the ones a person with a key for each would have.
+			Models: []protocol.AgentModel{
+				{ID: "claude-sonnet-4-5", Name: "Claude Sonnet 4.5", Thinking: true},
+				{ID: "gpt-5-mini", Name: "GPT-5 mini", Thinking: true},
+				{ID: "deepseek-chat", Name: "DeepSeek Chat", Thinking: false},
+				{ID: "gemini-2.5-flash", Name: "Gemini 2.5 Flash", Thinking: true},
+				{ID: "qwen2.5-coder:32b", Name: "Qwen2.5 Coder 32B", Thinking: false},
+			},
+			Capabilities: protocol.AgentCapabilities{
+				Resume: true, StructuredEvents: true, ModelSwitching: true, Thinking: true, Approvals: true,
+			},
 		},
 	}
 }

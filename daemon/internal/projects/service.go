@@ -125,6 +125,19 @@ type AwakeCounter interface {
 	AwakeCards(ctx context.Context, projectID string) (int, error)
 }
 
+// ReviewGate is the check a card goes through before it moves to In review: the code-smell checks
+// of docs/architecture.md section 17.1, where a finding that blocks keeps the card in Working and
+// goes back to the agent that wrote the code. The quality module implements it. It is the only
+// thing this module asks of that one: the sentence a person reads on a refusal is a move rule of
+// section 6.1 and stays here.
+type ReviewGate interface {
+	// BlockingFindings runs the checks for a card that is about to move to In review, hands any
+	// blocking findings to the card's agent, and answers how many of them block the move. An error
+	// means the checks could not run at all, which never refuses a person's move: it is logged and
+	// the move goes ahead.
+	BlockingFindings(ctx context.Context, cardID string) (int, error)
+}
+
 // SessionInfo is what the wire card carries of its session: the state the session was last stored in,
 // and the view its agent runs in.
 type SessionInfo struct {
@@ -178,6 +191,11 @@ type Service struct {
 	locks repoLocks
 	// idMu makes ids come from the entropy reader one at a time, so a test reader needs no lock.
 	idMu sync.Mutex
+	// gateMu guards the review gate. The quality module is built after this service - it reads
+	// cards and projects through it - so the gate is set once at start-up with SetReviewGate rather
+	// than passed to New.
+	gateMu sync.RWMutex
+	gate   ReviewGate
 }
 
 // Option changes how New builds a Service.
@@ -258,6 +276,24 @@ func New(deps Deps, opts ...Option) (*Service, error) {
 		opt(s)
 	}
 	return s, nil
+}
+
+// SetReviewGate gives the service the quality module's rule for a card about to move to In review
+// (docs/architecture.md section 17.1). It is set after the service is built, because that module
+// reads cards and projects through this one, and it is safe to call while cards are moving. The
+// default is no gate, so a daemon built without the quality module moves every card the rules of
+// section 6.1 allow.
+func (s *Service) SetReviewGate(g ReviewGate) {
+	s.gateMu.Lock()
+	s.gate = g
+	s.gateMu.Unlock()
+}
+
+// reviewGate answers the gate, or nil when none was set.
+func (s *Service) reviewGate() ReviewGate {
+	s.gateMu.RLock()
+	defer s.gateMu.RUnlock()
+	return s.gate
 }
 
 // WorktreesDir is the folder that holds every card worktree of a project. The projects module and

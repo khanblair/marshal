@@ -89,6 +89,11 @@ func checkCardUpdate(in protocol.UpdateCardRequest) error {
 		return protocol.InvalidArgument("That is not a thinking setting Marshal knows.").With("thinking", string(*in.Thinking))
 	case in.PermissionMode != nil && !in.PermissionMode.Valid():
 		return protocol.InvalidArgument("That is not a permission mode Marshal knows.").With("permissionMode", string(*in.PermissionMode))
+	case in.PermissionMode != nil && *in.PermissionMode == protocol.PermissionModeBypass:
+		// Bypass is not a field change. It is granted through its own call, which carries the
+		// acknowledgement a person gives and is audited (B3.2); a plain edit must not grant it, or a
+		// client could skip the warning by sending the mode.
+		return refusedBypass("Bypass permissions is turned on from this card's permission menu, so the warning is shown and acknowledged first.")
 	case in.Model != nil && utf8.RuneCountInString(*in.Model) > maxModelChars:
 		return protocol.InvalidArgument("That model name is too long.")
 	case in.Role != nil && utf8.RuneCountInString(*in.Role) > maxRoleChars:

@@ -29,8 +29,8 @@ type Card struct {
 	Thinking *ThinkingMode `json:"thinking" tstype:"ThinkingMode | null"`
 	// PermissionMode is how much the agent may do without asking.
 	PermissionMode PermissionMode `json:"permissionMode"`
-	// Role is the role's name, such as "Implementer". Phase 5 turns this into a role id; until
-	// then it is the text name of a starter role, and it may be empty.
+	// Role is the role's name, such as "Implementer". A role is addressed by its name rather than
+	// by an id, so this is the name of one of the project's roles, and it may be empty.
 	Role string `json:"role"`
 	// Labels are the project's labels on this card, in the order they were added. Never null.
 	Labels []Label `json:"labels"`
