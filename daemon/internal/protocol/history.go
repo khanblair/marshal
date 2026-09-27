@@ -31,10 +31,9 @@ type ChatMessage struct {
 	Tool *ChatToolCall `json:"tool" tstype:"ChatToolCall | null"`
 	// Diff is the summary of the files a turn changed, for Kind diff, and null otherwise.
 	Diff *ChatDiffSummary `json:"diff" tstype:"ChatDiffSummary | null"`
-	// Plan is the plan block, for Kind plan, and null otherwise. Nothing writes it yet (Phase 5).
+	// Plan is the plan block, for Kind plan, and null otherwise.
 	Plan *ChatPlan `json:"plan" tstype:"ChatPlan | null"`
-	// Approval is the approval block, for Kind approval, and null otherwise. Nothing writes it yet
-	// (Phase 3).
+	// Approval is the approval block, for Kind approval, and null otherwise.
 	Approval *ChatApproval `json:"approval" tstype:"ChatApproval | null"`
 	// Card is the card reference, for Kind card, and null otherwise.
 	Card *ChatCardRef `json:"card" tstype:"ChatCardRef | null"`
@@ -72,9 +71,9 @@ type ChatDiffSummary struct {
 	Deletions int `json:"deletions"`
 }
 
-// ChatPlan is a plan block of a card's chat (docs/backend-inventory.md 4.3). The kind and the
-// shape are defined now so the app can be written against them; nothing writes a plan message
-// until the plan-first session of Phase 5 (B5.2).
+// ChatPlan is a plan block of a card's chat (docs/backend-inventory.md 4.3): what a plan-first
+// session proposes, and how it was answered. An answer is another plan message whose state says
+// what the person did, so what a person already read is never rewritten behind them (B5.2).
 type ChatPlan struct {
 	// State is where the plan stands.
 	State ChatPlanState `json:"state"`
@@ -88,9 +87,31 @@ type ChatPlan struct {
 	Checks []string `json:"checks"`
 }
 
-// ChatApproval is an approval block of a card's chat (docs/backend-inventory.md 4.3). The kind
-// and the shape are defined now so the app can be written against them; nothing writes an
-// approval message until the permission flow of Phase 3 (B3.4).
+// EditPlanRequest is the body of PUT /v1/cards/{id}/plan: the steps the person left in the plan
+// they edited (docs/backend-checklist.md B5.2, inventory N6). Only the steps are editable: the
+// files, the risks, and the checks are the agent's own reading of the work, and Marshal keeps them
+// as it was told them.
+type EditPlanRequest struct {
+	// Steps are the plan's steps, in order. A step that is empty after trimming is dropped, the
+	// way the plan's own writer drops it.
+	Steps []string `json:"steps"`
+}
+
+// PlanUpdatedEventData is the payload of plan.updated: the plan block of the message that changed,
+// so every view of the same card's plan follows one decision without reading the chat back (N6).
+type PlanUpdatedEventData struct {
+	// CardID is the card whose chat holds the plan.
+	CardID string `json:"cardId"`
+	// MessageID is the plan message that changed.
+	MessageID string `json:"messageId"`
+	// Plan is the plan block as it now stands.
+	Plan ChatPlan `json:"plan"`
+	// At is when it changed, in UTC.
+	At Timestamp `json:"at"`
+}
+
+// ChatApproval is an approval block of a card's chat (docs/backend-inventory.md 4.3): a permission
+// an agent asked for, from the moment it waits to the answer it got (B3.4).
 type ChatApproval struct {
 	// State is where the request stands.
 	State ChatApprovalState `json:"state"`

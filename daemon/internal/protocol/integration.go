@@ -1,0 +1,100 @@
+package protocol
+
+import "time"
+
+// The wire shape of a connection: a service Marshal has been set up with, and the last time it was
+// tested (docs/architecture.md section 18, build-plan 6.11, B6.7, N18). One shape serves every
+// kind - a model provider, GitHub, Trello, a calendar, a chat service - because section 18 gives
+// them all the same connect, test, save-the-result, cool-down shape.
+
+// IntegrationStatus is whether a connection is set up, as a screen shows it. There are three
+// values and no more, on purpose: an installation that is under way is a fact about the browser a
+// person is in, not about Marshal, and a daemon that stored "installing" would have to guess when
+// that stopped being true. A screen that needs to show work in progress keeps that in its own
+// state and never sends it here (the ruling is recorded in the Phase 6 report).
+type IntegrationStatus string
+
+const (
+	// IntegrationStatusConnected means the connection is set up: a key or an install is stored.
+	IntegrationStatusConnected IntegrationStatus = "connected"
+	// IntegrationStatusNone means nothing is stored yet, so the connection cannot be used.
+	IntegrationStatusNone IntegrationStatus = "none"
+	// IntegrationStatusError means something is stored and the last test found it does not work.
+	IntegrationStatusError IntegrationStatus = "error"
+)
+
+// IntegrationStatusValues lists every status. It is the three words the settings screen already
+// reads for an integration row (`apps/web/src/mock/settings-types.ts`).
+func IntegrationStatusValues() []IntegrationStatus {
+	return []IntegrationStatus{
+		IntegrationStatusConnected, IntegrationStatusNone, IntegrationStatusError,
+	}
+}
+
+// Valid reports whether s is an integration status.
+func (s IntegrationStatus) Valid() bool {
+	for _, v := range IntegrationStatusValues() {
+		if v == s {
+			return true
+		}
+	}
+	return false
+}
+
+// Integration is one connection as a screen sees it. The words shown to a person (a name, an icon,
+// the sentence under it) are the app's, and are built from this: the wire carries the id, the kind,
+// the status, and the last test's own answer.
+type Integration struct {
+	// ID is the connection's own id, and the id its keychain entry and its `integrations` row are
+	// filed under: "github", "trello", "anthropic".
+	ID string `json:"id"`
+	// Kind is the sort of connection this is: "provider", "github", "calendar". It is the kind
+	// its connection test is filed under.
+	Kind string `json:"kind"`
+	// Status says whether it is set up, and whether the last test found it working. The field is
+	// called Status in Go and `st` on the wire because `st` is the name the screens already read.
+	Status IntegrationStatus `json:"st"`
+	// Detail is one plain sentence saying what is set up, such as "GitHub App installed on 3
+	// repositories". It is empty for a connection nothing is stored for.
+	Detail string `json:"detail"`
+	// LastTest is the result of the last connection test of this connection, or nil when it has
+	// never been tested. It is the same shape a provider's test answers with, so one screen shows
+	// both kinds of result.
+	LastTest *TestResult `json:"lastTest,omitempty"`
+}
+
+// IntegrationList is the answer to GET /v1/integrations: every connection Marshal can be set up
+// with, whether or not it is, so the screen can show the ones that are not connected yet.
+type IntegrationList struct {
+	// Integrations has one entry per connection Marshal knows, in the order the screen shows them.
+	// Never null.
+	Integrations []Integration `json:"integrations"`
+	// ServerTime is the daemon's time when the answer was made, so a client counts a cooldown or
+	// an age from it rather than from its own clock.
+	ServerTime Timestamp `json:"serverTime"`
+}
+
+// NewIntegrationList makes an answer stamped with the daemon's time. A nil list becomes an empty
+// one, so the JSON has [] and never null.
+func NewIntegrationList(integrations []Integration, now time.Time) IntegrationList {
+	out := make([]Integration, len(integrations))
+	copy(out, integrations)
+	return IntegrationList{Integrations: out, ServerTime: NewTimestamp(now)}
+}
+
+// SaveGitHubRequest is the body of the call that saves the GitHub App's connection (B6.1). The
+// private key and the webhook secret are written to the keychain and never come back from any
+// route; the two ids are written to the connection's own row.
+type SaveGitHubRequest struct {
+	// AppID is the App's own numeric id, from its settings page on GitHub.
+	AppID int64 `json:"appId"`
+	// InstallationID is the numeric id of the App's installation on the owner's account or
+	// organization. One App can be installed in more than one place, and this is the one Marshal
+	// acts as.
+	InstallationID int64 `json:"installationId"`
+	// PrivateKey is the App's private key, in PEM form, exactly as GitHub generated it.
+	PrivateKey string `json:"privateKey"`
+	// WebhookSecret is the secret the App's deliveries are signed with. Every delivery is checked
+	// against it before its body is read (B6.1).
+	WebhookSecret string `json:"webhookSecret"`
+}

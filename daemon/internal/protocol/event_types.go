@@ -62,14 +62,27 @@ const (
 	EventTypeApprovalRequested EventType = "approval.requested"
 	// EventTypeApprovalResolved is sent when a permission request is answered.
 	EventTypeApprovalResolved EventType = "approval.resolved"
+	// EventTypePlanUpdated is sent when a plan message is added or answered, so every view of the
+	// card's plan follows the same decision (docs/backend-checklist.md B5.2, inventory N6).
+	EventTypePlanUpdated EventType = "plan.updated"
 	// EventTypeCIUpdated is sent when a CI run changes.
 	EventTypeCIUpdated EventType = "ci.updated"
+	// EventTypePreviewStateChanged is sent when a card's live preview changes state - stopped,
+	// starting, or running - and when a screenshot of it is taken. It carries the whole preview as
+	// it is now, screenshots included, so a client that applies it twice is where it should be
+	// (B6.6, N10).
+	EventTypePreviewStateChanged EventType = "preview.state_changed"
 	// EventTypeQualityChecked is sent when the quality checks finish for a card.
 	EventTypeQualityChecked EventType = "quality.checked"
 	// EventTypeMergeProgress is sent as a merge moves along.
 	EventTypeMergeProgress EventType = "merge.progress"
 	// EventTypeNoticeCreated is sent when a notice is added.
 	EventTypeNoticeCreated EventType = "notice.created"
+	// EventTypeNoticeDismissed is sent when a notice goes away, whether a person dismissed it or
+	// the daemon finished what it announced (the idle cards fell asleep). It is beside
+	// notice.created so a client that watched a notice appear learns that it is gone; a client
+	// that was away re-reads the list on either event.
+	EventTypeNoticeDismissed EventType = "notice.dismissed"
 	// EventTypeUsageUpdated is sent when token use or cost changes.
 	EventTypeUsageUpdated EventType = "usage.updated"
 	// EventTypeBudgetWarning is sent when a cost or awake limit is close.
@@ -87,8 +100,10 @@ func EventTypeValues() []EventType {
 		EventTypeChecklistUpdated, EventTypeCommentCreated, EventTypeCommentReadByAgent,
 		EventTypeSessionStateChanged, EventTypeSessionOutput, EventTypeSessionToolCall,
 		EventTypeSessionTerminalOutput,
-		EventTypeApprovalRequested, EventTypeApprovalResolved, EventTypeCIUpdated,
+		EventTypeApprovalRequested, EventTypeApprovalResolved, EventTypePlanUpdated, EventTypeCIUpdated,
+		EventTypePreviewStateChanged,
 		EventTypeQualityChecked, EventTypeMergeProgress, EventTypeNoticeCreated,
+		EventTypeNoticeDismissed,
 		EventTypeUsageUpdated, EventTypeBudgetWarning,
 	}
 }

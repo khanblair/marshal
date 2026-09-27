@@ -287,11 +287,10 @@ const (
 	ChatMessageKindSystem ChatMessageKind = "system"
 	// ChatMessageKindDiff is the summary of the files one turn changed.
 	ChatMessageKindDiff ChatMessageKind = "diff"
-	// ChatMessageKindPlan is a plan the agent wrote in plan-first mode. It is defined now and
-	// nothing writes it yet: the plan side of the chat is Phase 5 (B5.2).
+	// ChatMessageKindPlan is a plan the agent wrote in plan-first mode, and each answer to it
+	// (B5.2).
 	ChatMessageKindPlan ChatMessageKind = "plan"
-	// ChatMessageKindApproval is a permission the agent asked for. It is defined now and nothing
-	// writes it yet: approvals are Phase 3 (B3.4).
+	// ChatMessageKindApproval is a permission the agent asked for, and the answer it got (B3.4).
 	ChatMessageKindApproval ChatMessageKind = "approval"
 	// ChatMessageKindCard is a card an agent or the Orchestrator made or named.
 	ChatMessageKindCard ChatMessageKind = "card"
@@ -308,8 +307,7 @@ func ChatMessageKindValues() []ChatMessageKind {
 // Valid reports whether k is a chat message kind.
 func (k ChatMessageKind) Valid() bool { return slices.Contains(ChatMessageKindValues(), k) }
 
-// ChatPlanState is where a plan block stands (docs/backend-inventory.md 4.3). Like the plan kind
-// itself, it is defined now and written in Phase 5.
+// ChatPlanState is where a plan block stands (docs/backend-inventory.md 4.3).
 type ChatPlanState string
 
 const (
@@ -333,8 +331,7 @@ func ChatPlanStateValues() []ChatPlanState {
 // Valid reports whether s is a plan state.
 func (s ChatPlanState) Valid() bool { return slices.Contains(ChatPlanStateValues(), s) }
 
-// ChatApprovalState is where an approval block stands (docs/backend-inventory.md 4.3). Like the
-// approval kind itself, it is defined now and written in Phase 3.
+// ChatApprovalState is where an approval block stands (docs/backend-inventory.md 4.3).
 type ChatApprovalState string
 
 const (
@@ -440,6 +437,8 @@ const (
 	NeedsReasonKindConflict NeedsReasonKind = "conflict"
 	// NeedsReasonKindQuestion is a card whose agent asked a question.
 	NeedsReasonKindQuestion NeedsReasonKind = "question"
+	// NeedsReasonKindSecret is a card whose commit held something that looks like a credential.
+	NeedsReasonKindSecret NeedsReasonKind = "secret-detected"
 )
 
 // NeedsReasonKindValues lists every reason a card can wait on a person.
@@ -447,6 +446,7 @@ func NeedsReasonKindValues() []NeedsReasonKind {
 	return []NeedsReasonKind{
 		NeedsReasonKindPlanReady, NeedsReasonKindApprovalNeeded, NeedsReasonKindStuck,
 		NeedsReasonKindLimit, NeedsReasonKindCIFailed, NeedsReasonKindConflict, NeedsReasonKindQuestion,
+		NeedsReasonKindSecret,
 	}
 }
 
@@ -504,6 +504,10 @@ const (
 	MoveRefusalReasonChecksNotPassed MoveRefusalReason = "move_checks_not_passed"
 	// MoveRefusalReasonCardMerging is a move of a card that is being merged.
 	MoveRefusalReasonCardMerging MoveRefusalReason = "move_card_merging"
+	// MoveRefusalReasonQualityBlocking is a move to review of a card whose changes have a blocking
+	// code smell. It is the quality module's own rule (architecture.md section 17.1): the smell
+	// goes back to the card's agent, and the card stays where it is until it is fixed or dismissed.
+	MoveRefusalReasonQualityBlocking MoveRefusalReason = "move_quality_blocking"
 )
 
 // MoveRefusalReasonValues lists every reason a move can be refused, in the order
@@ -513,6 +517,7 @@ func MoveRefusalReasonValues() []MoveRefusalReason {
 		MoveRefusalReasonFromDone, MoveRefusalReasonToDone, MoveRefusalReasonToNeeds,
 		MoveRefusalReasonNeedsPullRequest, MoveRefusalReasonNeedsReview,
 		MoveRefusalReasonChecksNotPassed, MoveRefusalReasonCardMerging,
+		MoveRefusalReasonQualityBlocking,
 	}
 }
 

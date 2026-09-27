@@ -65,6 +65,32 @@ func isCrockford(c byte) bool {
 	return false
 }
 
+// IDTime reads the creation time out of an opaque id made by NewID: its first ten characters are
+// the time in milliseconds, so a row that keeps only its id still knows when it was made. It
+// reports false when id is not the shape of one. It is how a stored approval reports when it was
+// asked without a column of its own (docs/architecture.md section 10).
+func IDTime(id string) (time.Time, bool) {
+	if !ValidID(id) {
+		return time.Time{}, false
+	}
+	var millis uint64
+	for i := 0; i < idTimeLength; i++ {
+		millis = millis<<idBitsPerChar | uint64(crockfordIndex(id[i]))
+	}
+	return time.UnixMilli(int64(millis)).UTC(), true
+}
+
+// crockfordIndex is the value of a Crockford base32 character. The caller has already checked that
+// c is one of them (ValidID).
+func crockfordIndex(c byte) int {
+	for i := 0; i < len(crockford); i++ {
+		if crockford[i] == c {
+			return i
+		}
+	}
+	return 0
+}
+
 // putBase32 writes v into dst as base32, most significant character first.
 func putBase32(dst []byte, v uint64) {
 	for i := len(dst) - 1; i >= 0; i-- {
