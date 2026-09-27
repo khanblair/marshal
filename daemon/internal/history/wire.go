@@ -219,8 +219,8 @@ func diffSummaryOf(ev Event) (protocol.ChatDiffSummary, error) {
 	}, nil
 }
 
-// planOf builds the plan block of one stored event. Nothing writes a plan message yet (Phase 5,
-// B5.2), so a plan is drawn as waiting and only its steps come from what is stored.
+// planOf builds the plan block of one stored event. A plan the agent wrote and nobody has answered
+// reads as waiting, which is what a detail stored before the state was kept says too.
 func planOf(ev Event) (protocol.ChatPlan, error) {
 	var stored planDetail
 	if err := decodeDetail(ev, &stored); err != nil {
@@ -231,9 +231,21 @@ func planOf(ev Event) (protocol.ChatPlan, error) {
 		steps = append(steps, step.Text)
 	}
 	return protocol.ChatPlan{
-		State: protocol.ChatPlanStateWaiting, Steps: steps,
-		Files: []string{}, Risks: []string{}, Checks: []string{},
+		State:  planStateOf(stored.State),
+		Steps:  steps,
+		Files:  listOrEmpty(stored.Files),
+		Risks:  listOrEmpty(stored.Risks),
+		Checks: listOrEmpty(stored.Checks),
 	}, nil
+}
+
+// listOrEmpty answers a list a reader can range over, never nil, so the block a screen draws has
+// the same shape whichever way the plan was stored.
+func listOrEmpty(items []string) []string {
+	if items == nil {
+		return []string{}
+	}
+	return items
 }
 
 // approvalOf builds the approval block of one stored event. Nothing writes an approval message yet

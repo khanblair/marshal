@@ -67,19 +67,19 @@ func TestRecordsOfTurnsAnAgentEventIntoOneRecord(t *testing.T) {
 			}},
 			kind:    history.KindPlan,
 			summary: "Plan with 2 steps",
-			detail:  `{"steps":[{"text":"Read the router","status":"completed"},{"text":"Add the route","status":"in_progress"}]}`,
+			detail:  `{"state":"waiting","steps":[{"text":"Read the router","status":"completed"},{"text":"Add the route","status":"in_progress"}]}`,
 		},
 		"a one-step plan": {
 			event:   agents.PlanUpdate{Steps: []agents.PlanStep{{Text: "Only one", Status: agents.PlanPending}}},
 			kind:    history.KindPlan,
 			summary: "Plan with 1 step",
-			detail:  `{"steps":[{"text":"Only one","status":"pending"}]}`,
+			detail:  `{"state":"waiting","steps":[{"text":"Only one","status":"pending"}]}`,
 		},
 		"an empty plan": {
 			event:   agents.PlanUpdate{},
 			kind:    history.KindPlan,
 			summary: "Plan with 0 steps",
-			detail:  `{"steps":[]}`,
+			detail:  `{"state":"waiting","steps":[]}`,
 		},
 		"a permission request": {
 			event: agents.PermissionRequested{

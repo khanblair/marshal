@@ -122,19 +122,35 @@ func (l *loader) loadCards(ctx context.Context, projectID string) (int, error) {
 		if card.Project != projectID {
 			continue
 		}
-		created, err := l.projects.CreateCard(ctx, projectID, cardInputOf(card), projects.WithFields(cardFieldsOf(card, labels, now)))
-		if err != nil {
-			return made, fmt.Errorf("add card %s#%d: %w", card.Project, card.Number, err)
+		if err := l.createOneCard(ctx, projectID, card, labels, now); err != nil {
+			return made, err
 		}
 		made++
-		if state, ok := fixtureSessionState(card.State); ok && l.sessions != nil {
-			if err := l.sessions.SeedSession(ctx, created.ID, state); err != nil {
-				return made, fmt.Errorf("seed the session of %s#%d: %w", card.Project, card.Number, err)
-			}
-		}
 	}
 	l.log.Info("fixture cards created", "project_id", projectID, "cards", made)
 	return made, nil
+}
+
+// createOneCard writes one prototype card, grants it bypass afterward if the prototype wants it
+// (a card cannot be born in bypass, B3.2), and seeds the session its state implies.
+func (l *loader) createOneCard(
+	ctx context.Context, projectID string, card prototypeCard, labels map[string]string, now time.Time,
+) error {
+	created, err := l.projects.CreateCard(ctx, projectID, cardInputOf(card), projects.WithFields(cardFieldsOf(card, labels, now)))
+	if err != nil {
+		return fmt.Errorf("add card %s#%d: %w", card.Project, card.Number, err)
+	}
+	if card.Perm == protocol.PermissionModeBypass {
+		if _, err := l.projects.SetBypassMode(ctx, created.ID, true); err != nil {
+			return fmt.Errorf("grant bypass on card %s#%d: %w", card.Project, card.Number, err)
+		}
+	}
+	if state, ok := fixtureSessionState(card.State); ok && l.sessions != nil {
+		if err := l.sessions.SeedSession(ctx, created.ID, state); err != nil {
+			return fmt.Errorf("seed the session of %s#%d: %w", card.Project, card.Number, err)
+		}
+	}
+	return nil
 }
 
 // cardCount is how many cards a project already has.
@@ -203,14 +219,19 @@ func labelColorFor(_ string, index int) protocol.LabelColor {
 	return colors[index%len(colors)]
 }
 
-// cardInputOf is the part of a card a request could carry.
+// cardInputOf is the part of a card a request could carry. A card cannot be born in bypass
+// (B3.2), so a bypass card is created in its default mode; loadCards grants bypass afterward.
 func cardInputOf(card prototypeCard) projects.CardInput {
+	mode := card.Perm
+	if mode == protocol.PermissionModeBypass {
+		mode = ""
+	}
 	return projects.CardInput{
 		Title:          card.Title,
 		Agent:          card.Agent,
 		Model:          card.Model,
 		Thinking:       card.Thinking,
-		PermissionMode: card.Perm,
+		PermissionMode: mode,
 		Role:           card.Role,
 		Package:        card.Package,
 	}

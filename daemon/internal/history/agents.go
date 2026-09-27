@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/khanblair/marshal/daemon/internal/agents"
+	"github.com/khanblair/marshal/daemon/internal/protocol"
 )
 
 // RecordsOf converts one agent event into the records it adds to a card's history, in order. An
@@ -25,7 +26,7 @@ func RecordsOf(ev agents.AgentEvent) ([]Record, error) {
 	case agents.ToolCallUpdate:
 		return oneDetail(KindToolCallUpdate, e.Title, toolState(e.Status), toolDetailOfUpdate(e))
 	case agents.PlanUpdate:
-		return oneDetail(KindPlan, planSummary(e.Steps), "", planDetailOf(e.Steps))
+		return oneDetail(KindPlan, planSummary(len(e.Steps)), "", planDetailOf(e.Steps))
 	case agents.PermissionRequested:
 		return oneDetail(KindApproval, e.Title, StateWaiting, approvalDetailOf(e))
 	case agents.Failed:
@@ -57,11 +58,11 @@ func encodeDetail(detail any) (string, error) {
 
 // planSummary is the one line a plan adds to the history and the activity list; the steps
 // themselves are in the record's detail.
-func planSummary(steps []agents.PlanStep) string {
-	if len(steps) == 1 {
+func planSummary(steps int) string {
+	if steps == 1 {
 		return "Plan with 1 step"
 	}
-	return fmt.Sprintf("Plan with %d steps", len(steps))
+	return fmt.Sprintf("Plan with %d steps", steps)
 }
 
 // toolState maps a tool call's own status word to the activity state a card's list draws
@@ -102,9 +103,16 @@ type fileDiff struct {
 	NewText string `json:"newText,omitempty"`
 }
 
-// planDetail is a whole plan, as stored with a plan update.
+// planDetail is a whole plan, as stored with a plan update. It carries the four parts a person
+// reads (docs/marshal-product-scope.md 10.3) and where the plan stands. The files, the risks, and
+// the checks are part of the plan's shape rather than of what today's agent protocol reports, so
+// they are stored empty until an agent says them.
 type planDetail struct {
-	Steps []planStep `json:"steps"`
+	State  string     `json:"state,omitempty"`
+	Steps  []planStep `json:"steps"`
+	Files  []string   `json:"files,omitempty"`
+	Risks  []string   `json:"risks,omitempty"`
+	Checks []string   `json:"checks,omitempty"`
 }
 
 // planStep is one line of a stored plan.
@@ -147,8 +155,16 @@ func toolDetailOfUpdate(update agents.ToolCallUpdate) toolDetail {
 	}
 }
 
-// planDetailOf turns the agent's plan into its stored detail.
+// planDetailOf turns the agent's plan into its stored detail. A plan an agent writes has just
+// arrived, so it waits for the person to answer it.
 func planDetailOf(steps []agents.PlanStep) planDetail {
+	stored := planDetailOfSteps(steps)
+	stored.State = string(protocol.ChatPlanStateWaiting)
+	return stored
+}
+
+// planDetailOfSteps turns the steps of a plan into their stored lines.
+func planDetailOfSteps(steps []agents.PlanStep) planDetail {
 	stored := make([]planStep, len(steps))
 	for i, step := range steps {
 		stored[i] = planStep{Text: step.Text, Status: step.Status}

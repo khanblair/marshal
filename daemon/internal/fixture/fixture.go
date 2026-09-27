@@ -107,6 +107,9 @@ type Cards interface {
 	CreateLabel(ctx context.Context, projectID string, in protocol.CreateLabelRequest) (protocol.Label, error)
 	// CreateCard writes one card, with the fields the prototype's seed has.
 	CreateCard(ctx context.Context, projectID string, in projects.CardInput, opts ...projects.CardOption) (protocol.Card, error)
+	// SetBypassMode grants bypass permissions on a card the fixture just created. A card cannot be
+	// born in bypass (B3.2), so a fixture card that wants it is granted the same way a person would.
+	SetBypassMode(ctx context.Context, id string, on bool) (protocol.Card, error)
 	// SavedViews and CreateSavedView make the saved views the prototype's menu shows.
 	SavedViews(ctx context.Context, projectID string) (protocol.SavedViewListSnapshot, error)
 	CreateSavedView(ctx context.Context, projectID string, in protocol.CreateSavedViewRequest) (protocol.SavedView, bool, error)

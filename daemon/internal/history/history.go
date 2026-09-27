@@ -149,30 +149,38 @@ func (o owner) label() string { return o.kind() + " " + o.id }
 // sequence number. Every record of one call is stamped with the same time, which is the moment the
 // events it came from arrived.
 func (s *Store) Append(ctx context.Context, cardID, sessionID string, records []Record) error {
-	return s.append(ctx, cardOwner(cardID), sessionID, records)
+	_, err := s.append(ctx, cardOwner(cardID), sessionID, records)
+	return err
 }
 
 // AppendChat is Append for a chat's history: the records become the chat's next events, numbered
 // from the chat's own sequence, in the same table a card's history is in.
 func (s *Store) AppendChat(ctx context.Context, chatID, sessionID string, records []Record) error {
-	return s.append(ctx, chatOwner(chatID), sessionID, records)
+	_, err := s.append(ctx, chatOwner(chatID), sessionID, records)
+	return err
 }
 
-// append stores records as an owner's next events.
-func (s *Store) append(ctx context.Context, o owner, sessionID string, records []Record) error {
+// append stores records as an owner's next events and returns the id each one was written under, in
+// the order given, so a caller that must name the event it just wrote (a plan an answer replaces)
+// has it without reading the page back.
+func (s *Store) append(ctx context.Context, o owner, sessionID string, records []Record) ([]string, error) {
 	if len(records) == 0 {
-		return nil
+		return nil, nil
 	}
 	if o.id == "" || sessionID == "" {
-		return fmt.Errorf("store history: a %s and a session are both needed", o.kind())
+		return nil, fmt.Errorf("store history: a %s and a session are both needed", o.kind())
 	}
 	if err := checkRecords(records); err != nil {
-		return err
+		return nil, err
 	}
 	at := s.now().UTC()
-	return s.store.Write(ctx, func(q *db.Queries) error {
-		return s.insertAll(ctx, batch{q: q, owner: o, sessionID: sessionID, at: at}, records)
+	var ids []string
+	err := s.store.Write(ctx, func(q *db.Queries) error {
+		var err error
+		ids, err = s.insertAll(ctx, batch{q: q, owner: o, sessionID: sessionID, at: at}, records)
+		return err
 	})
+	return ids, err
 }
 
 // batch is one append's fixed values, so the call that writes a single record stays short.
@@ -184,19 +192,22 @@ type batch struct {
 }
 
 // insertAll writes one append's records in the transaction Append opened, taking the owner's next
-// sequence number once and moving it on for each record.
-func (s *Store) insertAll(ctx context.Context, b batch, records []Record) error {
+// sequence number once and moving it on for each record. It returns the ids it wrote, in order.
+func (s *Store) insertAll(ctx context.Context, b batch, records []Record) ([]string, error) {
 	seq, err := nextSeq(ctx, b)
 	if err != nil {
-		return fmt.Errorf("read the next history sequence of %s: %w", b.owner.label(), err)
+		return nil, fmt.Errorf("read the next history sequence of %s: %w", b.owner.label(), err)
 	}
+	ids := make([]string, 0, len(records))
 	for _, record := range records {
-		if err := s.insert(ctx, b, seq, record); err != nil {
-			return err
+		id, err := s.insert(ctx, b, seq, record)
+		if err != nil {
+			return nil, err
 		}
+		ids = append(ids, id)
 		seq++
 	}
-	return nil
+	return ids, nil
 }
 
 // nextSeq reads the sequence number the owner's next event takes.
@@ -207,11 +218,11 @@ func nextSeq(ctx context.Context, b batch) (int64, error) {
 	return b.q.NextSessionEventSeq(ctx, b.owner.id)
 }
 
-// insert writes one record at the sequence number given.
-func (s *Store) insert(ctx context.Context, b batch, seq int64, record Record) error {
+// insert writes one record at the sequence number given, and returns the id it was written under.
+func (s *Store) insert(ctx context.Context, b batch, seq int64, record Record) (string, error) {
 	id, err := s.newID(b.at)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if b.owner.chat {
 		err = b.q.InsertChatEvent(ctx, db.InsertChatEventParams{
@@ -227,9 +238,9 @@ func (s *Store) insert(ctx context.Context, b batch, seq int64, record Record) e
 		})
 	}
 	if err != nil {
-		return fmt.Errorf("store a %s event of %s: %w", record.Kind, b.owner.label(), err)
+		return "", fmt.Errorf("store a %s event of %s: %w", record.Kind, b.owner.label(), err)
 	}
-	return nil
+	return id, nil
 }
 
 // checkRecords refuses a record the table would take but a reader could not use, so the two words
