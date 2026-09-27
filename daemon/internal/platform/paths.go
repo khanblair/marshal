@@ -41,16 +41,23 @@ func CurrentEnv() (Env, error) {
 	return Env{GOOS: runtime.GOOS, Home: home, Getenv: os.Getenv}, nil
 }
 
+// AppName is the name Marshal files itself under on this machine: the data folder's last part, and
+// the service a secret is stored under in the OS keychain. Dev mode has its own name, so a dev
+// daemon never reads, writes, or removes a normal install's data or secrets.
+func AppName(mode Mode) string {
+	if mode == ModeDev {
+		return appFolder + devSuffix
+	}
+	return appFolder
+}
+
 // DataDir returns the folder where Marshal keeps its database, logs, and worktrees. The dev
 // folder has its own name, so a dev daemon never touches a normal install.
 func DataDir(env Env, mode Mode) (string, error) {
 	if env.Home == "" {
 		return "", errors.New("the home folder is not known")
 	}
-	name := appFolder
-	if mode == ModeDev {
-		name += devSuffix
-	}
+	name := AppName(mode)
 	switch env.GOOS {
 	case "darwin":
 		return filepath.Join(env.Home, "Library", "Application Support", name), nil

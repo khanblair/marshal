@@ -221,6 +221,10 @@ func checkCardInput(title string, in CardInput) error {
 		return protocol.InvalidArgument("That is not a thinking setting Marshal knows.").With("thinking", string(in.Thinking))
 	case in.PermissionMode != "" && !in.PermissionMode.Valid():
 		return protocol.InvalidArgument("That is not a permission mode Marshal knows.").With("permissionMode", string(in.PermissionMode))
+	case in.PermissionMode == protocol.PermissionModeBypass:
+		// A card cannot be born bypassed: the grant is a warning a person accepts, on a card that
+		// exists (B3.2).
+		return refusedBypass("A new card cannot start in bypass permissions. Turn it on from the card's permission menu, so the warning is shown first.")
 	case in.StartState != "" && !startStateAllowed(in.StartState):
 		return protocol.InvalidArgument(
 			"A card can be added to the backlog, planning, or working. The other columns come from what happens to the card.").

@@ -45,6 +45,8 @@ func refusalMessage(reason protocol.MoveRefusalReason) string {
 		return "Checks haven't passed on this card yet, so it can't be ready to merge."
 	case protocol.MoveRefusalReasonCardMerging:
 		return "The Integrator is merging this card. Wait for the merge to finish."
+	case protocol.MoveRefusalReasonQualityBlocking:
+		return "This card's changes have code smells to fix first. The agent has been told."
 	}
 	return ""
 }
@@ -107,6 +109,10 @@ func doingNowAfterMove(card protocol.Card, target protocol.CardState) string {
 // MoveCard carries out a manual move after the rules of section 6.1 allow it. A refused move is a
 // *protocol.Error with the refused code, the reason, and the sentence the app shows, and the card
 // is left exactly as it was.
+//
+// The move to In review also passes the quality gate of section 17.1, which is the last rule of the
+// list: a card whose changes have a blocking code smell is refused the same way, and the finding has
+// already gone back to the card's agent by the time the sentence is written.
 func (s *Service) MoveCard(ctx context.Context, id string, in protocol.MoveCardRequest) (protocol.Card, error) {
 	if !in.State.Valid() {
 		return protocol.Card{}, protocol.InvalidArgument("Marshal does not know that column.").With("state", string(in.State))
@@ -126,6 +132,16 @@ func (s *Service) MoveCard(ctx context.Context, id string, in protocol.MoveCardR
 	}
 	if card.State == in.State {
 		return card, nil
+	}
+	// The last rule of section 6.1 runs here rather than in checkMove because it asks another
+	// module: a card whose changes have a blocking code smell stays where it is and the finding goes
+	// back to its agent (section 17.1).
+	if in.State == protocol.CardStateReview {
+		if refusal := s.checkQuality(ctx, id); refusal != nil {
+			s.log.Info("refused a manual move", "project_id", card.ProjectID, "card_id", id,
+				"from", card.State, "to", in.State, "reason", refusal.Details["reason"])
+			return protocol.Card{}, refusal
+		}
 	}
 	return s.applyMove(ctx, card, in.State)
 }

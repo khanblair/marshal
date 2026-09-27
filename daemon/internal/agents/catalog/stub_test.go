@@ -1,6 +1,7 @@
 package catalog
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -14,8 +15,8 @@ func TestStubReportsEveryAgentSupported(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !list.ServerTime.Time().Equal(now) || len(list.Agents) != 3 {
-		t.Fatalf("catalog = %d agents at %v, want 3 at %v", len(list.Agents), list.ServerTime.Time(), now)
+	if !list.ServerTime.Time().Equal(now) || len(list.Agents) != 4 {
+		t.Fatalf("catalog = %d agents at %v, want 4 at %v", len(list.Agents), list.ServerTime.Time(), now)
 	}
 	for _, agent := range list.Agents {
 		if agent.Status != protocol.AgentStatusSupported || agent.Version != StubVersion || agent.Warning != "" {
@@ -36,28 +37,26 @@ func TestStubHasThePrototypesModels(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// The AGENTS table of apps/web/src/mock/constants.ts.
+	// The AGENTS table of apps/web/src/mock/constants.ts. The built-in agent's two models without a
+	// thinking setting are the ones the picker leaves out of its thinking choices.
 	want := map[protocol.AgentKind][]string{
-		protocol.AgentKindClaude: {"claude-sonnet-4-5", "claude-opus-4-1", "claude-haiku-4-5"},
-		protocol.AgentKindCodex:  {"gpt-5-codex", "gpt-5", "gpt-5-mini"},
-		protocol.AgentKindGemini: {"gemini-2.5-pro", "gemini-2.5-flash"},
+		protocol.AgentKindClaude:  {"claude-sonnet-4-5", "claude-opus-4-1", "claude-haiku-4-5"},
+		protocol.AgentKindCodex:   {"gpt-5-codex", "gpt-5", "gpt-5-mini"},
+		protocol.AgentKindGemini:  {"gemini-2.5-pro", "gemini-2.5-flash"},
+		protocol.AgentKindBuiltin: {"claude-sonnet-4-5", "gpt-5-mini", "deepseek-chat", "gemini-2.5-flash", "qwen2.5-coder:32b"},
 	}
+	noThink := map[string]bool{"deepseek-chat": true, "qwen2.5-coder:32b": true}
 	for _, agent := range list.Agents {
-		var got []string
+		got := modelIDs(agent.Models)
 		for _, m := range agent.Models {
-			got = append(got, m.ID)
-			if !m.Thinking {
-				t.Errorf("%s model %s cannot think, but the prototype lets every one of these think", agent.Kind, m.ID)
+			// Every model of the three CLI agents thinks; the built-in agent has the design's two
+			// that do not.
+			if m.Thinking == noThink[m.ID] {
+				t.Errorf("%s model %s thinking = %v, which is not the prototype's", agent.Kind, m.ID, m.Thinking)
 			}
 		}
-		if len(got) != len(want[agent.Kind]) {
+		if fmt.Sprint(got) != fmt.Sprint(want[agent.Kind]) {
 			t.Errorf("%s models = %v, want %v", agent.Kind, got, want[agent.Kind])
-			continue
-		}
-		for i := range got {
-			if got[i] != want[agent.Kind][i] {
-				t.Errorf("%s models = %v, want %v", agent.Kind, got, want[agent.Kind])
-			}
 		}
 	}
 }
@@ -68,8 +67,11 @@ func TestStubMissingMakesKindsMissing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	askedFor := map[protocol.AgentKind]bool{
+		protocol.AgentKindCodex: true, protocol.AgentKindGemini: true,
+	}
 	for _, agent := range list.Agents {
-		missing := agent.Kind != protocol.AgentKindClaude
+		missing := askedFor[agent.Kind]
 		if (agent.Status == protocol.AgentStatusMissing) != missing {
 			t.Errorf("%s status = %q, want missing: %v", agent.Kind, agent.Status, missing)
 		}
@@ -85,8 +87,30 @@ func TestStubMissingMakesKindsMissing(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, d := range detected {
-		if d.Startable != (d.Kind == protocol.AgentKindClaude) {
-			t.Errorf("%s startable = %v", d.Kind, d.Startable)
+		if d.Startable != !askedFor[d.Kind] {
+			t.Errorf("%s startable = %v, want %v", d.Kind, d.Startable, !askedFor[d.Kind])
+		}
+	}
+}
+
+// Marshal's own agent is never one of the ones that can be missing, whatever a test asks for: there
+// is nothing on the machine to find or not find. Only the kinds Marshal has to look for can be
+// asked for as missing.
+func TestStubMissingNeverTouchesTheBuiltInAgent(t *testing.T) {
+	stub := NewStub(StubMissing(Kinds()...))
+	list, err := stub.List(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, agent := range list.Agents {
+		if agent.Kind == protocol.AgentKindBuiltin {
+			if agent.Status != protocol.AgentStatusSupported || agent.Version != StubVersion {
+				t.Errorf("builtin = %q at %q, want supported whatever was asked for", agent.Status, agent.Version)
+			}
+			continue
+		}
+		if agent.Status != protocol.AgentStatusMissing {
+			t.Errorf("%s status = %q, want missing", agent.Kind, agent.Status)
 		}
 	}
 }
@@ -94,7 +118,7 @@ func TestStubMissingMakesKindsMissing(t *testing.T) {
 func TestStubRefreshIsList(t *testing.T) {
 	stub := NewStub()
 	refreshed, err := stub.Refresh(t.Context())
-	if err != nil || len(refreshed.Agents) != 3 {
-		t.Errorf("Refresh = %d agents, %v, want 3 and no error", len(refreshed.Agents), err)
+	if err != nil || len(refreshed.Agents) != 4 {
+		t.Errorf("Refresh = %d agents, %v, want 4 and no error", len(refreshed.Agents), err)
 	}
 }

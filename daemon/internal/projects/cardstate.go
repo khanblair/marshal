@@ -15,11 +15,30 @@ import (
 // the allowed-move rules come with the card life cycle. Moving a card to the state it is in
 // changes nothing and publishes nothing.
 //
+// One rule does run here: a card moving to In review passes the quality gate of
+// docs/architecture.md section 17.1, which is what keeps a card whose changes have a blocking code
+// smell in Working while the finding goes back to its agent. It is here and not only in MoveCard
+// because the daemon's own move to review - an agent's pull request being opened (internal/
+// pullrequest) - is this call, and a blocking smell must keep the card out of review either way.
+//
 // A card that moves into or out of "needs" changes its project's badge, so project.updated
 // follows on the home topic.
 func (s *Service) SetState(ctx context.Context, id string, state protocol.CardState) (protocol.Card, error) {
 	if !state.Valid() {
 		return protocol.Card{}, protocol.InvalidArgument("That is not a card state Marshal knows.").With("state", string(state))
+	}
+	if state == protocol.CardStateReview {
+		card, err := s.Card(ctx, id)
+		if err != nil {
+			return protocol.Card{}, err
+		}
+		if card.State != protocol.CardStateReview {
+			if refusal := s.checkQuality(ctx, id); refusal != nil {
+				s.log.Info("kept a card out of review", "project_id", card.ProjectID, "card_id", id,
+					"from", card.State, "reason", refusal.Details["reason"])
+				return protocol.Card{}, refusal
+			}
+		}
 	}
 	var before, after db.Card
 	err := s.store.Write(ctx, func(q *db.Queries) error {
@@ -69,6 +88,59 @@ func (s *Service) announceBadges(ctx context.Context, projectID string, from, to
 		return
 	}
 	s.publish(protocol.HomeTopic, protocol.EventTypeProjectUpdated, protocol.ProjectEventData{Project: project}, false)
+}
+
+// SetNeeds moves a card to Needs you and gives it the reason a person will read, in one write. It
+// is how the daemon's own needs moves carry a reason: SetState only changes the state, and the
+// person-facing UpdateCard only writes the reason, so neither moves a card to needs with one.
+//
+// The reason kind must be one of the fixed list. A card already in needs with the same reason is
+// left alone; a card already in needs with a different reason has its reason replaced, because the
+// last thing that stopped the card is the thing a person should read.
+func (s *Service) SetNeeds(ctx context.Context, id string, reason protocol.NeedsReason) (protocol.Card, error) {
+	if !reason.Kind.Valid() {
+		return protocol.Card{}, protocol.InvalidArgument("Marshal does not know that needs-you reason.").With("kind", string(reason.Kind))
+	}
+	var before, after db.Card
+	err := s.store.Write(ctx, func(q *db.Queries) error {
+		row, err := q.GetCard(ctx, id)
+		if err != nil {
+			return notFound(fmt.Errorf("read card %s: %w", id, err), notFoundCard(id))
+		}
+		before, after = row, row
+		now := s.now().UnixMilli()
+		after.State = string(protocol.CardStateNeeds)
+		after.NeedsReasonKind, after.NeedsReasonText = string(reason.Kind), reason.Text
+		after.NeedsSince, after.UpdatedAt = &now, now
+		return updateCardRow(ctx, q, after)
+	})
+	if err != nil {
+		return protocol.Card{}, err
+	}
+	card, err := s.cardWithLabels(ctx, after)
+	if err != nil {
+		return protocol.Card{}, err
+	}
+	from := protocol.CardState(before.State)
+	switch {
+	case from == protocol.CardStateNeeds && before.NeedsReasonKind == after.NeedsReasonKind &&
+		before.NeedsReasonText == after.NeedsReasonText:
+		// Nothing changed: the card is already waiting for this reason.
+		return card, nil
+	case from == protocol.CardStateNeeds:
+		// The card was already waiting; only its reason changed. The card is announced so the new
+		// reason reaches the screens, and the project badge is not touched because entering or
+		// leaving needs is what changes it.
+		s.publish(protocol.ProjectTopic(card.ProjectID), protocol.EventTypeCardUpdated,
+			protocol.CardEventData{Card: card}, false)
+		return card, nil
+	}
+	s.log.Info("moved a card to needs you", "project_id", card.ProjectID, "card_id", id,
+		"from", from, "reason", reason.Kind)
+	s.publish(protocol.ProjectTopic(card.ProjectID), protocol.EventTypeCardMoved,
+		protocol.CardMovedEventData{Card: card, From: from}, true)
+	s.announceBadges(ctx, card.ProjectID, from, protocol.CardStateNeeds)
+	return card, nil
 }
 
 // SetWorktree records the worktree folder and the branch that were made for a card, and publishes

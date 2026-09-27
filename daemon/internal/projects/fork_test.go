@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/khanblair/marshal/daemon/internal/projects"
 	"github.com/khanblair/marshal/daemon/internal/protocol"
 )
 
@@ -137,3 +138,47 @@ func TestForkCardLeavesTheSourceAlone(t *testing.T) {
 
 // ptrOf is for the request fields that are pointers.
 func ptrOf[T any](v T) *T { return &v }
+
+// A fork never inherits bypass (B3.2): the grant is a warning one person accepted for one card,
+// and a new worktree and branch are not what they accepted it for. Every other mode carries over.
+func TestForkNeverInheritsBypass(t *testing.T) {
+	e := newEnv(t)
+	project := e.folder(t, "small-repo")
+	ctx := context.Background()
+	source := e.card(t, project.ID, "Sweep the logs")
+	e.startCard(t, project, source)
+	e.drainEvents()
+
+	if _, err := e.svc.SetBypassMode(ctx, source.ID, true); err != nil {
+		t.Fatalf("SetBypassMode: %v", err)
+	}
+	e.drainEvents()
+
+	fork, err := e.svc.ForkCard(ctx, source.ID)
+	if err != nil {
+		t.Fatalf("ForkCard: %v", err)
+	}
+	if fork.PermissionMode != projects.BypassOffMode {
+		t.Errorf("the fork's permission mode = %q, want %q", fork.PermissionMode, projects.BypassOffMode)
+	}
+	// The source keeps the mode it was granted; a fork is the only card that changes.
+	if after, err := e.svc.Card(ctx, source.ID); err != nil {
+		t.Fatalf("Card: %v", err)
+	} else if after.PermissionMode != protocol.PermissionModeBypass {
+		t.Errorf("the source's permission mode = %q, want bypass", after.PermissionMode)
+	}
+
+	// A mode that is not bypass is carried over unchanged, so the rule is about bypass alone.
+	careful := protocol.PermissionModePlan
+	if _, err := e.svc.UpdateCard(ctx, source.ID, protocol.UpdateCardRequest{PermissionMode: &careful}); err != nil {
+		t.Fatalf("UpdateCard: %v", err)
+	}
+	e.drainEvents()
+	second, err := e.svc.ForkCard(ctx, source.ID)
+	if err != nil {
+		t.Fatalf("ForkCard: %v", err)
+	}
+	if second.PermissionMode != protocol.PermissionModePlan {
+		t.Errorf("the fork of a careful card = %q, want plan", second.PermissionMode)
+	}
+}

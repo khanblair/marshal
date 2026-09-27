@@ -30,9 +30,11 @@ import (
 
 const (
 	// NewChatTitle is what a chat is called until its first message names it. A person can rename a
-	// chat at any time. A cheap model writes the title from the first message in Phase 4 (B4.7);
-	// until then the daemon writes it from the first words (see titleFromMessage), the way the app's
-	// own chat did (apps/web/src/mock/actions/chats.ts).
+	// chat at any time. Marshal asks a cheap model to write the title from the first message
+	// (B4.7, through the Titler below); when there is no model to ask it writes the name from the
+	// message's own first words instead (see titleFromMessage), the way the app's own chat did
+	// (apps/web/src/mock/actions/chats.ts). Either way a chat is named by its first message, and the
+	// difference is only who wrote the name.
 	NewChatTitle = "New chat"
 	// titleWords is how many words of the first message make its title.
 	titleWords = 6
@@ -69,12 +71,30 @@ type Sessions interface {
 	RemoveChatLogs(ctx context.Context, chatID string) error
 }
 
+// Titler writes a chat's name from its first message. cmd/marshald hands in the providers' Service,
+// whose Title asks the cheapest model that is set up; a service built without one names every chat
+// from the message's own first words.
+//
+// The interface is here, and not in internal/providers, because naming a chat is the chats module's
+// rule: what a title has to look like is decided below (clampTitle), and a Titler that breaks the rule
+// is corrected rather than refused.
+type Titler interface {
+	// Title returns a short name for a chat whose first message is text. An error means no name could
+	// be written - no provider is set up, or the call failed - and the caller falls back to the
+	// message's own words.
+	Title(ctx context.Context, text string) (string, error)
+}
+
 // Deps are the parts the service is built from.
 type Deps struct {
 	// Store is the open database. It is both the chats and their sessions.
 	Store *store.Store
 	// Bus publishes chat.created, chat.updated, chat.archived, and chat.deleted.
 	Bus Events
+	// Titles writes a chat's name from its first message (B4.7). Optional: without it a chat is named
+	// from the message's own first words, so the name is never missing and no request depends on a
+	// provider answering.
+	Titles Titler
 	// Sessions sends to a chat's session, stops it, and removes its logs. Optional: without it a chat
 	// is still made, listed, renamed, archived, restored, and deleted, and only the live half is
 	// skipped. A message cannot be sent without it.
@@ -85,6 +105,7 @@ type Deps struct {
 type Service struct {
 	store    *store.Store
 	bus      Events
+	titles   Titler
 	sessions Sessions
 	log      *slog.Logger
 	now      func() time.Time
@@ -125,7 +146,7 @@ func New(deps Deps, opts ...Option) (*Service, error) {
 		return nil, fmt.Errorf("chats: a store and the event bus are both required")
 	}
 	s := &Service{
-		store: deps.Store, bus: deps.Bus, sessions: deps.Sessions,
+		store: deps.Store, bus: deps.Bus, titles: deps.Titles, sessions: deps.Sessions,
 		log: slog.New(slog.DiscardHandler), now: time.Now,
 	}
 	for _, opt := range opts {
@@ -388,7 +409,7 @@ func (s *Service) noteMessage(ctx context.Context, row db.Chat, text string) {
 	millis := s.now().UnixMilli()
 	title := row.Title
 	if row.Title == NewChatTitle {
-		if named := titleFromMessage(text); named != "" {
+		if named := s.nameChat(ctx, text); named != "" {
 			title = named
 		}
 	}
@@ -409,6 +430,44 @@ func (s *Service) noteMessage(ctx context.Context, row db.Chat, text string) {
 	}
 	chat := chatOf(updated)
 	s.publish(protocol.ProjectTopic(chat.ProjectID), protocol.EventTypeChatUpdated, protocol.ChatEventData{Chat: chat})
+}
+
+// nameChat answers what a chat whose first message is text should be called. It asks the Titler
+// first - the cheapest model Marshal has (B4.7) - and falls back to the message's own first words
+// when there is no Titler, or when it could not write one. It never fails: the person's message has
+// already been delivered, and a name must not be lost to a provider having a bad minute.
+//
+// A name the model wrote is put through clampTitle, which is this module's own rule for what a title
+// may be, so a model that answers with a paragraph still leaves a usable name.
+func (s *Service) nameChat(ctx context.Context, text string) string {
+	if s.titles != nil {
+		named, err := s.titles.Title(ctx, text)
+		switch {
+		case err != nil:
+			s.log.Debug("could not write a chat name with a model", "error", err)
+		default:
+			if title := clampTitle(named); title != "" {
+				return title
+			}
+		}
+	}
+	return titleFromMessage(text)
+}
+
+// clampTitle cuts a written title down to what a chat may be called: no surrounding space, at most
+// maxTitleChars characters, and a capital first letter as the app's own chat had. A title with nothing
+// in it answers empty, and the caller falls back to the message's own words.
+func clampTitle(named string) string {
+	title := strings.TrimSpace(named)
+	runes := []rune(title)
+	if len(runes) > maxTitleChars {
+		runes = runes[:maxTitleChars]
+	}
+	if len(runes) == 0 {
+		return ""
+	}
+	runes[0] = unicode.ToUpper(runes[0])
+	return strings.TrimSpace(string(runes))
 }
 
 // titleFromMessage names a chat after the first words of its first message, as the app's own chat

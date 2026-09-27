@@ -89,6 +89,84 @@ func TestCreateCardRefusesWhatIsNotAllowed(t *testing.T) {
 	}
 }
 
+// Bypass is granted by the call that carries the acknowledgement and by nothing else, so neither
+// creating a card in it nor setting the field directly reaches that mode (B3.2, N8).
+func TestCardWritesCannotGrantBypass(t *testing.T) {
+	e := newEnv(t)
+	project := e.folder(t, "small-repo")
+	ctx := context.Background()
+	e.drainEvents()
+
+	_, err := e.svc.CreateCard(ctx, project.ID, protocol.CreateCardRequest{
+		Title: "Sneak it in", PermissionMode: protocol.PermissionModeBypass,
+	})
+	perr := wantCode(t, err, protocol.ErrorCodeRefused)
+	if perr.Details["reason"] != string(protocol.BypassRefusalReasonUnacknowledged) {
+		t.Errorf("the create refusal = %v, want the unacknowledged reason", perr.Details)
+	}
+
+	card := e.card(t, project.ID, "Run the tests")
+	bypass := protocol.PermissionModeBypass
+	_, err = e.svc.UpdateCard(ctx, card.ID, protocol.UpdateCardRequest{PermissionMode: &bypass})
+	perr = wantCode(t, err, protocol.ErrorCodeRefused)
+	if perr.Details["reason"] != string(protocol.BypassRefusalReasonUnacknowledged) {
+		t.Errorf("the update refusal = %v, want the unacknowledged reason", perr.Details)
+	}
+	if after, err := e.svc.Card(ctx, card.ID); err != nil {
+		t.Fatalf("Card: %v", err)
+	} else if after.PermissionMode == protocol.PermissionModeBypass {
+		t.Error("a refused write put the card in bypass")
+	}
+
+	// The way in is the write that was granted, and it works.
+	on, err := e.svc.SetBypassMode(ctx, card.ID, true)
+	if err != nil {
+		t.Fatalf("SetBypassMode: %v", err)
+	}
+	if on.PermissionMode != protocol.PermissionModeBypass {
+		t.Errorf("the granted card = %q, want bypass", on.PermissionMode)
+	}
+	e.drainEvents()
+}
+
+// The project's lock is checked by the write itself, so it holds for any caller, and it is about
+// granting bypass rather than leaving it (B3.2, N16).
+func TestSetBypassModeHonoursTheProjectLock(t *testing.T) {
+	e := newEnv(t)
+	project := e.folder(t, "small-repo")
+	ctx := context.Background()
+	card := e.card(t, project.ID, "Run the tests")
+	locked := true
+	if _, err := e.svc.Update(ctx, project.ID, protocol.UpdateProjectRequest{BypassLocked: &locked}); err != nil {
+		t.Fatalf("lock bypass for the project: %v", err)
+	}
+	e.drainEvents()
+
+	_, err := e.svc.SetBypassMode(ctx, card.ID, true)
+	perr := wantCode(t, err, protocol.ErrorCodeRefused)
+	if perr.Details["reason"] != string(protocol.BypassRefusalReasonLocked) ||
+		perr.Details["projectId"] != project.ID {
+		t.Errorf("the refusal = %v, want the locked reason for project %s", perr.Details, project.ID)
+	}
+	if after, err := e.svc.Card(ctx, card.ID); err != nil {
+		t.Fatalf("Card: %v", err)
+	} else if after.PermissionMode == protocol.PermissionModeBypass {
+		t.Error("a locked project let bypass through")
+	}
+
+	// Turning it off is never locked, and an unknown card is not found rather than refused.
+	off, err := e.svc.SetBypassMode(ctx, card.ID, false)
+	if err != nil {
+		t.Fatalf("turn bypass off in a locked project: %v", err)
+	}
+	if off.PermissionMode != projects.BypassOffMode {
+		t.Errorf("the card after turning bypass off = %q, want %q", off.PermissionMode, projects.BypassOffMode)
+	}
+	_, err = e.svc.SetBypassMode(ctx, "nope", true)
+	wantCode(t, err, protocol.ErrorCodeNotFound)
+	e.drainEvents()
+}
+
 func TestCreateCardInAnUnknownProject(t *testing.T) {
 	e := newEnv(t)
 	_, err := e.svc.CreateCard(context.Background(), "nope", protocol.CreateCardRequest{Title: "x"})

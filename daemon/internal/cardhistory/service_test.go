@@ -450,3 +450,39 @@ func assertCode(t *testing.T, err error, code protocol.ErrorCode) {
 		t.Fatalf("code = %s, want %s (%s)", answer.Code, code, answer.Message)
 	}
 }
+
+// A plan is replaced rather than edited in place (internal/history/plan.go, docs/backend-checklist
+// .md B5.2): the card's chat draws the newest plan message, and the ones before it are how the
+// plan used to read. A card with a plan an agent wrote and then answered still draws one plan.
+func TestMessagesDrawOnlyTheNewestPlan(t *testing.T) {
+	e := newEnv(t)
+	waiting := `{"state":"waiting","steps":[{"text":"Read the router","status":"pending"},` +
+		`{"text":"Add the route","status":"pending"}]}`
+	approved := `{"state":"approved","steps":[{"text":"Read the router","status":"pending"}]}`
+	e.append(t,
+		history.Record{Kind: history.KindPlan, Summary: "Plan with 2 steps", Detail: waiting},
+		history.Record{Kind: history.KindAgent, Summary: "I read the callers."},
+		history.Record{Kind: history.KindPlan, Summary: "Plan with 1 step", Detail: approved},
+	)
+
+	page, err := e.service.Messages(context.Background(), e.cardID, 0, 10)
+	if err != nil {
+		t.Fatalf("Messages: %v", err)
+	}
+	var plans []protocol.ChatMessage
+	for _, item := range page.Items {
+		if item.Kind == protocol.ChatMessageKindPlan {
+			plans = append(plans, item)
+		}
+	}
+	if len(plans) != 1 {
+		t.Fatalf("the page draws %d plan messages, want only the newest: %+v", len(plans), plans)
+	}
+	if plans[0].Plan == nil || plans[0].Plan.State != protocol.ChatPlanStateApproved {
+		t.Errorf("the plan drawn = %+v, want the approved one", plans[0].Plan)
+	}
+	if len(page.Items) != 2 {
+		t.Errorf("the page holds %d messages, want one plan and the agent's answer: %+v",
+			len(page.Items), page.Items)
+	}
+}

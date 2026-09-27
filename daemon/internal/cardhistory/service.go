@@ -113,7 +113,7 @@ func (s *Service) Messages(ctx context.Context, cardID string, cursor int64, lim
 	if err := s.cardExists(ctx, cardID); err != nil {
 		return Page[protocol.ChatMessage]{}, err
 	}
-	return fill(ctx, s.cardPager(cardID), cursor, pageSize(limit), messageOf)
+	return fill(ctx, s.cardPager(cardID), cursor, pageSize(limit), newestPlanOnly(messageOf))
 }
 
 // ChatMessages is Messages for a project chat: the chat's own history, newest first, paged the same
@@ -122,13 +122,37 @@ func (s *Service) ChatMessages(ctx context.Context, chatID string, cursor int64,
 	if err := s.chatExists(ctx, chatID); err != nil {
 		return Page[protocol.ChatMessage]{}, err
 	}
-	return fill(ctx, s.chatPager(chatID), cursor, pageSize(limit), messageOf)
+	return fill(ctx, s.chatPager(chatID), cursor, pageSize(limit), newestPlanOnly(messageOf))
 }
 
 // messageOf maps one stored event to a chat message. Every event is one.
 func messageOf(ev history.Event) (protocol.ChatMessage, bool, error) {
 	message, err := history.ChatMessageOf(ev)
 	return message, true, err
+}
+
+// newestPlanOnly drops every plan message but the newest one the walk reaches. A plan is written
+// again whenever the agent changes its mind or a person answers it (internal/history/plan.go): the
+// messages before the newest are how the plan used to read, and the chat draws the plan as it
+// stands now.
+//
+// The walk is newest first, so the first plan message it reads is the newest one on the page being
+// built. A page that starts below the newest plan still draws the plan it reads, which is the plan
+// as it stood at that point of the history: only a message above it could have replaced it, and
+// that one is on a newer page.
+func newestPlanOnly(
+	next func(history.Event) (protocol.ChatMessage, bool, error),
+) func(history.Event) (protocol.ChatMessage, bool, error) {
+	drawn := false
+	return func(ev history.Event) (protocol.ChatMessage, bool, error) {
+		if ev.Kind == history.KindPlan {
+			if drawn {
+				return protocol.ChatMessage{}, false, nil
+			}
+			drawn = true
+		}
+		return next(ev)
+	}
 }
 
 // Activity returns one page of a card's activity, newest first. A kind that is not empty keeps

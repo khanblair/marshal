@@ -89,10 +89,20 @@ func forkInputOf(source protocol.Card) CardInput {
 		Agent:          source.Agent,
 		Model:          source.Model,
 		Thinking:       thinking,
-		PermissionMode: source.PermissionMode,
+		PermissionMode: forkPermissionMode(source.PermissionMode),
 		Role:           source.Role,
 		Package:        source.Package,
 	}
+}
+
+// forkPermissionMode is the mode a fork starts in. A fork never inherits bypass: the grant is a
+// warning one person accepted for one card, and a new worktree is not a thing they accepted it for
+// (B3.2). Every other mode carries over, so a card forked from a careful card stays careful.
+func forkPermissionMode(source protocol.PermissionMode) protocol.PermissionMode {
+	if source == protocol.PermissionModeBypass {
+		return BypassOffMode
+	}
+	return source
 }
 
 // labelIDsOf lists a card's label ids.
