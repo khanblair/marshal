@@ -146,7 +146,15 @@ The codebase map needs to read symbols from many languages. Options:
 | Universal Ctags as an external tool | Pure external binary, many languages | Less detail, extra install |
 | Tree-sitter compiled to WebAssembly, run in Go | Accurate, no cgo | More setup work, some speed cost |
 
-Decide in task 7.9. Record the result here and in the decisions log.
+**Decided 2026-09-27 (task 7.9): universal ctags as an external binary.** The daemon is pure Go with
+no cgo anywhere, and it already prefers an external process over a linked C library wherever it can —
+`gitx` shells out to the real `git`, agents run as external CLI processes, and `internal/proc` and
+`internal/platform` exist to manage child processes. ctags is therefore the option most consistent
+with the codebase and the only one that adds no new runtime; Tree-sitter-to-WASM adds a WASM runtime
+and a grammar-build step, and cgo bindings break the no-cgo rule. The index stays light and
+incremental (a changed file is re-read, never the whole tree), and when no ctags is installed the map
+falls back to a filename-only index with a clear "ctags is not installed" notice rather than failing.
+Recorded in the progress tracker's decisions log.
 
 ---
 

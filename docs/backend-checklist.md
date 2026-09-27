@@ -65,7 +65,7 @@ A section is one part of the screens that can switch from mock data to the daemo
 | S7b Bypass | Bypass confirmation, banner, project lock | 3: 3.2 | Daemon |
 | S7c Pause, sleep, wake, pin | Session hold and sleep controls | 2: 5.10, 5.16 (the controls a person presses; the idle timer and reminders stay in Phase 5) | Daemon |
 | S8a Card chat | Messages, tool calls, diff summaries, system notes, composer | 2: 2.6 | Daemon |
-| S8b Approvals | Approval blocks in cards, chats, and Home | 3: 3.5 | Mock |
+| S8b Approvals | Approval blocks in cards, chats, and Home | 3: 3.5 | Daemon |
 | S8c Plans | Plan blocks and plan actions | 5: 5.2 | Daemon |
 | S9 Terminal | Terminal view and the chat and terminal switch | 2: 2.7 | Daemon |
 | S10 Card activity | Activity tab | 2: 2.8 | Daemon |
@@ -91,7 +91,7 @@ A section is one part of the screens that can switch from mock data to the daemo
 | S27 Settings: Roles | Role list and editor | 5: 5.1 | Daemon |
 | S28 Settings: Providers | Provider keys and tests | 4: 4.1, 4.9 | Daemon |
 | S29a Integration: GitHub | GitHub row in Settings | 6: 6.1 | Daemon |
-| S29b Integration: Obsidian | Obsidian row | 7: 7.7 | Mock |
+| S29b Integration: Obsidian | Obsidian row | 7: 7.7 | Daemon |
 | S29c Integration: Trello | Trello row | 8: 8.4 | Mock |
 | S29d Integration: Google Calendar | Google Calendar row | 8: 8.5 | Mock |
 | S29e Integration: Gmail | Gmail row | 8: 8.6 | Mock |
