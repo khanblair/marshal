@@ -510,6 +510,7 @@ A short guided tour on the Home dashboard that shows what the main controls do.
 - **Tone:** findings describe the code, not the agent or the person. Say "This function has 7 parameters. Group related ones into an options object." Do not say "Bad code" or "The agent made a mistake".
 - Severity uses the existing status tokens: blocking uses `danger`, warnings use `needs-you`, and info is neutral. Each has an icon and a label as well as color.
 - On phones, each finding is a stacked item, and the file link opens the diff full screen.
+- **A blocking finding stops the move, and the daemon says so.** Dragging the card to In review is refused with the reason `move_quality_blocking` and the sentence "This card's changes have code smells to fix first. The agent has been told."; the card snaps back and the sentence is shown. The app may pre-check with the same rule to refuse the drop early, but the daemon decides. The call to ask the agent to fix a finding, from a card with no agent to ask, is refused with reason `quality_no_agent`.
 - The smell profile editor lives in project settings. It shows each check with its threshold and severity, grouped by family and by language, with "Reset to defaults".
 
 ---

@@ -96,7 +96,7 @@ The prototype exposes 116 members on `M`. Each one appears in exactly one row.
 | `start` | Daemon | `session`; `sessions` | `POST /v1/cards/{id}/start`; `session.state_changed`, `card.moved` | 1.9 |
 | `pause` | Daemon | `session`, `harness`; `sessions` | New `POST /v1/cards/{id}/pause` (and a call to undo it; the existing `/resume` is the restart-recovery route). Only Working cards pause. Working cards cannot sleep until paused. (N4) | 2.27 |
 | `sleep`, `wake`, `pin` | Daemon | `session`; `sessions`, `cards` | `POST /v1/cards/{id}/sleep`, `/wake`, `/pin`, with the refusal rules from `mock/actions/sessions.ts` (N4) | 2.27 (moved from 5.10 on 2026-09-26; the idle timer stays in 5.10) |
-| `keepAwake`, `keepAllAwake`, `sleepAll`, `dismissNotice` | Daemon | `session`, `notify`; `notices` | New `POST /v1/notices/{id}/actions` for keep awake (with a length of time), sleep now, keep all, and sleep all, and a dismiss call; `notice.created`, `notice.updated` (N5) | 5.10 |
+| `keepAwake`, `keepAllAwake`, `sleepAll`, `dismissNotice` | Daemon | `session`, `notify`; `notices` | New `POST /v1/notices/{id}/actions` for keep awake (with a length of time), sleep now, keep all, and sleep all, and a dismiss call; `notice.created`, `notice.dismissed` (N5) | 5.10 |
 
 ### 2.8 Chat view, plans, and approvals
 
@@ -135,7 +135,7 @@ The prototype exposes 116 members on `M`. Each one appears in exactly one row.
 |---|---|---|---|---|
 | `diffFor`, `filesFor` | Daemon | `gitx`; worktree | `GET /v1/cards/{id}/diff` for the file list and counts, and New per-file hunks loaded on demand for large files (N15); `card.updated` | 2.9 |
 | `runChecks` | Daemon | `projects`, `quality`; `card_checks` | New `POST /v1/cards/{id}/checks/run` and `GET /v1/cards/{id}/checks`; `quality.checked` (N9) | 10.4 |
-| `simulateCiFailure` | Daemon (dev options) | `ci`, `session` | New `POST /v1/cards/{id}/ci/simulate-failure` with a synthetic mode (a fake failed run through the normal CI path) and a real mode (a failing run on the card's branch on GitHub). Both audited and shown only in dev mode or with Developer options on. (N28) | 6.3 |
+| `simulateCiFailure` | Daemon (dev options) | `ci`, `session`, `gitx`, `audit` | New `POST /v1/cards/{id}/ci-failure` with a synthetic mode (a fake failed run through the normal CI path) and a real mode (one new workflow file committed and pushed, naming the card, so GitHub fails a real run; the commit stays). Both audited (`ci.simulated`) and shown only in dev mode or with Developer options on. (N28) | 6.3 |
 
 Check: the tables above list every one of the 116 members exactly once.
 
@@ -162,7 +162,7 @@ The prototype's state has 78 fields. Each appears once.
 | `limits` | `limits` | Global and per-project daily cost, monthly cost, and awake limits. |
 | `sleep` | `settings` | Idle time, warning time, reminder channel, and restore mode. |
 | `roles` | `roles`, `role_overrides` | Roles, with starter flag and overridden flag (N18). |
-| `providers` | `settings`, keychain | Provider status and a masked key. The key itself never reaches the client (N18). |
+| `providers` | `integrations` (kind `provider`), keychain | Provider status and a masked key. The key itself never reaches the client (N18). Every provider shares one `integrations` row keyed by its own id, with `kind` = `provider`; the key lives in the OS keychain and only `keychain_ref` is stored. |
 | `integrations` | `integrations` | Connected services, and the result of the last connection test (N18). |
 | `schedules` | `schedules`, `schedule_runs` | Briefs and jobs (N18). |
 | `calEvents` | `integrations` (Google Calendar) | Calendar events for the calendar view and the coming up list (N21). |
@@ -305,6 +305,6 @@ These belong to the daemon and are built in their phases. Their screens do not e
 - Skills, the MCP manager, and per-card MCP (tasks 11.1 to 11.4).
 - Memory: the knowledge base, lessons, context budget meter, and pinned files (tasks 7.6 to 7.11).
 - Card templates, sub-cards, and dependency editing beyond what the board shows (tasks 10.1 to 10.3).
-- Provider fallback and usage screens (tasks 4.6 and 4.7).
+- Provider fallback and usage screens (task 4.11). The Providers and Limits settings screens are **not** in this list: the prototype designs them and Phase 4 built them from existing components (tasks 4.9, 4.10), so only the fallback and usage screens still need a fresh design.
 - Remote machines and the export and import of a project (tasks 9.8 and 12.7).
 - The Tailscale and device pairing screens (tasks 9.1 and 9.2), beyond the profile list.

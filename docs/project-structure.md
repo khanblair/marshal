@@ -116,6 +116,7 @@ daemon/
       cmd_token.go              marshal token: where the token file is, or the token itself with --show
       cmd_dev.go                Dev-only commands (marshal dev reset, which only ever deletes the dev data folder)
       cmd_service.go            marshal service install, uninstall, status: installs marshald (not marshal itself) as the per-user login service
+      cmd_keys.go               marshal keys set, list, remove: model provider API keys in the OS keychain
 
   internal/
     buildinfo/
@@ -398,7 +399,17 @@ daemon/
       branchname.go             Card branch names, marshal/<project>-<number>-<title>
       cloneurl.go               Checks a clone address and strips credentials from it
       clone.go                  Clone with only the allowed protocols, and no token in errors
+      merge.go                  Merge-queue primitives: dry-run merge, backup branch, merge worktree, fast-forward-only, abort
       *_test.go                 Tests against real Git in temp folders and the fixture repos in testdata
+
+    github/
+      github.go                 The forge Client interface and a personal-token HTTP implementation (B5.4)
+
+    pullrequest/
+      service.go                Open a card's branch as a real pull request, record the link, move it to In review (B5.4)
+
+    integrator/
+      service.go                The merge queue: dry-run, backup, temp-worktree merge, tests, fast-forward or abort (B5.5)
 
     store/
       store.go                  Open, Close, Ping, Read, and Write: SQLite in WAL mode, one writer and a pool of readers
@@ -439,7 +450,6 @@ moves out of this block when it is built.
 ```
   cmd/marshal/
       cmd_cards.go              marshal cards (list, new, start, send)
-      cmd_keys.go               marshal keys set, list, remove
 
   internal/api/
       pairing.go                Device pairing codes
@@ -483,11 +493,14 @@ moves out of this block when it is built.
 
   internal/agents/
       builtin/
-        loop.go                 Built-in agent loop
-        tools.go                Read, edit, run, and MCP tools
+        turn.go                 Built-in agent loop: one model call and what follows it
+        tools.go                The tools it can use in a worktree
+        session.go              A session: its history, its events, and its approvals
+        config.go               What a session is given: the provider, the profile, and the limits
         adapter.go              Built-in agent adapter
 
   internal/comments/            Comments, attachments, mentions, and links
+  internal/connectiontest/      The shared connection-test framework: run a test, save it, cool down
   internal/harness/             Control loop around every agent
   internal/providers/           Model providers, rate limits, usage, pricing
   internal/integrator/          The merge queue

@@ -62,35 +62,35 @@ A section is one part of the screens that can switch from mock data to the daemo
 | S5c Package swimlane and filter | Monorepo packages on cards | 12: 12.5 | Mock |
 | S6a Saved views | Saved views menu | 2: 2.5 | Daemon |
 | S7a Card header and control | Header, settings selects, start and stop | 2: 1.9, 2.4 | Daemon |
-| S7b Bypass | Bypass confirmation, banner, project lock | 3: 3.2 | Mock |
+| S7b Bypass | Bypass confirmation, banner, project lock | 3: 3.2 | Daemon |
 | S7c Pause, sleep, wake, pin | Session hold and sleep controls | 2: 5.10, 5.16 (the controls a person presses; the idle timer and reminders stay in Phase 5) | Daemon |
 | S8a Card chat | Messages, tool calls, diff summaries, system notes, composer | 2: 2.6 | Daemon |
 | S8b Approvals | Approval blocks in cards, chats, and Home | 3: 3.5 | Mock |
-| S8c Plans | Plan blocks and plan actions | 5: 5.2 | Mock |
+| S8c Plans | Plan blocks and plan actions | 5: 5.2 | Daemon |
 | S9 Terminal | Terminal view and the chat and terminal switch | 2: 2.7 | Daemon |
 | S10 Card activity | Activity tab | 2: 2.8 | Daemon |
 | S11 Card diff | Diff tab | 2: 2.9 | Daemon |
 | S12 Card checks | Checks tab | 10: 10.4 | Mock |
-| S13 Card preview | Preview tab | 6: 6.6, 6.7 | Mock |
+| S13 Card preview | Preview tab | 6: 6.6, 6.7 | Daemon |
 | S14 Card notes | Notes tab | 7: 7.6, 7.7 | Mock |
 | S15 Checklists | Checklists on a card | 10: 10.10, 10.11 | Mock |
 | S16 Comments and members | Comments tab, members row | 10: 10.12, 10.13 | Mock |
 | S17 Project chats | Chats view | 2: 2.11 | Daemon |
 | S18 Home: needs you and awake | Needs you list, working and merged tiles, awake agents | 2: 2.3 | Daemon |
 | S19a Home: cards finished | Cards finished per day chart | 2: 2.3 | Daemon |
-| S19b Home: cost | Cost tile and cost per project chart | 4: 4.7, 4.8 | Mock |
+| S19b Home: cost | Cost tile and cost per project chart | 4: 4.7, 4.8 | Daemon |
 | S20 Home: activity | Recent activity and its view-all page | 2: 2.3 | Daemon |
-| S21 Home: CI health | CI health list and its view-all page | 6: 6.2, 6.4 | Mock |
+| S21 Home: CI health | CI health list and its view-all page | 6: 6.2, 6.4 | Daemon |
 | S22 Home: coming up | Events, jobs, briefs, due cards | 8: 8.1, 8.5 | Mock |
-| S23 Notices | Bell and every notice kind, including sleep reminders | 5: 5.10 | Mock |
+| S23 Notices | Bell and every notice kind, including sleep reminders | 5: 5.10 | Daemon |
 | S24a Palette and search | Command palette and top bar search over projects, cards, and chats | 2: 2.12 | Daemon |
 | S24b Session and note search | Search over past sessions and notes | 7: 7.10 | Mock |
 | S25 Calendar | Calendar view | 8: 8.5, 12.3 | Mock |
-| S26a Settings: sleep | Idle time, warning time, reminder channel, restore mode | 5: 5.10 | Mock |
-| S26b Settings: limits | Cost and awake limits | 4: 4.8 | Mock |
-| S27 Settings: Roles | Role list and editor | 5: 5.1 | Mock |
-| S28 Settings: Providers | Provider keys and tests | 4: 4.1, 4.9 | Mock |
-| S29a Integration: GitHub | GitHub row in Settings | 6: 6.1 | Mock |
+| S26a Settings: sleep | Idle time, warning time, reminder channel, restore mode | 5: 5.10 | Daemon |
+| S26b Settings: limits | Cost and awake limits | 4: 4.8 | Daemon |
+| S27 Settings: Roles | Role list and editor | 5: 5.1 | Daemon |
+| S28 Settings: Providers | Provider keys and tests | 4: 4.1, 4.9 | Daemon |
+| S29a Integration: GitHub | GitHub row in Settings | 6: 6.1 | Daemon |
 | S29b Integration: Obsidian | Obsidian row | 7: 7.7 | Mock |
 | S29c Integration: Trello | Trello row | 8: 8.4 | Mock |
 | S29d Integration: Google Calendar | Google Calendar row | 8: 8.5 | Mock |

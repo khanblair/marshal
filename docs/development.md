@@ -131,7 +131,15 @@ The stub agent is the default so development costs nothing and works offline. To
 MARSHAL_AGENT=real pnpm dev
 ```
 
-API keys are not stored yet: the keychain entries and the `marshal keys` command are deferred (the library check comes first), so today the onboarding and settings fields collect keys into the draft only. Real-agent runs that need a signed-in CLI use that CLI's own sign-in. Until the keychain work lands, do not put a key in a file or in the environment.
+API keys for the built-in agent are stored in the OS keychain — the macOS Keychain, the Linux Secret Service, or the Windows Credential Manager — never in a file and never in the environment. Add one with `marshal keys`, which reads the key from standard input so it does not land in your shell history:
+
+```sh
+marshal keys set anthropic      # paste the key when asked, then press Enter
+marshal keys list               # which providers have a key, each shown masked
+marshal keys remove anthropic   # delete one
+```
+
+The list shows the key masked (`sk-ant-…4f2a`), never the key itself. A provider that runs on this machine (Ollama, LM Studio) stores a server address rather than a key, and its address is shown as it is. Add `--dev` to any of these to work on the dev daemon's own keychain entries, which are kept apart from a normal install's. The onboarding and settings screens collect a key into their form and save it through the daemon's provider routes, which write to the same keychain, so the two ways agree. Real-agent runs that need a signed-in CLI still use that CLI's own sign-in. A key never belongs in a file or in the environment.
 
 ### 3.7 Webhooks in development
 
