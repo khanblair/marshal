@@ -30,7 +30,9 @@ function createSharedStore(): Marshal {
   // one the panel's own tests draw, and the daemon's path is `daemon-notices-store.ts`. The settings
   // screens' sections (the provider keys S28, the cost numbers S19b, the limits S26b, the roles S27,
   // the sleep choices S26a, and the GitHub connection S29a) are pinned by `MOCK_SETTINGS_SECTIONS`,
-  // which says why and which the settings tests' own untouched copy is built from too.
+  // which says why and which the settings tests' own untouched copy is built from too. S8b
+  // (approvals) is pinned by `MOCK_HISTORY` for the same reason as S7c and S9: once switched,
+  // `mock/actions/approvals.ts`'s approve and deny ask the daemon, which this store has none of.
   const M = createTestMarshal({
     storage: window.localStorage,
     applyTheme,

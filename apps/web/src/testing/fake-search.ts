@@ -134,7 +134,12 @@ function answerFor(store: SearchStore, query: string): SearchSnapshot {
       projectName: nameOf(c.projectId),
       lastActiveAt: c.lastActiveAt,
     })),
-    totals: { projects: projects.total, cards: cards.total, chats: chats.total },
+    // Session and note search (S24b) have no fake route yet - the web half of that cutover is not
+    // built (phase-reports/phase-07-orchestration-and-memory.md). Empty rather than omitted, so
+    // this still answers the wire shape SearchSnapshot/SearchTotals require.
+    sessions: [],
+    notes: [],
+    totals: { projects: projects.total, cards: cards.total, chats: chats.total, sessions: 0, notes: 0 },
     serverTime: store.now(),
   };
 }

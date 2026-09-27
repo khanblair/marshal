@@ -17,7 +17,8 @@ import type {
   Card as WireCard,
 } from "@marshal/protocol";
 import { emptyAnswer, errorAnswer, type FakeRequest, jsonAnswer } from "~/data/testing/fake-fetch";
-import { cardAction, cardBypass, cardRead } from "./fake-card-actions";
+import { approvalRoute } from "./fake-approvals";
+import { cardAction, cardBypass, cardRead, saveCardNoteRoute } from "./fake-card-actions";
 import { createLabel, labelRoute, labelsOf } from "./fake-card-labels";
 import { planRoute } from "./fake-card-plan";
 import {
@@ -224,6 +225,9 @@ export function answerCardRoute(
     return projectRoute(route, first, second, projectExists(first));
   }
   if (kind === "labels" && first && !second) return labelRoute(route, first);
+  // An approval is answered by its own id, never a card's, so it is a top-level route rather than
+  // a nested card action (section S8b, B3.4).
+  if (kind === "approvals" && first && !second) return approvalRoute(route, first);
   if (kind === "cards" && first && second === "diff") {
     return diffRoute(store, first, segments);
   }
@@ -352,6 +356,10 @@ function cardRoute(
   // own routes and refused through the card edit and the create route instead.
   if (action === "bypass")
     return cardBypass(store, card, request, method, projectLocked(card.projectId));
+  // A card's note (S14): the PUT that replaces it. The GET is answered above, through cardRead,
+  // alongside a card's chat and activity, because unlike bypass and plan it needs no method switch
+  // of its own - a read and a write are the whole of it.
+  if (action === "note" && method === "PUT") return saveCardNoteRoute(store, card, request);
   if (method !== "POST") return undefined;
   return cardAction(store, card, request, action);
 }

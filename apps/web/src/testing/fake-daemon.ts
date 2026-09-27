@@ -16,6 +16,7 @@ import type {
   Integration,
   Label,
   Limit,
+  Note,
   Notice,
   Preferences,
   Preview,
@@ -95,6 +96,8 @@ export interface FakeDaemonOptions {
   diffs?: Readonly<Record<string, FakeCardDiff>>;
   /** Every card's restore points it starts with (B5.3), by card id, newest first. None by default. */
   checkpoints?: Readonly<Record<string, readonly Checkpoint[]>>;
+  /** Every card's note it starts with (section S14), by card id. None by default. */
+  notes?: Readonly<Record<string, Note>>;
   /** The person it starts with (sections S2a, S32, S31a). The golden profile with no avatar by default. */
   profile?: Profile;
   /** The person's preferences it starts with. The defaults by default: nothing saved. */
@@ -638,6 +641,39 @@ function createSlices(
   };
 }
 
+/**
+ * Every fixture `createFakeDaemon` holds, each its own copy: a test that changes a project, a
+ * card, or anything else through the daemon must never change the shared fixture the options
+ * came from. Split out of `createFakeDaemon` itself only to keep that function under the lines
+ * limit; nothing here depends on the router, the sockets, or the clock.
+ */
+function cloneFixtures(options: FakeDaemonOptions) {
+  // A card's restore points (B5.3), by card id, newest first, each list copied so a test's
+  // fixture is never changed by what the routes answer.
+  const checkpoints: Record<string, Checkpoint[]> = {};
+  for (const [id, list] of Object.entries(options.checkpoints ?? {})) {
+    checkpoints[id] = structuredClone([...list]);
+  }
+  // A card's note (section S14), by card id, each copied for the same reason the checkpoints are.
+  const notes: Record<string, Note> = {};
+  for (const [id, note] of Object.entries(options.notes ?? {})) {
+    notes[id] = structuredClone(note);
+  }
+  return {
+    projects: structuredClone([...(options.projects ?? [])]),
+    catalog: options.catalog ?? golden<AgentCatalog>("agents"),
+    cards: structuredClone([...(options.cards ?? [])]),
+    history: structuredClone([...(options.history ?? [])]),
+    labels: structuredClone([...(options.labels ?? [])]),
+    chats: structuredClone([...(options.chats ?? [])]),
+    chatMessages: structuredClone([...(options.chatMessages ?? [])]),
+    activity: structuredClone([...(options.activity ?? [])]),
+    diffs: structuredClone(options.diffs ?? {}),
+    checkpoints,
+    notes,
+  };
+}
+
 export function createFakeDaemon(options: FakeDaemonOptions = {}): FakeDaemon {
   const now = (): string => new Date(Date.now() + (options.clockSkewMs ?? 0)).toISOString();
   const stored = options.storedToken === undefined ? FAKE_TOKEN : options.storedToken;
@@ -651,22 +687,19 @@ export function createFakeDaemon(options: FakeDaemonOptions = {}): FakeDaemon {
   const state: DaemonState = { running: true, token: FAKE_TOKEN, seq: 0 };
   const calls: FakeRequest[] = [];
   const meddle = interference();
-  // A copy, so a test that changes a project through the daemon does not change the shared fixture.
-  const projects = structuredClone([...(options.projects ?? [])]);
-  const catalog = options.catalog ?? golden<AgentCatalog>("agents");
-  const cards = structuredClone([...(options.cards ?? [])]);
-  const history = structuredClone([...(options.history ?? [])]);
-  const labels = structuredClone([...(options.labels ?? [])]);
-  const chats = structuredClone([...(options.chats ?? [])]);
-  const chatMessages = structuredClone([...(options.chatMessages ?? [])]);
-  const activity = structuredClone([...(options.activity ?? [])]);
-  const diffs = structuredClone(options.diffs ?? {});
-  // A card's restore points (B5.3), by card id, newest first, each list copied so a test's fixture
-  // is never changed by what the routes answer.
-  const checkpoints: Record<string, Checkpoint[]> = {};
-  for (const [id, list] of Object.entries(options.checkpoints ?? {})) {
-    checkpoints[id] = structuredClone([...list]);
-  }
+  const {
+    projects,
+    catalog,
+    cards,
+    history,
+    labels,
+    chats,
+    chatMessages,
+    activity,
+    diffs,
+    checkpoints,
+    notes,
+  } = cloneFixtures(options);
 
   const emit = publisher(sockets, state, now);
   const terminals = createTerminalRouter({ publish: emit, seqNow: () => state.seq });
@@ -685,20 +718,13 @@ export function createFakeDaemon(options: FakeDaemonOptions = {}): FakeDaemon {
       activity,
       diffs,
       checkpoints,
+      notes,
       previews: slices.previews,
       publish: emit,
       now,
     },
     chats: { chats, messages: chatMessages, answer: options.chatAnswer, publish: emit, now },
-    me: slices.me,
-    providers: slices.providers,
-    integrations: slices.integrations,
-    limits: slices.limits,
-    roles: slices.roles,
-    notices: slices.notices,
-    sleep: slices.sleep,
-    ci: slices.ci,
-    previews: slices.previews,
+    ...slices,
   };
 
   const fake = fakeFetchOf(state, calls, meddle, router);

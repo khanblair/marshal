@@ -1,18 +1,22 @@
 /**
- * The connection routes of the fake daemon (docs/backend-checklist.md B6.1 and B6.7, section S29a).
- * Every route answers the way the daemon's own handler does: the list carries every connection
- * Marshal knows, whether or not it is set up; a save stores the App's settings, tests the connection
- * as part of the same call, and answers the whole list; a test asked for inside the cooldown is
- * refused with how long to wait; and nothing secret ever comes back.
+ * The connection routes of the fake daemon (docs/backend-checklist.md B6.1, B6.7, B7.4; sections
+ * S29a and S29b). Every route answers the way the daemon's own handler does: the list carries every
+ * connection Marshal knows, whether or not it is set up; a save stores the App's settings, tests the
+ * connection as part of the same call, and answers the whole list; a test asked for inside the
+ * cooldown is refused with how long to wait; and nothing secret ever comes back.
  *
- * The connections of later phases are listed and read as not connected, exactly as the daemon's own
- * `known()` does, so a cutover does not renumber anything. Nothing here reaches GitHub: the test's
- * checks are made up, because what the frontend needs from these routes is the shape of the answer.
+ * The connections of phases that have not reached this file yet are listed and read as not
+ * connected, exactly as the daemon's own `known()` does, so a cutover does not renumber anything.
+ * Obsidian is the one exception: it is Marshal's own connection and not a person's, so it starts
+ * connected the way `integrations.go`'s `vaultStatus` always answers when a vault is set (`knownRows`
+ * below). Nothing here reaches GitHub or a real vault: the test's checks are made up, because what
+ * the frontend needs from these routes is the shape of the answer.
  *
  * A row's status and its one sentence are not stored, they are derived from the last test the way
  * `integrations.go`'s `rowToWire` derives them: the failed check's fix, the passing test's Summary
  * check, or the daemon's own "run the test" when nothing has tested it yet. A row is "saved" here
- * when its status is not `none`, which is what the daemon stores a config and a secret for.
+ * when its status is not `none`, which is what the daemon stores a config and a secret for - except
+ * Obsidian, which has nothing to save and is never `none` in the first place.
  */
 import type {
   Integration,
@@ -29,6 +33,7 @@ const STATUS = { ok: 200, badRequest: 400, notFound: 404, conflict: 409 };
 const DEFAULT_COOLDOWN_MS = 5000;
 const MS_PER_SECOND = 1000;
 const GITHUB = "github";
+const OBSIDIAN = "obsidian";
 const SAVE_PATH = /^\/v1\/integrations\/([^/]+)$/;
 const TEST_PATH = /^\/v1\/integrations\/([^/]+)\/test$/;
 const LIST_PATH = "/v1/integrations";
@@ -41,6 +46,13 @@ const LIST_PATH = "/v1/integrations";
 const SUMMARY = "Summary";
 const PASSED_DETAIL = "The GitHub App works and Marshal can use it.";
 const UNTESTED_DETAIL = "Connected. Run the test to check it.";
+/**
+ * Obsidian's own sentence, the way `integrations.go`'s `vaultStatus` always answers it once a vault
+ * is set: unlike a person's own connection, this is not replaced by a passing test's Summary message
+ * or by "run the test" before one has run - only a *failed* test's own detail ever replaces it
+ * (`rowToWire`'s self-owned branch keeps `vaultStatus()`'s answer except when `tested && !last.OK`).
+ */
+const OBSIDIAN_DETAIL = "Vault at ~/fake/vault.";
 
 /**
  * Every connection the daemon knows, in the order the settings screen shows them, with the kind each
@@ -82,7 +94,7 @@ export interface FakeIntegrationOptions {
   integrations?: readonly Integration[];
   /** Refuses a save with its own sentence, as a test may need. */
   refuseSave?: (id: string, body: Record<string, unknown>) => string | undefined;
-  /** The checks a test answers with. A passing GitHub test by default. */
+  /** The checks a test answers with. A passing test by default, GitHub's or Obsidian's own shape. */
   checks?: (row: Integration) => TestCheck[];
   /** How long a connection waits between tests, in ms. The daemon's 5s by default. */
   cooldownMs?: number;
@@ -90,9 +102,19 @@ export interface FakeIntegrationOptions {
   nowMs?: () => number;
 }
 
-/** The rows the daemon lists before anything is set up: one per known connection, none connected. */
+/**
+ * The rows the daemon lists before anything is set up: one per known connection, none connected -
+ * except Obsidian, which nobody sets up (section S29b, docs/architecture.md section 18). It is
+ * connected the moment Marshal has a vault, which the real daemon always does, so this fake starts
+ * it connected too, exactly as `integrations.go`'s `vaultStatus` would answer for a vault that is
+ * simply not tested yet.
+ */
 function knownRows(): Integration[] {
-  return KNOWN.map(({ id, kind }) => ({ id, kind, st: "none" as const, detail: "" }));
+  return KNOWN.map(({ id, kind }) =>
+    id === OBSIDIAN
+      ? { id, kind, st: "connected" as const, detail: OBSIDIAN_DETAIL }
+      : { id, kind, st: "none" as const, detail: "" },
+  );
 }
 
 export function createIntegrationStore(options: FakeIntegrationOptions = {}): IntegrationStore {
@@ -101,7 +123,7 @@ export function createIntegrationStore(options: FakeIntegrationOptions = {}): In
     testedAt: {},
     lastTest: {},
     refuseSave: options.refuseSave ?? defaultRefusal,
-    checks: options.checks ?? githubChecks,
+    checks: options.checks ?? defaultChecksFor,
     cooldownMs: options.cooldownMs ?? DEFAULT_COOLDOWN_MS,
     nowMs: options.nowMs ?? Date.now,
   };
@@ -176,10 +198,17 @@ function statusFor(last: TestResult | undefined): IntegrationStatus {
   return last && !last.ok ? "error" : "connected";
 }
 
-/** The one sentence under a row: the failed check's fix, the passing test's summary, or the reminder. */
+/**
+ * The one sentence under a row. Obsidian keeps its own vault sentence whatever a test finds, except
+ * a failure - the self-owned rule `rowToWire` follows, and the reason this takes `row` rather than
+ * just its id: a self-owned row's "connected" detail is never derived from a test the way a
+ * person's own connection's is. Everyone else: the failed check's fix, the passing test's summary,
+ * or the reminder that nothing has tested it yet.
+ */
 function detailFor(row: Integration, last: TestResult | undefined): string {
+  const failed = last?.checks.find((check) => check.state === "failed");
+  if (row.id === OBSIDIAN) return failed ? failed.fix ?? failed.message : row.detail;
   if (!last) return row.detail || UNTESTED_DETAIL;
-  const failed = last.checks.find((check) => check.state === "failed");
   if (failed) return failed.fix ?? failed.message;
   const summary = last.checks.find((check) => check.name === SUMMARY);
   return summary ? summary.message : "Connected.";
@@ -264,6 +293,24 @@ function githubChecks(_row: Integration): TestCheck[] {
     },
     { name: "Webhook", state: "passed", message: "A ping reached Marshal." },
   ];
+}
+
+/** The Obsidian vault test's own checks, as `daemon/internal/integrations/obsidian.go` asks them. */
+function obsidianChecks(_row: Integration): TestCheck[] {
+  return [
+    { name: SUMMARY, state: "passed", message: "Marshal's vault is ready to open in Obsidian." },
+    { name: "Vault folder", state: "passed", message: "The vault folder is there." },
+    {
+      name: "Vault writable",
+      state: "passed",
+      message: "The vault folder's permissions let Marshal write in it.",
+    },
+  ];
+}
+
+/** Which connection's checks to run, by id, so testing one connection never answers another's shape. */
+function defaultChecksFor(row: Integration): TestCheck[] {
+  return row.id === OBSIDIAN ? obsidianChecks(row) : githubChecks(row);
 }
 
 /** The App's four values must all be there: the key alone, or the secret alone, is no connection. */

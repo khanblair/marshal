@@ -19,6 +19,7 @@ import type {
   Label,
   Card as WireCard,
   Checkpoint as WireCheckpoint,
+  Note as WireNote,
 } from "@marshal/protocol";
 import { errorAnswer, type FakeRequest, jsonAnswer } from "~/data/testing/fake-fetch";
 import { golden } from "~/data/testing/golden";
@@ -146,6 +147,12 @@ export interface CardStore {
   diffs: Record<string, FakeCardDiff>;
   /** A card's restore points (B5.3), by card id, newest first, as the daemon holds them. */
   checkpoints: Record<string, WireCheckpoint[]>;
+  /**
+   * A card's note (section S14, task 7.12), by card id. No entry is a card nothing has been saved
+   * for yet, which reads exactly the way the real daemon's placeholder does (see `cardNote` in
+   * fake-card-actions.ts): the file appears only on the first save, never on a read.
+   */
+  notes: Record<string, WireNote>;
   /** Every card's live preview (section S13, B6.6), by the daemon's own card id. */
   previews: PreviewStore;
   /** Sends an event on a topic, as the daemon does after a change. */

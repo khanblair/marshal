@@ -41,13 +41,16 @@ export const DAEMON_CARDS: Readonly<Record<SectionId, SectionStatus>> = {
  * mock's own history. S8a and S10 are switched together in practice, and a test that means the mock
  * says so rather than relying on the register. The rest of the mock's conversations are pinned with
  * them: the project chats (S17), whose mock chats the reservoir stops supplying once the section is
- * the daemon's, the hold controls (S7c), which with no daemon could only say "not connected", and
- * the plans (S8c), which live in the chat this suite keeps on the mock.
+ * the daemon's, the hold controls (S7c), which with no daemon could only say "not connected", the
+ * plans (S8c), which live in the chat this suite keeps on the mock, and the approvals (S8b), whose
+ * approve and deny ask the daemon once switched - with none here, `mock/actions/approvals.ts`'s own
+ * scripted follow-up is what this suite's approval tests draw instead.
  */
 export const MOCK_HISTORY: Readonly<Record<SectionId, SectionStatus>> = {
   ...sectionStatus,
   S7c: "mock",
   S8a: "mock",
+  S8b: "mock",
   S8c: "mock",
   S10: "mock",
   S17: "mock",
@@ -112,9 +115,10 @@ export const DAEMON_PERSON: Readonly<Record<SectionId, SectionStatus>> = {
 
 /**
  * The settings screens' own sections on the mock: the provider keys (S28), the cost numbers (S19b),
- * the limits (S26b), the roles (S27), the sleep choices (S26a), and the GitHub connection (S29a). A
- * store with no daemon keeps the mock's rows, and a store that follows one pins only the section it
- * is about to the daemon, the way `daemon-providers-store.ts` and `daemon-roles-store.ts` do.
+ * the limits (S26b), the roles (S27), the sleep choices (S26a), and the GitHub and Obsidian
+ * connections (S29a, S29b). A store with no daemon keeps the mock's rows, and a store that follows
+ * one pins only the section it is about to the daemon, the way `daemon-providers-store.ts` and
+ * `daemon-roles-store.ts` do.
  *
  * It is one constant because two stores have to agree on it: the shared store (`install-test-store.ts`)
  * and the untouched copy the settings tests reset from (`views/settings/test-support.tsx`). A screen
@@ -128,6 +132,7 @@ export const MOCK_SETTINGS_SECTIONS = {
   S27: "mock",
   S26a: "mock",
   S29a: "mock",
+  S29b: "mock",
 } as const satisfies Partial<Record<SectionId, SectionStatus>>;
 
 /** The context behind a store made here, for a test that fills the store through the mirror. */

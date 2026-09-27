@@ -144,7 +144,10 @@ function storeAnswer(
     tool: null,
     diff: null,
     plan: null,
-    approval: answer.kind === "approval" ? { state: "approved", command: "", reason: "" } : null,
+    approval:
+      answer.kind === "approval"
+        ? { id: freshEventId(), state: "approved", command: "", reason: "" }
+        : null,
     card: null,
   };
   store.history.push({

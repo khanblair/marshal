@@ -26,6 +26,7 @@ const STATUS = { badRequest: 400 };
 const SLEEP_PATH = "/v1/settings/sleep";
 
 /** The idle times the daemon accepts, in minutes (`settings.idleChoices`). */
+// biome-ignore lint/style/noMagicNumbers: the choices themselves, not a quantity
 const IDLE_CHOICES: readonly number[] = [5, 15, 30, 60];
 /** The two answers to "After a restart" (`settings.restoreChoices`). */
 const RESTORE_CHOICES: readonly string[] = [SleepRestoreAuto, SleepRestoreManual];

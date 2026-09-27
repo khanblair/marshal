@@ -10,10 +10,12 @@ import type {
   ChatMessageDetail,
   CiRun,
   MoveCardRequest,
+  SaveNoteRequest,
   SessionState,
   SimulateCIFailureRequest,
   SimulateCIFailureResult,
   Card as WireCard,
+  Note as WireNote,
 } from "@marshal/protocol";
 import { emptyAnswer, errorAnswer, type FakeRequest, jsonAnswer } from "~/data/testing/fake-fetch";
 import { golden } from "~/data/testing/golden";
@@ -324,7 +326,73 @@ export function cardRead(
   if (action === "activity") {
     return cardActivity(store, card.id, limit, cursor, query.get("kind") ?? null);
   }
+  if (action === "note" && !extra) return jsonAnswer(cardNote(store, card));
   return undefined;
+}
+
+/**
+ * A card's note (section S14, task 7.12): what is stored, or the placeholder the daemon would
+ * start one from - its title, its goal, and a link to its project - with no save time, matching
+ * `internal/memory.placeholderNote`. A read never writes: no entry is made here.
+ */
+function cardNote(store: CardStore, card: WireCard): WireNote {
+  const existing = store.notes[card.id];
+  if (existing) return existing;
+  return {
+    cardId: card.id,
+    projectId: card.projectId,
+    path: noteRelPath(card),
+    body: `# ${card.title}\n\nGoal: ${card.title.toLowerCase()}.\n\nLinks\n[[${card.projectId}]]\n`,
+    author: "person",
+    updatedAt: null,
+  };
+}
+
+/**
+ * Writes a card's note: the file (in the real daemon) and the row, in one call. This fake keeps
+ * only the row - there is no vault on disk in a test - but the shape it answers, and the path it
+ * computes, follow `internal/memory`'s `noteRelPath` exactly, so a mapper test reading this route's
+ * answer sees what the real one would.
+ */
+export function saveCardNoteRoute(store: CardStore, card: WireCard, request: FakeRequest): Response {
+  const body = JSON.parse(request.body ?? "{}") as SaveNoteRequest;
+  const note: WireNote = {
+    cardId: card.id,
+    projectId: card.projectId,
+    path: noteRelPath(card),
+    body: body.body,
+    author: "person",
+    updatedAt: store.now(),
+  };
+  store.notes[card.id] = note;
+  return jsonAnswer(note);
+}
+
+/**
+ * Where a card's note lives in the vault, relative to its root: `<project>/cards/<n>-<title>.md`.
+ * Mirrors `internal/memory`'s `noteRelPath`/`noteSlug` byte for byte, so a fake daemon answers the
+ * same path a real one would for the same card.
+ */
+function noteRelPath(card: WireCard): string {
+  return `${card.projectId}/cards/${card.number}-${noteSlug(card.title)}.md`;
+}
+
+const NOTE_SLUG_MAX = 60;
+
+/**
+ * The readable part of a note's file name: lower case, hyphenated, ASCII letters and digits only.
+ * Ports `internal/memory`'s `noteSlug` byte for byte: any run of characters that is not a lower-case
+ * ASCII letter or digit becomes exactly one hyphen (never two, and never one at the very start or
+ * end), the same way Go's version only ever inserts a hyphen lazily, right before the next letter or
+ * digit it keeps. `a/b` slugs to `a-b`, not `ab` - the punctuation is a separator, not nothing.
+ */
+function noteSlug(title: string): string {
+  const collapsed = title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  const cut = collapsed.slice(0, NOTE_SLUG_MAX).replace(/-+$/, "");
+  return cut || "note";
 }
 
 /**
