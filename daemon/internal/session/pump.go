@@ -26,6 +26,9 @@ func (m *Manager) pump(ls *liveSession) {
 // ones that change state.
 func (m *Manager) handleEvent(ls *liveSession, ev agents.AgentEvent) {
 	m.logEvent(ls, ev)
+	// The stuck detector watches the same events the person's chat does, in the same order, so a
+	// loop it catches is one the chat shows too (B5.3).
+	m.feedStuckDetector(ls, ev)
 	switch e := ev.(type) {
 	case agents.MessageChunk, agents.ThoughtChunk, agents.PlanUpdate:
 		m.publishOutput(ls, e)
@@ -35,14 +38,17 @@ func (m *Manager) handleEvent(ls *liveSession, ev agents.AgentEvent) {
 		m.onTurnEnded(ls)
 	case agents.TerminalOutput:
 		m.publishTerminalOutput(ls, e)
+	case agents.PermissionRequested:
+		// The agent is blocked until a person answers, so this is where an approval is recorded,
+		// held, and announced (B3.4).
+		m.onPermissionRequested(ls, e)
 	case agents.Failed:
 		// Still wait for the Exited that follows (the agents.Failed doc comment says one always
 		// does, whether the process survives or not); nothing else to do here.
 		m.log.Warn("an agent session failed", ls.noun()+"_id", ls.key(), "message", e.Message)
 	}
-	// agents.PermissionRequested is logged and ringed above but not published: approvals are
-	// Phase 3 (B3.4), which does not exist yet (see the report). agents.Exited needs no case here;
-	// finishPump reacts to it once the loop ends, which covers every way the loop can end.
+	// agents.Exited needs no case here; finishPump reacts to it once the loop ends, which covers
+	// every way the loop can end.
 }
 
 // logEvent writes an event to the session's on-disk log, adds it to its in-memory ring, and stores
@@ -120,15 +126,38 @@ func (m *Manager) onTurnEnded(ls *liveSession) {
 	if err := m.setSessionState(m.ctx, ls, protocol.SessionStateAwake); err != nil {
 		m.log.Error("could not record that a turn ended", ls.noun()+"_id", ls.key(), "error", err)
 	}
-	m.publishState(ls, protocol.SessionStateAwake, "")
+	// The turn's bookkeeping is settled before "awake" is announced, so a client that hears the
+	// session is awake sees a session that really is free. Announcing first would leave a window in
+	// which the card reads as awake but a switch is still told a turn is running; the commit scan
+	// below makes that window wide enough to matter.
+	if m.scanTurnForSecrets(ls) {
+		// The agent's commit holds something that looks like a credential, so the card is stopped:
+		// it has been moved to Needs you with the reason and audited. The session is freed without
+		// delivering the next queued message, so the agent does not build on top of the commit; the
+		// message waits in the queue for the person to act.
+		ls.release()
+		m.publishState(ls, protocol.SessionStateAwake, "")
+		return
+	}
+	if m.checkAfterTurn(ls) {
+		// A loop the stuck detector caught, or a ceiling of the card's role that the turn just
+		// went past (B5.3): the card has been moved to Needs you with the reason and audited. The
+		// session is freed the way the secret scan frees it, so whatever was queued waits for the
+		// person rather than being fed into a card that is waiting on them.
+		ls.release()
+		m.publishState(ls, protocol.SessionStateAwake, "")
+		return
+	}
 	if !ls.isChat() && m.cardPaused(m.ctx, ls.cardID) {
 		// The turn is over even though the queue is not empty, so the session is free: the next
 		// message starts its turn the moment the card is resumed. Without this the session would
 		// stay marked busy for a turn that already ended, and the held message could never go.
 		ls.release()
+		m.publishState(ls, protocol.SessionStateAwake, "")
 		return
 	}
 	text, ok := ls.next()
+	m.publishState(ls, protocol.SessionStateAwake, "")
 	if !ok {
 		return
 	}
@@ -140,6 +169,9 @@ func (m *Manager) onTurnEnded(ls *liveSession) {
 // send for the same reason Send itself marks first (see send.go), and a send that fails releases
 // the turn so the session is not left believing one is running.
 func (m *Manager) deliverQueued(ctx context.Context, ls *liveSession, text string) {
+	// A message that waited for the turn before it starts its own turn with the card's settings as
+	// they are now, the same way a message sent into an idle session does (B3.6).
+	m.applyCardSettings(ctx, ls)
 	m.markTurnStarting(ctx, ls)
 	if err := ls.agent.Send(ctx, ls.handle, agents.UserMessage{Text: text}); err != nil {
 		m.log.Error("could not deliver a queued message", ls.noun()+"_id", ls.key(), "error", err)
@@ -171,6 +203,9 @@ func (m *Manager) finishPump(ls *liveSession) {
 			m.log.Error("could not close a session log", ls.noun()+"_id", ls.key(), "error", err)
 		}
 	}()
+	// Any request this session was still waiting on is answered as the daemon, so no approval is
+	// left waiting for an agent that no longer exists (B3.4).
+	m.withdrawApprovals(m.ctx, ls)
 	if ls.wasStopRequested() {
 		return
 	}

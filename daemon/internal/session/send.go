@@ -55,6 +55,10 @@ func (m *Manager) deliver(ctx context.Context, ls *liveSession, text string) err
 	if !ls.claimTurn() {
 		return m.queueOrRefuse(ls, text)
 	}
+	// The turn about to start runs with the card's settings as they are now, not as they were when
+	// the session started (B3.6). This is done with the turn claimed, so two sends cannot each
+	// hand the agent a change at the same time.
+	m.applyCardSettings(ctx, ls)
 	// The state is written before the agent is asked, not after: a fast turn can end, and the pump
 	// write "awake", before this goroutine gets back to write "working", which would leave an idle
 	// session marked as working. A send that then fails is reverted in afterSendFailed.
@@ -108,10 +112,14 @@ func (m *Manager) markTurnStarting(ctx context.Context, ls *liveSession) {
 	if !ls.structured {
 		return
 	}
+	// The turn's length is measured from here, so a role's own time ceiling can be read when the
+	// turn ends (B5.3), and a restore point is made before the agent touches anything.
+	ls.startTurnClock(m.cfg.Now())
 	if err := m.setSessionState(ctx, ls, protocol.SessionStateWorking); err != nil {
 		m.log.Warn("could not record that a session started a turn", ls.noun()+"_id", ls.key(), "error", err)
 	}
 	m.publishState(ls, protocol.SessionStateWorking, "")
+	m.checkpointBeforeTurn(ls)
 }
 
 // revertTurnStarting undoes markTurnStarting when the turn it announced never actually started.

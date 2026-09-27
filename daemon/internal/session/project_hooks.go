@@ -39,7 +39,11 @@ func (m *Manager) StopCardSession(ctx context.Context, cardID string) error {
 // RemoveCardLogs deletes the on-disk log folder of a card's session. The session manager owns
 // where those folders live, so a card delete asks it rather than building the path itself. A card
 // that never had a session has nothing to remove, and a missing folder is not an error.
+//
+// What the manager remembers about the card goes with its logs: its keep-awake hold and its place
+// on a sleep notice. A card whose logs are removed will not come back under that id.
 func (m *Manager) RemoveCardLogs(ctx context.Context, cardID string) error {
+	defer m.forgetCard(cardID)
 	row, err := m.store.Queries().GetSessionByCard(ctx, cardID)
 	if err != nil {
 		if store.IsNotFound(err) {

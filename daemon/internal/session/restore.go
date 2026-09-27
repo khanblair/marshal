@@ -26,7 +26,7 @@ func (m *Manager) RestoreAll(ctx context.Context) error {
 	if len(rows) == 0 {
 		return nil
 	}
-	if m.cfg.ResumeMode == ResumeModeManual {
+	if m.resumeModeNow() == ResumeModeManual {
 		m.log.Info("sessions are waiting to be resumed", "count", len(rows))
 		return nil
 	}

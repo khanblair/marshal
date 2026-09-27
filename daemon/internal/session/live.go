@@ -2,8 +2,10 @@ package session
 
 import (
 	"sync"
+	"time"
 
 	"github.com/khanblair/marshal/daemon/internal/agents"
+	"github.com/khanblair/marshal/daemon/internal/harness"
 )
 
 // liveSession is what the Manager keeps in memory for one running session, a card's or a chat's,
@@ -40,8 +42,33 @@ type liveSession struct {
 	busy   bool
 	queue  []string
 
+	// settings is the model, thinking mode, and permission mode the session is running with, and
+	// settingsMu guards it. It starts as what Start or Resume was given and moves on when a card's
+	// setting change is given to the running agent before the next turn (see the manager's
+	// applyCardSettings, B3.6). It is never written into handle, which other goroutines read as a
+	// plain value.
+	settingsMu sync.Mutex
+	settings   sessionSettings
+
 	stopMu        sync.Mutex
 	stopRequested bool
+
+	// scannedThrough is the last commit the secret scanner has read on this card's branch (B3.5).
+	// It is read and written only by the pump goroutine, in the turn-end scan, so it needs no lock.
+	scannedThrough string
+
+	// The fields below are the harness's own bookkeeping for a card (B5.3): the stuck detector, the
+	// reason it last gave, and the file each tool call is about. The detector and its reason are
+	// read and written only by the pump goroutine; the reason is guarded by turnMu because the
+	// turn-end check reads it from the pump while a turn is being timed from a request.
+	loop  *harness.StuckDetector
+	stuck *harness.Reason
+
+	// turnStartedAt is when the current turn began, for the role's own time ceiling, and toolPaths
+	// remembers the file each tool call is about so a failed update can say where it happened. Both
+	// are guarded by turnMu.
+	turnStartedAt time.Time
+	toolPaths     map[string]string
 }
 
 // claimTurn tries to mark the session busy for a new turn. It returns true when the caller may
@@ -156,4 +183,26 @@ func (ls *liveSession) wasStopRequested() bool {
 	ls.stopMu.Lock()
 	defer ls.stopMu.Unlock()
 	return ls.stopRequested
+}
+
+// sessionSettings is the model, thinking mode, and permission mode a session is running with.
+type sessionSettings struct {
+	model          string
+	thinking       string
+	permissionMode string
+}
+
+// settingsNow returns the settings the session is running with.
+func (ls *liveSession) settingsNow() sessionSettings {
+	ls.settingsMu.Lock()
+	defer ls.settingsMu.Unlock()
+	return ls.settings
+}
+
+// setSettings records the settings the session is running with now, after the agent took a change
+// or after it started with them.
+func (ls *liveSession) setSettings(s sessionSettings) {
+	ls.settingsMu.Lock()
+	ls.settings = s
+	ls.settingsMu.Unlock()
 }

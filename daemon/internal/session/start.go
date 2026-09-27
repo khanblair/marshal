@@ -214,10 +214,16 @@ func (m *Manager) registerNewSession(ctx context.Context, card protocol.Card, sa
 
 // finishRegistering builds a card's live session, registers it, publishes that it is awake, and
 // starts its pump. Shared by a fresh start and a resume.
+//
+// It is also where the awake limit is enforced: a card that has just been woken is one more awake
+// card in its project, and if that takes the project past its ceiling the oldest idle awake card
+// gets a sleep warning (docs/architecture.md 5.1, B5.6). The card that just woke is passed over, so
+// the limit never cancels the person's own press.
 func (m *Manager) finishRegistering(card protocol.Card, rowID string, sa startedAgent) (protocol.Card, error) {
 	if _, err := m.register(cardOwner(card), rowID, sa); err != nil {
 		return protocol.Card{}, err
 	}
+	m.enforceAwakeLimit(m.ctx, card.ProjectID, card.ID)
 	return card, nil
 }
 

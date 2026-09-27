@@ -6,14 +6,18 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
+	"time"
 
 	"github.com/khanblair/marshal/daemon/internal/agents"
+	"github.com/khanblair/marshal/daemon/internal/audit"
 	"github.com/khanblair/marshal/daemon/internal/events"
 	"github.com/khanblair/marshal/daemon/internal/gitx"
+	"github.com/khanblair/marshal/daemon/internal/harness"
 	"github.com/khanblair/marshal/daemon/internal/history"
 	"github.com/khanblair/marshal/daemon/internal/keyedlock"
 	"github.com/khanblair/marshal/daemon/internal/projects"
 	"github.com/khanblair/marshal/daemon/internal/protocol"
+	"github.com/khanblair/marshal/daemon/internal/security"
 	"github.com/khanblair/marshal/daemon/internal/store"
 	"github.com/khanblair/marshal/daemon/internal/store/db"
 )
@@ -30,19 +34,32 @@ type Manager struct {
 	store    *store.Store
 	bus      *events.Bus
 	projects *projects.Service
+	plans    PlanStore
 	registry *agents.Registry
 	git      *gitx.Git
-	cfg      Config
-	log      *slog.Logger
+	audit    *audit.Recorder
+	// blocklist is the command blocklist every permission decision is made with
+	// (docs/marshal-product-scope.md section 14.4). It is built once and shared: it holds no state.
+	blocklist *security.Blocklist
+	cfg       Config
+	log       *slog.Logger
 
 	ctx    context.Context
 	cancel context.CancelFunc
 
 	mu        sync.Mutex
 	closed    bool
-	sessions  map[string]*liveSession // card or chat id -> live session
-	pending   map[string]struct{}     // cardID -> a Start or Resume is in flight for it
-	switching map[string]struct{}     // cardID -> a switch of its view is in flight
+	sessions  map[string]*liveSession     // card or chat id -> live session
+	pending   map[string]struct{}         // cardID -> a Start or Resume is in flight for it
+	switching map[string]struct{}         // cardID -> a switch of its view is in flight
+	approvals map[string]*pendingApproval // approval id -> a permission request no one has answered
+
+	// resumeMu guards resumeMode, the mode RestoreAll uses (docs/architecture.md 5.3). It starts as
+	// what the config says and is replaced once, before RestoreAll, by the "After a restart" setting
+	// a person saved on Settings > Sleep (B5.6): that is their own choice, and the flag the daemon
+	// was started with is only the default until the screen is saved.
+	resumeMu   sync.RWMutex
+	resumeMode ResumeMode
 
 	// chatLocks serializes what is done to one chat's session: sending to it, and putting it to
 	// sleep. A chat that is not running is started by its next message, and two messages must not
@@ -54,6 +71,30 @@ type Manager struct {
 	viewLocks keyedlock.Locks
 
 	pumpWG sync.WaitGroup
+
+	// limitsMu guards limits, the reader that resolves the ceilings of the role a card runs under.
+	// The roles module is built after the manager - the manager needs the projects service, which
+	// is built before both - so this is set once at start-up with SetRoleLimits rather than passed
+	// to NewManager.
+	limitsMu sync.RWMutex
+	limits   RoleLimitsReader
+
+	// sleepMu guards the two readers of the automatic sleep (B5.6): the sleep settings and the
+	// awake limit. Both modules are built after the manager for the same reason the roles module
+	// is, so both are set once at start-up rather than passed to NewManager.
+	sleepMu  sync.RWMutex
+	sleepSet SleepSettingsReader
+	awakeSet AwakeLimitReader
+
+	// noticesMu guards the sleep notices and the keep-awake holds (notices.go). It is a lock of its
+	// own and not Manager.mu because these are written on the idle sweep's own goroutine while
+	// requests read them, and neither ever waits on the other's holders for more than a map read.
+	noticesMu   sync.Mutex
+	sleepGroups map[string]*sleepGroup
+	// keptAwake is the moment each card's keep-awake hold runs out, so the idle timer leaves it
+	// alone until then. A card whose hold has passed is still in the map and is ignored, which is
+	// what keeps a dismissal from having to be cleaned up on a timer of its own.
+	keptAwake map[string]time.Time
 }
 
 // NewManager builds a Manager. Every dependency is required.
@@ -65,20 +106,52 @@ func NewManager(st *store.Store, bus *events.Bus, proj *projects.Service, regist
 	if err != nil {
 		return nil, err
 	}
-	if cfg.History == nil {
+	if cfg.History == nil || cfg.Plans == nil {
 		recorder, err := history.New(st)
 		if err != nil {
 			return nil, fmt.Errorf("make the history store: %w", err)
 		}
-		cfg.History = recorder
+		if cfg.History == nil {
+			cfg.History = recorder
+		}
+		if cfg.Plans == nil {
+			cfg.Plans = recorder
+		}
+	}
+	if cfg.Audit == nil {
+		recorder, err := audit.New(st, cfg.Now, cfg.Entropy, cfg.Logger)
+		if err != nil {
+			return nil, fmt.Errorf("make the audit recorder: %w", err)
+		}
+		cfg.Audit = recorder
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Manager{
-		store: st, bus: bus, projects: proj, registry: registry, git: git, cfg: cfg, log: cfg.Logger,
+		store: st, bus: bus, projects: proj, plans: cfg.Plans, registry: registry, git: git,
+		audit: cfg.Audit, blocklist: security.DefaultBlocklist(), cfg: cfg, log: cfg.Logger,
 		ctx: ctx, cancel: cancel,
 		sessions: make(map[string]*liveSession), pending: make(map[string]struct{}),
-		switching: make(map[string]struct{}),
+		switching: make(map[string]struct{}), approvals: make(map[string]*pendingApproval),
+		sleepGroups: make(map[string]*sleepGroup), keptAwake: make(map[string]time.Time),
+		resumeMode: cfg.ResumeMode,
 	}, nil
+}
+
+// SetResumeMode changes how RestoreAll treats the sessions left over from the last run. cmd/marshald
+// calls it once, before RestoreAll, with what the person saved as "After a restart" on Settings >
+// Sleep (B5.6). It is safe to call while sessions are running, though nothing sensible calls it
+// after the start-up restore has begun.
+func (m *Manager) SetResumeMode(mode ResumeMode) {
+	m.resumeMu.Lock()
+	m.resumeMode = mode
+	m.resumeMu.Unlock()
+}
+
+// resumeModeNow reads the mode RestoreAll is to use.
+func (m *Manager) resumeModeNow() ResumeMode {
+	m.resumeMu.RLock()
+	defer m.resumeMu.RUnlock()
+	return m.resumeMode
 }
 
 // RecentOutput returns a copy of the recent structured log entries for a card's live session, for
@@ -222,7 +295,12 @@ func (m *Manager) newLiveSession(o owner, sessionRowID string, sa startedAgent) 
 		owner: o, sessionRowID: sessionRowID,
 		agent: sa.agent, handle: sa.handle, events: events,
 		structured: sa.handle.Capabilities.StructuredEvents,
-		diskLog:    diskLog, ring: newEntryRing(m.cfg.RingBytes), term: term,
+		settings: sessionSettings{
+			model: sa.handle.Model, thinking: sa.handle.Thinking,
+			permissionMode: sa.handle.PermissionMode,
+		},
+		diskLog: diskLog, ring: newEntryRing(m.cfg.RingBytes), term: term,
+		loop: harness.NewStuckDetector(),
 	}, nil
 }
 
