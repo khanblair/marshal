@@ -53,3 +53,11 @@ LIMIT ?;
 -- name: GetChatEvent :one
 -- One of a chat's events in full, for the detail a row opens on demand.
 SELECT * FROM session_events WHERE chat_id = ? AND id = ?;
+
+-- name: CountSessionEventsOfKind :one
+-- How many events of one kind a card has, for a rule that counts rather than pages (the harness's
+-- round limit, B5.3): one message delivered into a card's session is one turn, and it is stored as
+-- a user event, so the count of a card's user events is the number of turns the card has taken. It
+-- counts stored rows, so it survives a restart and a resume.
+SELECT CAST(COUNT(*) AS INTEGER) AS count FROM session_events
+WHERE card_id = ? AND card_id <> '' AND kind = ?;
