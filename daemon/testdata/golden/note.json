@@ -1,0 +1,8 @@
+{
+  "cardId": "card-7f2a",
+  "projectId": "small-repo",
+  "path": "small-repo/cards/7-add-a-health-check.md",
+  "body": "# Add a health check\n\nGoal: add a health check.\n\nThe probe goes beside the server.\n\nLinks\n[[small-repo]]\n",
+  "author": "person",
+  "updatedAt": "2026-09-27T09:30:00.000Z"
+}

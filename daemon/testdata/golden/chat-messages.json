@@ -29,6 +29,7 @@
       "diff": null,
       "plan": null,
       "approval": {
+        "id": "app_01JQZ0000000000000000000AD",
         "state": "waiting",
         "command": "rm -rf build",
         "reason": "Clean the build folder"

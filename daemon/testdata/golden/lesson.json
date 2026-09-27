@@ -1,0 +1,9 @@
+{
+  "projectId": "small-repo",
+  "slug": "ci-is-flaky-on-windows",
+  "title": "CI is flaky on Windows",
+  "path": "small-repo/lessons/ci-is-flaky-on-windows.md",
+  "body": "# CI is flaky on Windows\n\nRetry the flaky step once before failing the run.\n",
+  "author": "agent",
+  "updatedAt": "2026-09-27T09:30:00.000Z"
+}

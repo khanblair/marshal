@@ -181,6 +181,14 @@
     "terminal.screen",
     "terminal.refused"
   ],
+  "HandoffRefusalReason": [
+    "handoff_no_session",
+    "handoff_turn_running",
+    "handoff_holding_messages",
+    "handoff_same_agent",
+    "handoff_unknown_agent",
+    "handoff_cannot_start"
+  ],
   "HoldRefusalReason": [
     "pause_not_working",
     "sleep_working",
@@ -237,6 +245,10 @@
     "conflict",
     "question",
     "secret-detected"
+  ],
+  "NoteAuthor": [
+    "person",
+    "agent"
   ],
   "NoticeKind": [
     "sleep",

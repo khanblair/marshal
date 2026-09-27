@@ -1,0 +1,4 @@
+{
+  "to": "gemini",
+  "summary": "Goal: add a health check endpoint.\nDone: the handler and its test.\nLeft: register the route and document it.\nDecision: the version comes from the build, not a constant."
+}

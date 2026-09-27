@@ -3,10 +3,14 @@
   "projects": [],
   "cards": [],
   "chats": [],
+  "sessions": [],
+  "notes": [],
   "totals": {
     "projects": 0,
     "cards": 0,
-    "chats": 0
+    "chats": 0,
+    "sessions": 0,
+    "notes": 0
   },
   "serverTime": "2026-09-30T12:00:00.000Z"
 }

@@ -1,0 +1,22 @@
+{
+  "connectionId": "obsidian",
+  "checks": [
+    {
+      "name": "Summary",
+      "state": "passed",
+      "message": "Marshal's vault is ready to open in Obsidian."
+    },
+    {
+      "name": "Vault folder",
+      "state": "passed",
+      "message": "The vault folder is at /Users/person/Notes/Marshal."
+    },
+    {
+      "name": "Vault writable",
+      "state": "passed",
+      "message": "The vault folder's permissions let Marshal write in it."
+    }
+  ],
+  "ok": true,
+  "ranAt": "2026-09-27T10:00:00.000Z"
+}
