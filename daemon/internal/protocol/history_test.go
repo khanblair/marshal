@@ -29,6 +29,7 @@ func chatMessages() protocol.Page[protocol.ChatMessage] {
 			ID: "01M3C107JB041061050R3GG28B", Kind: protocol.ChatMessageKindApproval, Seq: 7, At: protocol.NewTimestamp(at),
 			Text: "Asked to run rm -rf build",
 			Approval: &protocol.ChatApproval{
+				ID: "app_01JQZ0000000000000000000AD",
 				State: protocol.ChatApprovalStateWaiting, Command: "rm -rf build", Reason: "Clean the build folder",
 			},
 		},

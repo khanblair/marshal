@@ -12,8 +12,8 @@ import (
 	"github.com/khanblair/marshal/daemon/internal/search"
 )
 
-// The search answers over what the projects and chats services give it, so these tests give it
-// small fakes of the two and read the answers. The real services behind the real route are in
+// The search answers over what the projects, chats, and memory services give it, so these tests
+// give it small fakes of them and read the answers. The real services behind the real route are in
 // internal/api's routes_search_test.go.
 
 var base = time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)
@@ -50,10 +50,41 @@ func (f *fakeChats) List(_ context.Context, projectID string, archived bool) (pr
 	return protocol.ChatListSnapshot{ProjectID: projectID, Chats: f.chats[projectID]}, nil
 }
 
+// fakeSessions is the past session events the search reads through the memory module, keyed by
+// project, and the queries it was asked for.
+type fakeSessions struct {
+	hits    map[string][]protocol.SessionHit
+	err     error
+	queries []string
+}
+
+func (f *fakeSessions) SearchSessions(_ context.Context, projectID, query string, _ int) ([]protocol.SessionHit, error) {
+	f.queries = append(f.queries, query)
+	if f.err != nil {
+		return nil, f.err
+	}
+	return f.hits[projectID], nil
+}
+
+// fakeNotes is the card notes the search reads through the memory module, keyed by project.
+type fakeNotes struct {
+	notes map[string][]protocol.Note
+	err   error
+}
+
+func (f *fakeNotes) SearchNotes(_ context.Context, projectID, query string, _ int) ([]protocol.Note, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	return f.notes[projectID], nil
+}
+
 // world is the fakes and the service over them.
 type world struct {
 	projects *fakeProjects
 	chats    *fakeChats
+	sessions *fakeSessions
+	notes    *fakeNotes
 	svc      *search.Service
 }
 
@@ -63,9 +94,13 @@ func newWorld(t *testing.T, projects []protocol.Project) *world {
 		projects: &fakeProjects{
 			projects: projects, cards: map[string][]protocol.Card{}, cardsErr: map[string]error{},
 		},
-		chats: &fakeChats{chats: map[string][]protocol.Chat{}},
+		chats:    &fakeChats{chats: map[string][]protocol.Chat{}},
+		sessions: &fakeSessions{hits: map[string][]protocol.SessionHit{}},
+		notes:    &fakeNotes{notes: map[string][]protocol.Note{}},
 	}
-	svc, err := search.New(search.Deps{Projects: w.projects, Chats: w.chats}, search.WithClock(func() time.Time { return base }))
+	svc, err := search.New(search.Deps{
+		Projects: w.projects, Chats: w.chats, Sessions: w.sessions, Notes: w.notes,
+	}, search.WithClock(func() time.Time { return base }))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -460,11 +495,195 @@ func TestACancelledSearchStops(t *testing.T) {
 	}
 }
 
-func TestNewNeedsBothReaders(t *testing.T) {
-	if _, err := search.New(search.Deps{Chats: &fakeChats{}}); err == nil {
-		t.Error("a service with no projects was built")
+// sessionOn records a stored session event the memory module would answer with for a card: the
+// summary the index matched, and when it happened. The card's own fields are what the search uses to
+// name the hit.
+func (w *world) sessionOn(card protocol.Card, excerpt string, minute int) {
+	w.sessions.hits[card.ProjectID] = append(w.sessions.hits[card.ProjectID], protocol.SessionHit{
+		CardID: card.ID, Key: card.Key, Title: card.Title, Excerpt: excerpt,
+		At: protocol.NewTimestamp(base.Add(time.Duration(minute) * time.Minute)),
+	})
+}
+
+// noteOn records a card note the memory module would answer with, with the whole body the index
+// matched and the time it was last saved.
+func (w *world) noteOn(card protocol.Card, path, body, author string, minute int) {
+	at := protocol.NewTimestamp(base.Add(time.Duration(minute) * time.Minute))
+	w.notes.notes[card.ProjectID] = append(w.notes.notes[card.ProjectID], protocol.Note{
+		CardID: card.ID, ProjectID: card.ProjectID, Path: path, Body: body,
+		Author: protocol.NoteAuthor(author), UpdatedAt: &at,
+	})
+}
+
+// The two kinds the search does not read whole - a project's past sessions and its notes - are named
+// by their card and carry what opens them and the project they belong to, exactly as a card hit does.
+func TestSessionAndNoteHitsAreNamedByTheirCard(t *testing.T) {
+	w := newWorld(t, []protocol.Project{project("api", "api-gateway", "/home/ada/code/api-gateway")})
+	card := w.card("api", 41, "Refresh the token before it expires", "", 5)
+	w.sessionOn(card, "Refreshed the token in the middleware", 10)
+	w.noteOn(card, "api/cards/41-refresh-the-token.md", "# Refresh the token\n\nGoal: refresh it.", "agent", 11)
+
+	got := w.search(t, "token")
+	if len(got.Sessions) != 1 {
+		t.Fatalf("sessions = %+v, want one hit", got.Sessions)
 	}
-	if _, err := search.New(search.Deps{Projects: &fakeProjects{}}); err == nil {
-		t.Error("a service with no chats was built")
+	session := got.Sessions[0]
+	if session.CardID != card.ID || session.Key != "api#41" || session.Title != "Refresh the token before it expires" ||
+		session.ProjectID != "api" || session.ProjectName != "api-gateway" ||
+		session.Excerpt != "Refreshed the token in the middleware" ||
+		session.At != protocol.NewTimestamp(base.Add(10*time.Minute)) {
+		t.Errorf("session hit = %+v", session)
+	}
+	if len(got.Notes) != 1 {
+		t.Fatalf("notes = %+v, want one hit", got.Notes)
+	}
+	note := got.Notes[0]
+	if note.CardID != card.ID || note.Key != "api#41" || note.Title != "Refresh the token before it expires" ||
+		note.Path != "api/cards/41-refresh-the-token.md" || note.Author != protocol.NoteAuthorAgent ||
+		note.ProjectID != "api" || note.ProjectName != "api-gateway" ||
+		note.At != protocol.NewTimestamp(base.Add(11*time.Minute)) {
+		t.Errorf("note hit = %+v", note)
+	}
+	if !strings.HasPrefix(note.Excerpt, "# Refresh the token") {
+		t.Errorf("note excerpt = %q, want the beginning of the note", note.Excerpt)
+	}
+	if got.Totals != (protocol.SearchTotals{Cards: 1, Sessions: 1, Notes: 1}) {
+		t.Errorf("totals = %+v, want the card and one of each of the two kinds behind it", got.Totals)
+	}
+
+	// A session hit is named by the card's own title, so a word in the title is enough: the index
+	// matched the summary, and the search scores the title too.
+	if hits, _ := w.svc.Search(context.Background(), "expires"); len(hits.Sessions) != 1 {
+		t.Errorf("a word only the card's title holds found %d sessions, want 1", len(hits.Sessions))
+	}
+}
+
+// A note's answer carries only the beginning of it (see excerpt), because a palette needs a pointer
+// at the note and not the note. The whole note goes to the caller that scores it, so a word further
+// in than the excerpt reaches still ranks the hit.
+func TestANoteHitExcerptIsTheBeginningOfTheNote(t *testing.T) {
+	w := newWorld(t, []protocol.Project{project("api", "api", "/code/api")})
+	long := w.card("api", 1, "Write the runbook", "", 1)
+	short := w.card("api", 2, "Write the runbook", "", 1)
+	body := strings.Repeat("é", 150) + " tailmarker" // 300 bytes of text, then a word at the end
+	w.noteOn(long, "api/cards/1-write-the-runbook.md", body, "person", 1)
+	w.noteOn(short, "api/cards/2-write-the-runbook.md", "a short tailmarker note", "person", 2)
+
+	got := w.search(t, "tailmarker")
+	if len(got.Notes) != 2 {
+		t.Fatalf("a word past the excerpt did not rank the note: %+v", got.Notes)
+	}
+	for _, note := range got.Notes {
+		switch note.CardID {
+		case long.ID:
+			if len(note.Excerpt) >= len(body) {
+				t.Errorf("the long note's excerpt is the whole note: %d bytes of %d", len(note.Excerpt), len(body))
+			}
+			if !strings.HasSuffix(note.Excerpt, "…") {
+				t.Errorf("a cut excerpt = %q, want it to end with an ellipsis", note.Excerpt)
+			}
+			if strings.ContainsRune(note.Excerpt, '\uFFFD') {
+				t.Errorf("the excerpt cut a character in half: %q", note.Excerpt)
+			}
+		case short.ID:
+			if note.Excerpt != "a short tailmarker note" {
+				t.Errorf("a short note's excerpt = %q, want the note whole and uncut", note.Excerpt)
+			}
+		default:
+			t.Errorf("an unexpected note hit: %+v", note)
+		}
+	}
+}
+
+// A session or a note the index answered but this project's cards no longer hold is skipped rather
+// than shown as a dead link: the card was deleted between the two reads.
+func TestASessionOrNoteHitForAGoneCardIsSkipped(t *testing.T) {
+	w := newWorld(t, []protocol.Project{project("api", "api", "/code/api")})
+	gone := w.card("api", 1, "Refresh the token", "", 1)
+	w.sessionOn(gone, "the token work", 2)
+	w.noteOn(gone, "api/cards/1-refresh-the-token.md", "the token note", "agent", 2)
+	// A card the project still has, so one hit of each kind survives the read.
+	survivor := w.card("api", 2, "Rotate the token", "", 1)
+	w.sessionOn(survivor, "the token work again", 3)
+	w.noteOn(survivor, "api/cards/2-rotate-the-token.md", "the token note again", "agent", 3)
+
+	// The project's cards no longer include the first card, which is what a delete mid-search looks
+	// like to the search: the index answered before the card went.
+	w.projects.cards["api"] = []protocol.Card{survivor}
+	got := w.search(t, "token")
+	if len(got.Sessions) != 1 || got.Sessions[0].CardID != survivor.ID {
+		t.Errorf("sessions = %+v, want only the card that is still there", got.Sessions)
+	}
+	if len(got.Notes) != 1 || got.Notes[0].CardID != survivor.ID {
+		t.Errorf("notes = %+v, want only the card that is still there", got.Notes)
+	}
+}
+
+// A hit the index answered that does not match the words is dropped rather than shown: the memory
+// module's index matches a prefix of a word, and the ordering pass here decides what really matches.
+func TestASessionOrNoteHitThatDoesNotMatchIsDropped(t *testing.T) {
+	w := newWorld(t, []protocol.Project{project("api", "api", "/code/api")})
+	card := w.card("api", 1, "Unrelated title", "", 1)
+	w.sessionOn(card, "nothing to do with the query", 2)
+	w.noteOn(card, "api/cards/1-unrelated-title.md", "nothing to do with the query", "agent", 2)
+
+	got := w.search(t, "token")
+	if len(got.Sessions) != 0 || len(got.Notes) != 0 {
+		t.Errorf("hits that do not match the words were shown: %+v / %+v", got.Sessions, got.Notes)
+	}
+}
+
+// The memory module is searched with the query's words joined, once per project per kind, so the
+// index and this package look for the same thing.
+func TestSessionAndNoteSearchesAreGivenTheWordsAndOneProjectAtATime(t *testing.T) {
+	w := newWorld(t, []protocol.Project{project("api", "api", "/code/api"), project("web", "web", "/code/web")})
+	w.card("api", 1, "Something", "", 1)
+	w.card("web", 1, "Something", "", 1)
+	w.search(t, "  Token   ROTATION ")
+	if strings.Join(w.sessions.queries, ",") != "token rotation,token rotation" {
+		t.Errorf("the sessions were searched for %v, want the words joined once per project", w.sessions.queries)
+	}
+}
+
+// A read of the past sessions or the notes that fails fails the search: a half answer would look
+// like a kind with no matches.
+func TestASessionOrNoteReadThatFailsFailsTheSearch(t *testing.T) {
+	boom := errors.New("disk on fire")
+	w := newWorld(t, []protocol.Project{project("api", "api", "/code/api")})
+	w.sessions.err = boom
+	if _, err := w.svc.Search(context.Background(), "x"); !errors.Is(err, boom) {
+		t.Errorf("a failing session read: err = %v, want the read's own error", err)
+	}
+	w = newWorld(t, []protocol.Project{project("api", "api", "/code/api")})
+	w.notes.err = boom
+	if _, err := w.svc.Search(context.Background(), "x"); !errors.Is(err, boom) {
+		t.Errorf("a failing note read: err = %v, want the read's own error", err)
+	}
+}
+
+func TestNewNeedsEveryReader(t *testing.T) {
+	all := func() search.Deps {
+		return search.Deps{
+			Projects: &fakeProjects{}, Chats: &fakeChats{},
+			Sessions: &fakeSessions{}, Notes: &fakeNotes{},
+		}
+	}
+	// Every reader is needed: an answer with a kind missing would look like a kind with no matches.
+	// Each is left out once, and the service must refuse to be built each time.
+	leave := map[string]func(*search.Deps){
+		"projects": func(d *search.Deps) { d.Projects = nil },
+		"chats":    func(d *search.Deps) { d.Chats = nil },
+		"sessions": func(d *search.Deps) { d.Sessions = nil },
+		"notes":    func(d *search.Deps) { d.Notes = nil },
+	}
+	for name, drop := range leave {
+		deps := all()
+		drop(&deps)
+		if _, err := search.New(deps); err == nil {
+			t.Errorf("a service with no %s was built", name)
+		}
+	}
+	if _, err := search.New(all()); err != nil {
+		t.Errorf("a service with every reader was not built: %v", err)
 	}
 }

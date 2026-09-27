@@ -44,7 +44,20 @@ func searchSnapshot() protocol.SearchSnapshot {
 			ProjectID: "api", ProjectName: "api-gateway",
 			LastActiveAt: protocol.NewTimestamp(at.Add(-2 * time.Hour)),
 		}},
-		Totals:     protocol.SearchTotals{Projects: 1, Cards: 11, Chats: 1},
+		Sessions: []protocol.SessionHit{{
+			CardID: "01M3C107JB041061050R3GG28A", Key: "api#41", Title: "Refresh the token before it expires",
+			Excerpt:   "Refreshed the token in the middleware and left the rotation job alone",
+			ProjectID: "api", ProjectName: "api-gateway",
+			At: protocol.NewTimestamp(at.Add(-90 * time.Minute)),
+		}},
+		Notes: []protocol.NoteHit{{
+			CardID: "01M3C107JB041061050R3GG28A", Key: "api#41", Title: "Refresh the token before it expires",
+			Path:    "api/cards/41-refresh-the-token-before-it-expires.md",
+			Excerpt: "# Refresh the token before it expires\n\nGoal: refresh the token before it expires.",
+			Author:  protocol.NoteAuthorAgent, ProjectID: "api", ProjectName: "api-gateway",
+			At: protocol.NewTimestamp(at.Add(-30 * time.Minute)),
+		}},
+		Totals:     protocol.SearchTotals{Projects: 1, Cards: 11, Chats: 1, Sessions: 3, Notes: 2},
 		ServerTime: protocol.NewTimestamp(at),
 	}
 }
@@ -53,11 +66,12 @@ func TestSearchSnapshotGolden(t *testing.T) {
 	testutil.Golden(t, "search", searchSnapshot())
 }
 
-// An empty query, or one that matches nothing, is three empty lists: never null, so the palette
+// An empty query, or one that matches nothing, is five empty lists: never null, so the palette
 // draws its empty state without a guard.
 func TestAnEmptySearchSendsEmptyLists(t *testing.T) {
 	empty := protocol.SearchSnapshot{
 		Projects: []protocol.ProjectHit{}, Cards: []protocol.CardHit{}, Chats: []protocol.ChatHit{},
+		Sessions: []protocol.SessionHit{}, Notes: []protocol.NoteHit{},
 		ServerTime: protocol.NewTimestamp(searchTime()),
 	}
 	testutil.Golden(t, "search-empty", empty)

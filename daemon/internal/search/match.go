@@ -136,6 +136,36 @@ func chatScore(chat protocol.Chat, words []string) int {
 	})
 }
 
+// sessionScore scores a past session event by the card it happened on and the summary of the
+// moment. The two are weighted like the two fields of a card, because that is the order a person
+// reads them in: the card's title says what the work was about, and the summary says what happened.
+// The words have already been matched by the full-text index, so this orders the hits the index
+// returned rather than deciding which of them match.
+func sessionScore(title, summary string, words []string) int {
+	title, summary = strings.ToLower(title), strings.ToLower(summary)
+	return bestOf(words, func(word string) int {
+		return max(
+			fieldScore(weightTitle, matchTier(title, word)),
+			fieldScore(weightBody, matchTier(summary, word)),
+		)
+	})
+}
+
+// noteScore scores a card note by the card it belongs to and the note itself. It is the same pair as
+// a session hit and for the same reason. It is given the whole note rather than the excerpt the
+// answer carries, so a word that matched further into the note than the excerpt reaches still
+// scores: the index matched it there, and a hit the index found must not be dropped by the reading
+// of the answer.
+func noteScore(title, body string, words []string) int {
+	title, body = strings.ToLower(title), strings.ToLower(body)
+	return bestOf(words, func(word string) int {
+		return max(
+			fieldScore(weightTitle, matchTier(title, word)),
+			fieldScore(weightBody, matchTier(body, word)),
+		)
+	})
+}
+
 // numberScore scores a word that names a card by its number: "#41", the digits "41", or a key or
 // the start of one such as "api#41" or "api#4". The key is lower case, like the word. Any other
 // word scores zero here and is matched as text.

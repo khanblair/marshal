@@ -300,8 +300,8 @@ const (
 	// ViewRefusalReasonNoTerminal is a switch to the terminal view of an agent that has no terminal
 	// mode Marshal can resume a session in.
 	ViewRefusalReasonNoTerminal ViewRefusalReason = "view_no_terminal"
-	// ViewRefusalReasonSwitching is a request for a card that is being started, resumed, woken, or
-	// switched at that moment.
+	// ViewRefusalReasonSwitching is a request for a card that is being started, resumed, woken,
+	// switched, or handed off to another agent at that moment.
 	ViewRefusalReasonSwitching ViewRefusalReason = "view_switching"
 	// ViewRefusalReasonTerminalActive is a chat message for a card that is in the terminal view.
 	// What is typed there goes to the terminal, and the card's chat does not see it.

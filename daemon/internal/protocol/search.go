@@ -1,9 +1,11 @@
 package protocol
 
-// Search over projects, cards, and chats for the command palette and the top bar
-// (docs/backend-checklist.md B2.11, docs/backend-inventory.md N23). One request answers every
-// kind at once, each kind in its own list, best match first, so the palette draws its Projects,
-// Cards, and Chats groups straight from the answer. Past sessions and notes join in Phase 7.
+// Search over projects, cards, chats, past sessions, and notes for the command palette and the top
+// bar (docs/backend-checklist.md B2.11 and B7.4, docs/backend-inventory.md N23, build-plan task
+// 7.10). One request answers every kind at once, each kind in its own list, best match first, so
+// the palette draws its Projects, Cards, Chats, Sessions, and Notes groups straight from the
+// answer. The session and note kinds are the ones docs/architecture.md section 10 calls for: "a
+// search uses SQLite full-text search over `session_events.summary` and card notes".
 
 // SearchHitsPerKind is the most hits of one kind that a search answer holds. The totals say how
 // many there were before the cut.
@@ -67,6 +69,58 @@ type SearchTotals struct {
 	Cards int `json:"cards"`
 	// Chats is how many chats matched.
 	Chats int `json:"chats"`
+	// Sessions is how many past session events matched.
+	Sessions int `json:"sessions"`
+	// Notes is how many card notes matched.
+	Notes int `json:"notes"`
+}
+
+// SessionHit is a line of a card's past that matched a search: one stored event of a card's session
+// whose summary holds the words (docs/architecture.md section 10). It is how the palette answers
+// "when did we do this before" without opening every card: the hit names the card the work happened
+// on, and opening that card's chat shows the event in place.
+type SessionHit struct {
+	// CardID is the card the session belonged to, which opens it.
+	CardID string `json:"cardId"`
+	// Key is the card's project and number, such as "api#41".
+	Key string `json:"key"`
+	// Title is the card's title, so the palette says what the past work was about.
+	Title string `json:"title"`
+	// Excerpt is the stored summary of the event, clipped short. It is the one line the daemon kept
+	// for that moment of the session, and the whole of what a search has to show.
+	Excerpt string `json:"excerpt"`
+	// ProjectID is the project the card belongs to.
+	ProjectID string `json:"projectId"`
+	// ProjectName is that project's display name.
+	ProjectName string `json:"projectName"`
+	// At is when the event happened.
+	At Timestamp `json:"at"`
+}
+
+// NoteHit is a card note that matched a search: the markdown file the vault keeps for a card, whose
+// text holds the words (docs/architecture.md sections 10 and 12). The note itself is read at its own
+// route; a search answer carries only the beginning of it, because an answer that carried whole
+// notes would cost more than the reading it saves.
+type NoteHit struct {
+	// CardID is the card the note belongs to, which opens it.
+	CardID string `json:"cardId"`
+	// Key is the card's project and number, such as "api#41".
+	Key string `json:"key"`
+	// Title is the card's title, so the palette says which note this is.
+	Title string `json:"title"`
+	// Path is where the note lives in the vault, relative to the vault root, in the shape
+	// `<project>/cards/<number>-<title>.md`.
+	Path string `json:"path"`
+	// Excerpt is the beginning of the note, clipped short.
+	Excerpt string `json:"excerpt"`
+	// Author is who last wrote the note: "person" or "agent".
+	Author NoteAuthor `json:"author"`
+	// ProjectID is the project the card belongs to.
+	ProjectID string `json:"projectId"`
+	// ProjectName is that project's display name.
+	ProjectName string `json:"projectName"`
+	// At is when the note was last saved.
+	At Timestamp `json:"at"`
 }
 
 // SearchSnapshot is the answer to GET /v1/search?q=. Each list is best match first and holds at
@@ -82,6 +136,11 @@ type SearchSnapshot struct {
 	Cards []CardHit `json:"cards"`
 	// Chats are the chats that matched, from every project.
 	Chats []ChatHit `json:"chats"`
+	// Sessions are the past session events that matched, from every project, newest first among
+	// equally good matches.
+	Sessions []SessionHit `json:"sessions"`
+	// Notes are the card notes that matched, from every project.
+	Notes []NoteHit `json:"notes"`
 	// Totals are how many of each kind matched before the lists were cut.
 	Totals SearchTotals `json:"totals"`
 	// ServerTime is the daemon's time when the search ran.

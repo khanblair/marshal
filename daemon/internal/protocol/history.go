@@ -113,6 +113,12 @@ type PlanUpdatedEventData struct {
 // ChatApproval is an approval block of a card's chat (docs/backend-inventory.md 4.3): a permission
 // an agent asked for, from the moment it waits to the answer it got (B3.4).
 type ChatApproval struct {
+	// ID is the approval's own opaque id, the one POST /v1/approvals/{id} takes. It is empty for a
+	// request the daemon answered on its own without minting one (a bypassed or harness-auto-answered
+	// request), which is never in the waiting state, so a client never has a button with nothing to
+	// call. S8b: this is what lets a chat reopened after the request was made still answer it, since
+	// before this field existed the stored block carried nothing an approve or deny call could use.
+	ID string `json:"id"`
 	// State is where the request stands.
 	State ChatApprovalState `json:"state"`
 	// Command is the command or the action the agent asked to run. Empty when the request has
