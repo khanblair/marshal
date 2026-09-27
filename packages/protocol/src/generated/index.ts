@@ -82,13 +82,182 @@ export interface Agent {
 export interface AgentCatalog {
   /**
    * Agents has one entry for each kind of agent that a card can use, whether or not it is
-   * installed. The built-in agent is not listed here.
+   * installed. The built-in agent is last, and it is always there: Marshal runs it itself, so
+   * there is nothing to install. The three CLI kinds come first, in the order the pickers show
+   * them.
    */
   agents: Agent[];
   /**
    * ServerTime is the daemon's time when the answer was made. The catalog itself may come from
    * a check that was made a few minutes earlier.
    */
+  serverTime: Timestamp;
+}
+
+//////////
+// source: approvals.go
+
+/**
+ * Approval is one permission an agent asked a person for, from the moment it is announced until it
+ * is answered. State is where it stands: waiting, approved, or denied.
+ */
+export interface Approval {
+  /** ID is the approval's own opaque id. It is what POST /v1/approvals/{id} answers. */
+  id: string;
+  /** CardID is the card whose session asked for permission. It is empty when a chat's session did. */
+  cardId: string;
+  /** ChatID is the chat whose session asked for permission. It is left out when a card's did. */
+  chatId?: string;
+  /** SessionID is the session's own opaque id, for the audit trail. */
+  sessionId: string;
+  /**
+   * ToolCallID names the tool call the request is about, when the agent says. Empty when it does
+   * not.
+   */
+  toolCallId?: string;
+  /** Title is the one line the request shows, in the agent's own words. */
+  title: string;
+  /**
+   * Kind is the agent's word for the kind of tool: read, edit, delete, move, search, execute,
+   * think, fetch, switch_mode, or other. Empty when the agent gave none.
+   */
+  kind?: string;
+  /** Path is the file the request is about, when it has one. */
+  path?: string;
+  /** Command is the command line of an execute request, when it has one. */
+  command?: string;
+  /** Options are the answers the agent offered, in the order the agent gave them. Never null. */
+  options: ApprovalOption[];
+  /** State is where the request stands. */
+  state: ChatApprovalState;
+  /**
+   * DecidedBy names who answered, and is empty while the request is waiting. It is "person" for an
+   * answer given from a screen, or "daemon" for one the daemon gave on a person's behalf (a
+   * bypassed mode, or a request withdrawn when the session ended).
+   */
+  decidedBy?: string;
+  /**
+   * At is when the agent asked, in UTC. It is read back from the approval's own id (IDTime), so it
+   * survives a restart without a stored column of its own.
+   */
+  at: Timestamp;
+}
+/**
+ * ApprovalOption is one answer an agent offered for an approval, on the wire. Kind is one of the
+ * agents.Option constants: allow_once, allow_always, reject_once, or reject_always.
+ */
+export interface ApprovalOption {
+  /**
+   * ID is the option's id inside the request, as the agent named it. It is what the agent is
+   * given back, so it is passed through unchanged.
+   */
+  id: string;
+  /** Name is the option's label, in the agent's own words. */
+  name: string;
+  /**
+   * Kind groups the options: allow_once and allow_always allow, reject_once and reject_always
+   * refuse.
+   */
+  kind: string;
+}
+/**
+ * ApprovalDecision is the answer a person gives to an Approval. It is the state the request moves
+ * to, and the two words match ChatApprovalState, so a decided approval needs no translation.
+ */
+/** ApprovalDecisionApproved is an approval a person allowed. */
+export const ApprovalDecisionApproved = "approved";
+/** ApprovalDecisionDenied is an approval a person refused. */
+export const ApprovalDecisionDenied = "denied";
+export type ApprovalDecision = typeof ApprovalDecisionApproved | typeof ApprovalDecisionDenied;
+/** Every ApprovalDecision, in the order the Go list gives them. */
+export const ApprovalDecisionValues: readonly ApprovalDecision[] = [
+  ApprovalDecisionApproved,
+  ApprovalDecisionDenied,
+];
+/** DecideApprovalRequest is the body of POST /v1/approvals/{id}: the answer to one approval. */
+export interface DecideApprovalRequest {
+  /** Decision is approve or deny. It is required. */
+  decision: ApprovalDecision;
+  /**
+   * OptionID picks the exact option the agent offered (allow_always rather than allow_once, for
+   * example). It is optional: when it is empty the daemon picks the plain option for the decision
+   * (allow_once to approve, reject_once to deny), and when it is set the agent must have offered
+   * it.
+   */
+  optionId?: string;
+}
+/**
+ * ApprovalRequestedEventData is the payload of approval.requested, on the card's or the chat's
+ * topic: the whole Approval, so a view that is opened after it (or that missed it) can draw it
+ * without another call.
+ */
+export interface ApprovalRequestedEventData {
+  /** CardID is the card whose session asked. It is empty when a chat's did. */
+  cardId: string;
+  /** ChatID is the chat whose session asked. It is left out when a card's did. */
+  chatId?: string;
+  /** Approval is the request, in the waiting state. */
+  approval: Approval;
+}
+/**
+ * ApprovalResolvedEventData is the payload of approval.resolved: which approval was answered and
+ * where it now stands, so every view of the same row updates together (N7).
+ */
+export interface ApprovalResolvedEventData {
+  /** CardID is the card whose session asked. It is empty when a chat's did. */
+  cardId: string;
+  /** ChatID is the chat whose session asked. It is left out when a card's did. */
+  chatId?: string;
+  /** ApprovalID is the approval that was answered. */
+  approvalId: string;
+  /** State is where it now stands: approved or denied. */
+  state: ChatApprovalState;
+  /** DecidedBy names who answered ("person" or "daemon"). */
+  decidedBy?: string;
+  /** At is when it was answered, in UTC. */
+  at: Timestamp;
+}
+
+//////////
+// source: audit.go
+
+/** AuditEntry is one row of the audit log. */
+export interface AuditEntry {
+  /** ID is the row's own opaque id. It is made by the writer and sorts by time like every other id. */
+  id: string;
+  /** SessionID is the session the action belonged to, when it belonged to one. */
+  sessionId?: string;
+  /** Actor is who acted: "person", "agent", or "daemon". */
+  actor: string;
+  /**
+   * Action is what they did, as one of internal/audit's action names: "approve", "deny",
+   * "bypass.on", "bypass.off", "commit.blocked", and so on. It is a plain string, not an enum, so a
+   * new kind of action needs no wire change and an older client shows it by its name.
+   */
+  action: string;
+  /** Target is what the action was about, when there is one: an approval id, a card id, a commit. */
+  target?: string;
+  /**
+   * Detail is whatever else the writer recorded, as JSON. It is left out when the writer recorded
+   * nothing.
+   */
+  detail?: { [key: string]: any };
+  /** At is when it happened, in UTC. */
+  at: Timestamp;
+}
+/**
+ * AuditExport is the answer to the export route: everything the query matched, newest first, not
+ * paged and not counted against the page limit, because an export is asked for as a whole. It
+ * carries the query it answers so the file says what it is.
+ */
+export interface AuditExport {
+  /** Query is the search that produced this export, and is empty for an export of everything. */
+  query?: string;
+  /** Entries are the rows the query matched, newest first. */
+  entries: AuditEntry[];
+  /** Total is how many entries there are, so a reader knows whether it has all of them. */
+  total: number /* int */;
+  /** ServerTime is the daemon's time when the export was made. */
   serverTime: Timestamp;
 }
 
@@ -141,6 +310,45 @@ export interface WhoAmI {
 }
 
 //////////
+// source: bypass.go
+
+/**
+ * BypassRequest is the body of POST /v1/cards/{id}/bypass. Turning bypass on is the one card
+ * setting that is not a plain field change, because it carries the acknowledgement a person gives
+ * before it is granted (docs/architecture.md section 10, docs/backend-checklist.md B3.2).
+ * The sentence a person reads belongs to the app, so what travels here is the acknowledgement
+ * itself: the app sends true only when the person accepted it. Sending false is refused, which is
+ * what stops a client, a script, or a stale tab from turning bypass on as a side effect of setting
+ * a permission mode.
+ */
+export interface BypassRequest {
+  /**
+   * Acknowledged says the person accepted what bypass means: the agent runs every command and
+   * edit in the card's worktree without asking.
+   */
+  acknowledged: boolean;
+}
+/**
+ * BypassRefusalReason is why the daemon refused to turn bypass on. It travels in the details of a
+ * refused error, the way a view refusal does, so the app can show its own words for it.
+ */
+/** BypassRefusalReasonUnacknowledged is a request that did not acknowledge what bypass means. */
+export const BypassRefusalReasonUnacknowledged = "unacknowledged";
+/**
+ * BypassRefusalReasonLocked is a card of a project whose settings forbid bypass. The lock is
+ * the same one the app shows beside the switch (N16).
+ */
+export const BypassRefusalReasonLocked = "locked";
+export type BypassRefusalReason =
+  | typeof BypassRefusalReasonUnacknowledged
+  | typeof BypassRefusalReasonLocked;
+/** Every BypassRefusalReason, in the order the Go list gives them. */
+export const BypassRefusalReasonValues: readonly BypassRefusalReason[] = [
+  BypassRefusalReasonUnacknowledged,
+  BypassRefusalReasonLocked,
+];
+
+//////////
 // source: card.go
 
 /**
@@ -179,8 +387,8 @@ export interface Card {
   /** PermissionMode is how much the agent may do without asking. */
   permissionMode: PermissionMode;
   /**
-   * Role is the role's name, such as "Implementer". Phase 5 turns this into a role id; until
-   * then it is the text name of a starter role, and it may be empty.
+   * Role is the role's name, such as "Implementer". A role is addressed by its name rather than
+   * by an id, so this is the name of one of the project's roles, and it may be empty.
    */
   role: string;
   /** Labels are the project's labels on this card, in the order they were added. Never null. */
@@ -522,6 +730,247 @@ export interface CreateChatRequest {
 export interface UpdateChatRequest {
   /** Title is the new name. Null leaves it, and a title that is only spaces is refused. */
   title?: string;
+}
+
+//////////
+// source: checkpoint.go
+
+/**
+ * Checkpoint is one restore point of a card (docs/architecture.md section 10, docs/backend-checklist
+ * B5.3, build-plan 5.21): a Git commit Marshal made before an agent turn, before a merge, or when a
+ * person asked, that the card's worktree can be put back to. A card's checkpoints are listed newest
+ * first, and only the restore route changes anything: the list is a history of moments, not a thing
+ * that is edited.
+ * There is no checkpoint document to read: a restore point is the commit and the label a person
+ * reads beside it. The commit itself is kept on a hidden ref, so it survives the branch moving on.
+ */
+export interface Checkpoint {
+  /**
+   * ID is the checkpoint's own opaque id. The restore route addresses it, and it is what names
+   * the hidden ref the commit is kept on.
+   */
+  id: string;
+  /** CardID is the card the restore point belongs to. */
+  cardId: string;
+  /** SHA is the commit the checkpoint points at, full length. */
+  sha: string;
+  /**
+   * Label says what the checkpoint was made before ("before turn 3", "before merge"). It is
+   * empty when there is nothing to say, and the app then names the moment by its time.
+   */
+  label: string;
+  /** CreatedAt is when the checkpoint was made. */
+  createdAt: Timestamp;
+}
+/**
+ * CheckpointList is the answer to GET /v1/cards/{id}/checkpoints: every restore point of one card,
+ * newest first.
+ */
+export interface CheckpointList {
+  /** CardID is the card the list is about. */
+  cardId: string;
+  /** Checkpoints are the card's restore points, newest first. Never null. */
+  checkpoints: Checkpoint[];
+  /** ServerTime is the daemon's time when the answer was made. */
+  serverTime: Timestamp;
+}
+/**
+ * RestoreCheckpointRequest is the body of POST /v1/cards/{id}/checkpoints/{cp}/restore. An empty
+ * body is a worktree restore, which is what the plain Restore button asks for.
+ */
+export interface RestoreCheckpointRequest {
+  /**
+   * Conversation asks for the card's own conversation to be put back to the checkpoint as well as
+   * its worktree, which is what the "and the conversation" choice in the restore dialog sends.
+   * It is the one field, so an absent body and a body of `{}` mean the same thing: the worktree
+   * alone.
+   */
+  conversation?: boolean;
+}
+
+//////////
+// source: ci.go
+
+/**
+ * CiRun is one workflow's newest state on one branch. It is what the `ci_runs` row holds, plus the
+ * two times a screen needs to say "4 min ago" without a second call.
+ */
+export interface CiRun {
+  /** ID is the run's opaque id. It is the forge's own run id when there is one. */
+  id: string;
+  /** ProjectID is the project whose repository the run is in. */
+  projectId: string;
+  /**
+   * CardID is the card whose branch the run is on. Empty when the branch is not a card's: the
+   * default branch, or another branch a person pushed for their own reasons.
+   */
+  cardId: string;
+  /** Branch is the Git branch the run is on. */
+  branch: string;
+  /**
+   * Workflow is the workflow's name as the forge names it, such as "ci". For a monorepo it is
+   * the workflow with the package it covers, such as "ci packages/web".
+   */
+  workflow: string;
+  /** Status is where the run is. */
+  status: CIState;
+  /** URL is the address of the run on the forge, so a person can open it. Empty when unknown. */
+  url: string;
+  /**
+   * StartedAt is when the run started. Null while it is still queued, so a screen shows the
+   * queued state rather than a time that has not happened.
+   */
+  startedAt?: Timestamp | null;
+  /**
+   * UpdatedAt is when the run last changed. It is always set: it is what "4 min ago" is counted
+   * from, and a run always has the moment Marshal first heard of it.
+   */
+  updatedAt: Timestamp;
+}
+/**
+ * ProjectCI is one project's CI health: the state of its default branch, and every run Marshal
+ * knows about for it, newest first. A project Marshal has no run for has no entry at all, so a
+ * screen shows an honest "GitHub is not connected" instead of an empty list.
+ */
+export interface ProjectCI {
+  /** ProjectID is the project the runs belong to. */
+  projectId: string;
+  /**
+   * Status is the state of the project's default branch: the newest run on it, or queued when
+   * Marshal knows nothing about that branch.
+   */
+  status: CIState;
+  /** Runs are the project's runs, newest first. Never null. */
+  runs: CiRun[];
+}
+/** CiSnapshot is the answer to GET /v1/ci: every project Marshal has CI data for, in project order. */
+export interface CISnapshot {
+  /**
+   * Projects has one entry per project that has at least one run. A project with none is left
+   * out on purpose: the CI health page says GitHub is not connected when none has any.
+   */
+  projects: ProjectCI[];
+  /** ServerTime is the daemon's time when the answer was made, so a client counts ages from it. */
+  serverTime: Timestamp;
+}
+/**
+ * CIEventData is what a `ci.updated` event carries (section 11.2). One run changes at a time, but a
+ * screen never shows one run alone: a board draws a project's CI health, a card draws its own badge,
+ * and the CI health page draws every project. So the event carries the project's CI health when it
+ * is published on a project's topic, and the whole snapshot when it is published on the home topic.
+ */
+export interface CIEventData {
+  /** Project is the project whose CI changed. Set on a project's topic, and null on the home one. */
+  project?: ProjectCI;
+  /** Snapshot is every project's CI as it now is. Set on the home topic, and null on a project's. */
+  snapshot?: CISnapshot;
+}
+/** SimulateMode is which way the "Simulate CI failure" action runs (N28, B6.4, decision D5). */
+/**
+ * SimulateModeSynthetic injects a failed run through the CI monitor's own path - the same
+ * rerun, the same trimmed log, the same loop limits, the same notice - and never touches the
+ * forge. It is the mode every test uses.
+ */
+export const SimulateModeSynthetic = "synthetic";
+/**
+ * SimulateModeReal pushes a deliberately failing change to the card's own branch, so the
+ * forge's Actions really run and the failure comes back as a delivery. It uses Actions
+ * minutes, it is shown only in dev mode or with Developer options on, and Marshal never runs
+ * it without a person asking.
+ */
+export const SimulateModeReal = "real";
+export type SimulateMode = typeof SimulateModeSynthetic | typeof SimulateModeReal;
+/** Every SimulateMode, in the order the Go list gives them. */
+export const SimulateModeValues: readonly SimulateMode[] = [
+  SimulateModeSynthetic,
+  SimulateModeReal,
+];
+/**
+ * SimulateCIFailureRequest is the body of POST /v1/cards/{id}/ci-failure. The card comes from the
+ * path, so the body carries only which mode to run.
+ */
+export interface SimulateCIFailureRequest {
+  /** Mode is the mode to run. */
+  mode: SimulateMode;
+}
+/**
+ * SimulateCIFailureResult is what a simulated failure produced. Both modes answer with the same
+ * shape, so the screen that shows which one ran does not branch.
+ */
+export interface SimulateCIFailureResult {
+  /** CardID is the card the failure was injected for. */
+  cardId: string;
+  /** Mode is the mode that ran, so the audit line and the screen agree. */
+  mode: SimulateMode;
+  /** Run is the failed run as the CI monitor now holds it. */
+  run: CiRun;
+  /**
+   * FixStarted is true when the failure was handed to the fix loop. It is false for a card that
+   * had no session to send the log to, or one the loop limits already stopped.
+   */
+  fixStarted: boolean;
+  /**
+   * Commit is the marked commit the real mode pushed. Empty in synthetic mode, which changes
+   * nothing on the branch.
+   */
+  commit: string;
+}
+
+//////////
+// source: connection.go
+
+/** CheckState is how one check of a connection test came out. */
+/** CheckStatePassed is a check that found what it wanted. */
+export const CheckStatePassed = "passed";
+/** CheckStateFailed is a check that found something wrong that a person must fix. */
+export const CheckStateFailed = "failed";
+/**
+ * CheckStateWarning is a check that found something worth noting that is not a failure, such
+ * as a provider whose rate-limit headers Marshal cannot read.
+ */
+export const CheckStateWarning = "warning";
+export type CheckState =
+  | typeof CheckStatePassed
+  | typeof CheckStateFailed
+  | typeof CheckStateWarning;
+/** Every CheckState, in the order the Go list gives them. */
+export const CheckStateValues: readonly CheckState[] = [
+  CheckStatePassed,
+  CheckStateFailed,
+  CheckStateWarning,
+];
+/**
+ * TestCheck is one thing a connection test looked at. Message is one plain sentence for the person;
+ * Fix is one plain sentence saying what to do when the check did not pass, and is empty when there
+ * is nothing to do.
+ */
+export interface TestCheck {
+  /** Name is the short label of the check, such as "Key" or "Model". */
+  name: string;
+  /** State is how it came out. */
+  state: CheckState;
+  /** Message is one plain sentence saying what was found. */
+  message: string;
+  /** Fix says what to do about a check that did not pass. Empty when there is nothing to do. */
+  fix?: string;
+}
+/**
+ * TestResult is what one connection test found. It is the answer to a test call and the thing a
+ * connection's last result is stored as (docs/architecture.md section 18: results are saved in
+ * integrations.last_test_result_json).
+ */
+export interface TestResult {
+  /**
+   * ConnectionID is the id of the connection that was tested: a provider id today, such as
+   * "anthropic".
+   */
+  connectionId: string;
+  /** Checks is what the test looked at, in the order the screen shows them. */
+  checks: TestCheck[];
+  /** OK is true when no check failed. A warning does not make a result not OK. */
+  ok: boolean;
+  /** RanAt is when the test ran. */
+  ranAt: Timestamp;
 }
 
 //////////
@@ -964,14 +1413,11 @@ export const ChatMessageKindSystem = "system";
 /** ChatMessageKindDiff is the summary of the files one turn changed. */
 export const ChatMessageKindDiff = "diff";
 /**
- * ChatMessageKindPlan is a plan the agent wrote in plan-first mode. It is defined now and
- * nothing writes it yet: the plan side of the chat is Phase 5 (B5.2).
+ * ChatMessageKindPlan is a plan the agent wrote in plan-first mode, and each answer to it
+ * (B5.2).
  */
 export const ChatMessageKindPlan = "plan";
-/**
- * ChatMessageKindApproval is a permission the agent asked for. It is defined now and nothing
- * writes it yet: approvals are Phase 3 (B3.4).
- */
+/** ChatMessageKindApproval is a permission the agent asked for, and the answer it got (B3.4). */
 export const ChatMessageKindApproval = "approval";
 /** ChatMessageKindCard is a card an agent or the Orchestrator made or named. */
 export const ChatMessageKindCard = "card";
@@ -995,10 +1441,7 @@ export const ChatMessageKindValues: readonly ChatMessageKind[] = [
   ChatMessageKindApproval,
   ChatMessageKindCard,
 ];
-/**
- * ChatPlanState is where a plan block stands (docs/backend-inventory.md 4.3). Like the plan kind
- * itself, it is defined now and written in Phase 5.
- */
+/** ChatPlanState is where a plan block stands (docs/backend-inventory.md 4.3). */
 /** ChatPlanStateWaiting is a plan the agent waits for an answer on. */
 export const ChatPlanStateWaiting = "waiting";
 /** ChatPlanStateApproved is a plan a person approved. */
@@ -1019,10 +1462,7 @@ export const ChatPlanStateValues: readonly ChatPlanState[] = [
   ChatPlanStateRejected,
   ChatPlanStateEdited,
 ];
-/**
- * ChatApprovalState is where an approval block stands (docs/backend-inventory.md 4.3). Like the
- * approval kind itself, it is defined now and written in Phase 3.
- */
+/** ChatApprovalState is where an approval block stands (docs/backend-inventory.md 4.3). */
 /** ChatApprovalStateWaiting is an approval nobody has answered yet. */
 export const ChatApprovalStateWaiting = "waiting";
 /** ChatApprovalStateApproved is an approval a person allowed. */
@@ -1112,6 +1552,8 @@ export const NeedsReasonKindCIFailed = "ci-failed";
 export const NeedsReasonKindConflict = "conflict";
 /** NeedsReasonKindQuestion is a card whose agent asked a question. */
 export const NeedsReasonKindQuestion = "question";
+/** NeedsReasonKindSecret is a card whose commit held something that looks like a credential. */
+export const NeedsReasonKindSecret = "secret-detected";
 export type NeedsReasonKind =
   | typeof NeedsReasonKindPlanReady
   | typeof NeedsReasonKindApprovalNeeded
@@ -1119,7 +1561,8 @@ export type NeedsReasonKind =
   | typeof NeedsReasonKindLimit
   | typeof NeedsReasonKindCIFailed
   | typeof NeedsReasonKindConflict
-  | typeof NeedsReasonKindQuestion;
+  | typeof NeedsReasonKindQuestion
+  | typeof NeedsReasonKindSecret;
 /** Every NeedsReasonKind, in the order the Go list gives them. */
 export const NeedsReasonKindValues: readonly NeedsReasonKind[] = [
   NeedsReasonKindPlanReady,
@@ -1129,6 +1572,7 @@ export const NeedsReasonKindValues: readonly NeedsReasonKind[] = [
   NeedsReasonKindCIFailed,
   NeedsReasonKindConflict,
   NeedsReasonKindQuestion,
+  NeedsReasonKindSecret,
 ];
 /**
  * LabelColor is the fixed set of colors a label may have (decision D3). The values are token
@@ -1184,6 +1628,12 @@ export const MoveRefusalReasonNeedsReview = "move_needs_review";
 export const MoveRefusalReasonChecksNotPassed = "move_checks_not_passed";
 /** MoveRefusalReasonCardMerging is a move of a card that is being merged. */
 export const MoveRefusalReasonCardMerging = "move_card_merging";
+/**
+ * MoveRefusalReasonQualityBlocking is a move to review of a card whose changes have a blocking
+ * code smell. It is the quality module's own rule (architecture.md section 17.1): the smell
+ * goes back to the card's agent, and the card stays where it is until it is fixed or dismissed.
+ */
+export const MoveRefusalReasonQualityBlocking = "move_quality_blocking";
 export type MoveRefusalReason =
   | typeof MoveRefusalReasonFromDone
   | typeof MoveRefusalReasonToDone
@@ -1191,7 +1641,8 @@ export type MoveRefusalReason =
   | typeof MoveRefusalReasonNeedsPullRequest
   | typeof MoveRefusalReasonNeedsReview
   | typeof MoveRefusalReasonChecksNotPassed
-  | typeof MoveRefusalReasonCardMerging;
+  | typeof MoveRefusalReasonCardMerging
+  | typeof MoveRefusalReasonQualityBlocking;
 /** Every MoveRefusalReason, in the order the Go list gives them. */
 export const MoveRefusalReasonValues: readonly MoveRefusalReason[] = [
   MoveRefusalReasonFromDone,
@@ -1201,6 +1652,7 @@ export const MoveRefusalReasonValues: readonly MoveRefusalReason[] = [
   MoveRefusalReasonNeedsReview,
   MoveRefusalReasonChecksNotPassed,
   MoveRefusalReasonCardMerging,
+  MoveRefusalReasonQualityBlocking,
 ];
 /**
  * HoldRefusalReason is why a pause or a sleep of a card was refused (architecture.md section 5.1,
@@ -1396,14 +1848,33 @@ export const EventTypeSessionTerminalOutput = "session.terminal_output";
 export const EventTypeApprovalRequested = "approval.requested";
 /** EventTypeApprovalResolved is sent when a permission request is answered. */
 export const EventTypeApprovalResolved = "approval.resolved";
+/**
+ * EventTypePlanUpdated is sent when a plan message is added or answered, so every view of the
+ * card's plan follows the same decision (docs/backend-checklist.md B5.2, inventory N6).
+ */
+export const EventTypePlanUpdated = "plan.updated";
 /** EventTypeCIUpdated is sent when a CI run changes. */
 export const EventTypeCIUpdated = "ci.updated";
+/**
+ * EventTypePreviewStateChanged is sent when a card's live preview changes state - stopped,
+ * starting, or running - and when a screenshot of it is taken. It carries the whole preview as
+ * it is now, screenshots included, so a client that applies it twice is where it should be
+ * (B6.6, N10).
+ */
+export const EventTypePreviewStateChanged = "preview.state_changed";
 /** EventTypeQualityChecked is sent when the quality checks finish for a card. */
 export const EventTypeQualityChecked = "quality.checked";
 /** EventTypeMergeProgress is sent as a merge moves along. */
 export const EventTypeMergeProgress = "merge.progress";
 /** EventTypeNoticeCreated is sent when a notice is added. */
 export const EventTypeNoticeCreated = "notice.created";
+/**
+ * EventTypeNoticeDismissed is sent when a notice goes away, whether a person dismissed it or
+ * the daemon finished what it announced (the idle cards fell asleep). It is beside
+ * notice.created so a client that watched a notice appear learns that it is gone; a client
+ * that was away re-reads the list on either event.
+ */
+export const EventTypeNoticeDismissed = "notice.dismissed";
 /** EventTypeUsageUpdated is sent when token use or cost changes. */
 export const EventTypeUsageUpdated = "usage.updated";
 /** EventTypeBudgetWarning is sent when a cost or awake limit is close. */
@@ -1434,10 +1905,13 @@ export type EventType =
   | typeof EventTypeSessionTerminalOutput
   | typeof EventTypeApprovalRequested
   | typeof EventTypeApprovalResolved
+  | typeof EventTypePlanUpdated
   | typeof EventTypeCIUpdated
+  | typeof EventTypePreviewStateChanged
   | typeof EventTypeQualityChecked
   | typeof EventTypeMergeProgress
   | typeof EventTypeNoticeCreated
+  | typeof EventTypeNoticeDismissed
   | typeof EventTypeUsageUpdated
   | typeof EventTypeBudgetWarning;
 /** Every EventType, in the order the Go list gives them. */
@@ -1467,10 +1941,13 @@ export const EventTypeValues: readonly EventType[] = [
   EventTypeSessionTerminalOutput,
   EventTypeApprovalRequested,
   EventTypeApprovalResolved,
+  EventTypePlanUpdated,
   EventTypeCIUpdated,
+  EventTypePreviewStateChanged,
   EventTypeQualityChecked,
   EventTypeMergeProgress,
   EventTypeNoticeCreated,
+  EventTypeNoticeDismissed,
   EventTypeUsageUpdated,
   EventTypeBudgetWarning,
 ];
@@ -1697,12 +2174,9 @@ export interface ChatMessage {
   tool?: ChatToolCall | null;
   /** Diff is the summary of the files a turn changed, for Kind diff, and null otherwise. */
   diff?: ChatDiffSummary | null;
-  /** Plan is the plan block, for Kind plan, and null otherwise. Nothing writes it yet (Phase 5). */
+  /** Plan is the plan block, for Kind plan, and null otherwise. */
   plan?: ChatPlan | null;
-  /**
-   * Approval is the approval block, for Kind approval, and null otherwise. Nothing writes it yet
-   * (Phase 3).
-   */
+  /** Approval is the approval block, for Kind approval, and null otherwise. */
   approval?: ChatApproval | null;
   /** Card is the card reference, for Kind card, and null otherwise. */
   card?: ChatCardRef | null;
@@ -1752,9 +2226,9 @@ export interface ChatDiffSummary {
   deletions: number /* int */;
 }
 /**
- * ChatPlan is a plan block of a card's chat (docs/backend-inventory.md 4.3). The kind and the
- * shape are defined now so the app can be written against them; nothing writes a plan message
- * until the plan-first session of Phase 5 (B5.2).
+ * ChatPlan is a plan block of a card's chat (docs/backend-inventory.md 4.3): what a plan-first
+ * session proposes, and how it was answered. An answer is another plan message whose state says
+ * what the person did, so what a person already read is never rewritten behind them (B5.2).
  */
 export interface ChatPlan {
   /** State is where the plan stands. */
@@ -1769,9 +2243,35 @@ export interface ChatPlan {
   checks: string[];
 }
 /**
- * ChatApproval is an approval block of a card's chat (docs/backend-inventory.md 4.3). The kind
- * and the shape are defined now so the app can be written against them; nothing writes an
- * approval message until the permission flow of Phase 3 (B3.4).
+ * EditPlanRequest is the body of PUT /v1/cards/{id}/plan: the steps the person left in the plan
+ * they edited (docs/backend-checklist.md B5.2, inventory N6). Only the steps are editable: the
+ * files, the risks, and the checks are the agent's own reading of the work, and Marshal keeps them
+ * as it was told them.
+ */
+export interface EditPlanRequest {
+  /**
+   * Steps are the plan's steps, in order. A step that is empty after trimming is dropped, the
+   * way the plan's own writer drops it.
+   */
+  steps: string[];
+}
+/**
+ * PlanUpdatedEventData is the payload of plan.updated: the plan block of the message that changed,
+ * so every view of the same card's plan follows one decision without reading the chat back (N6).
+ */
+export interface PlanUpdatedEventData {
+  /** CardID is the card whose chat holds the plan. */
+  cardId: string;
+  /** MessageID is the plan message that changed. */
+  messageId: string;
+  /** Plan is the plan block as it now stands. */
+  plan: ChatPlan;
+  /** At is when it changed, in UTC. */
+  at: Timestamp;
+}
+/**
+ * ChatApproval is an approval block of a card's chat (docs/backend-inventory.md 4.3): a permission
+ * an agent asked for, from the moment it waits to the answer it got (B3.4).
  */
 export interface ChatApproval {
   /** State is where the request stands. */
@@ -2052,6 +2552,104 @@ export interface CardKey {
 }
 
 //////////
+// source: integration.go
+
+/**
+ * IntegrationStatus is whether a connection is set up, as a screen shows it. There are three
+ * values and no more, on purpose: an installation that is under way is a fact about the browser a
+ * person is in, not about Marshal, and a daemon that stored "installing" would have to guess when
+ * that stopped being true. A screen that needs to show work in progress keeps that in its own
+ * state and never sends it here (the ruling is recorded in the Phase 6 report).
+ */
+/** IntegrationStatusConnected means the connection is set up: a key or an install is stored. */
+export const IntegrationStatusConnected = "connected";
+/** IntegrationStatusNone means nothing is stored yet, so the connection cannot be used. */
+export const IntegrationStatusNone = "none";
+/** IntegrationStatusError means something is stored and the last test found it does not work. */
+export const IntegrationStatusError = "error";
+export type IntegrationStatus =
+  | typeof IntegrationStatusConnected
+  | typeof IntegrationStatusNone
+  | typeof IntegrationStatusError;
+/** Every IntegrationStatus, in the order the Go list gives them. */
+export const IntegrationStatusValues: readonly IntegrationStatus[] = [
+  IntegrationStatusConnected,
+  IntegrationStatusNone,
+  IntegrationStatusError,
+];
+/**
+ * Integration is one connection as a screen sees it. The words shown to a person (a name, an icon,
+ * the sentence under it) are the app's, and are built from this: the wire carries the id, the kind,
+ * the status, and the last test's own answer.
+ */
+export interface Integration {
+  /**
+   * ID is the connection's own id, and the id its keychain entry and its `integrations` row are
+   * filed under: "github", "trello", "anthropic".
+   */
+  id: string;
+  /**
+   * Kind is the sort of connection this is: "provider", "github", "calendar". It is the kind
+   * its connection test is filed under.
+   */
+  kind: string;
+  /**
+   * Status says whether it is set up, and whether the last test found it working. The field is
+   * called Status in Go and `st` on the wire because `st` is the name the screens already read.
+   */
+  st: IntegrationStatus;
+  /**
+   * Detail is one plain sentence saying what is set up, such as "GitHub App installed on 3
+   * repositories". It is empty for a connection nothing is stored for.
+   */
+  detail: string;
+  /**
+   * LastTest is the result of the last connection test of this connection, or nil when it has
+   * never been tested. It is the same shape a provider's test answers with, so one screen shows
+   * both kinds of result.
+   */
+  lastTest?: TestResult;
+}
+/**
+ * IntegrationList is the answer to GET /v1/integrations: every connection Marshal can be set up
+ * with, whether or not it is, so the screen can show the ones that are not connected yet.
+ */
+export interface IntegrationList {
+  /**
+   * Integrations has one entry per connection Marshal knows, in the order the screen shows them.
+   * Never null.
+   */
+  integrations: Integration[];
+  /**
+   * ServerTime is the daemon's time when the answer was made, so a client counts a cooldown or
+   * an age from it rather than from its own clock.
+   */
+  serverTime: Timestamp;
+}
+/**
+ * SaveGitHubRequest is the body of the call that saves the GitHub App's connection (B6.1). The
+ * private key and the webhook secret are written to the keychain and never come back from any
+ * route; the two ids are written to the connection's own row.
+ */
+export interface SaveGitHubRequest {
+  /** AppID is the App's own numeric id, from its settings page on GitHub. */
+  appId: number /* int64 */;
+  /**
+   * InstallationID is the numeric id of the App's installation on the owner's account or
+   * organization. One App can be installed in more than one place, and this is the one Marshal
+   * acts as.
+   */
+  installationId: number /* int64 */;
+  /** PrivateKey is the App's private key, in PEM form, exactly as GitHub generated it. */
+  privateKey: string;
+  /**
+   * WebhookSecret is the secret the App's deliveries are signed with. Every delivery is checked
+   * against it before its body is read (B6.1).
+   */
+  webhookSecret: string;
+}
+
+//////////
 // source: label.go
 
 /** Label is one label of a project. */
@@ -2089,6 +2687,120 @@ export interface UpdateLabelRequest {
   name?: string;
   /** Color changes the color. Null leaves it. */
   color?: LabelColor;
+}
+
+//////////
+// source: localci.go
+
+/**
+ * LocalCIKind is what a workflow step does. Marshal runs the first three locally; the fourth is
+ * reported and never run, because a local run of it would not be the same run GitHub does.
+ */
+/** LocalCIKindTest is a step that runs tests. */
+export const LocalCIKindTest = "test";
+/** LocalCIKindLint is a step that lints, formats, or type-checks. */
+export const LocalCIKindLint = "lint";
+/** LocalCIKindBuild is a step that builds or compiles. */
+export const LocalCIKindBuild = "build";
+/** LocalCIKindOther is a step that is none of the three, such as a deploy or a packaging step. */
+export const LocalCIKindOther = "other";
+export type LocalCIKind =
+  | typeof LocalCIKindTest
+  | typeof LocalCIKindLint
+  | typeof LocalCIKindBuild
+  | typeof LocalCIKindOther;
+/** Every LocalCIKind, in the order the Go list gives them. */
+export const LocalCIKindValues: readonly LocalCIKind[] = [
+  LocalCIKindTest,
+  LocalCIKindLint,
+  LocalCIKindBuild,
+  LocalCIKindOther,
+];
+/**
+ * LocalCIStatus is where a step ended, or where a whole workflow ended. `unsupported` and `skipped`
+ * are different on purpose: the first is a step Marshal cannot run locally, the second is one that
+ * was not reached because an earlier step in the same job failed.
+ */
+/** LocalCIStatusPassed is a step that ran and succeeded. */
+export const LocalCIStatusPassed = "passed";
+/**
+ * LocalCIStatusFailed is a step that ran and failed, which is what a person fixes before
+ * pushing.
+ */
+export const LocalCIStatusFailed = "failed";
+/** LocalCIStatusUnsupported is a step Marshal will not run locally, with `Reason` saying why. */
+export const LocalCIStatusUnsupported = "unsupported";
+/** LocalCIStatusSkipped is a step that was not reached, with `Reason` saying what stopped it. */
+export const LocalCIStatusSkipped = "skipped";
+export type LocalCIStatus =
+  | typeof LocalCIStatusPassed
+  | typeof LocalCIStatusFailed
+  | typeof LocalCIStatusUnsupported
+  | typeof LocalCIStatusSkipped;
+/** Every LocalCIStatus, in the order the Go list gives them. */
+export const LocalCIStatusValues: readonly LocalCIStatus[] = [
+  LocalCIStatusPassed,
+  LocalCIStatusFailed,
+  LocalCIStatusUnsupported,
+  LocalCIStatusSkipped,
+];
+/** LocalCIRequest is the body of POST /v1/cards/{id}/local-ci. The card comes from the path. */
+export interface LocalCIRequest {
+  /**
+   * Workflow names one workflow file, as it is named in `.github/workflows`, such as "ci.yml".
+   * Empty means every workflow the card's worktree has.
+   */
+  workflow: string;
+}
+/** LocalCIStep is one step of one job, as Marshal found it and as far as it got. */
+export interface LocalCIStep {
+  /** Job is the job's name in the workflow file. */
+  job: string;
+  /** Name is the step's own name: its `name:`, or the command itself when it has none. */
+  name: string;
+  /** Kind is what the step does. */
+  kind: LocalCIKind;
+  /** Status is where it ended. */
+  status: LocalCIStatus;
+  /** Reason says why it was not run, in a sentence a person reads. Empty for a step that ran. */
+  reason: string;
+  /**
+   * Command is the step's `run:` line, as the workflow file has it. Empty for a step that was
+   * not a command.
+   */
+  command: string;
+  /** Output is the end of what the step printed, trimmed. Empty for a step that was not run. */
+  output: string;
+  /** TookMs is how long the step ran, in milliseconds. Zero for a step that was not run. */
+  tookMs: number /* int64 */;
+}
+/** LocalCIWorkflow is one workflow file of the card's worktree, with every step it declares. */
+export interface LocalCIWorkflow {
+  /** File is the file's path, relative to the worktree, with forward slashes. */
+  file: string;
+  /**
+   * Name is the workflow's own name: its top-level `name:`, or the file's name without its
+   * extension when it has none.
+   */
+  name: string;
+  /**
+   * Status is what the workflow ended as: failed when any step failed, unsupported when every
+   * step was, passed when nothing failed, and skipped when nothing ran.
+   */
+  status: LocalCIStatus;
+  /** Steps are the workflow's steps, job by job, in the order the file declares them. Never null. */
+  steps: LocalCIStep[];
+}
+/** LocalCIResult is what a local run produced: every workflow the request covered. */
+export interface LocalCIResult {
+  /** CardID is the card whose branch was run. */
+  cardId: string;
+  /** Branch is the branch the card's worktree is on, so a person knows what was run. */
+  branch: string;
+  /** Workflows are the workflow files that were run, in file order. Never null. */
+  workflows: LocalCIWorkflow[];
+  /** ServerTime is the daemon's time when the answer was made. */
+  serverTime: Timestamp;
 }
 
 //////////
@@ -2457,6 +3169,132 @@ export interface MeUpdatedEventData {
 }
 
 //////////
+// source: notice.go
+
+/**
+ * Notice is one notice on the wire. A sleep notice names the cards it is about and the moment they
+ * sleep; an informational notice carries its own two sentences instead.
+ */
+export interface Notice {
+  /** ID names the notice for the calls that act on it. It is stable while the notice lives. */
+  id: string;
+  /** Kind is what the notice is about (NoticeKindSleep today). */
+  kind: NoticeKind;
+  /** Cards are the cards a notice is about, by their opaque ids. Empty for an informational kind. */
+  cards?: string[];
+  /**
+   * Deadline is the moment a sleep notice's cards sleep, when it has one. Nil for an
+   * informational notice, and for a sleep notice that has no deadline yet.
+   */
+  deadline?: Timestamp;
+  /** Text is a notice's one-line title, for an informational kind. */
+  text?: string;
+  /** Sub is the second line under the title, for an informational kind. */
+  sub?: string;
+  /**
+   * ProjectID is the project a notice belongs to, when it belongs to one. Empty for a notice
+   * about the whole install.
+   */
+  projectId?: string;
+  /** CreatedAt is when the notice was made. */
+  createdAt: Timestamp;
+}
+/**
+ * NoticeList is the answer to GET /v1/notices: every notice that is standing, newest first is not
+ * guaranteed, so a client that cares sorts them.
+ */
+export interface NoticeList {
+  /**
+   * Notices is every standing notice. It is never null, so JSON has [] and a client never
+   * handles both an empty list and a missing one.
+   */
+  notices: Notice[];
+}
+/**
+ * NoticeListEventData is the payload of notice.created and notice.dismissed (architecture.md
+ * 11.2): the whole list as it now stands, so a client redraws the notices panel from one event and
+ * never has to hold the difference between two of them.
+ */
+export interface NoticeListEventData {
+  /** Notices is every standing notice. */
+  notices: Notice[];
+}
+/**
+ * NoticeActionResult is the answer to a notice's own call (keep all awake, sleep all now): how many
+ * cards it changed, so the toast can say a number.
+ */
+export interface NoticeActionResult {
+  /** Cards is how many cards the call acted on. */
+  cards: number /* int */;
+}
+/**
+ * The four calls a person makes on a sleep notice, as the body of POST /v1/notices/{id}/actions
+ * (inventory N5). Two name one card and two are about the whole notice, which is why they are one
+ * call with one body rather than four addresses: the app draws two buttons per card row and two
+ * for the group, and the daemon answers each with a count.
+ * They are declared one by one and not in a block, like SleepRestoreAuto below, because an exported
+ * untyped constant in a block would become a TypeScript union this package does not mean to declare
+ * (protocol's own conventions test).
+ * NoticeActionKeepAwake is "Keep awake": hold one card off the idle timer for the keep-awake
+ * setting's length and take it off its notice.
+ */
+export const NoticeActionKeepAwake = "keep-awake";
+/** NoticeActionSleepNow is "Sleep now": put one card to sleep at once, whatever its deadline. */
+export const NoticeActionSleepNow = "sleep-now";
+/** NoticeActionKeepAll is "Keep all awake": hold every card the notice names off the idle timer. */
+export const NoticeActionKeepAll = "keep-all";
+/** NoticeActionSleepAll is "Sleep all now": put every card the notice names to sleep. */
+export const NoticeActionSleepAll = "sleep-all";
+/**
+ * NoticeActionRequest is the body of POST /v1/notices/{id}/actions. CardID is required by the two
+ * calls that name one card and ignored by the two that are about the whole notice.
+ */
+export interface NoticeActionRequest {
+  /** Action is one of NoticeActionKeepAwake, SleepNow, KeepAll, or SleepAll. */
+  action: string;
+  /** CardID is the card a per-card call is about. */
+  cardId?: string;
+}
+/**
+ * SleepRestoreAuto is the answer that resumes every card that was awake, right away
+ * (docs/architecture.md section 5.3). It is declared on its own, not in a block, because an
+ * exported untyped constant in a block would become a TypeScript union this package does not mean
+ * to declare (protocol's own conventions test).
+ */
+export const SleepRestoreAuto = "auto";
+/**
+ * SleepRestoreManual leaves the cards that were awake as they are and shows a resume button on each
+ * one. The other answer for SleepSettings.Restore.
+ */
+export const SleepRestoreManual = "manual";
+/**
+ * SleepSettings are the numbers and choices behind automatic sleep (B5.6, N5). They are stored with
+ * the install (the `settings` table) and read by the session manager: the idle timer, the sleep
+ * warning, and Keep awake all use them.
+ */
+export interface SleepSettings {
+  /** IdleMinutes is how long a card's session may be idle before it gets a sleep warning. */
+  idleMinutes: number /* int */;
+  /** WarningMinutes is how long the warning stands before the idle cards sleep. */
+  warningMinutes: number /* int */;
+  /** KeepAwakeMinutes is how long "Keep awake" holds a card off the idle timer. */
+  keepAwakeMinutes: number /* int */;
+  /** Restore is SleepRestoreAuto or SleepRestoreManual. */
+  restore: string;
+  /**
+   * Channel is where sleep warnings are sent: "in-app" today, with the messaging integrations
+   * (Phase 9) adding their own. Phase 5 stores it and always shows the warning in the app.
+   */
+  channel: string;
+}
+/**
+ * SleepChannelInApp is where a sleep warning goes when nobody has chosen otherwise: the app's own
+ * notices panel. The messaging integrations of Phase 9 add their own channel names, so this is a
+ * value of SleepSettings.Channel and not an enum of its own.
+ */
+export const SleepChannelInApp = "in-app";
+
+//////////
 // source: opaque_id.go
 
 //////////
@@ -2474,6 +3312,169 @@ export interface Page<T> {
   /** NextCursor is the cursor for the next page, or empty at the end. */
   nextCursor: string;
   /** ServerTime is the daemon's time when the page was made. */
+  serverTime: Timestamp;
+}
+
+//////////
+// source: preview.go
+
+/**
+ * PreviewState is where a card's preview is. The three words are the ones the Preview tab already
+ * reads, and the tab is not redesigned around them.
+ */
+/** PreviewStateStopped means no dev server is running for the card. */
+export const PreviewStateStopped = "stopped";
+/** PreviewStateStarting means the dev server has been asked for and is not answering yet. */
+export const PreviewStateStarting = "starting";
+/** PreviewStateRunning means the dev server answered, so the address is worth showing. */
+export const PreviewStateRunning = "running";
+export type PreviewState =
+  | typeof PreviewStateStopped
+  | typeof PreviewStateStarting
+  | typeof PreviewStateRunning;
+/** Every PreviewState, in the order the Go list gives them. */
+export const PreviewStateValues: readonly PreviewState[] = [
+  PreviewStateStopped,
+  PreviewStateStarting,
+  PreviewStateRunning,
+];
+/**
+ * PreviewShotKind says which half of the before/after pair a screenshot is: the page as the branch
+ * left it, or the page with the card's change.
+ */
+/** PreviewShotKindBefore is the screenshot taken before the card's change. */
+export const PreviewShotKindBefore = "before";
+/** PreviewShotKindAfter is the screenshot taken after the card's change. */
+export const PreviewShotKindAfter = "after";
+export type PreviewShotKind = typeof PreviewShotKindBefore | typeof PreviewShotKindAfter;
+/** Every PreviewShotKind, in the order the Go list gives them. */
+export const PreviewShotKindValues: readonly PreviewShotKind[] = [
+  PreviewShotKindBefore,
+  PreviewShotKindAfter,
+];
+/**
+ * PreviewShot is one screenshot of a card's preview. Marshal keeps the image as a file and serves
+ * it from the daemon; the wire carries the address, its size, and when it was taken, never the
+ * bytes.
+ */
+export interface PreviewShot {
+  /** Kind says which half of the pair this is. */
+  kind: PreviewShotKind;
+  /**
+   * URL is the daemon path of the image, with a version so a new image is a new address and a
+   * client never shows a cached one. It needs the token, like every other route.
+   */
+  url: string;
+  /**
+   * Width and Height are the image's size in pixels, so a screen can lay it out before the
+   * image arrives.
+   */
+  width: number /* int */;
+  height: number /* int */;
+  /** TakenAt is when the screenshot was taken. */
+  takenAt: Timestamp;
+}
+/**
+ * Preview is one card's live preview: where it is, the address it answers on when it is running,
+ * the command that was run, and the screenshots taken of it.
+ */
+export interface Preview {
+  /** CardID is the card the preview belongs to. */
+  cardId: string;
+  /** State is where the preview is. */
+  state: PreviewState;
+  /**
+   * URL is the address the app answers on, such as "http://127.0.0.1:5103". Empty until State
+   * is running: a preview that is starting has no address worth showing yet.
+   */
+  url: string;
+  /**
+   * Port is the port the dev server was given. Zero when the card has no preview of its own.
+   * Each card gets its own, so two cards preview at once without sharing state.
+   */
+  port: number /* int */;
+  /**
+   * Command is the command that was run to start it, such as "pnpm dev", so a person can see
+   * what the tab is doing. Empty when the project has no dev command set.
+   */
+  command: string;
+  /** StartedAt is when the preview reached running. Null while it is stopped or starting. */
+  startedAt?: Timestamp | null;
+  /**
+   * Error is one plain sentence saying why the preview could not start, and is empty when
+   * nothing went wrong. A preview that failed says so instead of spinning forever.
+   */
+  error: string;
+  /** Shots are the before and after screenshots, at most one of each. Never null. */
+  shots: PreviewShot[];
+}
+/**
+ * PreviewSnapshot is the answer to GET /v1/cards/{id}/preview: the card's preview as it is now.
+ * Opening the route runs nothing: it reports what is running, so a person looking at the tab does
+ * not start a dev server on the machine by looking.
+ */
+export interface PreviewSnapshot {
+  /** Preview is the card's preview. */
+  preview: Preview;
+  /**
+   * ServerTime is the daemon's time when the answer was made, so a client counts from it how
+   * long the preview has been running.
+   */
+  serverTime: Timestamp;
+}
+/**
+ * PreviewEventData is what a `preview.state_changed` event carries (section 11.2): the card's
+ * preview as it now is, whole, so a screen applies the event exactly as it applies the snapshot and
+ * the two can never disagree. It is published on the card's own topic.
+ */
+export interface PreviewEventData {
+  /** Preview is the card's preview. */
+  preview: Preview;
+}
+
+//////////
+// source: previewshot.go
+
+/** PreviewShotOutcome says what happened to a screenshot that was asked for. */
+/** PreviewShotOutcomeTaken means the screenshot was taken and is on the card. */
+export const PreviewShotOutcomeTaken = "taken";
+/**
+ * PreviewShotOutcomeSkipped means the check was skipped, and Notice says why. The one reason
+ * today is that neither Chrome nor Edge is installed; Marshal will not report a check as passed
+ * when it never ran.
+ */
+export const PreviewShotOutcomeSkipped = "skipped";
+export type PreviewShotOutcome = typeof PreviewShotOutcomeTaken | typeof PreviewShotOutcomeSkipped;
+/** Every PreviewShotOutcome, in the order the Go list gives them. */
+export const PreviewShotOutcomeValues: readonly PreviewShotOutcome[] = [
+  PreviewShotOutcomeTaken,
+  PreviewShotOutcomeSkipped,
+];
+/**
+ * PreviewShotRequest is the body of POST /v1/cards/{id}/preview/shots. The card comes from the
+ * path, and the kind says which half of the before/after pair to take.
+ */
+export interface PreviewShotRequest {
+  /** Kind says which half of the pair to capture: before the card's change, or after it. */
+  kind: PreviewShotKind;
+}
+/**
+ * PreviewShotResult is the answer to POST /v1/cards/{id}/preview/shots: the card's preview as it now
+ * is, and what came of the screenshot. Notice is always a sentence a person can read - what was
+ * captured, or why the check was skipped - so a client never has to guess from an empty shot list
+ * whether the check passed.
+ */
+export interface PreviewShotResult {
+  /** Preview is the card's preview, with the new shot in it when one was taken. */
+  preview: Preview;
+  /** Outcome says whether the shot was taken or the check was skipped. */
+  outcome: PreviewShotOutcome;
+  /**
+   * Notice is one plain sentence saying what was captured or why the check was skipped. Never
+   * empty.
+   */
+  notice: string;
+  /** ServerTime is the daemon's time when the answer was made. */
   serverTime: Timestamp;
 }
 
@@ -2649,6 +3650,280 @@ export interface LabelUpdatedEventData {
   projectId: string;
   /** Labels are the project's labels as they are now, by name. */
   labels: Label[];
+}
+
+//////////
+// source: provider.go
+
+/** ProviderStatus says whether a provider has a usable key. */
+/**
+ * ProviderStatusSaved means a key (or a server URL, for a local provider) is stored and
+ * nothing is known to be wrong with it.
+ */
+export const ProviderStatusSaved = "saved";
+/** ProviderStatusEmpty means no key is stored, so the provider cannot be used yet. */
+export const ProviderStatusEmpty = "empty";
+/** ProviderStatusInvalid means a key is stored and the last check refused it. */
+export const ProviderStatusInvalid = "invalid";
+export type ProviderStatus =
+  | typeof ProviderStatusSaved
+  | typeof ProviderStatusEmpty
+  | typeof ProviderStatusInvalid;
+/** Every ProviderStatus, in the order the Go list gives them. */
+export const ProviderStatusValues: readonly ProviderStatus[] = [
+  ProviderStatusSaved,
+  ProviderStatusEmpty,
+  ProviderStatusInvalid,
+];
+/**
+ * LimitKind says what a limit measures: how much money a scope may spend in a day or in a month, or
+ * how many cards it may keep awake at once. There are three kinds rather than one cost kind because
+ * the settings screen has three fields per scope - a daily cost limit, a monthly cost limit, and an
+ * awake card limit (apps/web/src/views/settings/limit-rows.ts) - and each has its own ceiling.
+ */
+/** LimitKindCostDay is a ceiling on one day's spending, in micro-dollars. */
+export const LimitKindCostDay = "cost-day";
+/** LimitKindCostMonth is a ceiling on one month's spending, in micro-dollars. */
+export const LimitKindCostMonth = "cost-month";
+/**
+ * LimitKindAwake is a ceiling on how many cards a scope may keep awake at once, counted in
+ * cards, not in milliseconds. It is a count of awake cards, so it fills when a new card must
+ * wake and the limit is already full (docs/architecture.md 5.2, "when a new card must wake and
+ * the limit is full, the oldest idle awake card gets a sleep warning").
+ */
+export const LimitKindAwake = "awake";
+export type LimitKind = typeof LimitKindCostDay | typeof LimitKindCostMonth | typeof LimitKindAwake;
+/** Every LimitKind, in the order the Go list gives them. */
+export const LimitKindValues: readonly LimitKind[] = [
+  LimitKindCostDay,
+  LimitKindCostMonth,
+  LimitKindAwake,
+];
+/**
+ * LimitScopeGlobal is the scope a limit that covers the whole install has. Any other scope is a
+ * project id. It is the same word the limits table stores (migration 0014).
+ */
+export const LimitScopeGlobal = "global";
+/**
+ * Provider is one model provider as a screen sees it: what it is called, whether a key is stored,
+ * and enough to show the masked key without ever sending the key itself. The key never leaves the
+ * daemon: Masked is made on the server from the stored key, and is the only form a client ever has
+ * (docs/backend-inventory.md N18).
+ */
+export interface Provider {
+  /**
+   * ID is the provider's own id, such as "anthropic". It is the key the keychain stores the
+   * secret under, so it is also what a save or a remove names.
+   */
+  id: string;
+  /** Name is the words shown to people, such as "Google Gemini". */
+  name: string;
+  /**
+   * Status says whether a key is stored and usable. The field is called Status in Go and `st`
+   * on the wire because `st` is the name the screens already read for this row.
+   */
+  st: ProviderStatus;
+  /**
+   * Masked is the key with its middle hidden, such as "sk-ant-…4f2a". For a local provider it
+   * is the server URL, which is not a secret. It is empty when no key is stored.
+   */
+  masked: string;
+  /**
+   * Models is one plain phrase naming what the provider offers, such as "Claude models". It is
+   * a description for the row, not a list: the models a person can pick are the agent
+   * catalog's, and they come from the providers that are set up.
+   */
+  models: string;
+  /**
+   * Error is one plain sentence saying what to do about a key the last check refused. It is
+   * empty unless Status is invalid.
+   */
+  error: string;
+  /**
+   * Local is true for a provider that runs on this machine and needs a server address rather
+   * than a key (Ollama, LM Studio). The screens swap the key field for a URL field.
+   */
+  local: boolean;
+  /**
+   * LastTest is the result of the last connection test of this provider, or nil when it has
+   * never been tested. It is the same shape every connection's test answers with
+   * (connection.go), so a screen shows a provider's test and an integration's test the same way.
+   * It is stored, not rebuilt: it is the last test's own answer, and it is what makes Status
+   * invalid when the last test's key check failed.
+   */
+  lastTest?: TestResult;
+}
+/**
+ * ProviderList is the answer to GET /v1/providers and to a change that returns the new list: every
+ * provider Marshal knows, in the order the screens show them.
+ */
+export interface ProviderList {
+  /**
+   * Providers has one entry for every provider Marshal knows, whether or not a key is stored
+   * for it, so the screen can show the ones that are not set up yet.
+   */
+  providers: Provider[];
+  /** ServerTime is the daemon's time when the answer was made. */
+  serverTime: Timestamp;
+}
+/**
+ * SaveProviderRequest is the body of a call that stores a provider's secret. The same field carries
+ * an API key and, for a local provider, the server URL: the person types one thing either way, and
+ * which it is depends on the provider, not on the request.
+ */
+export interface SaveProviderRequest {
+  /** Key is the API key to store, or the server URL for a local provider. */
+  key: string;
+}
+/**
+ * Limit is one ceiling: the most a scope may spend in a day or a month, or the most cards it may
+ * keep awake at once. Value is in the unit its kind measures - micro-dollars for a cost limit, a
+ * count of cards for the awake limit.
+ */
+export interface Limit {
+  /** Scope is LimitScopeGlobal for the whole install, or a project id for one project. */
+  scope: string;
+  /** Kind says what the ceiling measures. */
+  kind: LimitKind;
+  /** Value is the ceiling in the unit Kind measures. */
+  value: number /* int64 */;
+}
+/**
+ * LimitList is the answer to every limits call: the ceilings that are set, global ones first. It is
+ * the same shape whatever changed, so a screen redraws its form from one answer.
+ */
+export interface LimitList {
+  /**
+   * Limits has one entry per ceiling that is set. A scope with no ceiling has no entry, so
+   * this is empty on a fresh install.
+   */
+  limits: Limit[];
+}
+/**
+ * SetLimitRequest is the body of a call that sets one ceiling. Which scope and kind it belongs to
+ * comes from the path, so the body carries only the number.
+ */
+export interface SetLimitRequest {
+  /** Value is the new ceiling, in the unit the path's kind measures. */
+  value: number /* int64 */;
+}
+
+//////////
+// source: role.go
+
+/**
+ * RoleLimits is a role's own ceilings, the three numbers the role editor's limits row holds: how
+ * long a turn may run (minutes), what a card may cost (whole dollars), and how many turns it may
+ * take. Zero means the role sets no ceiling.
+ * They are not the install's limits (protocol.Limit, internal/providers/limits.go): a limit is what
+ * Marshal may spend, these are what one role's cards aim for, and Phase 5's harness moves a card to
+ * Needs you when it passes one.
+ */
+export interface RoleLimits {
+  /** Time is how long one turn may run, in minutes. */
+  time: number /* int */;
+  /** Cost is the most one card of this role may cost, in whole dollars. */
+  cost: number /* int */;
+  /** Rounds is the most turns one card of this role may take. */
+  rounds: number /* int */;
+}
+/**
+ * RoleSpec is the editable body of a role: everything but its name and the two flags that say where
+ * it came from. It is stored as the role's own JSON document (roles.spec_json) and, in the same
+ * shape, is what a role's export writes and its import reads, so a role moves between machines
+ * without a second format to keep in step.
+ * Skills and MCP are lists of names and never null: a role with none has an empty list, so the JSON
+ * has [] and the screens can map over it without a check.
+ */
+export interface RoleSpec {
+  /** Skills are the skill names the role's agent loads. */
+  skills: string[];
+  /** MCP are the MCP server names the role's agent may use. */
+  mcp: string[];
+  /** Limits are the role's own ceilings. */
+  limits: RoleLimits;
+  /** Backup is the model to fall back to when the main model is unavailable. Empty means none. */
+  backup: string;
+  /** Desc is one plain sentence saying what the role is for. */
+  desc: string;
+  /** Agent is the agent program the role runs, as the agent picker names it ("Claude Code"). */
+  agent: string;
+  /** Model is the model the role runs, as the model picker names it. */
+  model: string;
+  /** Think is the thinking label the role uses ("High"). Empty means the model's own default. */
+  think: string;
+  /** Perm is the permission label the role runs under ("Plan only"). */
+  perm: string;
+  /** Strength is the model strength the role is meant for ("Strong"). */
+  strength: string;
+  /** Instr is the role's system prompt: the instructions its agent is given. */
+  instr: string;
+}
+/**
+ * Role is one role template as a screen sees it: its name, whether Marshal shipped it, whether the
+ * project being looked at keeps its own version of it, and the editable body.
+ */
+export interface Role {
+  /**
+   * ID is the role's own opaque id. It never changes, so a rename keeps every reference to the
+   * role good. The screens address a role by its name, which is unique; the id is here for a
+   * client that wants something stable to hold on to.
+   */
+  id: string;
+  /**
+   * Name is the role's name, unique across every role Marshal knows. A card names its role by
+   * this, and so does a project chat that talks to a role.
+   */
+  name: string;
+  /**
+   * Starter is true for a role Marshal shipped. A starter role is reset rather than deleted; a
+   * role a person made is deleted. Reset clears only the overridden flag, it does not restore
+   * the starter text.
+   */
+  starter: boolean;
+  /**
+   * Overridden is true when the project this list was asked about keeps its own version of the
+   * role. A list asked for without a project reports false for every role, because no project
+   * is being looked at.
+   */
+  overridden: boolean;
+  /** Spec is the role's editable body. */
+  spec: RoleSpec;
+}
+/**
+ * RoleList is the answer to GET /v1/roles and to a change that returns the new list: every role
+ * Marshal knows, in the order the screens show them.
+ */
+export interface RoleList {
+  /**
+   * Roles has one entry for every role, starters first in the order Marshal ships them and
+   * roles a person made after them in the order they were made.
+   */
+  roles: Role[];
+  /** ServerTime is the daemon's time when the answer was made. */
+  serverTime: Timestamp;
+}
+/**
+ * CreateRoleRequest is the body of POST /v1/roles: a new role, or a role being imported. It is the
+ * export document with the two flags left out, so a role that was exported from one machine can be
+ * posted here as it is: the id, the starter flag, and the overridden flag are the daemon's to set
+ * and are ignored when they are sent.
+ */
+export interface CreateRoleRequest {
+  /** Name is what to call the new role. A name another role already has is a conflict. */
+  name: string;
+  /** Spec is the role's body. A missing skills or MCP list becomes an empty one. */
+  spec: RoleSpec;
+}
+/**
+ * UpdateRoleRequest is the body of PATCH /v1/roles/{name}: the fields to change. A nil field is
+ * left as it is, so a client that sends only a new name renames the role and changes nothing else.
+ */
+export interface UpdateRoleRequest {
+  /** Name is a new name for the role. A name another role already has is a conflict. */
+  name?: string;
+  /** Spec replaces the role's body when it is sent. */
+  spec?: RoleSpec;
 }
 
 //////////
@@ -2902,6 +4177,312 @@ export interface SessionStateChangedEventData {
    * that failed). Empty for an ordinary move such as a turn ending.
    */
   reason?: string;
+}
+
+//////////
+// source: smell.go
+
+/**
+ * SmellFamily is the kind a smell belongs to: the nine families the product scope groups smells
+ * into (section 15.4), following the catalog by Jerzyk and Madeyski (2023). The family is fixed
+ * per check, so a screen can group a card's findings by family without knowing the checks.
+ */
+/**
+ * SmellFamilyBloaters is code that has grown too large: long functions, large files, long
+ * parameter lists.
+ */
+export const SmellFamilyBloaters = "bloaters";
+/**
+ * SmellFamilyChangePreventers is one change that forces edits in many places: shotgun surgery,
+ * divergent change.
+ */
+export const SmellFamilyChangePreventers = "change-preventers";
+/**
+ * SmellFamilyCouplers is too much dependence between parts: feature envy, reaching into another
+ * module's internals, long message chains.
+ */
+export const SmellFamilyCouplers = "couplers";
+/**
+ * SmellFamilyDataDealers is data passed around more than it needs to be: middle men, global
+ * mutable data.
+ */
+export const SmellFamilyDataDealers = "data-dealers";
+/**
+ * SmellFamilyDispensables is code that could be removed: dead code, duplicated code,
+ * speculative generality.
+ */
+export const SmellFamilyDispensables = "dispensables";
+/**
+ * SmellFamilyFunctionalAbusers is hidden changes in state: mutations and side effects a name
+ * does not suggest.
+ */
+export const SmellFamilyFunctionalAbusers = "functional-abusers";
+/**
+ * SmellFamilyLexicalAbusers is names and comments that mislead: magic numbers, mysterious names,
+ * outdated comments.
+ */
+export const SmellFamilyLexicalAbusers = "lexical-abusers";
+/**
+ * SmellFamilyObfuscators is code harder to follow than it needs to be: complex boolean
+ * expressions, clever code, deep nesting.
+ */
+export const SmellFamilyObfuscators = "obfuscators";
+/**
+ * SmellFamilyObjectOrientedAbusers is poor use of types and inheritance: repeated switches on
+ * the same value, similar types with different method names.
+ */
+export const SmellFamilyObjectOrientedAbusers = "object-oriented-abusers";
+export type SmellFamily =
+  | typeof SmellFamilyBloaters
+  | typeof SmellFamilyChangePreventers
+  | typeof SmellFamilyCouplers
+  | typeof SmellFamilyDataDealers
+  | typeof SmellFamilyDispensables
+  | typeof SmellFamilyFunctionalAbusers
+  | typeof SmellFamilyLexicalAbusers
+  | typeof SmellFamilyObfuscators
+  | typeof SmellFamilyObjectOrientedAbusers;
+/** Every SmellFamily, in the order the Go list gives them. */
+export const SmellFamilyValues: readonly SmellFamily[] = [
+  SmellFamilyBloaters,
+  SmellFamilyChangePreventers,
+  SmellFamilyCouplers,
+  SmellFamilyDataDealers,
+  SmellFamilyDispensables,
+  SmellFamilyFunctionalAbusers,
+  SmellFamilyLexicalAbusers,
+  SmellFamilyObfuscators,
+  SmellFamilyObjectOrientedAbusers,
+];
+/**
+ * SmellCheck is one of Marshal's own built-in checks. A check's name is what a finding's Smell
+ * carries for a built-in finding, and what a project's smell profile turns on and off. A project
+ * linter's findings carry the linter's own rule name instead, which is why SmellFinding.Smell is a
+ * plain string and not this type.
+ */
+/** SmellCheckLongFunction is a function that is far longer than the profile allows. */
+export const SmellCheckLongFunction = "long-function";
+/** SmellCheckLargeFile is a file that is far longer than the profile allows. */
+export const SmellCheckLargeFile = "large-file";
+/** SmellCheckLongParameterList is a function with more parameters than the profile allows. */
+export const SmellCheckLongParameterList = "long-parameter-list";
+/** SmellCheckDeepNesting is a block nested deeper than the profile allows. */
+export const SmellCheckDeepNesting = "deep-nesting";
+/** SmellCheckLongLine is a line longer than the profile allows. */
+export const SmellCheckLongLine = "long-line";
+/** SmellCheckMagicNumber is a bare number in code that should be a named constant. */
+export const SmellCheckMagicNumber = "magic-number";
+/**
+ * SmellCheckDuplicateBlock is a block of lines that appears more than once in the card's own
+ * new code.
+ */
+export const SmellCheckDuplicateBlock = "duplicate-block";
+export type SmellCheck =
+  | typeof SmellCheckLongFunction
+  | typeof SmellCheckLargeFile
+  | typeof SmellCheckLongParameterList
+  | typeof SmellCheckDeepNesting
+  | typeof SmellCheckLongLine
+  | typeof SmellCheckMagicNumber
+  | typeof SmellCheckDuplicateBlock;
+/** Every SmellCheck, in the order the Go list gives them. */
+export const SmellCheckValues: readonly SmellCheck[] = [
+  SmellCheckLongFunction,
+  SmellCheckLargeFile,
+  SmellCheckLongParameterList,
+  SmellCheckDeepNesting,
+  SmellCheckLongLine,
+  SmellCheckMagicNumber,
+  SmellCheckDuplicateBlock,
+];
+/** SmellSeverity is how much a finding matters. */
+/**
+ * SmellSeverityBlocking is a finding that stops the card: it goes back to the agent to fix
+ * before the card can move to review.
+ */
+export const SmellSeverityBlocking = "blocking";
+/**
+ * SmellSeverityWarning is a finding shown to the Reviewer and to the person, that does not stop
+ * the card.
+ */
+export const SmellSeverityWarning = "warning";
+/** SmellSeverityInfo is a finding shown only in the card's checks. */
+export const SmellSeverityInfo = "info";
+export type SmellSeverity =
+  | typeof SmellSeverityBlocking
+  | typeof SmellSeverityWarning
+  | typeof SmellSeverityInfo;
+/** Every SmellSeverity, in the order the Go list gives them. */
+export const SmellSeverityValues: readonly SmellSeverity[] = [
+  SmellSeverityBlocking,
+  SmellSeverityWarning,
+  SmellSeverityInfo,
+];
+/** SmellStatus is what became of a finding. */
+/** SmellStatusOpen is a finding nobody has acted on. */
+export const SmellStatusOpen = "open";
+/** SmellStatusFixed is a finding whose agent was asked to fix it and the code changed. */
+export const SmellStatusFixed = "fixed";
+/** SmellStatusDismissed is a finding a person waved away, with a reason. */
+export const SmellStatusDismissed = "dismissed";
+export type SmellStatus =
+  | typeof SmellStatusOpen
+  | typeof SmellStatusFixed
+  | typeof SmellStatusDismissed;
+/** Every SmellStatus, in the order the Go list gives them. */
+export const SmellStatusValues: readonly SmellStatus[] = [
+  SmellStatusOpen,
+  SmellStatusFixed,
+  SmellStatusDismissed,
+];
+/** SmellFinding is one smell the checks found in one card's diff. */
+export interface SmellFinding {
+  /** ID is the finding's own opaque id. The calls that act on a finding address it. */
+  id: string;
+  /** CardID is the card the finding is about. */
+  cardId: string;
+  /**
+   * Commit is the commit the finding was found in. It is empty for a finding from uncommitted
+   * work. An answer is cached per commit, and a finding in an older commit is never re-blamed on
+   * a newer one.
+   */
+  commit: string;
+  /** Family is the kind of smell the finding is. */
+  family: SmellFamily;
+  /** Smell is the rule's own name: a built-in check's name, or a project linter's rule. */
+  smell: string;
+  /** File is the file the finding is in, relative to the repository, with forward slashes. */
+  file: string;
+  /** Line is the line the finding is on. Zero when the finding is about the whole file. */
+  line: number /* int */;
+  /** Severity is how much the finding matters. */
+  severity: SmellSeverity;
+  /** Message says why it matters, in one sentence. */
+  message: string;
+  /** Suggestion is the refactoring to make, in one sentence. */
+  suggestion: string;
+  /** Status is open, fixed, or dismissed. */
+  status: SmellStatus;
+  /** DismissReason is why a person waved the finding away. Empty unless Status is dismissed. */
+  dismissReason: string;
+}
+/**
+ * SmellFindingList is the answer to GET /v1/cards/{id}/findings: the findings of one card, as of one
+ * commit, newest first is not guaranteed, so a client that cares sorts them.
+ */
+export interface SmellFindingList {
+  /** CardID is the card the list is about. */
+  cardId: string;
+  /** Commit is the commit the findings are as of, empty when they came from uncommitted work. */
+  commit: string;
+  /** Findings are the card's findings. Never null. */
+  findings: SmellFinding[];
+  /**
+   * Blocking is how many of Findings block the card. It is carried so a screen can say the
+   * number without counting, and so the move to review can be refused without a second read.
+   */
+  blocking: number /* int */;
+  /**
+   * Checked is when the checks last ran for this card, or null when they never have: a card that
+   * has not been checked yet is not the same as one checked at the beginning of time.
+   */
+  checked?: Timestamp;
+  /** ServerTime is the daemon's time when the answer was made. */
+  serverTime: Timestamp;
+}
+/**
+ * DismissFindingRequest is the body of POST /v1/cards/{id}/findings/{findingId}/dismiss. The reason
+ * is required: a finding is waved away on purpose, and the reason is what the auto lessons of a
+ * later phase learn from, so an empty one is refused.
+ */
+export interface DismissFindingRequest {
+  /** Reason is why the finding is being dismissed, in the person's own words. */
+  reason: string;
+}
+/**
+ * SmellCheckedEventData is the payload of quality.checked (architecture.md 11.2): the card's
+ * findings as they now stand, so a client redraws the card's checks panel from one event and never
+ * asks again for what the event already carries.
+ */
+export interface SmellCheckedEventData {
+  /** CardID is the card whose checks finished. */
+  cardId: string;
+  /** Commit is the commit the checks ran for. */
+  commit: string;
+  /** Findings are the card's findings for that commit. */
+  findings: SmellFinding[];
+  /** Blocking is how many of them block the card. */
+  blocking: number /* int */;
+}
+/**
+ * SmellCheckSetting is one built-in check as a project has set it: whether it runs, and how much
+ * its findings matter.
+ */
+export interface SmellCheckSetting {
+  /** Check is the built-in check this setting is for. */
+  check: SmellCheck;
+  /** Enabled says whether the check runs. A check that is off produces no findings at all. */
+  enabled: boolean;
+  /** Severity is how much a finding from this check matters. */
+  severity: SmellSeverity;
+}
+/**
+ * SmellProfile is one project's own version of the smell checks (architecture.md section 17.3,
+ * product scope 15.4). It is kept as one JSON document per project, and a project with no profile
+ * uses DefaultSmellProfile. It is language-aware through its checks: a check that does not fit a
+ * file's language is not applied to that file, so one profile serves a project of several
+ * languages.
+ * These are the project's own thresholds, and never Marshal's: Marshal's `.golangci.yml` and
+ * `.jscpd.json` are thresholds for Marshal's own code, not a smell profile for arbitrary
+ * agent-written code in a card's project.
+ */
+export interface SmellProfile {
+  /** ProjectID is the project the profile is for. */
+  projectId: string;
+  /** MaxFunctionLines is the longest a new function may be before it is flagged. */
+  maxFunctionLines: number /* int */;
+  /** MaxFileLines is the longest a file may be before it is flagged. */
+  maxFileLines: number /* int */;
+  /** MaxParameters is the most parameters a new function may have. */
+  maxParameters: number /* int */;
+  /** MaxNesting is the deepest a new block may nest. */
+  maxNesting: number /* int */;
+  /** MaxLineLength is the longest a new line may be. */
+  maxLineLength: number /* int */;
+  /**
+   * DuplicateBlockLines is how many lines in a row must repeat before the copy is called a
+   * duplicated block.
+   */
+  duplicateBlockLines: number /* int */;
+  /**
+   * Checks says which built-in checks run and how much each one matters. A check the list does
+   * not name uses its default.
+   */
+  checks: SmellCheckSetting[];
+  /**
+   * Linters are the project's own linters, if it has them (product scope 15.4, layer 1). Each is
+   * a program Marshal runs in the card's worktree, on the files the card changed, with the
+   * project's own configuration. A project with no linters has none, which is the usual case for
+   * a fresh install: the built-in checks run either way.
+   */
+  linters?: SmellLinter[];
+}
+/**
+ * SmellLinter is one of a project's own linters. Marshal runs its command in the card's worktree
+ * with the changed files appended, reads the `file:line: message` lines it prints, and files what
+ * it finds under the family named here, because a linter's own rules do not map onto Marshal's nine
+ * families on their own.
+ */
+export interface SmellLinter {
+  /** Name labels the linter in a finding's message, such as "golangci-lint". */
+  name: string;
+  /**
+   * Command is the program and its arguments. The changed files are appended as the last
+   * arguments, and it is run directly and never through a shell.
+   */
+  command: string[];
+  /** Family is the smell family this linter's findings are filed under. */
+  family: SmellFamily;
 }
 
 //////////

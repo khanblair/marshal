@@ -1,12 +1,12 @@
-import { For, type JSX, splitProps } from "solid-js";
+import { For, type JSX, Show, splitProps } from "solid-js";
 import { cx } from "../base/cx";
 import { LIMIT_LINE_STYLE, type LineStyle, lineStyle } from "./chart-geometry";
 
 export interface ChartLegendProps extends Omit<JSX.HTMLAttributes<HTMLDivElement>, "children"> {
   /** Series names in `LineChart` order; each gets the line style at its position. */
   names: readonly string[];
-  /** Name of the dashed limit line, shown last, such as `Daily limit`. */
-  limitName: string;
+  /** Name of the dashed limit line, shown last, such as `Daily limit`. Absent when no ceiling is set. */
+  limitName?: string;
 }
 
 const SWATCH_WIDTH_PX = 22;
@@ -53,7 +53,9 @@ export function ChartLegend(props: ChartLegendProps) {
       )}
     >
       <For each={local.names}>{(name, i) => <Entry style={lineStyle(i())}>{name}</Entry>}</For>
-      <Entry style={LIMIT_LINE_STYLE}>{local.limitName}</Entry>
+      <Show when={local.limitName !== undefined}>
+        <Entry style={LIMIT_LINE_STYLE}>{local.limitName}</Entry>
+      </Show>
     </div>
   );
 }

@@ -62,8 +62,31 @@ describe("the agent catalog golden file from the daemon", () => {
         approvals: false,
       },
     };
+    const builtin: Agent = {
+      kind: "builtin",
+      name: "Built-in agent",
+      version: "",
+      status: "supported",
+      warning: "",
+      installHint: "",
+      models: [
+        { id: "claude-sonnet-4-5", name: "Claude Sonnet 4.5", thinking: true },
+        { id: "gpt-5-mini", name: "GPT-5 mini", thinking: true },
+        { id: "deepseek-chat", name: "DeepSeek Chat", thinking: false },
+        { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash", thinking: true },
+        { id: "qwen2.5-coder:32b", name: "Qwen2.5 Coder 32B", thinking: false },
+      ],
+      capabilities: {
+        resume: true,
+        structuredEvents: true,
+        modelSwitching: true,
+        thinking: true,
+        mcp: false,
+        approvals: true,
+      },
+    };
     const sample: AgentCatalog = {
-      agents: [claude, gemini, codex],
+      agents: [claude, gemini, codex, builtin],
       serverTime: "2026-09-25T10:20:00.000Z",
     };
     expect(golden("agents")).toEqual(sample);
