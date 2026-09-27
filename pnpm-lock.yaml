@@ -38,6 +38,9 @@ importers:
       '@marshal/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@tauri-apps/plugin-dialog':
+        specifier: 2.4.2
+        version: 2.4.2
       solid-js:
         specifier: 1.9.15
         version: 1.9.15
@@ -828,6 +831,9 @@ packages:
     peerDependencies:
       vite: ^5.2.0 || ^6 || ^7 || ^8
 
+  '@tauri-apps/api@2.12.0':
+    resolution: {integrity: sha512-fUSxFX8VABYe9W9K5ROdEaKVkNUFRcMSRofjruvaxztXA+I0XnQHcYHF8m/a6iExRUxsUf0HsFWhPBuH9IgzJw==}
+
   '@tauri-apps/cli-darwin-arm64@2.12.0':
     resolution: {integrity: sha512-v5J+jISihLGtih1+3yWagbsL+5dbLZORu4vaSI0vhY0Heb+MAW+T/1s1RyKxrQrwEPGBG5kqwfDDTnSbmVkuqA==}
     engines: {node: '>= 10'}
@@ -903,6 +909,9 @@ packages:
     resolution: {integrity: sha512-GIShnAR4C16kSTA8NO02fo8fOw/I5z5sAUEB5S2HlPHFnBkbihL4c9a/MpkxOm1+q5S+tFd3X4QUjHWxfyGzpQ==}
     engines: {node: '>= 10'}
     hasBin: true
+
+  '@tauri-apps/plugin-dialog@2.4.2':
+    resolution: {integrity: sha512-lNIn5CZuw8WZOn8zHzmFmDSzg5zfohWoa3mdULP0YFh/VogVdMVWZPcWSHlydsiJhRQYaTNSYKN7RmZKE2lCYQ==}
 
   '@testing-library/dom@10.4.2':
     resolution: {integrity: sha512-yzr2S9HyAIdhz2/6qHgbs665Q7PKVcDF05vsOlHPxG1mo36gKVesdYVeDLnXgfjJ03CrKRk08knc6+E/9m8v2Q==}
@@ -2403,6 +2412,8 @@ snapshots:
       tailwindcss: 4.3.3
       vite: 8.3.1(@types/node@24.13.6)(jiti@2.7.0)(yaml@2.9.1)
 
+  '@tauri-apps/api@2.12.0': {}
+
   '@tauri-apps/cli-darwin-arm64@2.12.0':
     optional: true
 
@@ -2449,6 +2460,10 @@ snapshots:
       '@tauri-apps/cli-win32-arm64-msvc': 2.12.0
       '@tauri-apps/cli-win32-ia32-msvc': 2.12.0
       '@tauri-apps/cli-win32-x64-msvc': 2.12.0
+
+  '@tauri-apps/plugin-dialog@2.4.2':
+    dependencies:
+      '@tauri-apps/api': 2.12.0
 
   '@testing-library/dom@10.4.2':
     dependencies:

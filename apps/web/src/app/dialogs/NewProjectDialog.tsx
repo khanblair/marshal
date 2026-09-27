@@ -9,6 +9,7 @@ import {
   type SegmentOption,
 } from "@marshal/ui";
 import { Show } from "solid-js";
+import { isDesktop, pickFolder } from "~/data/desktop";
 import { M, type NewProjectDraft } from "~/mock";
 import { DialogHeader } from "./DialogHeader";
 import { addDraftProject, canAdd, followName, IDLE_MESSAGE, patchDraft } from "./new-project";
@@ -30,25 +31,38 @@ const PLAIN_SOURCES: readonly SegmentOption<NewProjectDraft["source"]>[] = SOURC
 const closeNewProject = (): void => M.set({ newProject: null });
 
 /**
- * The path field. A web page cannot open a folder picker, so the path is typed (the daemon expands a
- * leading `~`). The desktop app will add a Choose folder button.
+ * The path field. A web page cannot open a folder picker, so the path is typed (the daemon
+ * expands a leading `~`); the desktop app adds a Choose button that opens the OS's own folder
+ * dialog instead (data/desktop.ts).
  */
 function FolderField(props: { draft: NewProjectDraft }) {
   const draft = () => props.draft;
+  const setPath = (path: string) => patchDraft(draft(), { path, name: followName(draft(), path) });
   return (
     <Field
       label="Repository folder"
       hint="Marshal reads this repository and makes worktrees beside it. It never moves or deletes your files."
     >
-      <Input
-        mono
-        value={draft().path}
-        onInput={(e) => {
-          const path = e.currentTarget.value;
-          patchDraft(draft(), { path, name: followName(draft(), path) });
-        }}
-        placeholder="~/code/my-repo"
-      />
+      <div class="flex gap-2">
+        <Input
+          mono
+          class="flex-1 min-w-0"
+          value={draft().path}
+          onInput={(e) => setPath(e.currentTarget.value)}
+          placeholder="~/code/my-repo"
+        />
+        <Show when={isDesktop()}>
+          <Button
+            type="button"
+            onClick={async () => {
+              const chosen = await pickFolder();
+              if (chosen) setPath(chosen);
+            }}
+          >
+            Choose…
+          </Button>
+        </Show>
+      </div>
     </Field>
   );
 }

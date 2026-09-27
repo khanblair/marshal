@@ -13,6 +13,10 @@ fn main() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        // The one native capability the daemon-served page is allowed to reach: the "choose a
+        // folder" dialog for New project (data/desktop.ts). Granted to that page's own origin
+        // through tauri.conf.json's dangerousRemoteDomainIpcAccess, scoped to this plugin alone.
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             deeplink::register(app.handle());
             let handle = app.handle().clone();
