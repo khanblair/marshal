@@ -1,7 +1,12 @@
 import { attachToPage } from "~/mock/attach";
 import { applyTheme } from "~/mock/dom/theme";
 import type { Marshal } from "~/mock/marshal";
-import { createTestMarshal, MOCK_HISTORY, MOCK_PERSON_SECTIONS } from "./test-store";
+import {
+  createTestMarshal,
+  MOCK_HISTORY,
+  MOCK_PERSON_SECTIONS,
+  MOCK_SETTINGS_SECTIONS,
+} from "./test-store";
 
 /** The shared store of a test file: like the browser's, with the prototype's projects and no daemon. */
 function createSharedStore(): Marshal {
@@ -20,17 +25,24 @@ function createSharedStore(): Marshal {
   // them. S7c (pause, sleep, wake, and pin) and S9 (the terminal view's switch) are pinned because
   // their actions ask the daemon: with no daemon they can only say "not connected", and the tests of
   // the views that press them exercise the mock's own. The daemon's path is tested against
-  // `daemon-cards-store.ts`.
+  // `daemon-cards-store.ts`. The notices (S23) are pinned for the same reason: once the section is
+  // switched the reservoir stops handing `S.notices` the prototype's own sleep group, which is the
+  // one the panel's own tests draw, and the daemon's path is `daemon-notices-store.ts`. The settings
+  // screens' sections (the provider keys S28, the cost numbers S19b, the limits S26b, the roles S27,
+  // the sleep choices S26a, and the GitHub connection S29a) are pinned by `MOCK_SETTINGS_SECTIONS`,
+  // which says why and which the settings tests' own untouched copy is built from too.
   const M = createTestMarshal({
     storage: window.localStorage,
     applyTheme,
     sections: {
       ...MOCK_HISTORY,
       ...MOCK_PERSON_SECTIONS,
+      ...MOCK_SETTINGS_SECTIONS,
       S17: "mock",
       S20: "mock",
       S7c: "mock",
       S9: "mock",
+      S23: "mock",
     },
   });
   M.S.ready = true;

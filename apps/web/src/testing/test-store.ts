@@ -41,12 +41,14 @@ export const DAEMON_CARDS: Readonly<Record<SectionId, SectionStatus>> = {
  * mock's own history. S8a and S10 are switched together in practice, and a test that means the mock
  * says so rather than relying on the register. The rest of the mock's conversations are pinned with
  * them: the project chats (S17), whose mock chats the reservoir stops supplying once the section is
- * the daemon's, and the hold controls (S7c), which with no daemon could only say "not connected".
+ * the daemon's, the hold controls (S7c), which with no daemon could only say "not connected", and
+ * the plans (S8c), which live in the chat this suite keeps on the mock.
  */
 export const MOCK_HISTORY: Readonly<Record<SectionId, SectionStatus>> = {
   ...sectionStatus,
   S7c: "mock",
   S8a: "mock",
+  S8c: "mock",
   S10: "mock",
   S17: "mock",
 };
@@ -62,14 +64,21 @@ export const DAEMON_HISTORY: Readonly<Record<SectionId, SectionStatus>> = {
  * The sections with the mock's cards and a card's chat and activity all still on the mock, for a
  * test whose subject is the mock's own store: its seed, or the objects its timers keep. It is
  * `MOCK_CARDS` and `MOCK_HISTORY` together, and it has to be both: pinning only the history puts the
- * cards on the daemon, and the test then compares against a store the mock never built.
+ * cards on the daemon, and the test then compares against a store the mock never built. The notices
+ * (S23) and the sleep choices (S26a) are pinned with them for the same reason: a store with no
+ * daemon draws the prototype's own sleep group and keeps the mock's own "Keep awake", and a test of
+ * the mock's own seed or timers would otherwise read an empty list and the daemon's refusals.
  */
 export const MOCK_CARDS_AND_HISTORY: Readonly<Record<SectionId, SectionStatus>> = {
   ...MOCK_CARDS,
-  S7c: "mock",
-  S8a: "mock",
-  S10: "mock",
-  S17: "mock",
+  ...MOCK_HISTORY,
+  // Both constants above are built by spreading the register, and `MOCK_HISTORY` spreads all of it,
+  // so its own copy of `S5a` lands after `MOCK_CARDS`'s pin and would put the cards back on the
+  // daemon. The three pins are repeated here, after both, so the table means what its name says
+  // whatever the register says.
+  S5a: "mock",
+  S23: "mock",
+  S26a: "mock",
 };
 
 /**
@@ -101,6 +110,26 @@ export const DAEMON_PERSON: Readonly<Record<SectionId, SectionStatus>> = {
   S31a: "daemon",
 };
 
+/**
+ * The settings screens' own sections on the mock: the provider keys (S28), the cost numbers (S19b),
+ * the limits (S26b), the roles (S27), the sleep choices (S26a), and the GitHub connection (S29a). A
+ * store with no daemon keeps the mock's rows, and a store that follows one pins only the section it
+ * is about to the daemon, the way `daemon-providers-store.ts` and `daemon-roles-store.ts` do.
+ *
+ * It is one constant because two stores have to agree on it: the shared store (`install-test-store.ts`)
+ * and the untouched copy the settings tests reset from (`views/settings/test-support.tsx`). A screen
+ * that reset its fields to a copy built from a different table would reset them to the daemon's empty
+ * state, which is how a mocked screen loses its data between two tests.
+ */
+export const MOCK_SETTINGS_SECTIONS = {
+  S28: "mock",
+  S19b: "mock",
+  S26b: "mock",
+  S27: "mock",
+  S26a: "mock",
+  S29a: "mock",
+} as const satisfies Partial<Record<SectionId, SectionStatus>>;
+
 /** The context behind a store made here, for a test that fills the store through the mirror. */
 export function contextOf(M: Marshal): Ctx {
   const ctx = contexts.get(M);
@@ -120,7 +149,7 @@ export function testEnv(overrides: Partial<Env> = {}): Env {
   };
 }
 
-/** Fills a store with the prototype's three projects, its three agents, and its 29 cards, as if the daemon had sent them. */
+/** Fills a store with the prototype's three projects, its four agents, and its 29 cards, as if the daemon had sent them. */
 function applyPrototypeData(ctx: Ctx): void {
   applyProjectSnapshot(ctx, PROTOTYPE_PROJECTS.map(toDaemonProject));
   overlayPrototypeCi(ctx.S);

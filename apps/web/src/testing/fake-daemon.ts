@@ -3,22 +3,33 @@
  * the real API client through a fake `fetch` (so the client, the connection machine, and the event
  * stream that run in a test are the real ones) and pushes events through a fake WebSocket. There is
  * no network and no timer of its own. It knows the routes the cutover uses: health, whoami, the
- * projects, and the agents.
+ * projects, the agents, the providers, the connections, the limits, the roles, the notices, the sleep
+ * settings, every project's CI health, and a card's live preview.
  */
 import type {
   AgentCatalog,
   Card,
   Chat,
+  Checkpoint,
   FeedEntry,
   Health,
+  Integration,
   Label,
+  Limit,
+  Notice,
   Preferences,
+  Preview,
   Profile,
   Progress,
   Project,
+  ProjectCI,
+  Provider,
+  Role,
   SavedView,
+  SleepSettings,
   TerminalInput,
   TerminalResize,
+  TestCheck,
   WhoAmI,
 } from "@marshal/protocol";
 import { vi } from "vitest";
@@ -30,6 +41,13 @@ import { type MemoryStorage, memoryStorage } from "~/data/testing/memory-storage
 import { TOKEN_KEY } from "~/data/token";
 import { answerCardRoute, type CardStore, type FakeCardDiff, type HistoryRow } from "./fake-cards";
 import { answerChatRoute, type ChatMessageRow, type ChatStore } from "./fake-chats";
+import { answerCIRoute, type CIStore, createCIStore } from "./fake-ci";
+import {
+  answerIntegrationRoute,
+  createIntegrationStore,
+  type IntegrationStore,
+} from "./fake-integrations";
+import { answerLimitRoute, createLimitsStore, type LimitsStore } from "./fake-limits";
 import {
   answerMeRoute,
   emptyPreferences,
@@ -37,8 +55,13 @@ import {
   pendingProgress,
   wireProfile,
 } from "./fake-me";
+import { answerNoticeRoute, createNoticesStore, type NoticesStore } from "./fake-notices";
+import { createPreviewStore, type PreviewStore } from "./fake-previews";
+import { answerProviderRoute, createProviderStore, type ProviderStore } from "./fake-providers";
+import { answerRoleRoute, createRolesStore, type RolesStore } from "./fake-roles";
 import { answerSavedViewRoute } from "./fake-saved-views";
 import { answerSearchRoute } from "./fake-search";
+import { answerSleepRoute, createSleepStore, type SleepStore } from "./fake-sleep";
 import { createTerminalRouter, type TerminalRouter } from "./fake-terminal";
 import { wireProject } from "./projects";
 
@@ -70,6 +93,8 @@ export interface FakeDaemonOptions {
   activity?: readonly FeedEntry[];
   /** Every card's diff it starts with (section S11), by card id. None by default. */
   diffs?: Readonly<Record<string, FakeCardDiff>>;
+  /** Every card's restore points it starts with (B5.3), by card id, newest first. None by default. */
+  checkpoints?: Readonly<Record<string, readonly Checkpoint[]>>;
   /** The person it starts with (sections S2a, S32, S31a). The golden profile with no avatar by default. */
   profile?: Profile;
   /** The person's preferences it starts with. The defaults by default: nothing saved. */
@@ -78,6 +103,38 @@ export interface FakeDaemonOptions {
   progress?: Progress;
   /** The saved views it starts with, across projects (section S6a). None by default. */
   savedViews?: readonly SavedView[];
+  /**
+   * The provider rows it starts with (section S28). The golden list by default: Anthropic saved,
+   * DeepSeek empty, OpenRouter invalid, Ollama saved with its address.
+   */
+  providers?: readonly Provider[];
+  /** The checks a provider's connection test answers with. A passing test by default. */
+  providerChecks?: (row: Provider) => TestCheck[];
+  /** Refuses a key with its own sentence, the way the daemon's own value check does. */
+  providerKeyRefused?: (row: Provider, key: string) => string | undefined;
+  /**
+   * The connection rows it starts with (section S29a). Every connection the daemon knows, none set
+   * up, by default.
+   */
+  integrations?: readonly Integration[];
+  /** The checks a connection's test answers with. A passing GitHub test by default. */
+  integrationChecks?: (row: Integration) => TestCheck[];
+  /** Refuses a connection's settings with its own sentence, the way the App's own check does. */
+  integrationSaveRefused?: (id: string, body: Record<string, unknown>) => string | undefined;
+  /** The cost and awake ceilings it starts with (sections S19b and S26b). The golden list by default. */
+  limits?: readonly Limit[];
+  /** The role templates it starts with (section S27). The golden list by default, no project overridden. */
+  roles?: readonly Role[];
+  /** The standing notices it starts with (section S23). The golden `notice-list` by default. */
+  notices?: readonly Notice[];
+  /** The sleep settings it starts with (section S26a). The golden `sleep-settings` by default. */
+  sleep?: SleepSettings;
+  /** The projects that have CI data (section S21). None by default, so each reads as not connected. */
+  ci?: readonly ProjectCI[];
+  /** A card's preview it starts with (section S13), one per card. None by default: all stopped. */
+  previews?: readonly Preview[];
+  /** Whether Marshal can find a browser to shoot with. True by default, so a screenshot is taken. */
+  previewBrowser?: boolean;
   /** True to run in dev mode, which is what the first-launch reset route needs. False by default. */
   dev?: boolean;
   /** How far its clock is ahead of this device's, in ms. 0 by default. */
@@ -112,8 +169,26 @@ export interface FakeDaemon {
   activity: FeedEntry[];
   /** Every card's diff it holds now, by card id. */
   diffs: Record<string, FakeCardDiff>;
+  /** Every card's restore points it holds now, by card id, newest first (B5.3). */
+  checkpoints: Record<string, Checkpoint[]>;
   /** The person it holds now: the profile, the progress, the preferences, and every saved view. */
   me: MeStore;
+  /** The provider rows and their stored values it holds now (section S28). */
+  providers: ProviderStore;
+  /** The connection rows it holds now and their stored tests (section S29a, B6.1 and B6.7). */
+  integrations: IntegrationStore;
+  /** The cost and awake ceilings it holds now (sections S19b and S26b). */
+  limits: LimitsStore;
+  /** The role templates and the projects that keep their own version of them it holds now (S27). */
+  roles: RolesStore;
+  /** The notices it holds now, and the stream a change is announced on (section S23). */
+  notices: NoticesStore;
+  /** The sleep settings it holds now (section S26a). */
+  sleep: SleepStore;
+  /** Every project's CI health it holds now (section S21). A test seeds it and reads it back. */
+  ci: CIStore;
+  /** Every card's preview it holds now (section S13), by the daemon's own card id. */
+  previews: PreviewStore;
   /** Makes every call fail like a daemon that is not running, until `start`. */
   stop(): void;
   start(): void;
@@ -288,6 +363,14 @@ interface Router {
   cards: CardStore;
   chats: ChatStore;
   me: MeStore;
+  providers: ProviderStore;
+  integrations: IntegrationStore;
+  limits: LimitsStore;
+  roles: RolesStore;
+  notices: NoticesStore;
+  sleep: SleepStore;
+  ci: CIStore;
+  previews: PreviewStore;
 }
 
 /** Answers one request the way the real daemon's router does, including who may ask. */
@@ -305,6 +388,7 @@ function answer(router: Router, request: FakeRequest): Response {
       "Sign in again. This device's token is missing or no longer valid.",
     );
   }
+  const projectExists = (pid: string) => router.projects.some((p) => p.id === pid);
   const id = /^\/v1\/projects\/([^/]+)$/.exec(pathOf(request.url))?.[1] ?? "";
   if (key === "GET /v1/auth/whoami") {
     return jsonAnswer({ ...golden<WhoAmI>("whoami"), serverTime: router.now() });
@@ -318,18 +402,34 @@ function answer(router: Router, request: FakeRequest): Response {
   if (key === "GET /v1/agents" || key === "POST /v1/agents/refresh") {
     return jsonAnswer({ ...router.catalog, serverTime: router.now() });
   }
+  const providers = answerProviderRoute(router.providers, request);
+  if (providers) return providers;
+  const integrations = answerIntegrationRoute(router.integrations, request);
+  if (integrations) return integrations;
+  const limits = answerLimitRoute(router.limits, request);
+  if (limits) return limits;
+  const roles = answerRoleRoute(router.roles, request, projectExists);
+  if (roles) return roles;
+  const notices = answerNoticeRoute(router.notices, request);
+  if (notices) return notices;
+  const sleep = answerSleepRoute(router.sleep, request);
+  if (sleep) return sleep;
+  // Every project's CI health in one answer (section S21), which is what the boards' and Home's
+  // lists read: the route is the top-level `/v1/ci` and belongs to no project.
+  const ci = answerCIRoute(router.ci, request);
+  if (ci) return ci;
   const cards = answerCardRoute(
     router.cards,
     request,
     (pid) => router.projects.some((p) => p.id === pid),
     (pid) => router.projects.find((p) => p.id === pid)?.name ?? pid,
+    (pid) => router.projects.find((p) => p.id === pid)?.bypassLocked ?? false,
   );
   if (cards) return cards;
   const chat = answerChatRoute(router.chats, request, (pid) =>
     router.projects.some((p) => p.id === pid),
   );
   if (chat) return chat;
-  const projectExists = (pid: string) => router.projects.some((p) => p.id === pid);
   const person = answerMeRoute(router.me, request, projectExists);
   if (person) return person;
   const views = answerSavedViewRoute(router.me, request, projectExists);
@@ -468,6 +568,76 @@ function fakeFetchOf(
   };
 }
 
+/** The store-shaped pieces of the daemon, each holding one slice of it and answering its own routes. */
+interface Slices {
+  me: MeStore;
+  providers: ProviderStore;
+  integrations: IntegrationStore;
+  limits: LimitsStore;
+  roles: RolesStore;
+  notices: NoticesStore;
+  sleep: SleepStore;
+  ci: CIStore;
+  previews: PreviewStore;
+}
+
+/**
+ * Builds every store the daemon holds: the person (the profile, the progress, the preferences, and
+ * the saved views), the provider rows and their stored values, the connection rows and their stored
+ * tests, the cost and awake ceilings, the role templates, the standing notices, the sleep settings,
+ * every project's CI health, and every card's live preview. It is apart from `createFakeDaemon` so
+ * that function stays a wiring list rather than a wall of literals.
+ */
+function createSlices(
+  options: FakeDaemonOptions,
+  projects: readonly Project[],
+  emit: Publish,
+  now: () => string,
+): Slices {
+  const profile = structuredClone(options.profile ?? wireProfile());
+  // The command a card's preview would run is its project's own, so the tab can say what pressing
+  // Start does; a project that has none is refused by the start route, as the daemon refuses it.
+  const commandOf = (card: Card): string =>
+    projects.find((project) => project.id === card.projectId)?.devCommand ?? "";
+  return {
+    me: {
+      profile,
+      progress: structuredClone(options.progress ?? pendingProgress()),
+      preferences: structuredClone(options.preferences ?? emptyPreferences()),
+      savedViews: structuredClone([...(options.savedViews ?? [])]),
+      // A profile that starts with an avatar has one to serve.
+      avatar: profile.avatarUrl ? { type: "image/png", size: 70 } : null,
+      dev: options.dev ?? false,
+      publish: emit,
+      now,
+    },
+    providers: createProviderStore({
+      providers: options.providers,
+      checks: options.providerChecks,
+      refuseKey: options.providerKeyRefused,
+      nowMs: () => Date.now() + (options.clockSkewMs ?? 0),
+    }),
+    integrations: createIntegrationStore({
+      integrations: options.integrations,
+      checks: options.integrationChecks,
+      refuseSave: options.integrationSaveRefused,
+      nowMs: () => Date.now() + (options.clockSkewMs ?? 0),
+    }),
+    limits: createLimitsStore({ limits: options.limits }),
+    roles: createRolesStore({ roles: options.roles, now }),
+    notices: createNoticesStore({ notices: options.notices, publish: emit, now }),
+    sleep: createSleepStore({ settings: options.sleep }),
+    ci: createCIStore({ projects: options.ci, now }),
+    previews: createPreviewStore({
+      previews: options.previews,
+      commandOf,
+      hasBrowser: options.previewBrowser ?? true,
+      publish: emit,
+      now,
+    }),
+  };
+}
+
 export function createFakeDaemon(options: FakeDaemonOptions = {}): FakeDaemon {
   const now = (): string => new Date(Date.now() + (options.clockSkewMs ?? 0)).toISOString();
   const stored = options.storedToken === undefined ? FAKE_TOKEN : options.storedToken;
@@ -491,31 +661,44 @@ export function createFakeDaemon(options: FakeDaemonOptions = {}): FakeDaemon {
   const chatMessages = structuredClone([...(options.chatMessages ?? [])]);
   const activity = structuredClone([...(options.activity ?? [])]);
   const diffs = structuredClone(options.diffs ?? {});
+  // A card's restore points (B5.3), by card id, newest first, each list copied so a test's fixture
+  // is never changed by what the routes answer.
+  const checkpoints: Record<string, Checkpoint[]> = {};
+  for (const [id, list] of Object.entries(options.checkpoints ?? {})) {
+    checkpoints[id] = structuredClone([...list]);
+  }
 
   const emit = publisher(sockets, state, now);
   const terminals = createTerminalRouter({ publish: emit, seqNow: () => state.seq });
   termRef.current = terminals;
-  const profile = structuredClone(options.profile ?? wireProfile());
-  const me: MeStore = {
-    profile,
-    progress: structuredClone(options.progress ?? pendingProgress()),
-    preferences: structuredClone(options.preferences ?? emptyPreferences()),
-    savedViews: structuredClone([...(options.savedViews ?? [])]),
-    // A profile that starts with an avatar has one to serve.
-    avatar: profile.avatarUrl ? { type: "image/png", size: 70 } : null,
-    dev: options.dev ?? false,
-    publish: emit,
-    now,
-  };
+  const slices = createSlices(options, projects, emit, now);
   const router: Router = {
     token: () => state.token,
     now,
     projects,
     state: { projects, publish: emit, now },
     catalog,
-    cards: { cards, labels, history, activity, diffs, publish: emit, now },
+    cards: {
+      cards,
+      labels,
+      history,
+      activity,
+      diffs,
+      checkpoints,
+      previews: slices.previews,
+      publish: emit,
+      now,
+    },
     chats: { chats, messages: chatMessages, answer: options.chatAnswer, publish: emit, now },
-    me,
+    me: slices.me,
+    providers: slices.providers,
+    integrations: slices.integrations,
+    limits: slices.limits,
+    roles: slices.roles,
+    notices: slices.notices,
+    sleep: slices.sleep,
+    ci: slices.ci,
+    previews: slices.previews,
   };
 
   const fake = fakeFetchOf(state, calls, meddle, router);
@@ -545,7 +728,16 @@ export function createFakeDaemon(options: FakeDaemonOptions = {}): FakeDaemon {
     chatMessages,
     activity,
     diffs,
-    me,
+    checkpoints,
+    me: slices.me,
+    providers: slices.providers,
+    integrations: slices.integrations,
+    limits: slices.limits,
+    roles: slices.roles,
+    notices: slices.notices,
+    sleep: slices.sleep,
+    ci: slices.ci,
+    previews: slices.previews,
     ...switches(state),
     refuseNext: meddle.refuseNext,
     holdNext: meddle.holdNext,
