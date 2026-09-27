@@ -4,7 +4,7 @@ import { agentOptions } from "~/mock/agents";
 import { GOLDEN_CATALOG, PROTOTYPE_CATALOG, wireAgent, wireCatalog } from "~/testing/agents";
 import { createFakeDaemon, type FakeDaemon } from "~/testing/fake-daemon";
 import { contextOf, createSyncedMarshal, createTestMarshal } from "~/testing/test-store";
-import { agentsSyncer, applyAgentCatalog, BUILT_IN_AGENT, withBuiltIn } from "./agents";
+import { agentsSyncer, applyAgentCatalog } from "./agents";
 
 let daemon: FakeDaemon | null = null;
 afterEach(() => {
@@ -21,7 +21,12 @@ describe("applyAgentCatalog", () => {
   it("mirrors the daemon's agents into the store, in the daemon's order, and nothing else of the answer", () => {
     const ctx = contextOf(createTestMarshal());
     applyAgentCatalog(ctx, GOLDEN_CATALOG);
-    expect(ctx.S.agents.map((agent) => agent.name)).toEqual(["Claude Code", "Gemini CLI", "Codex"]);
+    expect(ctx.S.agents.map((agent) => agent.name)).toEqual([
+      "Claude Code",
+      "Gemini CLI",
+      "Codex",
+      "Built-in agent",
+    ]);
     expect(ctx.S.agents[2]).toMatchObject({ status: "missing", version: "" });
     expect(JSON.stringify(ctx.S.agents)).not.toContain(GOLDEN_CATALOG.serverTime);
   });
@@ -55,35 +60,31 @@ describe("applyAgentCatalog", () => {
     expect(ctx.S.agents[0]?.models).toHaveLength(2);
   });
 
-  it("accepts an empty catalog", () => {
+  it("accepts an empty catalog, and the pickers then list nothing: the app makes up no agent", () => {
     const ctx = contextOf(createTestMarshal());
     applyAgentCatalog(ctx, wireCatalog([]));
     expect(ctx.S.agents).toEqual([]);
-    expect(agentOptions(ctx).map((agent) => agent.name)).toEqual(["Built-in agent"]);
+    expect(agentOptions(ctx)).toEqual([]);
   });
 });
 
 describe("the built-in agent", () => {
-  it("is added after the daemon's agents and is the only entry the app makes up", () => {
-    const listed = withBuiltIn(GOLDEN_CATALOG.agents).agents;
-    expect(listed.map((agent) => agent.name)).toEqual([
+  it("is the daemon's own, last, and the app adds no agent of its own", () => {
+    const ctx = contextOf(createTestMarshal());
+    applyAgentCatalog(ctx, GOLDEN_CATALOG);
+    expect(agentOptions(ctx).map((agent) => agent.name)).toEqual([
       "Claude Code",
       "Gemini CLI",
       "Codex",
       "Built-in agent",
     ]);
-    expect(listed.at(-1)).toBe(BUILT_IN_AGENT);
-  });
-
-  it("is not added a second time once the daemon lists one", () => {
-    const own = wireAgent({ kind: "builtin", name: "Built-in agent", version: "1.0" });
-    expect(
-      withBuiltIn([...GOLDEN_CATALOG.agents, own]).agents.filter((a) => a.kind === "builtin"),
-    ).toEqual([own]);
+    // The store holds the daemon's list as it came, with no entry appended to it.
+    expect(ctx.S.agents).toEqual(GOLDEN_CATALOG.agents);
   });
 
   it("gives deepseek-chat and qwen2.5-coder:32b no thinking setting, like the prototype's fixed list", () => {
-    const off = BUILT_IN_AGENT.models.filter((model) => !model.thinking).map((model) => model.id);
+    const builtin = GOLDEN_CATALOG.agents.find((agent) => agent.kind === "builtin");
+    const off = builtin?.models.filter((model) => !model.thinking).map((model) => model.id);
     expect(off).toEqual(["deepseek-chat", "qwen2.5-coder:32b"]);
   });
 });
@@ -128,7 +129,7 @@ describe("the agents section", () => {
     M.reconnect();
     await vi.waitFor(() => expect(M.S.ready).toBe(true));
     expect(M.S.loadError).toBe("");
-    expect(M.S.agents).toHaveLength(3);
+    expect(M.S.agents).toHaveLength(4);
   });
 
   it("loads it again when the stream says events were missed, so an agent installed meanwhile shows", async () => {

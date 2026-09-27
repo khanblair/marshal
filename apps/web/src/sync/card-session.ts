@@ -11,6 +11,7 @@ import { batch, createEffect } from "solid-js";
 import type { ApiClient } from "~/data/api-client";
 import { ApiError } from "~/data/api-error";
 import { isRecord } from "~/data/guards";
+import { toCheckpointRows } from "~/data/mappers/checkpoints";
 import { sleepFlags } from "~/data/mappers/card";
 import { isDaemon } from "~/data/sections";
 import type { CardKey } from "~/mock/card-key";
@@ -19,6 +20,7 @@ import { toast } from "~/mock/engine";
 import { takeMid } from "~/mock/ids";
 import type { Msg, ToolState } from "~/mock/types";
 import { toStoredActivityList, toStoredMessages } from "./chat-mapper";
+import { applyCardPreview } from "./preview";
 
 /** How many of the newest messages and activity entries a card shows when it is opened. */
 const FIRST_PAGE = 50;
@@ -47,14 +49,23 @@ export async function readOpenCard(
   const table = sectionsOf(ctx.env);
   const wantsChat = isDaemon("S8a", table);
   const wantsActivity = isDaemon("S10", table);
-  const [messages, activity] = await Promise.all([
+  const wantsPreview = isDaemon("S13", table);
+  const [messages, activity, checkpoints, preview] = await Promise.all([
     wantsChat ? api.messages(daemonId, { limit: FIRST_PAGE }) : null,
     wantsActivity ? api.activity(daemonId, { limit: FIRST_PAGE }) : null,
+    // A card's restore points are read with its activity, because that is the tab they are drawn in
+    // (B5.3). They are the daemon's own commits, so a card that never started has none.
+    wantsActivity ? api.checkpoints(daemonId) : null,
+    // A card's live preview (section S13) is read when the card opens. Reading it starts nothing, so
+    // opening a card never starts a dev server on the person's machine.
+    wantsPreview ? api.preview(daemonId) : null,
   ]);
   // The card may have been closed, or another one opened, while the daemon was answering.
   if (ctx.S.openId !== key) return;
   if (messages) ctx.S.chat[key] = toStoredMessages(messages.items);
   if (activity) ctx.S.act[key] = toStoredActivityList(activity.items, ctx.clock.now());
+  if (checkpoints) ctx.S.checkpoints[key] = toCheckpointRows(checkpoints);
+  if (preview) applyCardPreview(ctx, key, preview.preview);
 }
 
 /**
@@ -74,12 +85,15 @@ export function followOpenCard(ctx: Ctx, api: ApiClient, stream: Stream): void {
   // the only one. S9 needs it too: a card's terminal messages and its session.terminal_output
   // events are only ever accepted on a connection that follows the card's own topic
   // (docs/architecture.md 11.2), which `card-view.ts`'s `followOpenCardTerminal` relies on this
-  // subscribing before it ever asks for a snapshot.
+  // subscribing before it ever asks for a snapshot. S13 needs it for the same reason: a preview's
+  // `preview.state_changed` is published on `card:<id>`, so the open card's tab only hears it while
+  // this subscription is up.
   if (
     !isDaemon("S8a", table) &&
     !isDaemon("S10", table) &&
     !isDaemon("S7c", table) &&
-    !isDaemon("S9", table)
+    !isDaemon("S9", table) &&
+    !isDaemon("S13", table)
   ) {
     return;
   }

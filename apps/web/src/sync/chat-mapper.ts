@@ -47,17 +47,25 @@ const toolState = (state: ChatToolCall["state"]): ToolState => {
   return "ok";
 };
 
-/** A plan's state. The wire can also say the plan was edited, which the store draws beside the state. */
+/**
+ * A plan's state. A plan the wire calls edited is one a person changed, and an edited plan is still
+ * waiting for an answer: it says where it was edited (`planEdited`), not that it was answered. Only
+ * `approved` is answered, so anything else reads as waiting.
+ */
 const planState = (plan: ChatPlan): "waiting" | "approved" | "rejected" => {
   if (plan.state === "rejected") return "rejected";
-  return plan.state === "waiting" ? "waiting" : "approved";
+  return plan.state === "approved" ? "approved" : "waiting";
 };
 
 const planEdited = (plan: ChatPlan): boolean => plan.state === "edited";
 
-/** One stored plan, in the shape the plan block draws. */
-const planMessage = (message: ChatMessage, plan: ChatPlan): Msg => ({
-  id: message.id,
+/**
+ * One plan, in the shape the plan block draws. Exported because `plan.updated` carries the same
+ * block for a plan that changed while a card is open (`sync/plan-actions.ts`), and both paths have
+ * to build it the same way.
+ */
+export const planBlock = (id: string, plan: ChatPlan): Msg => ({
+  id,
   k: "plan",
   st: planState(plan),
   editing: false,
@@ -67,6 +75,9 @@ const planMessage = (message: ChatMessage, plan: ChatPlan): Msg => ({
   risks: [...plan.risks],
   checks: [...plan.checks],
 });
+
+/** One stored plan, in the shape the plan block draws. */
+const planMessage = (message: ChatMessage, plan: ChatPlan): Msg => planBlock(message.id, plan);
 
 /** One stored approval request, in the shape the approval block draws. */
 const approvalMessage = (message: ChatMessage, approval: ChatApproval): Msg => ({

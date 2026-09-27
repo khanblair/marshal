@@ -156,7 +156,10 @@ function changeOf(ctx: Ctx, card: Card, key: SettingKey, value: string): UpdateC
   }
   if (key === "perm") {
     const permissionMode = permissionModeOf(value);
-    return permissionMode ? { permissionMode } : null;
+    // Bypass is not set through an edit: the daemon refuses a plain change of the field (B3.2), so
+    // nothing here can build one, and the grant goes through `requestBypass` below.
+    if (!permissionMode || permissionMode === "bypass") return null;
+    return { permissionMode };
   }
   if (key === "role") return { role: value };
   return { model: value, ...thinkingFor(ctx, card, value) };
@@ -175,11 +178,57 @@ export async function setSetting(
 ): Promise<boolean> {
   const card = cardOf(ctx, id);
   if (!card) return false;
+  // The bypass mode is not an edit: the daemon refuses one that sets it and asks for the
+  // acknowledgement a person gave instead (B3.2), so this is the same confirmation the mock's own
+  // switch showed, and the grant itself is the daemon's to make.
+  if (key === "perm" && value === "Bypass permissions") return requestBypass(ctx, id);
   const body = changeOf(ctx, card, key, value);
   if (!body) return false;
   return attempt(ctx, `update:${id}`, async (api) => {
     applyCard(ctx, await api.updateCard(daemonIdOf(card), body));
   });
+}
+
+/**
+ * Turns bypass permissions on, after asking: the confirmation is the mock's own, with the same
+ * words and the same acknowledgement the person has to tick. Only then is the daemon asked, and the
+ * body it is given says that the person acknowledged what bypass means, which is what the route
+ * requires. A card that is already in bypass is not asked about again.
+ */
+export async function requestBypass(ctx: Ctx, id: CardKey): Promise<boolean> {
+  const card = cardOf(ctx, id);
+  if (!card || card.bypass) return false;
+  confirm(ctx, {
+    title: "Turn on bypass permissions",
+    message: `The agent on ${cardLabelOf(ctx, card)} will run every command and edit without asking. It stays inside this card's worktree and every action is still audited.`,
+    action: "Turn on bypass",
+    destructive: true,
+    ack: "I understand the agent can run any command in the worktree without asking.",
+    run: () => void grantBypass(ctx, id),
+  });
+  return true;
+}
+
+/** The grant itself, run from the confirmation above. */
+async function grantBypass(ctx: Ctx, id: CardKey): Promise<boolean> {
+  const card = cardOf(ctx, id);
+  if (!card) return false;
+  const granted = await attempt(ctx, `update:${id}`, async (api) => {
+    applyCard(ctx, await api.setCardBypass(daemonIdOf(card), { acknowledged: true }));
+  });
+  if (granted) toast(ctx, "Bypass turned on");
+  return granted;
+}
+
+/** Turns bypass permissions off. The daemon leaves the card in full auto, as the mock's own did. */
+export async function turnOffBypass(ctx: Ctx, id: CardKey): Promise<boolean> {
+  const card = cardOf(ctx, id);
+  if (!card) return false;
+  const cleared = await attempt(ctx, `update:${id}`, async (api) => {
+    applyCard(ctx, await api.clearCardBypass(daemonIdOf(card)));
+  });
+  if (cleared) toast(ctx, "Bypass turned off");
+  return cleared;
 }
 
 /** Renames a card. An empty name keeps the old one without asking, the way the mock's rename did. */

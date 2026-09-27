@@ -19,8 +19,17 @@ import { pause, pin, sleep, stopSession, wake } from "./card-hold";
 import { applyCardSessionEvent } from "./card-session";
 
 // Section S7c: the session hold (docs/backend-checklist.md B2.15). The cards are the daemon's (S5a)
-// and so are the hold controls.
-const ON_DAEMON = { ...sectionStatus, S5a: "daemon" as const, S7c: "daemon" as const };
+// and so are the hold controls. The notices (S23) and the sleep choices (S26a) are pinned to the mock
+// so this file's route lists are the card's own: with them on the daemon the store also syncs the
+// notice list and the sleep settings, and the settings route ends in `/sleep` like the card's own
+// sleep call does.
+const ON_DAEMON = {
+  ...sectionStatus,
+  S5a: "daemon" as const,
+  S7c: "daemon" as const,
+  S23: "mock" as const,
+  S26a: "mock" as const,
+};
 
 const NOT_CONNECTED = "Marshal is not connected to its daemon.";
 

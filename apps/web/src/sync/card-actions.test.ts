@@ -1,6 +1,7 @@
 import {
   type EventType,
   EventTypeCardMoved,
+  type Project,
   type Card as WireCard,
   type Event as WireEvent,
 } from "@marshal/protocol";
@@ -20,9 +21,11 @@ import {
   moveCard,
   quickAdd,
   rename,
+  requestBypass,
   setSetting,
   start,
   stop,
+  turnOffBypass,
 } from "./card-actions";
 import { cardsSyncer } from "./cards";
 
@@ -62,9 +65,17 @@ interface Fixture {
   d: FakeDaemon;
 }
 
+/** The prototype's projects, with the "api" one locking bypass, for the grant's one refusal. */
+const LOCKED_API: readonly Project[] = PROTOTYPE_PROJECTS.map((project) =>
+  project.id === "api" ? { ...project, bypassLocked: true } : project,
+);
+
 /** A store that follows a fake daemon, waited for until its boards are in and no more are loading. */
-async function setup(cards: readonly WireCard[] = [api41()]): Promise<Fixture> {
-  const d = createFakeDaemon({ projects: PROTOTYPE_PROJECTS, cards });
+async function setup(
+  cards: readonly WireCard[] = [api41()],
+  projects: readonly Project[] = PROTOTYPE_PROJECTS,
+): Promise<Fixture> {
+  const d = createFakeDaemon({ projects, cards });
   daemon = d;
   const M = createTestMarshal({ data: d.data, sections: CARDS_ON_DAEMON });
   await d.connect();
@@ -86,6 +97,17 @@ async function settled(d: FakeDaemon): Promise<void> {
     last = loads;
     expect(steady).toBe(true);
   });
+}
+
+/**
+ * Answers the confirmation that is up, ticking the acknowledgement it asks for first, which is what
+ * the dialog's own button does once the box is checked (app/dialogs/ConfirmDialog.tsx).
+ */
+function answerDialog(ctx: Ctx): void {
+  const dialog = ctx.S.dialog;
+  if (!dialog) throw new Error("no confirmation is up");
+  dialog.acked = true;
+  dialog.run();
 }
 
 function storeCard(M: Marshal, id: string): Card {
@@ -340,6 +362,73 @@ describe("start and stop", () => {
   });
 });
 
+describe("bypass", () => {
+  it("asks first with the mock's own words, then grants it with the acknowledgement", async () => {
+    const { M, ctx, d } = await setup();
+    expect(await requestBypass(ctx, "api#41")).toBe(true);
+    // The confirmation is the mock's own, including the acknowledgement the person has to tick, and
+    // nothing has been asked of the daemon yet.
+    expect(M.S.dialog).toMatchObject({
+      title: "Turn on bypass permissions",
+      action: "Turn on bypass",
+      destructive: true,
+      ack: "I understand the agent can run any command in the worktree without asking.",
+      message:
+        "The agent on api-gateway #41 will run every command and edit without asking. It stays inside this card's worktree and every action is still audited.",
+    });
+    expect(d.routes().filter((one) => one.includes("/bypass"))).toEqual([]);
+    answerDialog(ctx);
+    await vi.waitFor(() => expect(storeCard(M, "api#41").bypass).toBe(true));
+    // The grant is the daemon's own call, and the body says the person acknowledged what it means -
+    // which is the only thing that makes the daemon grant it.
+    expect(d.bodies(route("POST", "api#41", "bypass"))).toEqual([{ acknowledged: true }]);
+    expect(storeCard(M, "api#41").perm).toBe("Bypass permissions");
+    expect(toasts(M)).toEqual(["Bypass turned on"]);
+  });
+
+  it("shows the daemon's sentence and leaves the card alone when the project locks bypass", async () => {
+    const { M, ctx, d } = await setup([api41()], LOCKED_API);
+    await requestBypass(ctx, "api#41");
+    answerDialog(ctx);
+    await vi.waitFor(() =>
+      expect(toasts(M)).toEqual([
+        "Bypass permissions is locked for this project. Nobody can turn it on for its cards.",
+      ]),
+    );
+    expect(d.routes()).toContain(route("POST", "api#41", "bypass"));
+    expect(storeCard(M, "api#41").bypass).toBe(false);
+    expect(storeCard(M, "api#41").perm).toBe("Auto-accept edits");
+  });
+
+  it("turns bypass off through the daemon and leaves the card in full auto", async () => {
+    const { M, ctx, d } = await setup([api41({ permissionMode: "bypass" })]);
+    expect(storeCard(M, "api#41").bypass).toBe(true);
+    expect(storeCard(M, "api#41").perm).toBe("Bypass permissions");
+    expect(await turnOffBypass(ctx, "api#41")).toBe(true);
+    expect(d.routes()).toContain(route("DELETE", "api#41", "bypass"));
+    expect(storeCard(M, "api#41").bypass).toBe(false);
+    expect(storeCard(M, "api#41").perm).toBe("Full auto");
+    expect(toasts(M)).toEqual(["Bypass turned off"]);
+  });
+
+  it("routes the permission menu's bypass through the warning, never an edit", async () => {
+    const { M, ctx, d } = await setup();
+    expect(await setSetting(ctx, "api#41", "perm", "Bypass permissions")).toBe(true);
+    expect(M.S.dialog?.title).toBe("Turn on bypass permissions");
+    // No PATCH was sent: the daemon refuses a plain change of the mode, so the menu goes through the
+    // same confirmation the switch does (see `changeOf`).
+    expect(d.routes().filter((one) => one.startsWith("PATCH"))).toEqual([]);
+    expect(d.routes().filter((one) => one.includes("/bypass"))).toEqual([]);
+  });
+
+  it("asks nothing when the card is already in bypass", async () => {
+    const { M, ctx, d } = await setup([api41({ permissionMode: "bypass" })]);
+    expect(await requestBypass(ctx, "api#41")).toBe(false);
+    expect(M.S.dialog).toBeNull();
+    expect(d.routes().filter((one) => one.includes("/bypass"))).toEqual([]);
+  });
+});
+
 describe("a store with no daemon", () => {
   it("says so plainly, changes nothing, and throws nothing", async () => {
     const M = createTestMarshal({ sections: CARDS_ON_DAEMON });
@@ -358,6 +447,12 @@ describe("a store with no daemon", () => {
     await expect(quickAdd(ctx, "api", "backlog", "New")).resolves.toBeNull();
     await expect(start(ctx, "api#41")).resolves.toBe(false);
     await expect(stop(ctx, "api#41")).resolves.toBe(false);
+    // Turning bypass on asks before it acts, so it answers that the question is up and the refusal
+    // is said when the person answers it; turning it off asks for nothing and says so itself.
+    await expect(requestBypass(ctx, "api#41")).resolves.toBe(true);
+    answerDialog(ctx);
+    await vi.waitFor(() => expect(toasts(M)).toContain(NOT_CONNECTED));
+    await expect(turnOffBypass(ctx, "api#41")).resolves.toBe(false);
     expect(M.S.cards).toHaveLength(cards);
     // The store keeps only the newest few toasts, so what is read back is the tail of them.
     expect(toasts(M)).toHaveLength(3);

@@ -53,12 +53,13 @@ export const cardsSyncer: Syncer<DaemonBoard[]> = {
  * A card as the store keeps it: what the daemon fills, plus the fields that are the app's own. Those
  * are empty on a real card, because the daemon has nothing to say about them yet: cost and token use
  * are Phase 4, dependencies, members, checklists, and comments are later phases, and the merge
- * percent and the bypass flag belong to the phases that build them. They are written here, once, and
- * never written from the wire afterwards.
+ * percent belongs to the phase that builds it. They are written here, once, and never written from
+ * the wire afterwards.
  *
  * The session is not one of them. The wire card carries its session state (section S7c), so the
  * session and the two flags drawn from it (`asleep` and `waking`) come from the mapper and are
- * rewritten by every board and every `card.updated`.
+ * rewritten by every board and every `card.updated`. The bypass flag is the daemon's too, derived
+ * from the card's permission mode (section S7b).
  */
 function storedCard(card: WireCard, now: number): Card {
   return {
@@ -68,7 +69,6 @@ function storedCard(card: WireCard, now: number): Card {
     members: [],
     checklists: [],
     comments: [],
-    bypass: false,
     mergePct: 0,
   };
 }

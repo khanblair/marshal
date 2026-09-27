@@ -9,22 +9,33 @@ import { applyTerminalFrame, applyTerminalOutputEvent, followOpenCardTerminal } 
 import { cardsSyncer } from "./cards";
 import { applyChatSessionEvent, followOpenChat } from "./chat-session";
 import { chatsSyncer } from "./chats";
+import { ciSyncer } from "./ci";
 import { homeFeedSyncer } from "./home-feed";
 import { homeStatsSyncer } from "./home-stats";
+import { integrationsSyncer } from "./integrations";
+import { limitsSyncer } from "./limits";
+import { noticesSyncer } from "./notices";
+import { applyPlanUpdated } from "./plan-actions";
+import { applyPreviewEvent } from "./preview";
 import { preferencesSyncer } from "./preferences";
 import { profileSyncer } from "./profile";
 import { progressSyncer } from "./progress";
 import { projectsSyncer } from "./projects";
+import { providersSyncer } from "./providers";
+import { rolesSyncer } from "./roles";
 import { savedViewsSyncer } from "./saved-views";
+import { sleepSettingsSyncer } from "./sleep-settings";
 import type { SyncControl } from "./sync-control";
 import type { Syncer } from "./syncer";
 
 /**
  * Every section the daemon fills, in the order their snapshots are applied. A section that is
- * still `mock` in `sections.ts` is skipped. The projects (S3), the agent catalog (S4), and the
- * boards (S5a) are the ones on the daemon so far; the project chats (S17), the Home numbers (S19a),
- * and the Home activity stream (S20) are built and join this list the moment their section is
- * switched, which is a change to `sections.ts` alone.
+ * still `mock` in `sections.ts` is skipped. The projects (S3), the agent catalog (S4), the limits
+ * (S26b), the sleep settings (S26a), the provider keys (S28), the roles (S27), the boards (S5a),
+ * the CI health (S21), the live preview (S13), the connections (S29a), and the notices (S23) are
+ * the ones on the daemon so far; the project chats (S17), the Home numbers (S19a and S19b), and the
+ * Home activity stream (S20) are built and join this list the moment their section is switched,
+ * which is a change to `sections.ts` alone.
  *
  * The person's own sections come last. The saved views (S6a) are read per project, so they need the
  * projects; the preferences (S32) name the saved view in use by id, so they need the saved views.
@@ -32,8 +43,21 @@ import type { Syncer } from "./syncer";
 const SYNCERS: readonly Syncer[] = [
   projectsSyncer,
   agentsSyncer,
+  limitsSyncer,
+  sleepSettingsSyncer,
+  providersSyncer,
+  rolesSyncer,
+  // The connections Marshal is set up with (S29a for GitHub). It publishes no topic and needs only
+  // the store's own rows, so its place in this list does not matter beyond being with the others.
+  integrationsSyncer,
   cardsSyncer,
+  // The notices (S23) name cards by the daemon's own ids, and this app works in card keys, so the
+  // cards must be in the store before a notice can be placed.
+  noticesSyncer,
   chatsSyncer,
+  // The CI health of every project (S21), which Home's list and its view-all page draw from the
+  // projects in the store.
+  ciSyncer,
   homeStatsSyncer,
   homeFeedSyncer,
   savedViewsSyncer,
@@ -187,6 +211,11 @@ export function startSync(ctx: Ctx, syncers: readonly Syncer[] = SYNCERS): SyncC
           applyCardSessionEvent(ctx, event);
           applyChatSessionEvent(ctx, event);
           applyTerminalOutputEvent(ctx, event);
+          // A plan an answer replaced (section S8c) arrives on the same card topic as the chat it
+          // lives in, so every view of the card's plan follows one answer.
+          applyPlanUpdated(ctx, event);
+          // A card's live preview changing state (section S13) arrives on the card's own topic too.
+          applyPreviewEvent(ctx, event);
           for (const syncer of active) syncer.onEvent?.(ctx, event);
         }
       }),
