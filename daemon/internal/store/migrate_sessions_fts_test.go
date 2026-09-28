@@ -27,14 +27,22 @@ func seedSession(ctx context.Context, t *testing.T, writer *sql.DB, id, card str
 	}
 }
 
+// sessionEventKey identifies one seeded event - bundled so seedSessionEvent stays under this
+// codebase's argument limit.
+type sessionEventKey struct {
+	id      string
+	card    string
+	session string
+}
+
 // seedSessionEvent adds one stored event of a card's session: the one line the index is built over.
-func seedSessionEvent(ctx context.Context, t *testing.T, writer *sql.DB, id, card, session, summary string) {
+func seedSessionEvent(ctx context.Context, t *testing.T, writer *sql.DB, k sessionEventKey, summary string) {
 	t.Helper()
 	if _, err := writer.ExecContext(ctx,
 		`INSERT INTO session_events (id, card_id, session_id, seq, kind, summary, created_at)
 		 VALUES (?, ?, ?, (SELECT COALESCE(MAX(seq), 0) + 1 FROM session_events WHERE card_id = ?), 'message', ?, ?)`,
-		id, card, session, card, summary, memoryNow); err != nil {
-		t.Fatalf("seed the event %s: %v", id, err)
+		k.id, k.card, k.session, k.card, summary, memoryNow); err != nil {
+		t.Fatalf("seed the event %s: %v", k.id, err)
 	}
 }
 
@@ -69,7 +77,7 @@ func TestTheSessionIndexFollowsTheEvent(t *testing.T) {
 	ctx := testContext(t)
 	writer := memorySchema(ctx, t)
 	seedSession(ctx, t, writer, "session-1", "card1")
-	seedSessionEvent(ctx, t, writer, "event-1", "card1", "session-1", "Added the health check endpoint")
+	seedSessionEvent(ctx, t, writer, sessionEventKey{"event-1", "card1", "session-1"}, "Added the health check endpoint")
 
 	if got := searchEventIndex(ctx, t, writer, "health"); len(got) != 1 || got[0] != "event-1" {
 		t.Fatalf("searching for the event's own words found %v, want [event-1]", got)
@@ -99,7 +107,7 @@ func TestTheSessionIndexHoldsOnlyACardsEventsWithASummary(t *testing.T) {
 	ctx := testContext(t)
 	writer := memorySchema(ctx, t)
 	seedSession(ctx, t, writer, "session-1", "card1")
-	seedSessionEvent(ctx, t, writer, "event-1", "card1", "session-1", "")
+	seedSessionEvent(ctx, t, writer, sessionEventKey{"event-1", "card1", "session-1"}, "")
 	if got := searchEventIndex(ctx, t, writer, "health"); len(got) != 0 {
 		t.Errorf("an event with no summary is indexed: %v", got)
 	}
@@ -133,7 +141,7 @@ func TestDeletingACardTakesItsSessionEventsFromTheIndex(t *testing.T) {
 	ctx := testContext(t)
 	writer := memorySchema(ctx, t)
 	seedSession(ctx, t, writer, "session-1", "card1")
-	seedSessionEvent(ctx, t, writer, "event-1", "card1", "session-1", "Added a liveness probe")
+	seedSessionEvent(ctx, t, writer, sessionEventKey{"event-1", "card1", "session-1"}, "Added a liveness probe")
 	if _, err := writer.ExecContext(ctx, `DELETE FROM cards WHERE id = 'card1'`); err != nil {
 		t.Fatalf("delete the card: %v", err)
 	}
