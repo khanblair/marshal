@@ -46,13 +46,18 @@ const (
 // write; it reruns failed CI jobs, so Actions needs write too. A permission GitHub reports with only
 // read is a warning: the App works for reading what Marshal already has, and the person is told
 // exactly which action will fail.
-var requiredPermissions = []struct {
+func requiredPermissions() []struct {
 	Name  string
 	Level string
-}{
-	{"issues", "write"},
-	{"pull_requests", "write"},
-	{"actions", "write"},
+} {
+	return []struct {
+		Name  string
+		Level string
+	}{
+		{"issues", permWrite},
+		{"pull_requests", permWrite},
+		{"actions", permWrite},
+	}
 }
 
 // Test runs the GitHub connection test and answers what to show the person. An id Marshal has no
@@ -131,8 +136,8 @@ func (s *Service) testGitHub(ctx context.Context, info Info) (protocol.TestResul
 func installationCheck(install githubapp.Installation, err error) protocol.TestCheck {
 	check := protocol.TestCheck{Name: CheckAppInstalled}
 	if err != nil {
-		check.State, check.Message, check.Fix = githubFailure(err,
-			"Marshal could not read this App's installation.")
+		check.State = protocol.CheckStateFailed
+		check.Message, check.Fix = githubFailure(err, "Marshal could not read this App's installation.")
 		return check
 	}
 	where := install.Account
@@ -157,7 +162,7 @@ func permissionsCheck(install githubapp.Installation, err error) protocol.TestCh
 		return check
 	}
 	var missing, readOnly []string
-	for _, want := range requiredPermissions {
+	for _, want := range requiredPermissions() {
 		got := install.Permissions[want.Name]
 		switch {
 		case got == "":
@@ -184,6 +189,10 @@ func permissionsCheck(install githubapp.Installation, err error) protocol.TestCh
 	return check
 }
 
+// permWrite is GitHub's own word for the write permission level, the one every entry in
+// requiredPermissions needs.
+const permWrite = "write"
+
 // permissionAtLeast reports whether a permission GitHub reported is at least the level Marshal
 // needs. GitHub's own words are "read", "write", and "admin", in that order.
 func permissionAtLeast(got, want string) bool {
@@ -191,7 +200,7 @@ func permissionAtLeast(got, want string) bool {
 		switch level {
 		case "read":
 			return 1
-		case "write":
+		case permWrite:
 			return 2
 		case "admin":
 			return 3
@@ -208,8 +217,8 @@ func permissionAtLeast(got, want string) bool {
 func repositoriesCheck(repos []string, err error) protocol.TestCheck {
 	check := protocol.TestCheck{Name: CheckRepositories}
 	if err != nil {
-		check.State, check.Message, check.Fix = githubFailure(err,
-			"Marshal could not list the App's repositories.")
+		check.State = protocol.CheckStateFailed
+		check.Message, check.Fix = githubFailure(err, "Marshal could not list the App's repositories.")
 		return check
 	}
 	if len(repos) == 0 {
@@ -301,28 +310,26 @@ func summaryCheck(checks []protocol.TestCheck, works, partly string) protocol.Te
 // githubFailure turns a failed GitHub call into the sentence and the fix a person reads. A refusal
 // names the status, because "GitHub refused this" and "Marshal could not ask" are different problems
 // with different fixes, and an API error's own text names the API, which a screen does not.
-func githubFailure(err error, what string) (state protocol.CheckState, message, fix string) {
+//
+// Every branch answers CheckStateFailed - there is no other outcome a caller reaches this from -
+// so the state is the caller's own to set, and this only names the message and the fix.
+func githubFailure(err error, what string) (message, fix string) {
 	var apiErr *ghclient.APIError
 	switch {
 	case errors.As(err, &apiErr) && apiErr.Unauthorized():
-		return protocol.CheckStateFailed,
-			"GitHub refused Marshal's App credentials.",
+		return "GitHub refused Marshal's App credentials.",
 			"Check the App id, the installation id, and the private key, and save them again."
 	case errors.As(err, &apiErr) && apiErr.NotFound():
-		return protocol.CheckStateFailed,
-			"GitHub has no such installation for this App.",
+		return "GitHub has no such installation for this App.",
 			"Check the installation id on the App's installation page."
 	case errors.As(err, &apiErr):
-		return protocol.CheckStateFailed,
-			fmt.Sprintf("%s GitHub answered %d.", what, apiErr.Status),
+		return fmt.Sprintf("%s GitHub answered %d.", what, apiErr.Status),
 			"Check the App's settings on GitHub."
 	case errors.Is(err, context.DeadlineExceeded), errors.Is(err, context.Canceled):
-		return protocol.CheckStateFailed,
-			"GitHub did not answer in time.",
+		return "GitHub did not answer in time.",
 			"Check this computer's connection, then test again."
 	default:
-		return protocol.CheckStateFailed,
-			fmt.Sprintf("%s Marshal could not reach GitHub.", what),
+		return fmt.Sprintf("%s Marshal could not reach GitHub.", what),
 			"Check this computer's connection, then test again."
 	}
 }

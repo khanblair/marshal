@@ -221,7 +221,7 @@ func TestHostAnswersAnUnknownCardWithoutAServer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get: %v", err)
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 	if res.StatusCode != http.StatusUnauthorized {
 		t.Errorf("an unknown card answered %d, want 401", res.StatusCode)
 	}

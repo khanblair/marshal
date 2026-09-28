@@ -352,8 +352,11 @@ func TestSearchMemoryAnswersLessonsToo(t *testing.T) {
 	f := newFixture(t)
 	long := strings.Repeat("flaky ", 100)
 	f.notes.lessonIndex = []protocol.Lesson{
-		protocol.NewLesson(projectID, "ci-is-flaky", "CI is flaky", projectID+"/lessons/ci-is-flaky.md",
-			long, protocol.NoteAuthorAgent, fixtureNoteTime),
+		{
+			ProjectID: projectID, Slug: "ci-is-flaky", Title: "CI is flaky",
+			Path: projectID + "/lessons/ci-is-flaky.md", Body: long,
+			Author: protocol.NoteAuthorAgent, UpdatedAt: protocol.NewTimestamp(fixtureNoteTime),
+		},
 	}
 	out := callOK[searchMemoryOut](t, f.client(t), "search_memory", map[string]any{"query": "flaky"})
 

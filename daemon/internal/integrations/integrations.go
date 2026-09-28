@@ -237,7 +237,7 @@ func (s *Service) rowToWire(ctx context.Context, info Info, row integrationRow, 
 		if tested && !last.OK {
 			// A test that asked about the vault and got a bad answer is exactly what the row is for:
 			// the checks say what is wrong and the detail says how to fix it.
-			wire.Status, wire.Detail = protocol.IntegrationStatusError, detailFor(info, last, true)
+			wire.Status, wire.Detail = protocol.IntegrationStatusError, detailFor(last, true)
 		}
 		return wire
 	}
@@ -246,7 +246,7 @@ func (s *Service) rowToWire(ctx context.Context, info Info, row integrationRow, 
 		return wire
 	}
 	wire.Status = statusFor(last, tested)
-	wire.Detail = detailFor(info, last, tested)
+	wire.Detail = detailFor(last, tested)
 	return wire
 }
 
@@ -283,7 +283,7 @@ func statusFor(last protocol.TestResult, tested bool) protocol.IntegrationStatus
 
 // detailFor is the one sentence under a row: the failed check's fix when the last test failed, the
 // summary a passing test wrote when it passed, and a plain "run the test" when it has not run yet.
-func detailFor(info Info, last protocol.TestResult, tested bool) string {
+func detailFor(last protocol.TestResult, tested bool) string {
 	if !tested {
 		return "Connected. Run the test to check it."
 	}

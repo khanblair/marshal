@@ -110,6 +110,7 @@ func stepKind(step Step) protocol.LocalCIKind {
 // kindOf reads the first word of a text that names a kind, matching whole words so "test" is found
 // in `pnpm test` and `npm run test:unit` and not in "latest".
 func kindOf(text string) protocol.LocalCIKind {
+	kindWords := kindWords()
 	for _, word := range words(text) {
 		if kind, ok := kindWords[word]; ok {
 			return kind
@@ -122,7 +123,7 @@ func kindOf(text string) protocol.LocalCIKind {
 // command's flags, paths, and punctuation do not hide the word that says what it does.
 func words(text string) []string {
 	return strings.FieldsFunc(strings.ToLower(text), func(r rune) bool {
-		return !(r >= 'a' && r <= 'z' || r >= '0' && r <= '9')
+		return (r < 'a' || r > 'z') && (r < '0' || r > '9')
 	})
 }
 
@@ -131,51 +132,53 @@ func words(text string) []string {
 // rather than a tool that takes a subcommand: `cargo test` is a test because of "test", not because
 // of "cargo", and a program that runs many things ("make", "docker", "npm", "go") says nothing on
 // its own. A word that is nobody's is not found at all, and the step is reported instead.
-var kindWords = map[string]protocol.LocalCIKind{
-	// Words that name a test step, including the test runner's own name.
-	"test":       protocol.LocalCIKindTest,
-	"tests":      protocol.LocalCIKindTest,
-	"spec":       protocol.LocalCIKindTest,
-	"specs":      protocol.LocalCIKindTest,
-	"jest":       protocol.LocalCIKindTest,
-	"vitest":     protocol.LocalCIKindTest,
-	"pytest":     protocol.LocalCIKindTest,
-	"gotestsum":  protocol.LocalCIKindTest,
-	"rspec":      protocol.LocalCIKindTest,
-	"phpunit":    protocol.LocalCIKindTest,
-	"playwright": protocol.LocalCIKindTest,
-	"cypress":    protocol.LocalCIKindTest,
+func kindWords() map[string]protocol.LocalCIKind {
+	return map[string]protocol.LocalCIKind{
+		// Words that name a test step, including the test runner's own name.
+		"test":       protocol.LocalCIKindTest,
+		"tests":      protocol.LocalCIKindTest,
+		"spec":       protocol.LocalCIKindTest,
+		"specs":      protocol.LocalCIKindTest,
+		"jest":       protocol.LocalCIKindTest,
+		"vitest":     protocol.LocalCIKindTest,
+		"pytest":     protocol.LocalCIKindTest,
+		"gotestsum":  protocol.LocalCIKindTest,
+		"rspec":      protocol.LocalCIKindTest,
+		"phpunit":    protocol.LocalCIKindTest,
+		"playwright": protocol.LocalCIKindTest,
+		"cypress":    protocol.LocalCIKindTest,
 
-	// Words that name a lint, format, or type-check step, including the linter's own name.
-	"lint":        protocol.LocalCIKindLint,
-	"linters":     protocol.LocalCIKindLint,
-	"eslint":      protocol.LocalCIKindLint,
-	"stylelint":   protocol.LocalCIKindLint,
-	"biome":       protocol.LocalCIKindLint,
-	"prettier":    protocol.LocalCIKindLint,
-	"format":      protocol.LocalCIKindLint,
-	"fmt":         protocol.LocalCIKindLint,
-	"gofmt":       protocol.LocalCIKindLint,
-	"vet":         protocol.LocalCIKindLint,
-	"golangci":    protocol.LocalCIKindLint,
-	"clippy":      protocol.LocalCIKindLint,
-	"ruff":        protocol.LocalCIKindLint,
-	"flake8":      protocol.LocalCIKindLint,
-	"rubocop":     protocol.LocalCIKindLint,
-	"tsc":         protocol.LocalCIKindLint,
-	"typecheck":   protocol.LocalCIKindLint,
-	"checkstyle":  protocol.LocalCIKindLint,
-	"staticcheck": protocol.LocalCIKindLint,
-	"shellcheck":  protocol.LocalCIKindLint,
+		// Words that name a lint, format, or type-check step, including the linter's own name.
+		"lint":        protocol.LocalCIKindLint,
+		"linters":     protocol.LocalCIKindLint,
+		"eslint":      protocol.LocalCIKindLint,
+		"stylelint":   protocol.LocalCIKindLint,
+		"biome":       protocol.LocalCIKindLint,
+		"prettier":    protocol.LocalCIKindLint,
+		"format":      protocol.LocalCIKindLint,
+		"fmt":         protocol.LocalCIKindLint,
+		"gofmt":       protocol.LocalCIKindLint,
+		"vet":         protocol.LocalCIKindLint,
+		"golangci":    protocol.LocalCIKindLint,
+		"clippy":      protocol.LocalCIKindLint,
+		"ruff":        protocol.LocalCIKindLint,
+		"flake8":      protocol.LocalCIKindLint,
+		"rubocop":     protocol.LocalCIKindLint,
+		"tsc":         protocol.LocalCIKindLint,
+		"typecheck":   protocol.LocalCIKindLint,
+		"checkstyle":  protocol.LocalCIKindLint,
+		"staticcheck": protocol.LocalCIKindLint,
+		"shellcheck":  protocol.LocalCIKindLint,
 
-	// Words that name a build step, including the bundler's own name.
-	"build":   protocol.LocalCIKindBuild,
-	"builds":  protocol.LocalCIKindBuild,
-	"compile": protocol.LocalCIKindBuild,
-	"webpack": protocol.LocalCIKindBuild,
-	"rollup":  protocol.LocalCIKindBuild,
-	"esbuild": protocol.LocalCIKindBuild,
-	"tsup":    protocol.LocalCIKindBuild,
+		// Words that name a build step, including the bundler's own name.
+		"build":   protocol.LocalCIKindBuild,
+		"builds":  protocol.LocalCIKindBuild,
+		"compile": protocol.LocalCIKindBuild,
+		"webpack": protocol.LocalCIKindBuild,
+		"rollup":  protocol.LocalCIKindBuild,
+		"esbuild": protocol.LocalCIKindBuild,
+		"tsup":    protocol.LocalCIKindBuild,
+	}
 }
 
 // sideEffectWords are the words that say a step changes something outside the worktree: it deploys,
@@ -183,18 +186,21 @@ var kindWords = map[string]protocol.LocalCIKind{
 // says it does, so a step that builds and then deploys is reported rather than half-run. The words
 // are read from the command alone and never from the step's name, so a test *about* pushing
 // something is still a test.
-var sideEffectWords = map[string]bool{
-	"deploy": true, "deploys": true, "deployment": true,
-	"publish": true, "publishes": true, "release": true,
-	"upload": true, "uploads": true,
-	"push": true, "pushes": true,
-	"sync": true, "rsync": true, "scp": true, "ssh": true,
-	"helm": true, "kubectl": true, "terraform": true, "ansible": true,
-	"heroku": true, "netlify": true, "vercel": true, "surge": true,
+func sideEffectWords() map[string]bool {
+	return map[string]bool{
+		"deploy": true, "deploys": true, "deployment": true,
+		"publish": true, "publishes": true, "release": true,
+		"upload": true, "uploads": true,
+		"push": true, "pushes": true,
+		"sync": true, "rsync": true, "scp": true, "ssh": true,
+		"helm": true, "kubectl": true, "terraform": true, "ansible": true,
+		"heroku": true, "netlify": true, "vercel": true, "surge": true,
+	}
 }
 
 // sideEffect says whether a command deploys, publishes, or pushes something.
 func sideEffect(command string) bool {
+	sideEffectWords := sideEffectWords()
 	for _, word := range words(command) {
 		if sideEffectWords[word] {
 			return true

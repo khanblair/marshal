@@ -138,15 +138,35 @@ func pickWorkflows(list []Workflow, want string) []Workflow {
 	return out
 }
 
+// stepContext is the folder a workflow runs in together with the workflow and job one step belongs
+// to. runStep and run both need all three alongside the step itself, so they are threaded through
+// as one value instead of three separate arguments.
+type stepContext struct {
+	dir string
+	w   Workflow
+	job Job
+}
+
+// runState is where a job's steps stand as Marshal runs them: whether an earlier step in this job
+// already failed, and the workflow's own budget of how many more steps it will still start. The
+// budget is a pointer to the one shared by every job of the workflow, since it is the whole
+// workflow's limit and not each job's own.
+type runState struct {
+	failed bool
+	budget *int
+}
+
 // runWorkflow runs every step of one workflow, job by job, and reports where the workflow ended.
 func (s *Service) runWorkflow(ctx context.Context, dir string, w Workflow, budget *int) protocol.LocalCIWorkflow {
 	out := protocol.LocalCIWorkflow{File: w.File, Name: w.Name}
+	st := &runState{budget: budget}
 	for _, job := range w.Jobs {
 		// A job's steps stop at its first failure, exactly as GitHub runs a job. The other jobs of
 		// the workflow keep going: they do not depend on this one.
-		failed := false
+		st.failed = false
+		sc := stepContext{dir: dir, w: w, job: job}
 		for _, step := range job.Steps {
-			out.Steps = append(out.Steps, s.runStep(ctx, dir, w, job, step, &failed, budget))
+			out.Steps = append(out.Steps, s.runStep(ctx, sc, step, st))
 		}
 	}
 	out.Status = workflowStatus(out.Steps)
@@ -155,46 +175,46 @@ func (s *Service) runWorkflow(ctx context.Context, dir string, w Workflow, budge
 
 // runStep decides one step and runs it when Marshal can. A step Marshal will not run answers the
 // sentence that says why, and a step it runs answers what it printed.
-func (s *Service) runStep(ctx context.Context, dir string, w Workflow, job Job, step Step, failed *bool, budget *int) protocol.LocalCIStep {
+func (s *Service) runStep(ctx context.Context, sc stepContext, step Step, st *runState) protocol.LocalCIStep {
 	item := protocol.LocalCIStep{Job: step.Job, Name: step.Name, Command: step.Run}
 	decided := classify(step)
 	item.Kind = decided.Kind
 	switch {
-	case job.Skip != "":
+	case sc.job.Skip != "":
 		// The whole job cannot run here, so nothing in it can. The job's own sentence says why,
 		// which is more use than repeating a step's reason.
-		item.Status, item.Reason = protocol.LocalCIStatusUnsupported, job.Skip
+		item.Status, item.Reason = protocol.LocalCIStatusUnsupported, sc.job.Skip
 	case decided.Reason != "":
 		item.Status, item.Reason = protocol.LocalCIStatusUnsupported, decided.Reason
-	case *failed:
+	case st.failed:
 		item.Status, item.Reason = protocol.LocalCIStatusSkipped, reasonEarlierFailed
-	case *budget <= 0:
+	case *st.budget <= 0:
 		item.Status, item.Reason = protocol.LocalCIStatusSkipped, reasonTooManySteps
 	default:
-		*budget--
-		s.run(ctx, dir, w, job, step, &item, failed)
+		*st.budget--
+		s.run(ctx, sc, step, &item, st)
 	}
 	return item
 }
 
 // run runs one step and fills in where it ended. A step that could not be started at all is a
 // failure rather than a refusal: Marshal tried, and something on this machine stopped it.
-func (s *Service) run(ctx context.Context, dir string, w Workflow, job Job, step Step, item *protocol.LocalCIStep, failed *bool) {
+func (s *Service) run(ctx context.Context, sc stepContext, step Step, item *protocol.LocalCIStep, st *runState) {
 	result, err := s.runner.Run(ctx, RunRequest{
-		Dir: dir, Shell: shellPath(step.Shell), Command: step.Run, Env: mergeEnv(w, job, step),
+		Dir: sc.dir, Shell: shellPath(step.Shell), Command: step.Run, Env: mergeEnv(sc.w, sc.job, step),
 	})
 	item.TookMs = result.Took.Milliseconds()
 	if err != nil {
 		s.log.WarnContext(ctx, "a workflow step could not be started", "step", step.Name, "error", err)
 		item.Status = protocol.LocalCIStatusFailed
 		item.Output = "Marshal could not start this step: " + err.Error()
-		*failed = true
+		st.failed = true
 		return
 	}
 	item.Output = result.Output
 	if result.Failed {
 		item.Status = protocol.LocalCIStatusFailed
-		*failed = true
+		st.failed = true
 		return
 	}
 	item.Status = protocol.LocalCIStatusPassed

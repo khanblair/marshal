@@ -44,11 +44,10 @@ var testKey = func() []byte {
 // fixture is a connections service over a real store and an in-memory keychain, the way the daemon
 // builds it and a test never touches the machine's keychain.
 type fixture struct {
-	t      *testing.T
-	store  *store.Store
-	keys   *security.MemoryKeychain
-	svc    *integrations.Service
-	appFor func(context.Context) (*githubapp.App, error)
+	t     *testing.T
+	store *store.Store
+	keys  *security.MemoryKeychain
+	svc   *integrations.Service
 }
 
 func newFixture(t *testing.T, opts ...func(*integrations.Options)) *fixture {
