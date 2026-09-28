@@ -127,7 +127,7 @@ func commandAction(args []string) Action {
 // isInstall says whether a package manager is being asked to install or update a dependency. The
 // tools it does not know are left alone, so a new package manager is a command, not a mistake.
 func isInstall(tool string, rest []string) bool {
-	verbs, known := installVerbs[tool]
+	verbs, known := installVerbs()[tool]
 	if !known {
 		return false
 	}
@@ -140,23 +140,32 @@ func isInstall(tool string, rest []string) bool {
 	return false
 }
 
+// cmdAdd is the "add a dependency" verb shared by several package managers below.
+const cmdAdd = "add"
+
+// install is the literal ActionInstall carries, reused here as a map key so the subcommand string
+// is written once (goconst).
+const install = string(ActionInstall)
+
 // installVerbs are the subcommands that install or update a dependency, by tool.
-var installVerbs = map[string]map[string]bool{
-	"npm":      {"install": true, "i": true, "ci": true, "add": true},
-	"pnpm":     {"install": true, "i": true, "add": true},
-	"yarn":     {"install": true, "add": true},
-	"bun":      {"install": true, "add": true},
-	"pip":      {"install": true},
-	"pip3":     {"install": true},
-	"gem":      {"install": true},
-	"go":       {"install": true, "get": true},
-	"cargo":    {"install": true},
-	"brew":     {"install": true, "upgrade": true},
-	"apt":      {"install": true},
-	"apt-get":  {"install": true},
-	"bundle":   {"install": true},
-	"composer": {"install": true, "require": true},
-	"poetry":   {"install": true, "add": true},
+func installVerbs() map[string]map[string]bool {
+	return map[string]map[string]bool{
+		"npm":      {install: true, "i": true, "ci": true, cmdAdd: true},
+		"pnpm":     {install: true, "i": true, cmdAdd: true},
+		"yarn":     {install: true, cmdAdd: true},
+		"bun":      {install: true, cmdAdd: true},
+		"pip":      {install: true},
+		"pip3":     {install: true},
+		"gem":      {install: true},
+		"go":       {install: true, "get": true},
+		"cargo":    {install: true},
+		"brew":     {install: true, "upgrade": true},
+		"apt":      {install: true},
+		"apt-get":  {install: true},
+		"bundle":   {install: true},
+		"composer": {install: true, "require": true},
+		"poetry":   {install: true, cmdAdd: true},
+	}
 }
 
 // Words splits a command line into the words a rule can compare, dropping the characters a shell
@@ -373,8 +382,10 @@ func splitOperators(command string) []string {
 }
 
 // shells are the programs that run a script given after "-c".
-var shells = map[string]bool{
-	"sh": true, "bash": true, "zsh": true, "dash": true, "ksh": true, "ash": true, "fish": true,
+func shells() map[string]bool {
+	return map[string]bool{
+		"sh": true, "bash": true, "zsh": true, "dash": true, "ksh": true, "ash": true, "fish": true,
+	}
 }
 
 // shellScript returns the script a "sh -c SCRIPT" segment would run, so its words can be checked
@@ -390,12 +401,12 @@ func shellScript(segment string) (prefix, script string, ok bool) {
 			continue
 		}
 		name := filepath.Base(words[i])
-		if !wrappers[name] {
+		if !wrappers()[name] {
 			break
 		}
 		i += len(words[i:]) - len(skipOneWrapper(name, words[i:]))
 	}
-	if i >= len(words) || !shells[filepath.Base(words[i])] {
+	if i >= len(words) || !shells()[filepath.Base(words[i])] {
 		return "", "", false
 	}
 	shell := i
@@ -426,7 +437,7 @@ func shellScript(segment string) (prefix, script string, ok bool) {
 // its own: otherwise a whole command hides inside what looks like an option's value.
 func envScript(segment string) (string, bool) {
 	words := Words(segment)
-	if len(words) == 0 || filepath.Base(words[0]) != "env" {
+	if len(words) == 0 || filepath.Base(words[0]) != wrapperEnv {
 		return "", false
 	}
 	for i := 1; i < len(words); i++ {
@@ -449,13 +460,20 @@ func envScript(segment string) (string, bool) {
 	return "", false
 }
 
+// wrapperEnv is the "env" wrapper's own name, shared by every place that treats it specially: it
+// is a wrapper (wrappers below), it takes VAR=value words before the command it runs
+// (skipOneWrapper), and "env -S STRING" is its own command line in disguise (envScript).
+const wrapperEnv = "env"
+
 // wrappers are commands that run another command. A rule looks past them, because "sudo rm -rf /" is
 // still a recursive delete of a root, and a rule that could be dodged by typing one extra word would
 // be worth nothing.
-var wrappers = map[string]bool{
-	"sudo": true, "doas": true, "nohup": true, "time": true, "nice": true, "env": true,
-	"command": true, "exec": true, "timeout": true, "setsid": true, "ionice": true, "chrt": true,
-	"stdbuf": true, "flock": true, "xargs": true, "busybox": true,
+func wrappers() map[string]bool {
+	return map[string]bool{
+		"sudo": true, "doas": true, "nohup": true, "time": true, "nice": true, wrapperEnv: true,
+		"command": true, "exec": true, "timeout": true, "setsid": true, "ionice": true, "chrt": true,
+		"stdbuf": true, "flock": true, "xargs": true, "busybox": true,
+	}
 }
 
 // commandTail drops the wrappers from the front of a command line, so what is left starts with the
@@ -470,7 +488,7 @@ func commandTail(args []string) []string {
 			continue
 		}
 		name := filepath.Base(args[0])
-		if !wrappers[name] {
+		if !wrappers()[name] {
 			return args
 		}
 		args = skipOneWrapper(name, args)
@@ -484,7 +502,7 @@ func commandTail(args []string) []string {
 func skipOneWrapper(name string, args []string) []string {
 	args = skipWrapperOptions(name, args[1:])
 	switch name {
-	case "env":
+	case wrapperEnv:
 		for len(args) > 0 && isAssignment(args[0]) {
 			args = args[1:]
 		}
@@ -586,26 +604,28 @@ func namesByVariable(args []string) bool {
 // wrapperTakesValue names the options of each wrapper that are followed by a value, so the value is
 // never mistaken for the command the wrapper will run. An option spelled "-x=value" or "-xvalue"
 // carries its value with it and needs no entry.
-var wrapperTakesValue = map[string]map[string]bool{
-	"sudo": {
-		"-u": true, "-g": true, "-p": true, "-C": true, "-h": true, "-r": true, "-t": true,
-		"-U": true, "--user": true, "--group": true, "--prompt": true, "--close-from": true,
-		"--host": true, "--role": true, "--type": true, "--other-user": true,
-	},
-	"doas": {"-u": true, "-C": true},
-	"env":  {"-u": true, "--unset": true, "-C": true, "--chdir": true, "-S": true, "--split-string": true},
-	"nice": {"-n": true, "--adjustment": true},
-	"timeout": {
-		"-k": true, "--kill-after": true, "-s": true, "--signal": true,
-	},
-	"time": {"-o": true, "--output": true, "-f": true, "--format": true},
-	"exec": {"-a": true},
+func wrapperTakesValue() map[string]map[string]bool {
+	return map[string]map[string]bool{
+		"sudo": {
+			"-u": true, "-g": true, "-p": true, "-C": true, "-h": true, "-r": true, "-t": true,
+			"-U": true, "--user": true, "--group": true, "--prompt": true, "--close-from": true,
+			"--host": true, "--role": true, "--type": true, "--other-user": true,
+		},
+		"doas":     {"-u": true, "-C": true},
+		wrapperEnv: {"-u": true, "--unset": true, "-C": true, "--chdir": true, "-S": true, "--split-string": true},
+		"nice":     {"-n": true, "--adjustment": true},
+		"timeout": {
+			"-k": true, "--kill-after": true, "-s": true, "--signal": true,
+		},
+		"time": {"-o": true, "--output": true, "-f": true, "--format": true},
+		"exec": {"-a": true},
+	}
 }
 
 // skipWrapperOptions drops the options of a wrapper from the front of its argument list, so what is
 // left starts with the command the wrapper will run.
 func skipWrapperOptions(name string, args []string) []string {
-	takes := wrapperTakesValue[name]
+	takes := wrapperTakesValue()[name]
 	for len(args) > 0 {
 		arg := args[0]
 		if arg == "--" {
@@ -656,7 +676,7 @@ func gitSubcommand(rest []string) string {
 		if _, _, hasValue := strings.Cut(arg, "="); hasValue {
 			continue
 		}
-		if gitGlobalTakesValue[arg] {
+		if gitGlobalTakesValue()[arg] {
 			i++
 		}
 	}
@@ -664,9 +684,11 @@ func gitSubcommand(rest []string) string {
 }
 
 // gitGlobalTakesValue names the git options that are followed by a value before the subcommand.
-var gitGlobalTakesValue = map[string]bool{
-	"-C": true, "-c": true, "--git-dir": true, "--work-tree": true, "--namespace": true,
-	"--exec-path": true, "--config-env": true,
+func gitGlobalTakesValue() map[string]bool {
+	return map[string]bool{
+		"-C": true, "-c": true, "--git-dir": true, "--work-tree": true, "--namespace": true,
+		"--exec-path": true, "--config-env": true,
+	}
 }
 
 // shellSeparator says whether a rune separates the words of a command line. The quote characters

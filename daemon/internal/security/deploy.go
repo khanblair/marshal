@@ -31,55 +31,64 @@ func deploysInSegment(segment string) bool {
 	}
 	tool := filepath.Base(args[0])
 	rest := args[1:]
-	if deployTools[tool] {
+	if deployTools()[tool] {
 		return true
 	}
-	if verbs, known := deployVerbs[tool]; known {
+	if verbs, known := deployVerbs()[tool]; known {
 		return anyVerb(rest, verbs)
 	}
-	if runnerTools[tool] {
-		return anyVerb(skipRunner(rest), deployVerbsEverywhere)
+	if runnerTools()[tool] {
+		return anyVerb(skipRunner(rest), deployVerbsEverywhere())
 	}
 	return false
 }
 
 // deployTools are commands whose every use is a deploy.
-var deployTools = map[string]bool{
-	"vercel": true, "netlify": true, "heroku": true, "fly": true, "flyctl": true,
-	"ansible-playbook": true, "cap": true, "eb": true, "serverless": true, "sls": true,
-	"wrangler": true,
+func deployTools() map[string]bool {
+	return map[string]bool{
+		"vercel": true, "netlify": true, "heroku": true, "fly": true, "flyctl": true,
+		"ansible-playbook": true, "cap": true, "eb": true, "serverless": true, "sls": true,
+		"wrangler": true,
+	}
 }
 
 // deployVerbs maps a tool to the subcommands that run a deploy. A tool listed here that is given
 // any other subcommand is not deploying.
-var deployVerbs = map[string]map[string]bool{
-	"terraform": {"apply": true, "destroy": true, "import": true},
-	"kubectl": {
-		"apply": true, "create": true, "delete": true, "replace": true, "patch": true,
-		"rollout": true, "scale": true, "edit": true, "set": true, "annotate": true, "label": true,
-	},
-	"helm":     {"install": true, "upgrade": true, "uninstall": true, "rollback": true},
-	"gcloud":   {"deploy": true},
-	"aws":      {"deploy": true},
-	"pulumi":   {"up": true, "destroy": true},
-	"docker":   {"push": true},
-	"firebase": {"deploy": true},
-	"sam":      {"deploy": true},
-	"gh":       {"release": true},
-	"cargo":    {"publish": true},
-	"poetry":   {"publish": true},
-	"gem":      {"push": true},
-	"twine":    {"upload": true},
+func deployVerbs() map[string]map[string]bool {
+	install, deploy := string(ActionInstall), string(ActionDeploy)
+	return map[string]map[string]bool{
+		"terraform": {"apply": true, "destroy": true, "import": true},
+		"kubectl": {
+			"apply": true, "create": true, "delete": true, "replace": true, "patch": true,
+			"rollout": true, "scale": true, "edit": true, "set": true, "annotate": true, "label": true,
+		},
+		"helm":     {install: true, "upgrade": true, "uninstall": true, "rollback": true},
+		"gcloud":   {deploy: true},
+		"aws":      {deploy: true},
+		"pulumi":   {"up": true, "destroy": true},
+		"docker":   {"push": true},
+		"firebase": {deploy: true},
+		"sam":      {deploy: true},
+		"gh":       {"release": true},
+		"cargo":    {"publish": true},
+		"poetry":   {"publish": true},
+		"gem":      {"push": true},
+		"twine":    {"upload": true},
+	}
 }
 
 // runnerTools are tools that run a named task, where a deploy verb names the task.
-var runnerTools = map[string]bool{
-	"npm": true, "pnpm": true, "yarn": true, "bun": true, "make": true, "just": true, "task": true,
+func runnerTools() map[string]bool {
+	return map[string]bool{
+		"npm": true, "pnpm": true, "yarn": true, "bun": true, "make": true, "just": true, "task": true,
+	}
 }
 
 // deployVerbsEverywhere are the task names that are a deploy whatever the runner.
-var deployVerbsEverywhere = map[string]bool{
-	"deploy": true, "release": true, "publish": true, "promote": true, "rollout": true,
+func deployVerbsEverywhere() map[string]bool {
+	return map[string]bool{
+		"deploy": true, "release": true, "publish": true, "promote": true, "rollout": true,
+	}
 }
 
 // skipRunner drops the word a runner uses to introduce a script ("npm run deploy", "yarn run

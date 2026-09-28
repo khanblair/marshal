@@ -137,7 +137,7 @@ func matchRawDisk(command string, args []string) (string, bool) {
 		}
 	}
 	compact := strings.Join(strings.Fields(command), " ")
-	for _, device := range diskDevices {
+	for _, device := range diskDevices() {
 		if strings.Contains(compact, "> "+device) || strings.Contains(compact, ">"+device) {
 			return "> " + device, true
 		}
@@ -146,9 +146,11 @@ func matchRawDisk(command string, args []string) (string, bool) {
 }
 
 // diskDevices are the device name prefixes a redirect must never write into.
-var diskDevices = []string{
-	"/dev/sd", "/dev/hd", "/dev/vd", "/dev/xvd", "/dev/nvme", "/dev/disk", "/dev/rdisk",
-	"/dev/mapper", "/dev/loop", "/dev/mmcblk",
+func diskDevices() []string {
+	return []string{
+		"/dev/sd", "/dev/hd", "/dev/vd", "/dev/xvd", "/dev/nvme", "/dev/disk", "/dev/rdisk",
+		"/dev/mapper", "/dev/loop", "/dev/mmcblk",
+	}
 }
 
 // matchFilesystemFormat recognizes mkfs and its variants, and the other tools that write a fresh
@@ -211,7 +213,7 @@ func matchDestructiveSQL(command string, _ []string) (string, bool) {
 		// These clients are destructive on their own name.
 		return client, true
 	}
-	if !sqlClients[client] {
+	if !sqlClients()[client] {
 		return "", false
 	}
 	for _, statement := range statementArguments(client, tail[1:]) {
@@ -232,18 +234,18 @@ func statementArguments(client string, args []string) []string {
 		arg := args[i]
 		if strings.HasPrefix(arg, "-") {
 			if flag, value, hasValue := strings.Cut(arg, "="); hasValue {
-				if sqlValueFlags[flag] {
+				if sqlValueFlags()[flag] {
 					out = append(out, value)
 				}
 				continue
 			}
-			if sqlValueFlags[arg] && i+1 < len(args) {
+			if sqlValueFlags()[arg] && i+1 < len(args) {
 				out = append(out, args[i+1])
 				i++
 			}
 			continue
 		}
-		if positionalSQLClients[client] {
+		if positionalSQLClients()[client] {
 			out = append(out, arg)
 		}
 	}
@@ -260,7 +262,7 @@ func destructiveStatement(statement string) (string, bool) {
 		case "dropdb", "dropuser", "pg_dropcluster", "dropdatabase":
 			return w, true
 		case "drop":
-			if next, ok := nextWord(words, i); ok && dropTargets[next] {
+			if next, ok := nextWord(words, i); ok && dropTargets()[next] {
 				return "drop " + next, true
 			}
 		case "truncate":
@@ -275,29 +277,37 @@ func destructiveStatement(statement string) (string, bool) {
 }
 
 // sqlClients are the tools that run a SQL statement given on the command line.
-var sqlClients = map[string]bool{
-	"psql": true, "mysql": true, "mariadb": true, "sqlite": true, "sqlite3": true,
-	"mongo": true, "mongosh": true, "cockroach": true, "duckdb": true, "cqlsh": true,
-	"clickhouse-client": true, "redis-cli": true,
+func sqlClients() map[string]bool {
+	return map[string]bool{
+		"psql": true, "mysql": true, "mariadb": true, "sqlite": true, "sqlite3": true,
+		"mongo": true, "mongosh": true, "cockroach": true, "duckdb": true, "cqlsh": true,
+		"clickhouse-client": true, "redis-cli": true,
+	}
 }
 
 // sqlValueFlags are the flags a SQL client uses to take a statement on the command line.
-var sqlValueFlags = map[string]bool{
-	"-c": true, "--command": true, "-e": true, "--execute": true,
-	"-q": true, "--query": true, "--eval": true, "--sql": true,
+func sqlValueFlags() map[string]bool {
+	return map[string]bool{
+		"-c": true, "--command": true, "-e": true, "--execute": true,
+		"-q": true, "--query": true, "--eval": true, "--sql": true,
+	}
 }
 
 // positionalSQLClients are the clients that take a statement as a bare argument rather than behind a
 // flag. A client that takes a subcommand of its own first (redis-cli) is not one of them, because its
 // bare arguments are that subcommand's, not SQL.
-var positionalSQLClients = map[string]bool{
-	"sqlite": true, "sqlite3": true, "duckdb": true, "cqlsh": true,
+func positionalSQLClients() map[string]bool {
+	return map[string]bool{
+		"sqlite": true, "sqlite3": true, "duckdb": true, "cqlsh": true,
+	}
 }
 
 // dropTargets are the things a drop statement is destructive against.
-var dropTargets = map[string]bool{
-	"database": true, "table": true, "schema": true, "index": true, "role": true,
-	"user": true, "tablespace": true, "extension": true, "view": true,
+func dropTargets() map[string]bool {
+	return map[string]bool{
+		"database": true, "table": true, "schema": true, "index": true, "role": true,
+		"user": true, "tablespace": true, "extension": true, "view": true,
+	}
 }
 
 // matchRecursiveDelete recognizes a recursive delete of a path that is not a folder inside a
@@ -348,12 +358,12 @@ func wideDeleteTarget(target string) bool {
 		trimmed = "/"
 	}
 	folded := foldExpansion(trimmed)
-	if wideTargets[trimmed] || wideTargets[folded] {
+	if wideTargets()[trimmed] || wideTargets()[folded] {
 		return true
 	}
 	clean := path.Clean(folded)
 	switch {
-	case wideTargets[clean]:
+	case wideTargets()[clean]:
 		return true
 	case path.Base(clean) == "..":
 		// "rm -rf ./.." and "rm -rf $PWD/.." reach the folder above, whatever it is.
@@ -361,7 +371,7 @@ func wideDeleteTarget(target string) bool {
 	case path.IsAbs(clean) && path.Dir(clean) == "/":
 		return true
 	}
-	if base, ok := strings.CutSuffix(clean, "/*"); ok && wideTargets[base] {
+	if base, ok := strings.CutSuffix(clean, "/*"); ok && wideTargets()[base] {
 		return true
 	}
 	return false
@@ -394,10 +404,12 @@ func foldExpansion(target string) string {
 }
 
 // wideTargets are the paths a recursive delete must never reach.
-var wideTargets = map[string]bool{
-	"/": true, "/*": true, "~": true, "~/*": true, "$HOME": true, "${HOME}": true, "$HOME/*": true,
-	"$PWD": true, "${PWD}": true, "$OLDPWD": true, "${OLDPWD}": true,
-	".": true, "..": true, "./*": true, "../*": true, "*": true,
+func wideTargets() map[string]bool {
+	return map[string]bool{
+		"/": true, "/*": true, "~": true, "~/*": true, "$HOME": true, "${HOME}": true, "$HOME/*": true,
+		"$PWD": true, "${PWD}": true, "$OLDPWD": true, "${OLDPWD}": true,
+		".": true, "..": true, "./*": true, "../*": true, "*": true,
+	}
 }
 
 // matchWidePermissions recognizes a recursive permission or owner change over a wide path, and the
@@ -533,7 +545,7 @@ func matchSudo(_ string, args []string) (string, bool) {
 		if name == "sudo" || name == "doas" {
 			return name, true
 		}
-		if !wrappers[name] {
+		if !wrappers()[name] {
 			return "", false
 		}
 		args = skipOneWrapper(name, args)
@@ -572,14 +584,16 @@ func productionEnvName(name string) bool {
 }
 
 // productionEnvFlags are the flags that name the production environment.
-var productionEnvFlags = map[string]bool{
-	"--production": true, "--env=production": true, "--environment=production": true,
-	"--env=prod": true, "--environment=prod": true,
+func productionEnvFlags() map[string]bool {
+	return map[string]bool{
+		"--production": true, "--env=production": true, "--environment=production": true,
+		"--env=prod": true, "--environment=prod": true,
+	}
 }
 
 // productionFlag says whether a word asks for the production environment.
 func productionFlag(word string) bool {
-	return productionEnvFlags[word]
+	return productionEnvFlags()[word]
 }
 
 // nextWord is the word after the one at i, and whether there is one.

@@ -44,7 +44,9 @@ func NothingAllowed() Profile { return Profile{} }
 // Check says whether the profile allows an action. It reports false when the profile has nothing to
 // say about the action, which leaves the decision to the mode and the rest of the harness.
 func (p Profile) Check(a Action) (Finding, bool) {
-	allowed := true
+	// Every case below sets allowed itself, and the switch's default returns before it is ever
+	// read - there is no case that relies on a starting value.
+	var allowed bool
 	switch a {
 	case ActionRead:
 		allowed = p.ReadFiles
