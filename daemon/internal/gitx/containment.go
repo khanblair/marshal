@@ -167,7 +167,7 @@ func (c Containment) checkSubcommand(sub string, rest []string) error {
 	switch sub {
 	case "clone", "init", "filter-branch", "daemon", "instaweb", "repack":
 		return Violation{Rule: RuleOutsideWorktree, Detail: sub}
-	case "worktree":
+	case subcommandWorktree:
 		if action := subAction(rest); action != "" && action != "list" {
 			return Violation{Rule: RuleOutsideWorktree, Detail: "worktree " + action}
 		}
@@ -196,9 +196,9 @@ func (c Containment) checkSubcommand(sub string, rest []string) error {
 // among them, so they never meet the main-branch rule.
 func namesRefs(sub string) bool {
 	switch sub {
-	case "checkout", "switch", "merge", "rebase", "reset", "branch", "tag", "push", "fetch", "pull",
+	case "checkout", "switch", "merge", "rebase", "reset", "branch", "tag", subcommandPush, "fetch", "pull",
 		"update-ref", "symbolic-ref", "cherry-pick", "revert", "stash", "am", "apply", "commit-tree",
-		"reflog", "replace", "notes", "worktree":
+		"reflog", "replace", "notes", subcommandWorktree:
 		return true
 	}
 	return false
@@ -212,13 +212,14 @@ func (c Containment) checkRefs(sub string, rest []string) error {
 	if readsOnly(sub, rest) {
 		return nil
 	}
-	if sub == "push" {
+	if sub == subcommandPush {
 		if err := c.checkPushFlags(rest); err != nil {
 			return err
 		}
 	}
 	skipNext := false
-	messageFlags := messageFlagSubcommands[sub]
+	messageFlags := messageFlagSubcommands()[sub]
+	refValueFlags := refValueFlags()
 	for _, arg := range rest {
 		if skipNext {
 			skipNext = false
@@ -236,7 +237,7 @@ func (c Containment) checkRefs(sub string, rest []string) error {
 			}
 			continue
 		}
-		if sub == "push" {
+		if sub == subcommandPush {
 			if c.pushTargetsMain(arg) {
 				return Violation{Rule: RuleMainBranch, Detail: "push " + arg}
 			}
@@ -269,18 +270,20 @@ func readsOnly(sub string, rest []string) bool {
 }
 
 // refValueFlags are the flags whose value is a ref only to match it against, not to move it.
-var refValueFlags = map[string]bool{
-	"--contains": true, "--no-contains": true, "--merged": true, "--no-merged": true,
-	"--points-at": true, "--sort": true, "--format": true, "--list": true, "-l": true,
+func refValueFlags() map[string]bool {
+	return map[string]bool{
+		"--contains": true, "--no-contains": true, "--merged": true, "--no-merged": true,
+		"--points-at": true, "--sort": true, "--format": true, "--list": true, "-l": true,
+	}
 }
 
 // checkPushFlags refuses a push that overrides a remote, and the forms that push every branch,
 // because either can move the main branch of a repository nobody asked to change.
 func (c Containment) checkPushFlags(rest []string) error {
 	for _, arg := range rest {
-		switch kind, value, hasValue := strings.Cut(arg, "="); {
-		case kind == "--force", kind == "-f", kind == "--force-with-lease", kind == "--force-if-includes",
-			kind == "--mirror", kind == "--all", kind == "--delete":
+		switch kind, value, hasValue := strings.Cut(arg, "="); kind {
+		case "--force", "-f", "--force-with-lease", "--force-if-includes",
+			"--mirror", "--all", "--delete":
 			detail := kind
 			if hasValue {
 				detail = kind + "=" + value
@@ -337,22 +340,27 @@ func trimRef(arg string) string {
 		}
 		return after
 	}
-	if head, after, ok := strings.Cut(arg, "/"); ok && remotes[head] {
+	if head, after, ok := strings.Cut(arg, "/"); ok && trackingRefRemotes()[head] {
 		return after
 	}
 	return arg
 }
 
-// remotes are the remote names a bare tracking ref is written with. A branch name that holds a slash
-// is not one of them, so "feature/main" keeps its slash and is not read as the main branch.
-var remotes = map[string]bool{"origin": true, "upstream": true}
+// trackingRefRemotes are the remote names a bare tracking ref is written with. A branch name that
+// holds a slash is not one of them, so "feature/main" keeps its slash and is not read as the main
+// branch.
+func trackingRefRemotes() map[string]bool {
+	return map[string]bool{"origin": true, "upstream": true}
+}
 
 // messageFlagSubcommands are the subcommands where "-m" carries a message rather than an action.
 // It matters because the value after it is never a branch, while "branch -m main old-main" moves
 // the main branch and must be refused.
-var messageFlagSubcommands = map[string]bool{
-	"commit": true, "merge": true, "tag": true, "revert": true, "cherry-pick": true,
-	"am": true, "notes": true, "stash": true, "reflog": true,
+func messageFlagSubcommands() map[string]bool {
+	return map[string]bool{
+		"commit": true, "merge": true, "tag": true, "revert": true, "cherry-pick": true,
+		"am": true, "notes": true, "stash": true, "reflog": true,
+	}
 }
 
 // subAction is the subcommand's own verb: the first argument that is not a flag.
@@ -381,6 +389,7 @@ func configReads(rest []string) bool {
 // splitGitArgs separates the global options of a Git command line from the subcommand and its own
 // arguments, so the flags of one are never read as the other.
 func splitGitArgs(args []string) (globals []string, sub string, rest []string) {
+	globalTakesValue := globalTakesValue()
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		if arg == "" {
@@ -407,9 +416,11 @@ func splitGitArgs(args []string) (globals []string, sub string, rest []string) {
 }
 
 // globalTakesValue names the options Git takes before its subcommand that are followed by a value.
-var globalTakesValue = map[string]bool{
-	"-C": true, "-c": true, "--git-dir": true, "--work-tree": true, "--namespace": true,
-	"--exec-path": true, "--config-env": true, "--attr-source": true, "--super-prefix": true,
+func globalTakesValue() map[string]bool {
+	return map[string]bool{
+		"-C": true, "-c": true, "--git-dir": true, "--work-tree": true, "--namespace": true,
+		"--exec-path": true, "--config-env": true, "--attr-source": true, "--super-prefix": true,
+	}
 }
 
 // inside says whether a folder is the worktree or is under it. A relative folder is read as

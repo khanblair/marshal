@@ -1,11 +1,9 @@
-package connectiontest
-
-// This package is the machinery every connection test shares (docs/architecture.md section 18,
-// inventory B4.6/B4.8, build-plan task 4.9): a thing to test, a time limit on it, a cooldown per
-// connection, and the saving of the result in the `integrations` table. A model provider's own test
-// is the first of them (internal/providers/test.go); GitHub, Trello, Calendar, Gmail, Telegram,
-// Discord, and MCP servers are later phases' and plug in here rather than writing their own
-// cooldown. Section 18 gives them all the same mechanics on purpose.
+// Package connectiontest is the machinery every connection test shares (docs/architecture.md
+// section 18, inventory B4.6/B4.8, build-plan task 4.9): a thing to test, a time limit on it, a
+// cooldown per connection, and the saving of the result in the `integrations` table. A model
+// provider's own test is the first of them (internal/providers/test.go); GitHub, Trello, Calendar,
+// Gmail, Telegram, Discord, and MCP servers are later phases' and plug in here rather than writing
+// their own cooldown. Section 18 gives them all the same mechanics on purpose.
 //
 // It is deliberately thin, because a connection test is not a health check: one call is made, its
 // answer is turned into checks by the Tester, and the checks are saved whole. What lives here is the
@@ -14,6 +12,7 @@ package connectiontest
 //
 // Nothing in this package reaches a service. The Tester is handed in, and every test in this package
 // hands in one that answers from memory.
+package connectiontest
 
 import (
 	"context"

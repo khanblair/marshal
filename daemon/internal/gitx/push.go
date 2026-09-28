@@ -25,9 +25,9 @@ func (g *Git) Push(ctx context.Context, dir, remote, branch, main string) error 
 	if main == "" {
 		return newOpError(ErrBadPath, "a push needs the project's main branch to stay off", nil)
 	}
-	if err := NewContainment(dir, dir, branch, main).CheckCommand([]string{"push", remote, branch}); err != nil {
+	if err := NewContainment(dir, dir, branch, main).CheckCommand([]string{subcommandPush, remote, branch}); err != nil {
 		return err
 	}
-	_, err := g.Run(ctx, dir, "push", remote, branch)
+	_, err := g.Run(ctx, dir, subcommandPush, remote, branch)
 	return err
 }

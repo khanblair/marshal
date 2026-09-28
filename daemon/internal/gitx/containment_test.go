@@ -15,7 +15,6 @@ type containmentCase struct {
 	name string
 	args []string
 	rule string // empty means the command is allowed
-	why  string
 }
 
 func TestContainmentRefusesLeavingTheWorktreeAndTouchingMain(t *testing.T) {

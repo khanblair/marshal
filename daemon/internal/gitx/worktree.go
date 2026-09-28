@@ -35,7 +35,7 @@ func (g *Git) AddWorktree(ctx context.Context, repo string, spec WorktreeSpec) e
 	}
 	spec.Path = dir
 	// A card branch does not follow the branch it started from, even a remote one.
-	args := []string{"worktree", "add", "--no-track", "-b", spec.Branch}
+	args := []string{subcommandWorktree, "add", "--no-track", "-b", spec.Branch}
 	if len(folders) > 0 {
 		// Nothing is checked out yet, so the whole tree is never written and then trimmed.
 		args = append(args, "--no-checkout")
@@ -181,7 +181,7 @@ func checkInsideRoot(path, root string) (string, error) {
 // removeRegistered asks Git to remove a worktree it knows, after checking for changes that
 // would be lost.
 func (g *Git) removeRegistered(ctx context.Context, repo, dir string, force bool) error {
-	args := []string{"worktree", "remove"}
+	args := []string{subcommandWorktree, "remove"}
 	if force {
 		args = append(args, "--force")
 	} else {

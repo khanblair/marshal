@@ -36,7 +36,7 @@ func parseWorktrees(out string) []Worktree {
 	var list []Worktree
 	for _, field := range strings.Split(out, "\x00") {
 		key, value, _ := strings.Cut(field, " ")
-		if key == "worktree" {
+		if key == subcommandWorktree {
 			list = append(list, Worktree{Path: filepath.Clean(filepath.FromSlash(value))})
 			continue
 		}

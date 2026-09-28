@@ -17,6 +17,14 @@ import (
 // cancelled clone can hang while a helper process still holds the pipe open.
 const killWaitDelay = 5 * time.Second
 
+// subcommandWorktree and subcommandPush are the two Git subcommand names this package checks and
+// matches often enough - in Containment's own rules as well as in the commands it builds - that
+// they are worth spelling once.
+const (
+	subcommandWorktree = "worktree"
+	subcommandPush     = "push"
+)
+
 // Git runs Git commands.
 type Git struct {
 	bin string
