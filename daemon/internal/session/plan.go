@@ -229,7 +229,7 @@ func (m *Manager) auditPlanAnswer(ctx context.Context, card protocol.Card, plan 
 	}
 	m.cfg.Audit.LogAndForget(ctx, audit.Entry{
 		Actor: audit.ActorPerson, Action: answer.act, Target: plan.EventID, SessionID: plan.SessionID,
-		Detail: map[string]any{"cardId": card.ID, "state": string(plan.State)},
+		Detail: map[string]any{cardIDDetailKey: card.ID, "state": string(plan.State)},
 	})
 }
 

@@ -124,7 +124,7 @@ func (m *Manager) blockCommitForSecret(ls *liveSession, row db.Card, commit gitx
 		Actor: audit.ActorDaemon, Action: audit.ActionCommitBlocked, Target: commit.SHA,
 		SessionID: ls.sessionRowID,
 		Detail: map[string]any{
-			"cardId": row.ID, "commit": commit.SHA, "subject": commit.Subject,
+			cardIDDetailKey: row.ID, "commit": commit.SHA, "subject": commit.Subject,
 			"rule": finding.Rule, "file": finding.File, "line": finding.Line,
 		},
 	})

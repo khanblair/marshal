@@ -126,7 +126,7 @@ func (m *Manager) sweepCard(ctx context.Context, ls *liveSession, cfg protocol.S
 		return
 	}
 	state := protocol.SessionState(row.State)
-	if inGroup, _ := m.sleepGroupOf(ls.cardID); inGroup {
+	if m.sleepGroupOf(ls.cardID) {
 		if state != protocol.SessionStateSleepWarning {
 			// The card left the warning on its own: a message started a turn, or the session
 			// stopped. Either way it is not going to sleep on this notice, so it leaves it.
@@ -243,7 +243,7 @@ func (m *Manager) oldestIdleAwake(ctx context.Context, projectID, exceptCardID s
 		if ls.projectID != projectID || ls.cardID == exceptCardID {
 			continue
 		}
-		if inGroup, _ := m.sleepGroupOf(ls.cardID); inGroup {
+		if m.sleepGroupOf(ls.cardID) {
 			continue
 		}
 		if m.keptOffIdle(ls.cardID, now) {

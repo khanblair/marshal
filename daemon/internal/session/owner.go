@@ -2,6 +2,10 @@ package session
 
 import "github.com/khanblair/marshal/daemon/internal/protocol"
 
+// cardIDDetailKey is the key under which a card's id appears in a protocol.Error or event Detail
+// map, spelled to match the JSON the web client reads.
+const cardIDDetailKey = "cardId"
+
 // owner says whose session something is: a card's or a project chat's (docs/architecture.md 16.2).
 // A session belongs to exactly one of the two, so exactly one of cardID and chatID is set. Card
 // and chat ids are opaque ids that never collide, which lets the manager key its live sessions by

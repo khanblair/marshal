@@ -175,18 +175,17 @@ func (m *Manager) leaveSleepGroup(cardID string, kind protocol.EventType) {
 	}
 }
 
-// sleepGroupOf reports whether a card is on a sleep notice, and the notice's id when it is. The id
-// is the second answer because a caller that only wants to know need not care, and the one that
-// takes a card off a notice already has the id it asks by.
-func (m *Manager) sleepGroupOf(cardID string) (bool, string) {
+// sleepGroupOf reports whether a card is on a sleep notice. Every caller only needs the yes/no
+// answer; the one that takes a card off a notice already has the id it asks by.
+func (m *Manager) sleepGroupOf(cardID string) bool {
 	m.noticesMu.Lock()
 	defer m.noticesMu.Unlock()
-	for id, group := range m.sleepGroups {
+	for _, group := range m.sleepGroups {
 		if containsString(group.cards, cardID) {
-			return true, id
+			return true
 		}
 	}
-	return false, ""
+	return false
 }
 
 // takeSleepGroup removes a notice and answers the cards it named, announcing that the list lost one.

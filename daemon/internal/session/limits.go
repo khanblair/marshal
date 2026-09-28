@@ -104,7 +104,7 @@ func (m *Manager) checkAfterTurn(ls *liveSession) bool {
 	}
 	if reason, stuck := ls.takeStuck(); stuck {
 		m.stopCard(ls, reason, audit.ActionStuckPaused, map[string]any{
-			"cardId": ls.cardID, "reason": reason.Text,
+			cardIDDetailKey: ls.cardID, "reason": reason.Text,
 		})
 		return true
 	}
@@ -127,7 +127,7 @@ func (m *Manager) checkAfterTurn(ls *liveSession) bool {
 		return false
 	}
 	m.stopCard(ls, reason, audit.ActionLimitReached, map[string]any{
-		"cardId": ls.cardID, "role": card.Role, "reason": reason.Text,
+		cardIDDetailKey: ls.cardID, "role": card.Role, "reason": reason.Text,
 		"turnMinutes": usage.TurnMinutes, "costDollars": usage.CostDollars, "rounds": usage.Rounds,
 		"limits": limits,
 	})
