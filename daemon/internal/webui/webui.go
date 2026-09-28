@@ -33,6 +33,14 @@ func Available() bool {
 	if err != nil {
 		return false
 	}
+	return hasRealBuild(entries)
+}
+
+// hasRealBuild reports whether dist/'s listing holds anything beyond its own .gitkeep placeholder.
+// Split out from Available so a test can drive it without depending on what this build's embed
+// actually holds, which is dist/'s real content on a machine that has run copy-web-dist.mjs and
+// only the placeholder everywhere else.
+func hasRealBuild(entries []fs.DirEntry) bool {
 	for _, entry := range entries {
 		if entry.Name() != ".gitkeep" {
 			return true

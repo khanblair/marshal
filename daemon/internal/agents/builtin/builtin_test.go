@@ -304,6 +304,122 @@ func TestRunningACommandReturnsWhatItPrinted(t *testing.T) {
 	}
 }
 
+// TestSearchFilesMatchesAGlobAndSkipsGitAndNodeModules covers search_files' three seams: a glob
+// narrows which files are read (searchableFile), .git and node_modules are never walked into
+// (skipSearchDir) even when they hold a matching name, and a match is reported with its line number
+// (searchFileLines).
+func TestSearchFilesMatchesAGlobAndSkipsGitAndNodeModules(t *testing.T) {
+	dir, _ := worktree(t)
+	if err := os.WriteFile(filepath.Join(dir, "notes.md"), []byte("hello again in markdown\n"), 0o644); err != nil {
+		t.Fatalf("write notes.md: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, ".git"), 0o755); err != nil {
+		t.Fatalf("mkdir .git: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".git", "hello.txt"), []byte("hello inside git\n"), 0o644); err != nil {
+		t.Fatalf("write inside .git: %v", err)
+	}
+
+	client := newScriptedClient(
+		[]providers.Event{callTool("call_1", "search_files", `{"pattern":"hello","glob":"*.txt"}`), done(providers.StopToolUse)},
+		[]providers.Event{text("Found it."), done(providers.StopEndTurn)},
+	)
+	agent := newTestAgent(t, client)
+	h, ch := start(t, agent, dir, string(protocol.PermissionModeFullAuto))
+
+	send(t, agent, h, "Search for hello.")
+	_, seen := waitFor[agents.TurnEnded](t, ch)
+	var output string
+	for _, ev := range seen {
+		if u, ok := ev.(agents.ToolCallUpdate); ok {
+			output = u.Content
+		}
+	}
+	if !strings.Contains(output, "hello.txt:1: hello from the fixture") {
+		t.Errorf("search output = %q, want the matched line from hello.txt", output)
+	}
+	if strings.Contains(output, "notes.md") {
+		t.Errorf("search output = %q, the glob *.txt should have excluded notes.md", output)
+	}
+	if strings.Contains(output, "inside git") {
+		t.Errorf("search output = %q, .git should never be searched", output)
+	}
+}
+
+// TestEditFileReplacesText covers edit_file's exact-match replace, including replace_all: a single
+// unqualified match with more than one occurrence is refused, and replace_all lifts that refusal.
+func TestEditFileReplacesText(t *testing.T) {
+	dir, file := worktree(t)
+	if err := os.WriteFile(file, []byte("hello hello\n"), 0o644); err != nil {
+		t.Fatalf("write the fixture: %v", err)
+	}
+
+	client := newScriptedClient(
+		[]providers.Event{callTool("call_1", "edit_file", `{"path":"hello.txt","old_string":"hello","new_string":"hi","replace_all":true}`), done(providers.StopToolUse)},
+		[]providers.Event{text("Edited."), done(providers.StopEndTurn)},
+	)
+	agent := newTestAgent(t, client)
+	h, ch := start(t, agent, dir, string(protocol.PermissionModeFullAuto))
+
+	send(t, agent, h, "Replace hello with hi, everywhere.")
+	_, seen := waitFor[agents.TurnEnded](t, ch)
+	var output string
+	for _, ev := range seen {
+		if u, ok := ev.(agents.ToolCallUpdate); ok {
+			output = u.Content
+		}
+	}
+	if !strings.Contains(output, "2 places") {
+		t.Errorf("edit output = %q, want it to say 2 places", output)
+	}
+	got, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatalf("read the edited file: %v", err)
+	}
+	if string(got) != "hi hi\n" {
+		t.Errorf("the file now holds %q, want %q", got, "hi hi\n")
+	}
+}
+
+// TestListFilesFindsAndFiltersByPattern covers list_files' glob and its .git skip.
+func TestListFilesFindsAndFiltersByPattern(t *testing.T) {
+	dir, _ := worktree(t)
+	if err := os.WriteFile(filepath.Join(dir, "notes.md"), []byte("notes\n"), 0o644); err != nil {
+		t.Fatalf("write notes.md: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, ".git"), 0o755); err != nil {
+		t.Fatalf("mkdir .git: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".git", "config.txt"), []byte("x\n"), 0o644); err != nil {
+		t.Fatalf("write inside .git: %v", err)
+	}
+
+	client := newScriptedClient(
+		[]providers.Event{callTool("call_1", "list_files", `{"pattern":"*.txt"}`), done(providers.StopToolUse)},
+		[]providers.Event{text("Listed."), done(providers.StopEndTurn)},
+	)
+	agent := newTestAgent(t, client)
+	h, ch := start(t, agent, dir, string(protocol.PermissionModeFullAuto))
+
+	send(t, agent, h, "List the .txt files.")
+	_, seen := waitFor[agents.TurnEnded](t, ch)
+	var output string
+	for _, ev := range seen {
+		if u, ok := ev.(agents.ToolCallUpdate); ok {
+			output = u.Content
+		}
+	}
+	if !strings.Contains(output, "hello.txt") {
+		t.Errorf("list output = %q, want hello.txt", output)
+	}
+	if strings.Contains(output, "notes.md") {
+		t.Errorf("list output = %q, the glob *.txt should have excluded notes.md", output)
+	}
+	if strings.Contains(output, "config.txt") {
+		t.Errorf("list output = %q, .git should never be listed", output)
+	}
+}
+
 func TestAKeyThatIsRefusedIsReportedPlainly(t *testing.T) {
 	dir, _ := worktree(t)
 	client := &refusingClient{err: providers.ErrAuth}
@@ -345,4 +461,29 @@ func contains(haystack []string, needle string) bool {
 		}
 	}
 	return false
+}
+
+// TestExitText covers run_command's sentence about how the command ended: appended after the
+// command's own output, or standing alone when the command printed nothing.
+func TestExitText(t *testing.T) {
+	if got := exitText("the output", "it failed"); got != "the output\nit failed" {
+		t.Errorf("exitText with output = %q, want %q", got, "the output\nit failed")
+	}
+	if got := exitText("  \n", "it failed"); got != "it failed" {
+		t.Errorf("exitText with blank output = %q, want just the tail", got)
+	}
+}
+
+// TestIsRuneStart covers clampOutput's cut point: a continuation byte never starts a UTF-8
+// character, so cutting there would split one in half.
+func TestIsRuneStart(t *testing.T) {
+	if !isRuneStart('h') {
+		t.Error("an ASCII byte should start a rune")
+	}
+	if !isRuneStart(0xC3) {
+		t.Error("a UTF-8 lead byte should start a rune")
+	}
+	if isRuneStart(0x80) {
+		t.Error("a UTF-8 continuation byte should not start a rune")
+	}
 }
