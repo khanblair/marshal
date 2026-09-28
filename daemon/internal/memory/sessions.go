@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/khanblair/marshal/daemon/internal/protocol"
 )
@@ -26,6 +27,20 @@ import (
 // than the usual case.
 const sessionExcerptRun = 200
 
+// sessionExcerpt is a stored summary, trimmed and cut to sessionExcerptRun bytes at a character
+// boundary, the same way internal/search's own excerpt cuts a note's body.
+func sessionExcerpt(summary string) string {
+	text := strings.TrimSpace(summary)
+	if len(text) <= sessionExcerptRun {
+		return text
+	}
+	cut := sessionExcerptRun
+	for cut > 0 && !utf8.RuneStart(text[cut]) {
+		cut--
+	}
+	return strings.TrimRight(text[:cut], " ") + "…"
+}
+
 // SearchSessions returns a project's past session events whose summaries match a person's words,
 // best match first. It reads the full-text index and not the events, so it is one query rather than
 // a walk of every card's history; the card the event belongs to is read to name it, which is what
@@ -38,9 +53,10 @@ const sessionExcerptRun = 200
 // reads; ProjectID comes from the card, and ProjectName is left to the caller, which is already
 // walking the project the event belongs to (internal/search).
 //
-// The Excerpt is the summary as it was stored, trimmed and not shortened. A summary is already the
-// one line the daemon kept for a moment of a session (migration 0006), so there is nothing to cut
-// down, and the caller that orders the hits reads the same text the index matched against.
+// The Excerpt is the summary as it was stored, trimmed and cut to sessionExcerptRun only as a
+// guard: a summary is already the one line the daemon kept for a moment of a session (migration
+// 0006), so there is normally nothing to cut down, and the caller that orders the hits reads the
+// same text the index matched against.
 func (s *Service) SearchSessions(ctx context.Context, projectID, query string, limit int) ([]protocol.SessionHit, error) {
 	match := matchExpression(query)
 	if match == "" {
@@ -65,7 +81,7 @@ func (s *Service) SearchSessions(ctx context.Context, projectID, query string, l
 		}
 		out = append(out, protocol.SessionHit{
 			CardID: card.ID, Key: card.Key, Title: card.Title, ProjectID: card.ProjectID,
-			Excerpt: strings.TrimSpace(row.Summary),
+			Excerpt: sessionExcerpt(row.Summary),
 			At:      protocol.NewTimestamp(time.UnixMilli(row.CreatedAt).UTC()),
 		})
 	}

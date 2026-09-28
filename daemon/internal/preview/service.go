@@ -1,7 +1,6 @@
-package preview
-
-// A card's live preview (docs/architecture.md section 11.2 and N10, docs/backend-checklist.md B6.6
-// and B6.7, build-plan 6.6 and 6.7, docs/marshal-product-scope.md 15.1 and 15.2).
+// Package preview implements a card's live preview (docs/architecture.md section 11.2 and N10,
+// docs/backend-checklist.md B6.6 and B6.7, build-plan 6.6 and 6.7, docs/marshal-product-scope.md
+// 15.1 and 15.2).
 //
 // The service runs one dev server per card, on its own port, in the card's own worktree, and keeps
 // what state that preview is in. It is the daemon's half of the Preview tab: the tab draws the three
@@ -11,6 +10,7 @@ package preview
 // Nothing here starts a browser or a dev server unless it is asked to: looking at the tab reads the
 // state and starts nothing, and a test gives a fake for both, so no test on any machine launches a
 // real browser or a real dev server.
+package preview
 
 import (
 	"context"
@@ -37,9 +37,11 @@ const (
 	// usually answers in a few hundred milliseconds, so this is fast enough to feel immediate and
 	// slow enough to be nearly free.
 	DefaultProbeEvery = 400 * time.Millisecond
-	// DefaultViewportWidth and DefaultViewportHeight are the size a screenshot is taken at, so two
-	// shots of the same page line up.
-	DefaultViewportWidth  = 1440
+	// DefaultViewportWidth is the width a screenshot is taken at, so two shots of the same page
+	// line up.
+	DefaultViewportWidth = 1440
+	// DefaultViewportHeight is the height a screenshot is taken at, so two shots of the same page
+	// line up.
 	DefaultViewportHeight = 900
 	// stopGrace is how long a dev server is given to stop politely before it is killed.
 	stopGrace = 3 * time.Second
@@ -260,7 +262,7 @@ func New(deps Deps) (*Service, error) {
 	}
 	probe := opts.Probe
 	if probe == nil {
-		probe = httpProber{}
+		probe = newHTTPProber()
 	}
 	ready := opts.ReadyTimeout
 	if ready <= 0 {

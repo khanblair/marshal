@@ -11,27 +11,31 @@ import (
 )
 
 // browserCandidates are the places Chrome and Edge install themselves, by platform.
-var browserCandidates = map[string][]string{
-	"darwin": {
-		"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-		"/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
-		"/Applications/Chromium.app/Contents/MacOS/Chromium",
-		"/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
-		"/Applications/Microsoft Edge Beta.app/Contents/MacOS/Microsoft Edge Beta",
-	},
-	"windows": {
-		`C:\Program Files\Google\Chrome\Application\chrome.exe`,
-		`C:\Program Files (x86)\Google\Chrome\Application\chrome.exe`,
-		`C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe`,
-		`C:\Program Files\Microsoft\Edge\Application\msedge.exe`,
-	},
+func browserCandidates() map[string][]string {
+	return map[string][]string{
+		"darwin": {
+			"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+			"/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
+			"/Applications/Chromium.app/Contents/MacOS/Chromium",
+			"/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+			"/Applications/Microsoft Edge Beta.app/Contents/MacOS/Microsoft Edge Beta",
+		},
+		"windows": {
+			`C:\Program Files\Google\Chrome\Application\chrome.exe`,
+			`C:\Program Files (x86)\Google\Chrome\Application\chrome.exe`,
+			`C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe`,
+			`C:\Program Files\Microsoft\Edge\Application\msedge.exe`,
+		},
+	}
 }
 
 // browserNames are the programs to look for on the PATH, which is how a browser is usually found on
 // Linux and how a Homebrew or snap Chrome is found on macOS.
-var browserNames = []string{
-	"google-chrome", "google-chrome-stable", "chromium", "chromium-browser",
-	"microsoft-edge", "microsoft-edge-stable",
+func browserNames() []string {
+	return []string{
+		"google-chrome", "google-chrome-stable", "chromium", "chromium-browser",
+		"microsoft-edge", "microsoft-edge-stable",
+	}
 }
 
 // browserLookup is the real BrowserFinder. It keeps nothing: every look reads the machine, so a
@@ -44,10 +48,10 @@ func (browserLookup) Find() (string, bool) { return lookForBrowser() }
 // lookForBrowser is what browserLookup reads: the first browser Marshal can drive, wherever this
 // machine keeps it.
 func lookForBrowser() (string, bool) {
-	if path, found := browserIn(browserCandidates[runtime.GOOS]); found {
+	if path, found := browserIn(browserCandidates()[runtime.GOOS]); found {
 		return path, true
 	}
-	for _, name := range browserNames {
+	for _, name := range browserNames() {
 		if path, err := exec.LookPath(name); err == nil {
 			return path, true
 		}

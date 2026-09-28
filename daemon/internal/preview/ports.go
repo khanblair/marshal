@@ -34,9 +34,20 @@ const probeTimeout = 3 * time.Second
 
 // httpProber asks a dev server whether it answers. Any answer counts - a page that is still being
 // built, or a page that refuses the request, both mean the server is up.
-type httpProber struct{}
+//
+// client is one client for every probe an httpProber makes, so a preview that is starting does not
+// make a new connection pool four times a second. It is a field rather than a package-level client
+// so that nothing here is shared state between one Service and another.
+type httpProber struct {
+	client *http.Client
+}
 
-func (httpProber) Answers(ctx context.Context, url string) bool {
+// newHTTPProber returns a prober with its own client, timed out the same way every probe is.
+func newHTTPProber() httpProber {
+	return httpProber{client: &http.Client{Timeout: probeTimeout}}
+}
+
+func (p httpProber) Answers(ctx context.Context, url string) bool {
 	if url == "" {
 		return false
 	}
@@ -46,14 +57,10 @@ func (httpProber) Answers(ctx context.Context, url string) bool {
 	if err != nil {
 		return false
 	}
-	response, err := probeClient.Do(request)
+	response, err := p.client.Do(request)
 	if err != nil {
 		return false
 	}
 	_ = response.Body.Close()
 	return true
 }
-
-// probeClient is one client for every probe, so a preview that is starting does not make a new
-// connection pool four times a second.
-var probeClient = &http.Client{Timeout: probeTimeout}

@@ -54,12 +54,17 @@ func (s *Service) Lesson(ctx context.Context, projectID, slug string) (protocol.
 		if rowErr == nil {
 			title, author = row.Title, authorOf(row)
 		}
-		return protocol.NewLesson(projectID, slug, title, rel, body, author, modified), nil
+		return protocol.Lesson{
+			ProjectID: projectID, Slug: slug, Title: title, Path: rel, Body: body, Author: author,
+			UpdatedAt: protocol.NewTimestamp(modified),
+		}, nil
 	case rowErr == nil:
 		// The row is there and the file is not: a vault moved or emptied by hand. The row still
 		// knows what the lesson said, so it answers, and the next save writes the file again.
-		return protocol.NewLesson(projectID, slug, row.Title, rel, row.Body, authorOf(row),
-			time.UnixMilli(row.UpdatedAt).UTC()), nil
+		return protocol.Lesson{
+			ProjectID: projectID, Slug: slug, Title: row.Title, Path: rel, Body: row.Body,
+			Author: authorOf(row), UpdatedAt: protocol.NewTimestamp(time.UnixMilli(row.UpdatedAt).UTC()),
+		}, nil
 	default:
 		return protocol.Lesson{}, protocol.NotFound("lesson")
 	}
@@ -174,6 +179,9 @@ func (s *Service) DeleteLesson(ctx context.Context, projectID, slug string) erro
 // lessonOf turns an indexed row into the wire shape. It never fails: a row's own fields are
 // everything a listed or searched lesson needs, unlike Lesson's single read, which prefers the file.
 func lessonOf(row db.Note) protocol.Lesson {
-	return protocol.NewLesson(row.ProjectID, row.Slug, row.Title, lessonRelPath(row.ProjectID, row.Slug),
-		row.Body, authorOf(row), time.UnixMilli(row.UpdatedAt).UTC())
+	return protocol.Lesson{
+		ProjectID: row.ProjectID, Slug: row.Slug, Title: row.Title,
+		Path: lessonRelPath(row.ProjectID, row.Slug), Body: row.Body, Author: authorOf(row),
+		UpdatedAt: protocol.NewTimestamp(time.UnixMilli(row.UpdatedAt).UTC()),
+	}
 }
