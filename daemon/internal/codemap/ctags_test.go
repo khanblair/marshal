@@ -117,7 +117,7 @@ func TestParseTagsAnswersNothingForNothing(t *testing.T) {
 
 func TestRunnerReadsSymbolsWithUniversalCtags(t *testing.T) {
 	fake := &fakeCommand{stdout: universalVersion}
-	runner := newCtagsRunner("ctags")
+	runner := newCtagsRunner()
 	runner.run = func(ctx context.Context, dir, bin string, args []string, stdin string) ([]byte, error) {
 		// The version check is answered as a version; the tag run is answered as tags.
 		if slices.Contains(args, "--version") {
@@ -143,7 +143,7 @@ func TestRunnerReadsSymbolsWithUniversalCtags(t *testing.T) {
 func TestRunnerReadsTheFileNamesFromStandardInput(t *testing.T) {
 	var args []string
 	var stdin string
-	runner := newCtagsRunner("ctags")
+	runner := newCtagsRunner()
 	runner.run = func(_ context.Context, _ string, _ string, a []string, in string) ([]byte, error) {
 		if slices.Contains(a, "--version") {
 			return []byte(universalVersion), nil
@@ -168,7 +168,7 @@ func TestRunnerReadsTheFileNamesFromStandardInput(t *testing.T) {
 // TestRunnerTreatsBSDCtagsAsNoCTags: macOS ships a program with the same name that takes none of
 // these arguments. Trusting the name would have the map fail on every search rather than fall back.
 func TestRunnerTreatsBSDCtagsAsNoCTags(t *testing.T) {
-	runner := newCtagsRunner("ctags")
+	runner := newCtagsRunner()
 	runner.run = func(_ context.Context, _ string, _ string, args []string, _ string) ([]byte, error) {
 		if slices.Contains(args, "--version") {
 			return []byte(bsdUsage), errors.New("exit status 1")
@@ -192,7 +192,7 @@ func TestRunnerTreatsBSDCtagsAsNoCTags(t *testing.T) {
 // TestRunnerTreatsAnotherCTagsAsTheWrongOne: a `ctags` that answers `--version` without saying it is
 // universal ctags is not one this map can use, and the notice says which of the two problems it is.
 func TestRunnerTreatsAnotherCTagsAsTheWrongOne(t *testing.T) {
-	runner := newCtagsRunner("ctags")
+	runner := newCtagsRunner()
 	runner.run = func(_ context.Context, _ string, _ string, _ []string, _ string) ([]byte, error) {
 		return []byte("Exuberant Ctags 5.8\n"), nil
 	}
@@ -203,7 +203,7 @@ func TestRunnerTreatsAnotherCTagsAsTheWrongOne(t *testing.T) {
 
 func TestRunnerAsksAboutTheBinaryOnlyOnce(t *testing.T) {
 	calls := 0
-	runner := newCtagsRunner("ctags")
+	runner := newCtagsRunner()
 	runner.run = func(_ context.Context, _ string, _ string, args []string, _ string) ([]byte, error) {
 		if slices.Contains(args, "--version") {
 			calls++
@@ -221,7 +221,7 @@ func TestRunnerAsksAboutTheBinaryOnlyOnce(t *testing.T) {
 }
 
 func TestRunnerDoesNotRunCTagsForNoFiles(t *testing.T) {
-	runner := newCtagsRunner("ctags")
+	runner := newCtagsRunner()
 	runner.run = func(_ context.Context, _ string, _ string, _ []string, _ string) ([]byte, error) {
 		t.Error("ctags was run with no files to read")
 		return nil, nil
@@ -233,7 +233,7 @@ func TestRunnerDoesNotRunCTagsForNoFiles(t *testing.T) {
 }
 
 func TestRunnerReportsACTagsThatFailed(t *testing.T) {
-	runner := newCtagsRunner("ctags")
+	runner := newCtagsRunner()
 	runner.run = func(_ context.Context, _ string, _ string, args []string, _ string) ([]byte, error) {
 		if slices.Contains(args, "--version") {
 			return []byte(universalVersion), nil

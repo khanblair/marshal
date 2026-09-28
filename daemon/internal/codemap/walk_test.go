@@ -102,10 +102,10 @@ func TestSourceFilesReportsAFolderThatIsNotThere(t *testing.T) {
 }
 
 func TestHasSuffixFoldIgnoresCase(t *testing.T) {
-	if !hasSuffixFold("App.MIN.js", skipSuffix) {
+	if !hasSuffixFold("App.MIN.js", skipSuffix()) {
 		t.Error("a bundled file written in capitals was not recognised")
 	}
-	if hasSuffixFold("app.js", skipSuffix) {
+	if hasSuffixFold("app.js", skipSuffix()) {
 		t.Error("an ordinary file was skipped as a bundle")
 	}
 }

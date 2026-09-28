@@ -71,10 +71,10 @@ type ctagsRunner struct {
 }
 
 // NewRunner answers the runner the daemon uses: universal ctags read as a program.
-func NewRunner() Runner { return newCtagsRunner(defaultBinary) }
+func NewRunner() Runner { return newCtagsRunner() }
 
-func newCtagsRunner(bin string) *ctagsRunner {
-	return &ctagsRunner{bin: bin, run: runCommand}
+func newCtagsRunner() *ctagsRunner {
+	return &ctagsRunner{bin: defaultBinary, run: runCommand}
 }
 
 // Symbols runs ctags over the named files and answers what they declare. It answers no symbols and

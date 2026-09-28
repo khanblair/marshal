@@ -158,7 +158,7 @@ const (
 var ErrNoProject = errors.New("no project has that repository")
 
 // ErrNoForge is answered when an operation needs the forge and Marshal is not connected to one.
-var ErrNoForge = errors.New("Marshal is not connected to a forge")
+var ErrNoForge = errors.New("marshal is not connected to a forge")
 
 // Service is the CI monitor. It is safe for use by many goroutines.
 type Service struct {
@@ -451,10 +451,6 @@ func (s *Service) publishProject(ctx context.Context, projectID string) {
 	s.bus.Publish(string(protocol.HomeTopic), string(protocol.EventTypeCIUpdated),
 		protocol.CIEventData{Snapshot: &snapshot}, true)
 }
-
-// projectIDOf returns the project a run row belongs to, for a caller that has the row but not the
-// project.
-func projectIDOf(row db.CiRun) string { return row.ProjectID }
 
 // sortedKeys lists a map's keys in order, so a list built from a map is stable.
 func sortedKeys[V any](m map[string]V) []string { return slices.Sorted(maps.Keys(m)) }

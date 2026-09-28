@@ -128,7 +128,7 @@ func (s *Service) sendFailure(ctx context.Context, card protocol.Card, row db.Ci
 			"card_id", card.ID, "run", row.ID)
 		return s.markFixSent(ctx, row)
 	}
-	if err := s.worker.Send(ctx, card.ID, failureMessage(card, row, trimmed)); err != nil {
+	if err := s.worker.Send(ctx, card.ID, failureMessage(row, trimmed)); err != nil {
 		// The message could not be delivered; `fix_sent_at` is left alone so a later delivery of
 		// the same run tries again rather than the failure being silently dropped.
 		s.log.Warn("could not send a CI failure to a card's session", "card_id", card.ID, "error", err)
@@ -226,7 +226,7 @@ func runID(row db.CiRun) (int64, error) {
 
 // failureMessage is what the card's agent reads when its branch's CI fails: which run, where to look,
 // and the end of the failed step's log.
-func failureMessage(card protocol.Card, row db.CiRun, log string) string {
+func failureMessage(row db.CiRun, log string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "CI failed on this card's branch %s.\n\n", row.Branch)
 	fmt.Fprintf(&b, "%s failed", capitalize(describe(row)))

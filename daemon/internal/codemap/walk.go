@@ -13,36 +13,42 @@ import (
 
 // skipDirs are folders that are never descended into. Hidden folders are skipped as well, by name,
 // which covers .git, .venv, .next and the like without listing them here.
-var skipDirs = map[string]bool{
-	"node_modules": true,
-	"vendor":       true,
-	"dist":         true,
-	"build":        true,
-	"target":       true,
-	"venv":         true,
-	"__pycache__":  true,
-	"Pods":         true,
-	"DerivedData":  true,
-	"coverage":     true,
+func skipDirs() map[string]bool {
+	return map[string]bool{
+		"node_modules": true,
+		"vendor":       true,
+		"dist":         true,
+		"build":        true,
+		"target":       true,
+		"venv":         true,
+		"__pycache__":  true,
+		"Pods":         true,
+		"DerivedData":  true,
+		"coverage":     true,
+	}
 }
 
 // skipExt are the extensions that are never source: pictures, media, archives, fonts, compiled
 // objects and lock files. Handing them to ctags would be work with no answer at the end of it.
-var skipExt = map[string]bool{
-	".png": true, ".jpg": true, ".jpeg": true, ".gif": true, ".webp": true, ".bmp": true,
-	".ico": true, ".icns": true, ".pdf": true, ".svg": true,
-	".zip": true, ".gz": true, ".tgz": true, ".bz2": true, ".xz": true, ".7z": true, ".tar": true,
-	".jar": true, ".war": true, ".class": true, ".pyc": true, ".o": true, ".a": true,
-	".so": true, ".dylib": true, ".dll": true, ".exe": true, ".bin": true, ".wasm": true,
-	".woff": true, ".woff2": true, ".ttf": true, ".otf": true, ".eot": true,
-	".mp3": true, ".mp4": true, ".mov": true, ".avi": true, ".webm": true, ".wav": true,
-	".lock": true, ".sum": true, ".snap": true, ".map": true,
-	".db": true, ".sqlite": true, ".sqlite3": true,
+func skipExt() map[string]bool {
+	return map[string]bool{
+		".png": true, ".jpg": true, ".jpeg": true, ".gif": true, ".webp": true, ".bmp": true,
+		".ico": true, ".icns": true, ".pdf": true, ".svg": true,
+		".zip": true, ".gz": true, ".tgz": true, ".bz2": true, ".xz": true, ".7z": true, ".tar": true,
+		".jar": true, ".war": true, ".class": true, ".pyc": true, ".o": true, ".a": true,
+		".so": true, ".dylib": true, ".dll": true, ".exe": true, ".bin": true, ".wasm": true,
+		".woff": true, ".woff2": true, ".ttf": true, ".otf": true, ".eot": true,
+		".mp3": true, ".mp4": true, ".mov": true, ".avi": true, ".webm": true, ".wav": true,
+		".lock": true, ".sum": true, ".snap": true, ".map": true,
+		".db": true, ".sqlite": true, ".sqlite3": true,
+	}
 }
 
 // skipSuffix are the names that are source by extension but not by content: a bundled file is one
 // enormous line, and ctags reading it is work with no useful answer at the end.
-var skipSuffix = []string{".min.js", ".min.css", ".bundle.js", ".chunk.js"}
+func skipSuffix() []string {
+	return []string{".min.js", ".min.css", ".bundle.js", ".chunk.js"}
+}
 
 // maxFileBytes is the largest file the map hands to ctags. A megabyte is far past any hand-written
 // source file and well inside what a generated or bundled one looks like; skipping those is most of
@@ -53,6 +59,9 @@ const maxFileBytes = 1 << 20
 // relative to root in name order. It is the one full walk the map ever does.
 func sourceFiles(root string) ([]string, error) {
 	var files []string
+	skipDirs := skipDirs()
+	skipExt := skipExt()
+	skipSuffix := skipSuffix()
 	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			if path == root {
