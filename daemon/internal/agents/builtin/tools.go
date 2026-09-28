@@ -48,7 +48,7 @@ func toolsFor() []tool {
 				"Use offset and limit to read part of a long file.",
 			kind:   "read",
 			schema: json.RawMessage(`{"type":"object","properties":{"path":{"type":"string","description":"the file to read, relative to the working folder"},"offset":{"type":"integer","description":"the first line to read, 1-based"},"limit":{"type":"integer","description":"how many lines to read"}},"required":["path"]}`),
-			probe:  probePath("path"),
+			probe:  probePath,
 			run:    runReadFile,
 		},
 		{
@@ -56,7 +56,7 @@ func toolsFor() []tool {
 			description: "Write a whole file, making its folders if needed. It replaces whatever the file held.",
 			kind:        "edit",
 			schema:      json.RawMessage(`{"type":"object","properties":{"path":{"type":"string","description":"the file to write, relative to the working folder"},"content":{"type":"string","description":"the whole new contents"}},"required":["path","content"]}`),
-			probe:       probePath("path"),
+			probe:       probePath,
 			run:         runWriteFile,
 		},
 		{
@@ -65,7 +65,7 @@ func toolsFor() []tool {
 				"text must appear exactly once unless replace_all is set.",
 			kind:   "edit",
 			schema: json.RawMessage(`{"type":"object","properties":{"path":{"type":"string"},"old_string":{"type":"string","description":"the exact text to replace"},"new_string":{"type":"string","description":"what to put in its place"},"replace_all":{"type":"boolean","description":"replace every occurrence"}},"required":["path","old_string","new_string"]}`),
-			probe:  probePath("path"),
+			probe:  probePath,
 			run:    runEditFile,
 		},
 		{
@@ -73,7 +73,7 @@ func toolsFor() []tool {
 			description: "List files under a folder, by an optional glob pattern such as *.go. Folders are left out.",
 			kind:        "search",
 			schema:      json.RawMessage(`{"type":"object","properties":{"path":{"type":"string","description":"the folder to list, relative to the working folder"},"pattern":{"type":"string","description":"a glob to keep, such as *.go"}},"required":[]}`),
-			probe:       probePath("path"),
+			probe:       probePath,
 			run:         runListFiles,
 		},
 		{
@@ -81,7 +81,7 @@ func toolsFor() []tool {
 			description: "Search file contents for a regular expression, and return the matching lines with their file and line number.",
 			kind:        "search",
 			schema:      json.RawMessage(`{"type":"object","properties":{"pattern":{"type":"string","description":"the regular expression to find"},"path":{"type":"string","description":"the folder to search, relative to the working folder"},"glob":{"type":"string","description":"a glob to limit the files searched, such as *.go"}},"required":["pattern"]}`),
-			probe:       probePath("path"),
+			probe:       probePath,
 			run:         runSearchFiles,
 		},
 		{
@@ -95,15 +95,14 @@ func toolsFor() []tool {
 	}
 }
 
-// probePath is a probe for a tool whose only interesting argument is a file or folder path.
-func probePath(key string) func(s *session, args map[string]any) (string, string) {
-	return func(s *session, args map[string]any) (string, string) {
-		path, err := s.resolveOrCwd(args, key)
-		if err != nil {
-			return "", ""
-		}
-		return path, ""
+// probePath is a probe for a tool whose only interesting argument is a file or folder path, given
+// under the tool's own "path" argument - every tool here that takes a path names it that.
+func probePath(s *session, args map[string]any) (string, string) {
+	path, err := s.resolveOrCwd(args, "path")
+	if err != nil {
+		return "", ""
 	}
+	return path, ""
 }
 
 // probeCommand is a probe for the run_command tool.
@@ -253,28 +252,14 @@ func runSearchFiles(_ context.Context, s *session, args map[string]any) toolOutc
 			return nil
 		}
 		if d.IsDir() {
-			if path != root && (d.Name() == ".git" || d.Name() == "node_modules") {
-				return filepath.SkipDir
-			}
+			return skipSearchDir(path, root, d.Name())
+		}
+		if !searchableFile(glob, d.Name()) {
 			return nil
 		}
-		if glob != "" {
-			if ok, _ := filepath.Match(glob, d.Name()); !ok {
-				return nil
-			}
-		}
-		data, err := os.ReadFile(path)
-		if err != nil || bytes.IndexByte(data, 0) >= 0 {
-			return nil
-		}
-		for i, line := range strings.Split(string(data), "\n") {
-			if expr.MatchString(line) {
-				fmt.Fprintf(&b, "%s:%d: %s\n", s.shownPath(path), i+1, strings.TrimSpace(line))
-				matches++
-				if matches >= maxSearchMatches {
-					return filepath.SkipAll
-				}
-			}
+		matches += searchFileLines(&b, s, path, expr, matches)
+		if matches >= maxSearchMatches {
+			return filepath.SkipAll
 		}
 		return nil
 	})
@@ -289,6 +274,48 @@ func runSearchFiles(_ context.Context, s *session, args map[string]any) toolOutc
 		text += fmt.Sprintf("(showing the first %d matches)\n", maxSearchMatches)
 	}
 	return toolOutcome{Text: text, Path: root}
+}
+
+// skipSearchDir tells runSearchFiles' walk whether to skip a directory: everything but the root's
+// own .git and node_modules, which never hold anything worth searching and can be large.
+func skipSearchDir(path, root, name string) error {
+	if path != root && (name == ".git" || name == "node_modules") {
+		return filepath.SkipDir
+	}
+	return nil
+}
+
+// searchableFile reports whether a file's name matches the search's glob, or is searched anyway
+// because no glob was given.
+func searchableFile(glob, name string) bool {
+	if glob == "" {
+		return true
+	}
+	ok, _ := filepath.Match(glob, name)
+	return ok
+}
+
+// searchFileLines appends every line of path that matches expr to b, stopping once the combined
+// match count would reach maxSearchMatches, and returns how many lines it added. A binary file -
+// one whose read holds a NUL byte - and an unreadable file are both skipped rather than failing
+// the whole search.
+func searchFileLines(b *strings.Builder, s *session, path string, expr *regexp.Regexp, already int) int {
+	data, err := os.ReadFile(path)
+	if err != nil || bytes.IndexByte(data, 0) >= 0 {
+		return 0
+	}
+	added := 0
+	for i, line := range strings.Split(string(data), "\n") {
+		if !expr.MatchString(line) {
+			continue
+		}
+		fmt.Fprintf(b, "%s:%d: %s\n", s.shownPath(path), i+1, strings.TrimSpace(line))
+		added++
+		if already+added >= maxSearchMatches {
+			break
+		}
+	}
+	return added
 }
 
 // runCommand runs a shell command in the working folder.

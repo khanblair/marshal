@@ -60,17 +60,6 @@ func (c *scriptedClient) Stream(ctx context.Context, req providers.Request) (pro
 	return &scriptedStream{ctx: ctx, events: events}, nil
 }
 
-// lastRequest is the most recent request the client was given.
-func (c *scriptedClient) lastRequest(t *testing.T) providers.Request {
-	t.Helper()
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if len(c.sent) == 0 {
-		t.Fatal("the provider was never called")
-	}
-	return c.sent[len(c.sent)-1]
-}
-
 // requests returns every request the client was given, oldest first.
 func (c *scriptedClient) requests() []providers.Request {
 	c.mu.Lock()
@@ -209,24 +198,6 @@ func newTestAgent(t *testing.T, client providers.Client, mutate ...func(*Config)
 // quiet is a logger that throws its output away.
 func quiet() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, nil))
-}
-
-// drain reads every event from a channel until it closes, or gives up after a moment.
-func drain(t *testing.T, ch <-chan agents.AgentEvent) []agents.AgentEvent {
-	t.Helper()
-	var out []agents.AgentEvent
-	timeout := time.After(5 * time.Second)
-	for {
-		select {
-		case ev, ok := <-ch:
-			if !ok {
-				return out
-			}
-			out = append(out, ev)
-		case <-timeout:
-			t.Fatalf("the event channel did not close; got %d events: %v", len(out), kinds(out))
-		}
-	}
 }
 
 // kinds lists the type names of a run of events, for a test's failure message.

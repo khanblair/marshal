@@ -29,7 +29,7 @@ const keysUsage = "Usage: marshal keys <set|list|remove> [provider] [--dev]"
 
 // quietLogger is handed to the provider service so a keychain hiccup it reports through a log line
 // cannot print a timestamped line in the middle of this command's own answer.
-var quietLogger = slog.New(slog.NewTextHandler(io.Discard, nil))
+func quietLogger() *slog.Logger { return slog.New(slog.NewTextHandler(io.Discard, nil)) }
 
 // keychainFor opens the real OS keychain for a mode, filed under the same name the daemon files its
 // secrets under (platform.AppName), so the dev daemon and a normal install never share keys.
@@ -76,14 +76,14 @@ func parseKeysFlags(name string, args []string, term terminal) (rest []string, d
 func keysService(env platform.Env, dev bool, term terminal, newKeychain func(platform.Mode) security.Keychain) (*providers.Service, int) {
 	var settingsArgs []string
 	if dev {
-		settingsArgs = []string{"--dev"}
+		settingsArgs = []string{devFlag}
 	}
 	settings, err := config.Load(settingsArgs, env, term.stderr)
 	if err != nil {
 		say(term.stderr, "%v", err)
 		return nil, exitFailed
 	}
-	svc, err := providers.New(newKeychain(settings.Mode), providers.Options{Logger: quietLogger})
+	svc, err := providers.New(newKeychain(settings.Mode), providers.Options{Logger: quietLogger()})
 	if err != nil {
 		say(term.stderr, "%s", keysFailure(err))
 		return nil, exitFailed

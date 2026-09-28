@@ -35,7 +35,7 @@ func runDevReset(env platform.Env, args []string, term terminal) int {
 	if err := fs.Parse(args); err != nil {
 		return exitBadInput
 	}
-	settings, err := config.Load([]string{"--dev"}, env, term.stderr)
+	settings, err := config.Load([]string{devFlag}, env, term.stderr)
 	if err != nil {
 		say(term.stderr, "%v", err)
 		return exitFailed

@@ -90,7 +90,7 @@ func runServiceInstall(args []string, term terminal, newInstaller func() platfor
 	spec := platform.ServiceSpec{ExecutablePath: exe, Mode: platform.ModeNormal}
 	if *dev {
 		spec.Mode = platform.ModeDev
-		spec.Args = []string{"--dev"}
+		spec.Args = []string{devFlag}
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), serviceTimeout)
 	defer cancel()

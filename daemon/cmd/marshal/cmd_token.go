@@ -22,7 +22,7 @@ func runToken(env platform.Env, args []string, term terminal) int {
 	}
 	var settingsArgs []string
 	if *dev {
-		settingsArgs = []string{"--dev"}
+		settingsArgs = []string{devFlag}
 	}
 	settings, err := config.Load(settingsArgs, env, term.stderr)
 	if err != nil {

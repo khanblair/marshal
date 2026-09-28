@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"path/filepath"
-	"sync"
 
 	"github.com/khanblair/marshal/daemon/internal/agents"
 )
@@ -16,8 +15,7 @@ type Adapter struct {
 	cfg Config
 	log *slog.Logger
 
-	mu       sync.Mutex
-	sessions map[string]*session
+	sessions *agents.SessionRegistry[session]
 }
 
 var _ agents.Agent = (*Adapter)(nil)
@@ -28,7 +26,7 @@ func New(cfg Config) (agents.Agent, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Adapter{cfg: cfg, log: cfg.Logger, sessions: make(map[string]*session)}, nil
+	return &Adapter{cfg: cfg, log: cfg.Logger, sessions: agents.NewSessionRegistry[session]()}, nil
 }
 
 // Factory returns the factory that the session manager registers for the claude kind.
@@ -121,33 +119,17 @@ func (a *Adapter) usable(ctx context.Context, h agents.SessionHandle, action str
 
 // find returns the running session that a handle names.
 func (a *Adapter) find(h agents.SessionHandle) (*session, error) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	s, ok := a.sessions[h.ID]
-	if !ok {
-		return nil, fmt.Errorf("%w: %q", agents.ErrUnknownSession, h.ID)
-	}
-	return s, nil
+	return a.sessions.Find(h)
 }
 
 // register records a session that is ready. Two running sessions cannot share an id.
 func (a *Adapter) register(id string, s *session) error {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	if _, taken := a.sessions[id]; taken {
-		return fmt.Errorf("session %q is already running", id)
-	}
-	a.sessions[id] = s
-	return nil
+	return a.sessions.Register(id, s)
 }
 
 // forget removes a session that has ended.
 func (a *Adapter) forget(id string, s *session) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	if a.sessions[id] == s {
-		delete(a.sessions, id)
-	}
+	a.sessions.Forget(id, s)
 }
 
 // appliedOf says which of a start spec's settings this adapter always takes: Claude Code's

@@ -14,6 +14,10 @@ const (
 	exitBadInput = 2
 )
 
+// devFlag re-runs a command's own settings load in dev mode, the same way every command that takes
+// it hands it straight back to config.Load or to the service it installs or inspects.
+const devFlag = "--dev"
+
 const usage = `Usage: marshal <command>
 
 Commands:

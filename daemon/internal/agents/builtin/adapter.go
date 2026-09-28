@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log/slog"
-	"sync"
 
 	"github.com/khanblair/marshal/daemon/internal/agents"
 	"github.com/khanblair/marshal/daemon/internal/protocol"
@@ -19,8 +18,7 @@ type Adapter struct {
 	cfg Config
 	log *slog.Logger
 
-	mu       sync.Mutex
-	sessions map[string]*session
+	sessions *agents.SessionRegistry[session]
 }
 
 var (
@@ -34,7 +32,7 @@ func New(cfg Config) (agents.Agent, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Adapter{cfg: cfg, log: cfg.Logger, sessions: make(map[string]*session)}, nil
+	return &Adapter{cfg: cfg, log: cfg.Logger, sessions: agents.NewSessionRegistry[session]()}, nil
 }
 
 // Factory returns the factory that the session manager registers for the builtin kind.
@@ -68,10 +66,7 @@ func (a *Adapter) open(ctx context.Context, spec agents.StartSpec, resumeID stri
 	if err != nil {
 		return agents.SessionHandle{}, fmt.Errorf("find a provider for the model %q: %w", spec.Model, err)
 	}
-	history, err := a.historyOf(resumeID)
-	if err != nil {
-		return agents.SessionHandle{}, err
-	}
+	history := a.historyOf(resumeID)
 	life, cancel := context.WithCancel(context.WithoutCancel(ctx))
 	s := newSession(a, spec, resolved, history, life, cancel)
 	s.resumed = resumeID != ""
@@ -87,17 +82,18 @@ func (a *Adapter) open(ctx context.Context, spec agents.StartSpec, resumeID stri
 }
 
 // historyOf returns the stored conversation for a resume, or nothing for a fresh start. A history
-// hook that fails is not fatal: the session starts with what is known.
-func (a *Adapter) historyOf(resumeID string) ([]providers.Message, error) {
+// hook that fails is not fatal: the session starts with what is known, so there is nothing for a
+// caller to do with an error here but log it, which this does itself.
+func (a *Adapter) historyOf(resumeID string) []providers.Message {
 	if resumeID == "" || a.cfg.History == nil {
-		return nil, nil
+		return nil
 	}
 	history, err := a.cfg.History(resumeID)
 	if err != nil {
 		a.log.Warn("could not read a session's history to resume it", "session_id", resumeID, "err", err)
-		return nil, nil
+		return nil
 	}
-	return history, nil
+	return history
 }
 
 // Send starts a turn and returns at once. It returns agents.ErrBusy while a turn is running.
@@ -185,33 +181,17 @@ func (a *Adapter) ApplySettings(
 
 // find returns the running session that a handle names.
 func (a *Adapter) find(h agents.SessionHandle) (*session, error) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	s, ok := a.sessions[h.ID]
-	if !ok {
-		return nil, fmt.Errorf("%w: %q", agents.ErrUnknownSession, h.ID)
-	}
-	return s, nil
+	return a.sessions.Find(h)
 }
 
 // register records a session that is ready. Two running sessions cannot share an id.
 func (a *Adapter) register(id string, s *session) error {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	if _, taken := a.sessions[id]; taken {
-		return fmt.Errorf("session %q is already running", id)
-	}
-	a.sessions[id] = s
-	return nil
+	return a.sessions.Register(id, s)
 }
 
 // forget removes a session that has ended.
 func (a *Adapter) forget(id string, s *session) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	if a.sessions[id] == s {
-		delete(a.sessions, id)
-	}
+	a.sessions.Forget(id, s)
 }
 
 // appliedOf says which of a start spec's settings this adapter takes: all three, whenever they are
