@@ -76,7 +76,7 @@ func (s *Service) resolve(model string) (*provider, string, error) {
 	if model == "" {
 		model = DefaultModel
 	}
-	for _, info := range known {
+	for _, info := range known() {
 		named, names := info.Model(model)
 		if !names && !info.AnyModel {
 			continue

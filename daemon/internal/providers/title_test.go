@@ -217,7 +217,7 @@ func TestAChatTitleIsTrimmedToSomethingAThingCanBeCalled(t *testing.T) {
 // table.
 func TestCheapestIsAlwaysAModelMarshalCanName(t *testing.T) {
 	s := newTestService(t, nil)
-	for _, info := range known {
+	for _, info := range known() {
 		if info.Local {
 			if err := s.Save(info.ID, testLocalAddress); err != nil {
 				t.Fatalf("Save(%s): %v", info.ID, err)

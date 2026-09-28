@@ -6,7 +6,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/khanblair/marshal/daemon/internal/protocol"
 	"github.com/khanblair/marshal/daemon/internal/security"
 )
 
@@ -281,7 +280,7 @@ func TestModelsListsOnlyWhatIsSetUp(t *testing.T) {
 // as null.
 func TestModelsHasTheShapeTheCatalogNeeds(t *testing.T) {
 	s, _ := serviceFor(t, nil)
-	var builtinModels func() []protocol.AgentModel = s.Models
+	builtinModels := s.Models
 	got := builtinModels()
 	if got == nil {
 		t.Fatal("Models returned nil, which a client would read as null")

@@ -74,7 +74,7 @@ func (s *Service) Test(ctx context.Context, id string) (protocol.TestResult, err
 		MaxTokens: testMaxTokens,
 	})
 	return protocol.NewTestResult(id, []protocol.TestCheck{
-		keyCheck(info, reply, callErr),
+		keyCheck(info, callErr),
 		rateLimitCheck(info, reply.RateLimit),
 	}, s.now()), nil
 }
@@ -95,7 +95,7 @@ func (s *Service) testUnnameable(id string, info Info) protocol.TestResult {
 }
 
 // keyCheck is what the tiny request proved.
-func keyCheck(info Info, reply Reply, err error) protocol.TestCheck {
+func keyCheck(info Info, err error) protocol.TestCheck {
 	if err != nil {
 		message, fix := testFailure(info, err)
 		return protocol.TestCheck{Name: CheckAPIKey, State: protocol.CheckStateFailed, Message: message, Fix: fix}

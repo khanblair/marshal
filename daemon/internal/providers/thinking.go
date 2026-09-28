@@ -74,35 +74,39 @@ func levelOf(mode string) Level {
 // anthropicBudgets is how many tokens Anthropic lets its model think for a Level, or 0 for
 // LevelNone, which means "do not think". Anthropic's smallest budget is 1,024 tokens; the steps
 // above it are the ones Marshal's card settings offer.
-var anthropicBudgets = map[Level]int64{
-	LevelNone:      0,
-	LevelLow:       2048,
-	LevelMedium:    8192,
-	LevelHigh:      16384,
-	LevelExtraHigh: 32768,
+func anthropicBudgets() map[Level]int64 {
+	return map[Level]int64{
+		LevelNone:      0,
+		LevelLow:       2048,
+		LevelMedium:    8192,
+		LevelHigh:      16384,
+		LevelExtraHigh: 32768,
+	}
 }
 
 // anthropicBudget returns the thinking budget to send Anthropic for mode, or 0 when thinking should
 // be left to Anthropic's own default.
 func anthropicBudget(mode string) int64 {
-	return anthropicBudgets[levelOf(mode)]
+	return anthropicBudgets()[levelOf(mode)]
 }
 
 // openAIEfforts is the effort word the OpenAI-compatible family uses for a Level, or "" for
 // LevelNone, which means "do not ask". The family has no word above "high", so the two most
 // thinking levels both ask for high: the highest a compatible provider understands.
-var openAIEfforts = map[Level]string{
-	LevelNone:      "",
-	LevelLow:       "low",
-	LevelMedium:    "medium",
-	LevelHigh:      "high",
-	LevelExtraHigh: "high",
+func openAIEfforts() map[Level]string {
+	return map[Level]string{
+		LevelNone:      "",
+		LevelLow:       "low",
+		LevelMedium:    "medium",
+		LevelHigh:      "high",
+		LevelExtraHigh: "high",
+	}
 }
 
 // openAIEffort returns the reasoning effort to send an OpenAI-compatible provider for mode, or ""
 // when thinking should be left alone. Providers that do not know the field ignore it.
 func openAIEffort(mode string) string {
-	return openAIEfforts[levelOf(mode)]
+	return openAIEfforts()[levelOf(mode)]
 }
 
 // geminiLevels is the level word Gemini uses for a Level, or "" for LevelNone, which means "do not
@@ -110,16 +114,18 @@ func openAIEffort(mode string) string {
 // allowed range depends on the model, so a number Marshal picked could be rejected by a model it
 // was never measured against, while a level is what the API takes for every model that thinks.
 // Gemini has no level above "high", so the two most thinking levels both ask for high.
-var geminiLevels = map[Level]string{
-	LevelNone:      "",
-	LevelLow:       "LOW",
-	LevelMedium:    "MEDIUM",
-	LevelHigh:      "HIGH",
-	LevelExtraHigh: "HIGH",
+func geminiLevels() map[Level]string {
+	return map[Level]string{
+		LevelNone:      "",
+		LevelLow:       "LOW",
+		LevelMedium:    "MEDIUM",
+		LevelHigh:      "HIGH",
+		LevelExtraHigh: "HIGH",
+	}
 }
 
 // geminiLevel returns the thinking level to send Gemini for mode, or "" when thinking should be
 // left to Gemini's own default.
 func geminiLevel(mode string) string {
-	return geminiLevels[levelOf(mode)]
+	return geminiLevels()[levelOf(mode)]
 }

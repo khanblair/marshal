@@ -83,7 +83,7 @@ func (s *Service) cheapest() (Info, protocol.AgentModel, bool, error) {
 	var free Info
 	var freeModel protocol.AgentModel
 	haveFree := false
-	for _, info := range known {
+	for _, info := range known() {
 		model, cost, priced := info.cheapestPriced()
 		if !priced {
 			// A provider whose models Marshal cannot price cannot be judged the cheapest, and a

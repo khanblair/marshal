@@ -124,6 +124,7 @@ func New(keys security.Keychain, opts Options) (*Service, error) {
 //
 // A provider nobody has set up is still listed, as an empty row, so the screen can offer to add it.
 func (s *Service) List() ([]protocol.Provider, error) {
+	known := known()
 	out := make([]protocol.Provider, 0, len(known))
 	for _, info := range known {
 		secret, err := s.secret(info.ID)
@@ -153,7 +154,7 @@ func (s *Service) List() ([]protocol.Provider, error) {
 // provider with no key is left out rather than offered and failing on the first call.
 func (s *Service) Models() []protocol.AgentModel {
 	out := []protocol.AgentModel{}
-	for _, id := range builtinModelOrder {
+	for _, id := range builtinModelOrder() {
 		owner, model, ok := modelOwner(id)
 		if !ok {
 			// The order list and the table are held together by a test
