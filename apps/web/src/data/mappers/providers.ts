@@ -60,7 +60,7 @@ export function toProviderTest(result: TestResult): ProviderTest {
 }
 
 /** One wire provider as a row reads it. */
-export function toProviderRow(provider: WireProvider): ProviderRow {
+function toProviderRow(provider: WireProvider): ProviderRow {
   return {
     id: provider.id,
     name: provider.name,

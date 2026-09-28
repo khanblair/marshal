@@ -17,7 +17,7 @@ const MS_PER_MINUTE = 60_000;
 const FALLBACK_BRANCH = "main";
 
 /** One workflow run on a project's default branch, as the screens show it. */
-export interface ProjectWorkflowRun {
+interface ProjectWorkflowRun {
   /** The workflow's name as the forge names it, with its package for a monorepo, such as "ci packages/web". */
   wf: string;
   st: CIState;

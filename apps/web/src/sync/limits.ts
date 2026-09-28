@@ -28,6 +28,6 @@ export function applyLimitList(ctx: Ctx, list: LimitList): void {
 }
 
 /** Replaces the store's ceilings with the daemon's. It is one write, so a screen redraws once. */
-export function applyLimitsByScope(ctx: Ctx, limits: LimitsByScope): void {
+function applyLimitsByScope(ctx: Ctx, limits: LimitsByScope): void {
   ctx.S.limits = limits;
 }

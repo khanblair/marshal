@@ -386,7 +386,7 @@ export interface RemoveProjectDraft {
 
 // The ceilings a scope can have live in the data layer, so their mapper never depends on the mock;
 // the store's own shape is re-exported here. A field that is absent means no ceiling is set.
-export type { Limits, LimitsByScope } from "~/data/mappers/limits";
+export type { LimitsByScope } from "~/data/mappers/limits";
 // The notices and the sleep settings are the daemon's too (sections S23 and S26a), and their shapes
 // live in the data layer for the same reason: the mappers there must not depend on the mock.
 export type { InfoNotice, Notice, SleepNotice } from "~/data/mappers/notices";

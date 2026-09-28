@@ -17,12 +17,7 @@ export type {
  * the mapper never depends on the mock, and re-exported here because the screens import their store
  * types from `~/mock`.
  */
-export type { Role, RoleRows } from "~/data/mappers/roles";
-/**
- * A connection's last test, and the state a snapshot writes onto a connection's row: the daemon's,
- * mapped by `~/data/mappers/integrations.ts` and re-exported here for the same reason.
- */
-export type { IntegrationState, IntegrationTest } from "~/data/mappers/integrations";
+export type { Role } from "~/data/mappers/roles";
 export interface Integration {
   id: string;
   name: string;

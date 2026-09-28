@@ -6,10 +6,9 @@ import type { LimitKind, LimitList } from "@marshal/protocol";
  * fresh install has no limits at all) and what an empty form field shows. A field that is present is
  * in the unit its own kind measures - whole dollars for `day` and `month`, whole cards for `awake`.
  *
- * It lives in the data layer, not in `mock/`, so the mapper never depends on the mock;
- * `mock/types.ts` re-exports it for the store's own use.
+ * It lives in the data layer, not in `mock/`, so the mapper never depends on the mock.
  */
-export interface Limits {
+interface Limits {
   day?: number;
   month?: number;
   awake?: number;

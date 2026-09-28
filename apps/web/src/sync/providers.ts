@@ -29,6 +29,6 @@ export function applyProviderList(ctx: Ctx, list: ProviderList): void {
 }
 
 /** Replaces the store's rows with the daemon's. It is one write, so a screen redraws once. */
-export function applyProviders(ctx: Ctx, rows: ProviderRows): void {
+function applyProviders(ctx: Ctx, rows: ProviderRows): void {
   ctx.S.providers = rows.providers;
 }

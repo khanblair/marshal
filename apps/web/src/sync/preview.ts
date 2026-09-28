@@ -46,21 +46,6 @@ export function applyCardPreview(ctx: Ctx, key: CardKey, preview: Preview): void
 }
 
 /**
- * Reads a card's preview into the store. Reading starts nothing, and twice over is fine: the daemon
- * answers what is running, and a read that arrives after the card moved on is dropped.
- */
-export async function readCardPreview(
-  ctx: Ctx,
-  api: ApiClient,
-  key: CardKey,
-  daemonId: string,
-): Promise<void> {
-  const snapshot = await api.preview(daemonId);
-  if (!ctx.S.cards.some((one) => one.id === key && one.daemonId === daemonId)) return;
-  applyCardPreview(ctx, key, snapshot.preview);
-}
-
-/**
  * Runs one preview change: start, stop, or take a screenshot. The daemon owns the state, so nothing
  * is drawn before it answers; a refusal carries the daemon's own sentence and is shown by the
  * caller's `optimistic`. False means nothing was asked, or the daemon said no.
