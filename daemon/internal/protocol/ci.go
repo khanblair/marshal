@@ -47,7 +47,7 @@ type ProjectCI struct {
 	Runs []CiRun `json:"runs"`
 }
 
-// CiSnapshot is the answer to GET /v1/ci: every project Marshal has CI data for, in project order.
+// CISnapshot is the answer to GET /v1/ci: every project Marshal has CI data for, in project order.
 type CISnapshot struct {
 	// Projects has one entry per project that has at least one run. A project with none is left
 	// out on purpose: the CI health page says GitHub is not connected when none has any.

@@ -14,12 +14,12 @@ import (
 
 // sampleLesson is a lesson an agent left after tracking down a flaky CI run.
 func sampleLesson() protocol.Lesson {
-	return protocol.NewLesson(
-		"small-repo", "ci-is-flaky-on-windows", "CI is flaky on Windows",
-		"small-repo/lessons/ci-is-flaky-on-windows.md",
-		"# CI is flaky on Windows\n\nRetry the flaky step once before failing the run.\n",
-		protocol.NoteAuthorAgent, providersNow,
-	)
+	return protocol.Lesson{
+		ProjectID: "small-repo", Slug: "ci-is-flaky-on-windows", Title: "CI is flaky on Windows",
+		Path:   "small-repo/lessons/ci-is-flaky-on-windows.md",
+		Body:   "# CI is flaky on Windows\n\nRetry the flaky step once before failing the run.\n",
+		Author: protocol.NoteAuthorAgent, UpdatedAt: protocol.NewTimestamp(providersNow),
+	}
 }
 
 func TestLessonGolden(t *testing.T) {

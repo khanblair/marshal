@@ -224,7 +224,7 @@ func TestProjectDependenciesGroupsEveryEdge(t *testing.T) {
 func TestCardDependenciesOfACardThatIsNotThere(t *testing.T) {
 	e := newEnv(t)
 	_, err := e.svc.CardDependencies(context.Background(), "card_does_not_exist")
-	wantCode(t, err, protocol.ErrorCodeNotFound)
+	_ = wantCode(t, err, protocol.ErrorCodeNotFound)
 }
 
 // Deleting a card takes its edges with it, on both sides: what it waited for no longer counts it as

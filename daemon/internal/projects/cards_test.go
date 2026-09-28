@@ -163,7 +163,7 @@ func TestSetBypassModeHonoursTheProjectLock(t *testing.T) {
 		t.Errorf("the card after turning bypass off = %q, want %q", off.PermissionMode, projects.BypassOffMode)
 	}
 	_, err = e.svc.SetBypassMode(ctx, "nope", true)
-	wantCode(t, err, protocol.ErrorCodeNotFound)
+	_ = wantCode(t, err, protocol.ErrorCodeNotFound)
 	e.drainEvents()
 }
 

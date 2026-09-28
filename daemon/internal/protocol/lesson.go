@@ -1,7 +1,5 @@
 package protocol
 
-import "time"
-
 // The wire shape of a project's lesson: something an agent learned worth remembering next time,
 // written to the vault as its own markdown file the same way a card's note is (see note.go). It is
 // a sibling of Note and not a variant of it on the wire, even though internal/memory indexes both in
@@ -39,14 +37,6 @@ type Lesson struct {
 	Author NoteAuthor `json:"author"`
 	// UpdatedAt is when the lesson was last saved. Never the zero time - see the package comment.
 	UpdatedAt Timestamp `json:"updatedAt"`
-}
-
-// NewLesson makes a lesson, stamping it with the given save time.
-func NewLesson(projectID, slug, title, path, body string, author NoteAuthor, updatedAt time.Time) Lesson {
-	return Lesson{
-		ProjectID: projectID, Slug: slug, Title: title, Path: path, Body: body, Author: author,
-		UpdatedAt: NewTimestamp(updatedAt),
-	}
 }
 
 // SaveLessonRequest is the body of the call that writes a project's lesson (task 7.6, 7.13). Like

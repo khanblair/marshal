@@ -29,7 +29,7 @@ func TestIDTimeReadsBackTheTimeAnIDWasMade(t *testing.T) {
 	if err != nil {
 		t.Fatalf("make a later id: %v", err)
 	}
-	if !(id < later) {
+	if id >= later {
 		t.Errorf("ids did not sort by time: %q then %q", id, later)
 	}
 }

@@ -72,6 +72,7 @@ type NoticeActionResult struct {
 // They are declared one by one and not in a block, like SleepRestoreAuto below, because an exported
 // untyped constant in a block would become a TypeScript union this package does not mean to declare
 // (protocol's own conventions test).
+
 // NoticeActionKeepAwake is "Keep awake": hold one card off the idle timer for the keep-awake
 // setting's length and take it off its notice.
 const NoticeActionKeepAwake = "keep-awake"
