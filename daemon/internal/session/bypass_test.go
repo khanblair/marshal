@@ -59,7 +59,7 @@ func TestSetBypassNeedsTheAcknowledgement(t *testing.T) {
 	card := e.card(t, project.ID, "Run the tests")
 
 	_, err := e.mgr.SetBypass(ctx, card.ID, protocol.BypassRequest{})
-	wantBypassReason(t, err, protocol.BypassRefusalReasonUnacknowledged)
+	_ = wantBypassReason(t, err, protocol.BypassRefusalReasonUnacknowledged)
 
 	if after, err := e.proj.Card(ctx, card.ID); err != nil {
 		t.Fatalf("read the card: %v", err)

@@ -83,7 +83,7 @@ func (m *Manager) auditBypass(ctx context.Context, card protocol.Card, on, chang
 	err := m.audit.Record(ctx, audit.Entry{
 		Actor: audit.ActorPerson, Action: action, Target: card.ID,
 		Detail: map[string]any{
-			"cardId": card.ID, "projectId": card.ProjectID,
+			cardIDDetailKey: card.ID, "projectId": card.ProjectID,
 			"permissionMode": string(card.PermissionMode), "changed": changed,
 		},
 	})

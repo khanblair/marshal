@@ -205,7 +205,7 @@ func (m *Manager) noteRestore(cardID string, row db.Checkpoint, conversation boo
 		Actor: audit.ActorPerson, Action: audit.ActionCheckpointRestored, Target: row.ID,
 		SessionID: m.sessionRowIDFor(cardID),
 		Detail: map[string]any{
-			"cardId": cardID, "checkpointId": row.ID, "sha": row.GitRef,
+			cardIDDetailKey: cardID, "checkpointId": row.ID, "sha": row.GitRef,
 			"label": row.Label, "conversation": conversation,
 		},
 	})

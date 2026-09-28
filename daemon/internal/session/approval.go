@@ -319,7 +319,7 @@ func (m *Manager) auditDecision(ctx context.Context, pa *pendingApproval, decisi
 	}
 	m.audit.LogAndForget(ctx, audit.Entry{
 		Actor: actor, Action: action, Target: pa.approvalID, SessionID: pa.ls.sessionRowID,
-		Detail: map[string]any{"cardId": pa.cardID, "chatId": pa.chatID, "decision": string(decision)},
+		Detail: map[string]any{cardIDDetailKey: pa.cardID, "chatId": pa.chatID, "decision": string(decision)},
 	})
 }
 

@@ -128,7 +128,7 @@ func (m *Manager) answerWithoutAsking(ls *liveSession, e agents.PermissionReques
 	m.audit.LogAndForget(m.ctx, audit.Entry{
 		Actor: audit.ActorDaemon, Action: action, Target: e.ToolCallID, SessionID: ls.sessionRowID,
 		Detail: map[string]any{
-			"cardId": ls.cardID, "chatId": ls.chatID, "mode": string(mode), "reason": out.Rule,
+			cardIDDetailKey: ls.cardID, "chatId": ls.chatID, "mode": string(mode), "reason": out.Rule,
 			"title": e.Title, "path": e.Path, "command": e.Command,
 		},
 	})

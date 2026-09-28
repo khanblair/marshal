@@ -227,10 +227,10 @@ func TestRespondRefusesARequestNobodyIsWaitingOn(t *testing.T) {
 	if err != nil {
 		t.Fatalf("make an id: %v", err)
 	}
-	wantCode(t, e.mgr.Respond(ctx, unknown, protocol.ApprovalDecisionApproved, "", audit.ActorPerson), protocol.ErrorCodeNotFound)
+	_ = wantCode(t, e.mgr.Respond(ctx, unknown, protocol.ApprovalDecisionApproved, "", audit.ActorPerson), protocol.ErrorCodeNotFound)
 
 	// A decision that is not one of the two is refused, and the request is left waiting.
-	wantCode(t, e.mgr.Respond(ctx, a.approval.ID, protocol.ApprovalDecision("maybe"), "", audit.ActorPerson), protocol.ErrorCodeInvalidArgument)
+	_ = wantCode(t, e.mgr.Respond(ctx, a.approval.ID, protocol.ApprovalDecision("maybe"), "", audit.ActorPerson), protocol.ErrorCodeInvalidArgument)
 	if _, ok := e.agent.approvalResponse("req-1"); ok {
 		t.Fatal("a request with a bad decision was answered anyway")
 	}
@@ -239,5 +239,5 @@ func TestRespondRefusesARequestNobodyIsWaitingOn(t *testing.T) {
 	if err := e.mgr.Respond(ctx, a.approval.ID, protocol.ApprovalDecisionDenied, "", audit.ActorPerson); err != nil {
 		t.Fatalf("deny the approval: %v", err)
 	}
-	wantCode(t, e.mgr.Respond(ctx, a.approval.ID, protocol.ApprovalDecisionApproved, "", audit.ActorPerson), protocol.ErrorCodeConflict)
+	_ = wantCode(t, e.mgr.Respond(ctx, a.approval.ID, protocol.ApprovalDecisionApproved, "", audit.ActorPerson), protocol.ErrorCodeConflict)
 }

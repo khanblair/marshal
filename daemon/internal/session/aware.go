@@ -7,9 +7,9 @@ import (
 	"github.com/khanblair/marshal/daemon/internal/agents"
 )
 
-// The board-awareness summary a card's agent is given at the start of every turn: who else is
-// working in its project, on what, and the files they hold (docs/marshal-product-scope.md section
-// 11.3, docs/backend-checklist.md B7.2, build-plan task 7.2).
+// Awareness is the board-awareness summary a card's agent is given at the start of every turn: who
+// else is working in its project, on what, and the files they hold (docs/marshal-product-scope.md
+// section 11.3, docs/backend-checklist.md B7.2, build-plan task 7.2).
 //
 // # Why it is a seam of its own
 //
