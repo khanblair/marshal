@@ -41,7 +41,7 @@ const M = createTestMarshal({
 window.M = M;
 
 /** The store's context, for a test that reads or fills what the syncers hold. */
-export const ctx = contextOf(M);
+const ctx = contextOf(M);
 
 /** Puts the daemon and the store back to the golden list, so one test cannot see another's change. */
 export function resetRoles(): void {

@@ -43,7 +43,7 @@ export function createCIStore(options: FakeCIOptions = {}): CIStore {
 }
 
 /** The answer to `GET /v1/ci`: the whole list, with the daemon's own time to count ages from. */
-export function ciSnapshotOf(store: CIStore): CISnapshot {
+function ciSnapshotOf(store: CIStore): CISnapshot {
   return { projects: structuredClone(store.projects), serverTime: store.now() };
 }
 

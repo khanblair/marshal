@@ -29,7 +29,7 @@ import { golden } from "~/data/testing/golden";
 
 /** Tells the event stream about a change, as the daemon does after it. The home topic and the four
  * notice calls are the only topic and events this file knows. */
-export type Publish = (topic: string, type: string, data: unknown) => void;
+type Publish = (topic: string, type: string, data: unknown) => void;
 
 const STATUS = { badRequest: 400 };
 const HOME_TOPIC = "home";

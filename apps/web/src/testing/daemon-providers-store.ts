@@ -12,7 +12,7 @@
 import { afterAll, beforeAll, expect, vi } from "vitest";
 import { createFakeDaemon, type FakeDaemon } from "./fake-daemon";
 import { PROTOTYPE_PROJECTS } from "./projects";
-import { contextOf, createTestMarshal, MOCK_HISTORY, MOCK_PERSON_SECTIONS } from "./test-store";
+import { createTestMarshal, MOCK_HISTORY, MOCK_PERSON_SECTIONS } from "./test-store";
 
 /** The daemon the component tests of this file drive. */
 export const daemon: FakeDaemon = createFakeDaemon({ projects: PROTOTYPE_PROJECTS });
@@ -29,9 +29,6 @@ const M = createTestMarshal({
   },
 });
 window.M = M;
-
-/** The store's context, for a test that reads what the syncers hold. */
-export const ctx = contextOf(M);
 
 beforeAll(async () => {
   await daemon.connect();

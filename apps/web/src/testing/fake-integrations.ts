@@ -18,13 +18,7 @@
  * when its status is not `none`, which is what the daemon stores a config and a secret for - except
  * Obsidian, which has nothing to save and is never `none` in the first place.
  */
-import type {
-  Integration,
-  IntegrationList,
-  IntegrationStatus,
-  TestCheck,
-  TestResult,
-} from "@marshal/protocol";
+import type { Integration, IntegrationStatus, TestCheck, TestResult } from "@marshal/protocol";
 import { errorAnswer, type FakeRequest, jsonAnswer } from "~/data/testing/fake-fetch";
 
 const STATUS = { ok: 200, badRequest: 400, notFound: 404, conflict: 409 };
@@ -333,5 +327,3 @@ function defaultRefusal(_id: string, body: Record<string, unknown>): string | un
   if (webhookSecret === "") return "The webhook secret is missing.";
   return undefined;
 }
-
-export type { IntegrationList };

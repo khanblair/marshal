@@ -23,11 +23,8 @@ import { contextOf, createTestMarshal, MOCK_HISTORY, MOCK_PERSON_SECTIONS } from
 /** The two card ids the golden `notice-list` names, under the project the notice belongs to. */
 const NOTICE_CARD_IDS = ["01JD7Q4M2X8K9V0P5T3RB6NHC3", "01JD7Q4M2X8K9V0P5T3RB6NHC4"];
 
-/** The two cards the golden sleep notice names, as the store's keys: `web#1` and `web#2`. */
-export const NOTICE_CARD_KEYS: readonly string[] = ["web#1", "web#2"];
-
 /** The cards the daemon holds, so the sleep notice's cards can be placed. */
-export const NOTICE_CARDS: readonly WireCard[] = NOTICE_CARD_IDS.map((id, i) =>
+const NOTICE_CARDS: readonly WireCard[] = NOTICE_CARD_IDS.map((id, i) =>
   wireCard({
     id,
     projectId: "web",
@@ -59,7 +56,7 @@ const M = createTestMarshal({
 window.M = M;
 
 /** The store's context, for a test that reads or fills what the syncers hold. */
-export const ctx = contextOf(M);
+const ctx = contextOf(M);
 
 /** Puts the daemon and the store back to the golden list, so one test cannot see another's change. */
 export function resetNotices(): void {

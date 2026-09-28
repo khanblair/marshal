@@ -364,6 +364,6 @@ function cardRoute(
   return cardAction(store, card, request, action);
 }
 
-export type { CardStore, DaemonBoard, FakeCardDiff, HistoryRow } from "./fake-card-shared";
+export type { CardStore, FakeCardDiff, HistoryRow } from "./fake-card-shared";
 /** The fixtures a test makes a card with, and the shapes these routes and their neighbours take. */
 export { boardOf, cardId, historyRow, wireCard } from "./fake-card-shared";

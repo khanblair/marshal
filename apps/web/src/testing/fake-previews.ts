@@ -56,7 +56,7 @@ const SHOT_PNG = Uint8Array.from(
 );
 
 /** Sends an event on a topic, as the daemon does after a change. */
-export type Publish = (topic: string, type: string, data: unknown) => void;
+type Publish = (topic: string, type: string, data: unknown) => void;
 
 /** Every card's preview, and the stream a change is announced on, as the fake daemon holds them. */
 export interface PreviewStore {

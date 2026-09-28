@@ -65,7 +65,7 @@ export interface FakeProviderOptions {
 }
 
 /** The daemon's Mask: the key's own kind prefix, an ellipsis, and its last four characters. */
-export function maskSecret(secret: string): string {
+function maskSecret(secret: string): string {
   const runes = [...secret];
   if (runes.length === 0) return "";
   if (runes.length < MASK_MIN) return `…${runes[runes.length - 1]}`;
