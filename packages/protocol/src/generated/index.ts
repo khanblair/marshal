@@ -852,7 +852,7 @@ export interface ProjectCI {
   /** Runs are the project's runs, newest first. Never null. */
   runs: CiRun[];
 }
-/** CiSnapshot is the answer to GET /v1/ci: every project Marshal has CI data for, in project order. */
+/** CISnapshot is the answer to GET /v1/ci: every project Marshal has CI data for, in project order. */
 export interface CISnapshot {
   /**
    * Projects has one entry per project that has at least one run. A project with none is left
@@ -3439,13 +3439,6 @@ export interface NoticeActionResult {
   cards: number /* int */;
 }
 /**
- * The four calls a person makes on a sleep notice, as the body of POST /v1/notices/{id}/actions
- * (inventory N5). Two name one card and two are about the whole notice, which is why they are one
- * call with one body rather than four addresses: the app draws two buttons per card row and two
- * for the group, and the daemon answers each with a count.
- * They are declared one by one and not in a block, like SleepRestoreAuto below, because an exported
- * untyped constant in a block would become a TypeScript union this package does not mean to declare
- * (protocol's own conventions test).
  * NoticeActionKeepAwake is "Keep awake": hold one card off the idle timer for the keep-awake
  * setting's length and take it off its notice.
  */
