@@ -139,7 +139,13 @@ function answerFor(store: SearchStore, query: string): SearchSnapshot {
     // this still answers the wire shape SearchSnapshot/SearchTotals require.
     sessions: [],
     notes: [],
-    totals: { projects: projects.total, cards: cards.total, chats: chats.total, sessions: 0, notes: 0 },
+    totals: {
+      projects: projects.total,
+      cards: cards.total,
+      chats: chats.total,
+      sessions: 0,
+      notes: 0,
+    },
     serverTime: store.now(),
   };
 }

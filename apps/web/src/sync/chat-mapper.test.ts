@@ -110,7 +110,12 @@ describe("a page of a card's chat", () => {
       message({
         id: "m1",
         kind: "approval",
-        approval: { id: "app_1", state: "waiting", command: "rm -rf build", reason: "Clean the build folder" },
+        approval: {
+          id: "app_1",
+          state: "waiting",
+          command: "rm -rf build",
+          reason: "Clean the build folder",
+        },
       }),
     ])[0];
     expect(stored).toEqual({

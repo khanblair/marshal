@@ -8,7 +8,12 @@ import { cardId, type HistoryRow, historyRow, wireCard } from "~/testing/fake-ca
 import { createFakeDaemon, type FakeDaemon } from "~/testing/fake-daemon";
 import { PROTOTYPE_PROJECTS } from "~/testing/projects";
 import { contextOf, createSyncedMarshal } from "~/testing/test-store";
-import { applyApprovalEvent, approveOnDaemon, denyOnDaemon, pendingApprovalID } from "./approval-actions";
+import {
+  applyApprovalEvent,
+  approveOnDaemon,
+  denyOnDaemon,
+  pendingApprovalID,
+} from "./approval-actions";
 
 /*
  * The approval flow's own writes once approvals are the daemon's (section S8b, B3.4): the two
@@ -36,7 +41,11 @@ const api44 = (fields: Partial<WireCard> = {}): WireCard =>
     number: 44,
     title: "Upgrade grpc-go",
     state: "needs",
-    needsReason: { kind: "approval-needed", text: "Approval needed to run rm -rf build.", approvalId: APPROVAL_ID },
+    needsReason: {
+      kind: "approval-needed",
+      text: "Approval needed to run rm -rf build.",
+      approvalId: APPROVAL_ID,
+    },
     ...fields,
   });
 
@@ -156,7 +165,14 @@ describe("a live approval event on an open card", () => {
     const { ctx } = await setup();
     // The chat is opened by reading it once, the way `readOpenCard` would.
     ctx.S.chat["api#44"] = [
-      { id: "m1", approvalId: APPROVAL_ID, k: "approval", st: "waiting", cmd: "rm -rf build", why: "" },
+      {
+        id: "m1",
+        approvalId: APPROVAL_ID,
+        k: "approval",
+        st: "waiting",
+        cmd: "rm -rf build",
+        why: "",
+      },
     ];
     applyApprovalEvent(
       ctx,

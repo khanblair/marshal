@@ -92,13 +92,15 @@ function cardKeyOf(ctx: Ctx, daemonId: string): CardKey | undefined {
 }
 
 /** Reads the fields of an announced approval this module needs; anything else is left for later. */
-function approvalFieldsOf(
-  value: unknown,
-): { id: string; title: string; command: string } | null {
+function approvalFieldsOf(value: unknown): { id: string; title: string; command: string } | null {
   if (!isRecord(value) || typeof value.id !== "string" || typeof value.title !== "string") {
     return null;
   }
-  return { id: value.id, title: value.title, command: typeof value.command === "string" ? value.command : "" };
+  return {
+    id: value.id,
+    title: value.title,
+    command: typeof value.command === "string" ? value.command : "",
+  };
 }
 
 /**

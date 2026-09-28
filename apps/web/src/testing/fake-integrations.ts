@@ -207,7 +207,7 @@ function statusFor(last: TestResult | undefined): IntegrationStatus {
  */
 function detailFor(row: Integration, last: TestResult | undefined): string {
   const failed = last?.checks.find((check) => check.state === "failed");
-  if (row.id === OBSIDIAN) return failed ? failed.fix ?? failed.message : row.detail;
+  if (row.id === OBSIDIAN) return failed ? (failed.fix ?? failed.message) : row.detail;
   if (!last) return row.detail || UNTESTED_DETAIL;
   if (failed) return failed.fix ?? failed.message;
   const summary = last.checks.find((check) => check.name === SUMMARY);

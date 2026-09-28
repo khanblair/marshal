@@ -93,7 +93,12 @@
       }
     },
     {
-      "includes": ["tools/**", "scripts/**", "packages/tokens/scripts/**", "apps/desktop/scripts/**"],
+      "includes": [
+        "tools/**",
+        "scripts/**",
+        "packages/tokens/scripts/**",
+        "apps/desktop/scripts/**"
+      ],
       "linter": {
         "rules": { "suspicious": { "noConsole": "off" }, "style": { "noMagicNumbers": "off" } }
       }
@@ -102,9 +107,6 @@
       "includes": ["packages/tokens/src/**"],
       "linter": { "rules": { "style": { "noMagicNumbers": "off" } } }
     },
-    // Generated from Go (scripts/gen-protocol.mjs): never edit by hand, and the generator's own
-    // last step formats this directory, so it must stay in files.includes above - only the lint
-    // rule it would otherwise trip is turned off.
     {
       "includes": ["packages/protocol/src/generated/**"],
       "linter": { "rules": { "suspicious": { "noExplicitAny": "off" } } }

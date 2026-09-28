@@ -354,7 +354,11 @@ function cardNote(store: CardStore, card: WireCard): WireNote {
  * computes, follow `internal/memory`'s `noteRelPath` exactly, so a mapper test reading this route's
  * answer sees what the real one would.
  */
-export function saveCardNoteRoute(store: CardStore, card: WireCard, request: FakeRequest): Response {
+export function saveCardNoteRoute(
+  store: CardStore,
+  card: WireCard,
+  request: FakeRequest,
+): Response {
   const body = JSON.parse(request.body ?? "{}") as SaveNoteRequest;
   const note: WireNote = {
     cardId: card.id,

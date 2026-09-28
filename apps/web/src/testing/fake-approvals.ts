@@ -16,7 +16,13 @@
  */
 import type { ChatApprovalState, DecideApprovalRequest, Card as WireCard } from "@marshal/protocol";
 import { emptyAnswer, errorAnswer, type FakeRequest } from "~/data/testing/fake-fetch";
-import { type CardStore, type HistoryRow, publishCard, type Route, STATUS } from "./fake-card-shared";
+import {
+  type CardStore,
+  type HistoryRow,
+  publishCard,
+  type Route,
+  STATUS,
+} from "./fake-card-shared";
 
 const alreadyAnswered = (): Response =>
   errorAnswer(STATUS.conflict, "conflict", "Somebody already answered that request.");

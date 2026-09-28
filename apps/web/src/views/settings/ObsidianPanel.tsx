@@ -15,9 +15,7 @@ export function ObsidianPanel(props: { integration: Integration }) {
   const [busy, setBusy] = createSignal(false);
   const runTest = (): void => {
     setBusy(true);
-    void testConnection(props.integration.id, props.integration.name).finally(() =>
-      setBusy(false),
-    );
+    void testConnection(props.integration.id, props.integration.name).finally(() => setBusy(false));
   };
   return (
     <div class="flex flex-wrap gap-2">

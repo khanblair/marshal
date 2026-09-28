@@ -70,7 +70,8 @@ describe("the search and sample project golden files", () => {
           key: "api#41",
           title: "Refresh the token before it expires",
           path: "api/cards/41-refresh-the-token-before-it-expires.md",
-          excerpt: "# Refresh the token before it expires\n\nGoal: refresh the token before it expires.",
+          excerpt:
+            "# Refresh the token before it expires\n\nGoal: refresh the token before it expires.",
           author: "agent",
           projectId: "api",
           projectName: "api-gateway",
