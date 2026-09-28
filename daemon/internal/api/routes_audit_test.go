@@ -18,17 +18,25 @@ import (
 // are written straight into the store here, because how a row is written is internal/audit's job
 // and is covered where it happens; what these tests pin down is what a person can read back.
 
+// auditWrite is the part of one seeded row that is not the actor or the time - bundled so
+// seedAudit stays under this codebase's argument limit.
+type auditWrite struct {
+	action string
+	target string
+	detail map[string]any
+}
+
 // seedAudit writes one row and returns its id. The time is passed in so the order a page comes back
 // in is the order the rows were written, not the order a machine happened to make them.
-func seedAudit(t *testing.T, st *stack, at int64, actor, action, target string, detail map[string]any) string {
+func seedAudit(t *testing.T, st *stack, at int64, actor string, w auditWrite) string {
 	t.Helper()
 	id, err := protocol.NewID(time.UnixMilli(at).UTC(), rand.Reader)
 	if err != nil {
 		t.Fatalf("make an id: %v", err)
 	}
 	detailJSON := "{}"
-	if len(detail) > 0 {
-		encoded, err := json.Marshal(detail)
+	if len(w.detail) > 0 {
+		encoded, err := json.Marshal(w.detail)
 		if err != nil {
 			t.Fatalf("encode the detail: %v", err)
 		}
@@ -36,7 +44,7 @@ func seedAudit(t *testing.T, st *stack, at int64, actor, action, target string, 
 	}
 	if err := st.store.Write(context.Background(), func(q *db.Queries) error {
 		return q.InsertAuditLog(context.Background(), db.InsertAuditLogParams{
-			ID: id, SessionID: "ses_test", Actor: actor, Action: action, Target: target,
+			ID: id, SessionID: "ses_test", Actor: actor, Action: w.action, Target: w.target,
 			DetailJSON: detailJSON, CreatedAt: at,
 		})
 	}); err != nil {
@@ -56,9 +64,9 @@ func secretDetail() map[string]any {
 
 func TestTheAuditListReadsNewestFirst(t *testing.T) {
 	st := newStack(t)
-	older := seedAudit(t, st, 1_000, "person", "approve", "appr_old", nil)
-	newest := seedAudit(t, st, 3_000, "daemon", "commit.blocked", "sha_new", secretDetail())
-	middle := seedAudit(t, st, 2_000, "person", "bypass.on", "crd_mid", nil)
+	older := seedAudit(t, st, 1_000, "person", auditWrite{action: "approve", target: "appr_old", detail: nil})
+	newest := seedAudit(t, st, 3_000, "daemon", auditWrite{action: "commit.blocked", target: "sha_new", detail: secretDetail()})
+	middle := seedAudit(t, st, 2_000, "person", auditWrite{action: "bypass.on", target: "crd_mid", detail: nil})
 
 	got := st.do(http.MethodGet, "/v1/audit", nil).want(t, http.StatusOK)
 	page := decode[protocol.Page[protocol.AuditEntry]](t, got)
@@ -88,9 +96,9 @@ func TestTheAuditListReadsNewestFirst(t *testing.T) {
 
 func TestTheAuditListPagesWithoutRepeatingARow(t *testing.T) {
 	st := newStack(t)
-	seedAudit(t, st, 1_000, "person", "approve", "a", nil)
-	seedAudit(t, st, 2_000, "person", "approve", "b", nil)
-	seedAudit(t, st, 3_000, "person", "approve", "c", nil)
+	seedAudit(t, st, 1_000, "person", auditWrite{action: "approve", target: "a", detail: nil})
+	seedAudit(t, st, 2_000, "person", auditWrite{action: "approve", target: "b", detail: nil})
+	seedAudit(t, st, 3_000, "person", auditWrite{action: "approve", target: "c", detail: nil})
 
 	seen := map[string]bool{}
 	path := "/v1/audit?limit=1"
@@ -116,9 +124,9 @@ func TestTheAuditListPagesWithoutRepeatingARow(t *testing.T) {
 
 func TestTheAuditSearchNarrowsTheListAndNeedsAQuery(t *testing.T) {
 	st := newStack(t)
-	seedAudit(t, st, 1_000, "person", "approve", "appr_1", nil)
-	seedAudit(t, st, 2_000, "daemon", "commit.blocked", "sha_1", map[string]any{"file": "deploy/settings.yaml"})
-	seedAudit(t, st, 3_000, "person", "bypass.on", "crd_1", nil)
+	seedAudit(t, st, 1_000, "person", auditWrite{action: "approve", target: "appr_1", detail: nil})
+	seedAudit(t, st, 2_000, "daemon", auditWrite{action: "commit.blocked", target: "sha_1", detail: map[string]any{"file": "deploy/settings.yaml"}})
+	seedAudit(t, st, 3_000, "person", auditWrite{action: "bypass.on", target: "crd_1", detail: nil})
 
 	// A search with nothing to look for is refused rather than quietly listing everything.
 	got := st.do(http.MethodGet, "/v1/audit/search", nil)
@@ -154,8 +162,8 @@ func TestTheAuditSearchNarrowsTheListAndNeedsAQuery(t *testing.T) {
 
 func TestTheAuditExportCarriesEverythingTheQueryMatched(t *testing.T) {
 	st := newStack(t)
-	seedAudit(t, st, 1_000, "person", "approve", "appr_1", nil)
-	seedAudit(t, st, 2_000, "daemon", "commit.blocked", "sha_1", secretDetail())
+	seedAudit(t, st, 1_000, "person", auditWrite{action: "approve", target: "appr_1", detail: nil})
+	seedAudit(t, st, 2_000, "daemon", auditWrite{action: "commit.blocked", target: "sha_1", detail: secretDetail()})
 
 	got := st.do(http.MethodGet, "/v1/audit/export", nil).want(t, http.StatusOK)
 	export := decode[protocol.AuditExport](t, got)
@@ -178,7 +186,7 @@ func TestTheAuditExportCarriesEverythingTheQueryMatched(t *testing.T) {
 
 func TestTheAuditExportAsCSVIsADownload(t *testing.T) {
 	st := newStack(t)
-	seedAudit(t, st, 1_000, "person", "approve", "appr_1", nil)
+	seedAudit(t, st, 1_000, "person", auditWrite{action: "approve", target: "appr_1", detail: nil})
 
 	got := st.do(http.MethodGet, "/v1/audit/export?format=csv", nil).want(t, http.StatusOK)
 	if ct := got.Header.Get("Content-Type"); !strings.HasPrefix(ct, "text/csv") {
@@ -204,7 +212,7 @@ func TestTheAuditExportAsCSVIsADownload(t *testing.T) {
 // audit entry's target is an agent's own words. The export prefixes such a cell with an apostrophe.
 func TestTheAuditExportDoesNotHandASpreadsheetAFormula(t *testing.T) {
 	st := newStack(t)
-	seedAudit(t, st, 1_000, "person", "approve", "=cmd|'/C calc'!A0", nil)
+	seedAudit(t, st, 1_000, "person", auditWrite{action: "approve", target: "=cmd|'/C calc'!A0", detail: nil})
 
 	got := st.do(http.MethodGet, "/v1/audit/export?format=csv", nil).want(t, http.StatusOK)
 	if cell := csvText(t, string(got.Body), "=cmd"); cell != "'=cmd|'/C calc'!A0" {

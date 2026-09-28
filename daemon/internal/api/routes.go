@@ -98,8 +98,24 @@ type routeSpec struct {
 
 // domainRoutes lists every route for projects, boards, cards, sessions, and agents. It is the only
 // place they are named, both for registering them and for the test that checks each one asks for
-// a token, so a new route cannot be left out of that test.
+// a token, so a new route cannot be left out of that test. Split into groups only to stay under
+// this codebase's line limit for one function - the list itself is still one flat table to the
+// test and to addDomainRoutes below, which is why every group returns the same []routeSpec and is
+// simply appended, in the same order the routes used to appear in.
 func domainRoutes() []routeSpec {
+	routes := projectAndCardRoutes()
+	routes = append(routes, noteLessonPlanAndHistoryRoutes()...)
+	routes = append(routes, homeAgentAndChatRoutes()...)
+	routes = append(routes, accountAndSavedViewRoutes()...)
+	routes = append(routes, providerLimitAndRoleRoutes()...)
+	routes = append(routes, mergeNoticeAndQualityRoutes()...)
+	routes = append(routes, ciPreviewAndIntegrationRoutes()...)
+	return routes
+}
+
+// projectAndCardRoutes is projects, a card's own lifecycle (start, move, edit, fork), and the
+// session controls a card's own panel presses.
+func projectAndCardRoutes() []routeSpec {
 	return []routeSpec{
 		{"GET /v1/projects", needsProjects, (*Server).listProjects},
 		{"POST /v1/projects", needsProjects, (*Server).createProject},
@@ -127,6 +143,13 @@ func domainRoutes() []routeSpec {
 		{"POST /v1/cards/{id}/handoff", needsProjects | needsSessions, (*Server).handoffCard},
 		{"POST /v1/cards/{id}/bypass", needsSessions, (*Server).setCardBypass},
 		{"DELETE /v1/cards/{id}/bypass", needsSessions, (*Server).clearCardBypass},
+	}
+}
+
+// noteLessonPlanAndHistoryRoutes is a card's own note, a project's lessons, the plan-first flow and
+// its checkpoints and approvals, and the read-only history, activity, and diff a card's chat draws.
+func noteLessonPlanAndHistoryRoutes() []routeSpec {
+	return []routeSpec{
 		{"GET /v1/cards/{id}/note", needsProjects | needsMemory, (*Server).getNote},
 		{"PUT /v1/cards/{id}/note", needsProjects | needsMemory, (*Server).saveNote},
 		{"GET /v1/projects/{id}/lessons", needsProjects | needsMemory, (*Server).listLessons},
@@ -145,6 +168,13 @@ func domainRoutes() []routeSpec {
 		{"GET /v1/cards/{id}/activity", needsHistory, (*Server).listActivity},
 		{"GET /v1/cards/{id}/diff", needsDiff, (*Server).getCardDiff},
 		{"GET /v1/cards/{id}/diff/{path...}", needsDiff, (*Server).getFileHunks},
+	}
+}
+
+// homeAgentAndChatRoutes is Home's own dashboard, the agent catalog and a project's labels, and a
+// project's chats with their own history.
+func homeAgentAndChatRoutes() []routeSpec {
+	return []routeSpec{
 		{"GET /v1/home/dashboard", needsDashboard, (*Server).home},
 		{"GET /v1/home/activity", needsDashboard, (*Server).homeActivity},
 		{"GET /v1/agents", needsCatalog, (*Server).listAgents},
@@ -163,6 +193,13 @@ func domainRoutes() []routeSpec {
 		{"GET /v1/chats/{id}/messages", needsHistory, (*Server).listChatMessages},
 		{"GET /v1/chats/{id}/messages/{messageId}", needsHistory, (*Server).getChatMessage},
 		{"GET /v1/search", needsSearch, (*Server).getSearch},
+	}
+}
+
+// accountAndSavedViewRoutes is the signed-in person's own profile, progress, and preferences, the
+// people list, the first-launch dev reset, and a project's saved views.
+func accountAndSavedViewRoutes() []routeSpec {
+	return []routeSpec{
 		{"GET /v1/me", needsAccounts, (*Server).getMe},
 		{"PATCH /v1/me", needsAccounts, (*Server).updateMe},
 		{"POST /v1/me/avatar", needsAccounts | rawBody, (*Server).setAvatar},
@@ -181,6 +218,13 @@ func domainRoutes() []routeSpec {
 		{"GET /v1/audit", needsAudit, (*Server).listAudit},
 		{"GET /v1/audit/search", needsAudit, (*Server).searchAudit},
 		{"GET /v1/audit/export", needsAudit, (*Server).exportAudit},
+	}
+}
+
+// providerLimitAndRoleRoutes is a person's model provider keys, the cost and awake limits, and the
+// role editor.
+func providerLimitAndRoleRoutes() []routeSpec {
+	return []routeSpec{
 		{"GET /v1/providers", needsProviders, (*Server).listProviders},
 		{"PUT /v1/providers/{id}", needsProviders, (*Server).saveProvider},
 		{"DELETE /v1/providers/{id}", needsProviders, (*Server).removeProvider},
@@ -195,6 +239,13 @@ func domainRoutes() []routeSpec {
 		{"DELETE /v1/roles/{name}", needsRoles, (*Server).deleteRole},
 		{"POST /v1/roles/{name}/reset", needsRoles, (*Server).resetRole},
 		{"PUT /v1/roles/{name}/override", needsRoles, (*Server).setRoleOverride},
+	}
+}
+
+// mergeNoticeAndQualityRoutes is opening a pull request, merging and reviewing a card, the notices
+// panel and the sleep settings that fill it, and a card's quality findings.
+func mergeNoticeAndQualityRoutes() []routeSpec {
+	return []routeSpec{
 		{"POST /v1/cards/{id}/pull-request", needsProjects | needsPullRequests, (*Server).openPullRequest},
 		{"POST /v1/cards/{id}/merge", needsProjects | needsIntegrator, (*Server).mergeCard},
 		{"POST /v1/cards/{id}/review", needsProjects | needsReview, (*Server).reviewCard},
@@ -208,6 +259,13 @@ func domainRoutes() []routeSpec {
 		{"POST /v1/cards/{id}/findings/{findingId}/dismiss", needsProjects | needsQuality, (*Server).dismissFinding},
 		{"GET /v1/projects/{id}/smell-profile", needsProjects | needsQuality, (*Server).getSmellProfile},
 		{"PUT /v1/projects/{id}/smell-profile", needsProjects | needsQuality, (*Server).setSmellProfile},
+	}
+}
+
+// ciPreviewAndIntegrationRoutes is CI health and its fix loop, a card's local CI run and live
+// preview, and a project's third-party integrations.
+func ciPreviewAndIntegrationRoutes() []routeSpec {
+	return []routeSpec{
 		{"GET /v1/ci", needsCI, (*Server).getCI},
 		{"POST /v1/cards/{id}/ci-failure", needsCI | needsDevMode, (*Server).simulateCIFailure},
 		{"POST /v1/cards/{id}/local-ci", needsProjects | needsLocalCI, (*Server).runLocalCI},
@@ -239,8 +297,15 @@ func (s *Server) addDomainRoutes(r *router) {
 	}
 }
 
-// has reports whether the server has every service in needs.
+// has reports whether the server has every service in needs. Split across two checks only to stay
+// under this codebase's cognitive-complexity limit for one function - a route needing a service
+// from either half is treated exactly the same as one whole switch would.
 func (s *Server) has(needs routeNeeds) bool {
+	return s.hasCoreServices(needs) && s.hasLaterPhaseServices(needs)
+}
+
+// hasCoreServices checks the services Phase 1 and 2 routes need.
+func (s *Server) hasCoreServices(needs routeNeeds) bool {
 	switch {
 	case needs&needsProjects != 0 && s.projects == nil:
 		return false
@@ -260,6 +325,15 @@ func (s *Server) has(needs routeNeeds) bool {
 		return false
 	case needs&needsAccounts != 0 && s.accounts == nil:
 		return false
+	case needs&needsDevMode != 0 && !s.settings.Dev():
+		return false
+	}
+	return true
+}
+
+// hasLaterPhaseServices checks the services Phase 3 onward's routes need.
+func (s *Server) hasLaterPhaseServices(needs routeNeeds) bool {
+	switch {
 	case needs&needsAudit != 0 && s.auditlog == nil:
 		return false
 	case needs&needsProviders != 0 && s.providers == nil:
@@ -289,8 +363,6 @@ func (s *Server) has(needs routeNeeds) bool {
 	case needs&needsPreview != 0 && s.preview == nil:
 		return false
 	case needs&needsMemory != 0 && s.memory == nil:
-		return false
-	case needs&needsDevMode != 0 && !s.settings.Dev():
 		return false
 	}
 	return true
