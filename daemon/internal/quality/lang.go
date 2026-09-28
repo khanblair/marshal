@@ -11,6 +11,13 @@ import (
 // Phase 7's. Each scanner says which languages it knows; a file in a language none of them knows is
 // still checked line by line, just not for shape.
 
+// langPython and langRuby are the two languages this package indents rather than braces, so they are
+// spelled once and matched together wherever that distinction matters.
+const (
+	langPython = "python"
+	langRuby   = "ruby"
+)
+
 // funcDecl is one function the scanner found: where it starts and ends (1-based, inclusive), how many
 // parameters it takes, and its name when the language gives one cheaply.
 type funcDecl struct {
@@ -38,7 +45,7 @@ func scanFunctions(language, content string) []funcDecl {
 	switch language {
 	case "go":
 		return scanGo(lines)
-	case "python":
+	case langPython:
 		return scanIndented(lines, pythonDefRe)
 	case "javascript", "typescript":
 		return scanBraced(lines, scriptFuncRe)
@@ -285,7 +292,7 @@ func firstIdentifier(text string) string {
 // identifierWords splits text into the runs of characters that could be an identifier.
 func identifierWords(text string) []string {
 	fields := strings.FieldsFunc(text, func(r rune) bool {
-		return !(r == '_' || r == '$' || r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9')
+		return r != '_' && r != '$' && (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && (r < '0' || r > '9')
 	})
 	out := make([]string, 0, len(fields))
 	for _, field := range fields {
@@ -298,17 +305,20 @@ func identifierWords(text string) []string {
 
 // declKeywords are the words a brace-language declaration may start with before the name it
 // declares, so a finding says "The function render" and not "The function public".
-var declKeywords = map[string]bool{
-	"function": true, "fn": true, "func": true, "export": true, "default": true,
-	"public": true, "private": true, "protected": true, "static": true, "final": true,
-	"abstract": true, "virtual": true, "async": true, "extern": true, "inline": true,
-	"const": true, "let": true, "var": true, "get": true, "set": true, "void": true,
+func declKeywords() map[string]bool {
+	return map[string]bool{
+		"function": true, "fn": true, "func": true, "export": true, "default": true,
+		"public": true, "private": true, "protected": true, "static": true, "final": true,
+		"abstract": true, "virtual": true, "async": true, "extern": true, "inline": true,
+		"const": true, "let": true, "var": true, "get": true, "set": true, "void": true,
+	}
 }
 
 // declName returns the name a declaration declares: the first identifier-looking word that is not
 // one of the words that come before a name. An empty answer means the scanner could not name it,
 // which reads as "This function".
 func declName(sig string) string {
+	declKeywords := declKeywords()
 	for _, word := range identifierWords(sig) {
 		if declKeywords[word] {
 			continue
@@ -327,7 +337,7 @@ func nestingDepths(language, content string) []int {
 	lines := codeLines(content, language)
 	depths := make([]int, len(lines))
 	switch language {
-	case "python", "ruby":
+	case langPython, langRuby:
 		for i, line := range lines {
 			if strings.TrimSpace(line) == "" {
 				continue
@@ -387,7 +397,7 @@ func codeLines(content, language string) []string {
 func stripCode(line, language string) string {
 	lineComment := "//"
 	switch language {
-	case "python", "ruby":
+	case langPython, langRuby:
 		lineComment = "#"
 	}
 	var b strings.Builder

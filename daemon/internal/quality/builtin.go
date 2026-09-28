@@ -164,7 +164,7 @@ func longLines(profile protocol.SmellProfile, file sourceFile) []rawFinding {
 			Suggestion: "Break it into several lines, or name the long value in a constant.",
 		})
 	}
-	return capPerFile(found, maxFindingsPerFile)
+	return capPerFile(found)
 }
 
 // magicNumberRe matches a number that is probably a magic number rather than a small counting value:
@@ -197,7 +197,7 @@ func magicNumbers(file sourceFile) []rawFinding {
 			Suggestion: "Give it a name in a constant, so the number and its meaning stay together.",
 		})
 	}
-	return capPerFile(found, maxFindingsPerFile)
+	return capPerFile(found)
 }
 
 // deepNesting flags added lines that sit deeper than the profile allows.
@@ -219,7 +219,7 @@ func deepNesting(profile protocol.SmellProfile, file sourceFile) []rawFinding {
 			Suggestion: "Return early, or move the inner block into a function of its own.",
 		})
 	}
-	return capPerFile(found, maxFindingsPerFile)
+	return capPerFile(found)
 }
 
 // longFunctions flags functions the card wrote or grew past the length limit. A function is reported
@@ -243,7 +243,7 @@ func longFunctions(profile protocol.SmellProfile, file sourceFile) []rawFinding 
 			Suggestion: "Split it into smaller functions, each doing one thing that its name says.",
 		})
 	}
-	return capPerFile(found, maxFindingsPerFile)
+	return capPerFile(found)
 }
 
 // longParameterLists flags functions with more parameters than the profile allows, again only when
@@ -265,7 +265,7 @@ func longParameterLists(profile protocol.SmellProfile, file sourceFile) []rawFin
 			Suggestion: "Pass a small struct of the related values, or take the object that holds them.",
 		})
 	}
-	return capPerFile(found, maxFindingsPerFile)
+	return capPerFile(found)
 }
 
 // duplicateBlocks flags a run of added lines that appears more than once in the card's own new code.
@@ -344,7 +344,7 @@ func significantAddedLines(file sourceFile) []addedLine {
 	var out []addedLine
 	for _, line := range addedLines(file) {
 		text := strings.TrimSpace(line.Text)
-		if len(text) < 8 || strings.Trim(text, "{}(),;[]=})") == "" {
+		if len(text) < 8 || strings.Trim(text, "{}(),;[]=") == "" {
 			continue
 		}
 		out = append(out, line)
@@ -381,11 +381,11 @@ func countLines(text string) int {
 const maxFindingsPerFile = 50
 
 // capPerFile keeps at most maxFindingsPerFile findings, in the order they were found.
-func capPerFile(found []rawFinding, limit int) []rawFinding {
-	if len(found) <= limit {
+func capPerFile(found []rawFinding) []rawFinding {
+	if len(found) <= maxFindingsPerFile {
 		return found
 	}
-	return found[:limit]
+	return found[:maxFindingsPerFile]
 }
 
 // generatedFile reports whether a path is one a person did not write: a lock file, a minified
@@ -423,11 +423,11 @@ func languageOf(path string) string {
 	case ".ts", ".tsx":
 		return "typescript"
 	case ".py":
-		return "python"
+		return langPython
 	case ".java":
 		return "java"
 	case ".rb":
-		return "ruby"
+		return langRuby
 	case ".rs":
 		return "rust"
 	case ".c", ".h", ".cc", ".cpp", ".cxx", ".hpp", ".cs", ".kt", ".swift", ".scala":
@@ -443,7 +443,7 @@ func commentLine(language, text string) bool {
 	switch language {
 	case "go", "javascript", "typescript", "java", "rust", "brace":
 		return strings.HasPrefix(text, "//") || strings.HasPrefix(text, "/*") || strings.HasPrefix(text, "*")
-	case "python", "ruby":
+	case langPython, langRuby:
 		return strings.HasPrefix(text, "#")
 	default:
 		return false

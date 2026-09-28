@@ -237,7 +237,7 @@ func TestCountLinesAndCaps(t *testing.T) {
 		t.Fatalf("two lines, got %d", got)
 	}
 	found := make([]rawFinding, 60)
-	if got := len(capPerFile(found, maxFindingsPerFile)); got != maxFindingsPerFile {
+	if got := len(capPerFile(found)); got != maxFindingsPerFile {
 		t.Fatalf("a check reports at most %d findings per file, got %d", maxFindingsPerFile, got)
 	}
 }

@@ -111,6 +111,62 @@ func (s *Service) CreateRole(ctx context.Context, projectID string, in protocol.
 	return s.Roles(ctx, projectID)
 }
 
+// renamedRole applies a validated new name to row, once it has checked that no other role already
+// claims it. It is its own function rather than an inline block of UpdateRole's write so that the
+// rename's own conflict check - a lookup, then two ways that lookup can turn out - reads as one
+// decision instead of adding another layer of nesting to the transaction around it.
+//
+// A newName equal to row's own name is not a rename at all, and is left alone rather than looked up:
+// a role kept at its own name never conflicts with itself.
+func renamedRole(ctx context.Context, q *db.Queries, newName string, row db.Role) (db.Role, error) {
+	if newName == row.Name {
+		return row, nil
+	}
+	other, err := q.GetRoleByName(ctx, newName)
+	switch {
+	case err == nil && other.ID != row.ID:
+		return row, conflictName(newName)
+	case err != nil && !store.IsNotFound(err):
+		return row, fmt.Errorf("look for a role called %q: %w", newName, err)
+	}
+	row.Name = newName
+	return row, nil
+}
+
+// preparedRoleUpdate is what UpdateRole is ready to write, once every part of the request it was
+// asked for has been checked: the new name, trimmed and validated, and the spec, checked and
+// re-encoded to store. Either is left at its zero value when that part of the request was not
+// asked for, exactly as UpdateRole's own "in.Name != nil" and "in.Spec != nil" checks read them.
+type preparedRoleUpdate struct {
+	newName string
+	encoded string
+}
+
+// prepareRoleUpdate validates the parts of an update request that were asked for, before
+// UpdateRole opens a transaction for them - a bad name or a bad spec is refused without ever
+// starting one.
+func prepareRoleUpdate(in protocol.UpdateRoleRequest) (preparedRoleUpdate, error) {
+	var out preparedRoleUpdate
+	if in.Name != nil {
+		out.newName = strings.TrimSpace(*in.Name)
+		if err := checkName(out.newName); err != nil {
+			return preparedRoleUpdate{}, err
+		}
+	}
+	if in.Spec != nil {
+		checked, err := checkSpec(*in.Spec)
+		if err != nil {
+			return preparedRoleUpdate{}, err
+		}
+		encoded, err := encodeSpec(checked)
+		if err != nil {
+			return preparedRoleUpdate{}, err
+		}
+		out.encoded = encoded
+	}
+	return out, nil
+}
+
 // UpdateRole renames a role, replaces its spec, or both. A body that sets nothing answers with the
 // list as it is - after checking the role is there, so an empty edit of a name that is not a role is
 // still a not found. A rename is a change to the role itself, not to one project's view of it: roles
@@ -122,45 +178,24 @@ func (s *Service) UpdateRole(ctx context.Context, name string, in protocol.Updat
 		}
 		return s.Roles(ctx, "")
 	}
-	newName := ""
-	if in.Name != nil {
-		newName = strings.TrimSpace(*in.Name)
-		if err := checkName(newName); err != nil {
-			return protocol.RoleList{}, err
-		}
-	}
-	var spec protocol.RoleSpec
-	if in.Spec != nil {
-		checked, err := checkSpec(*in.Spec)
-		if err != nil {
-			return protocol.RoleList{}, err
-		}
-		spec = checked
-	}
-	encoded := ""
-	if in.Spec != nil {
-		var err error
-		if encoded, err = encodeSpec(spec); err != nil {
-			return protocol.RoleList{}, err
-		}
+	prepared, err := prepareRoleUpdate(in)
+	if err != nil {
+		return protocol.RoleList{}, err
 	}
 	var id string
-	err := s.store.Write(ctx, func(q *db.Queries) error {
+	err = s.store.Write(ctx, func(q *db.Queries) error {
 		row, err := q.GetRoleByName(ctx, name)
 		if err != nil {
 			return notFoundRoleFrom(err, name)
 		}
 		id = row.ID
-		if in.Name != nil && newName != row.Name {
-			if other, err := q.GetRoleByName(ctx, newName); err == nil && other.ID != row.ID {
-				return conflictName(newName)
-			} else if err != nil && !store.IsNotFound(err) {
-				return fmt.Errorf("look for a role called %q: %w", newName, err)
+		if in.Name != nil {
+			if row, err = renamedRole(ctx, q, prepared.newName, row); err != nil {
+				return err
 			}
-			row.Name = newName
 		}
 		if in.Spec != nil {
-			row.SpecJSON = encoded
+			row.SpecJSON = prepared.encoded
 		}
 		changed, err := q.UpdateRole(ctx, db.UpdateRoleParams{Name: row.Name, SpecJSON: row.SpecJSON, ID: row.ID})
 		if err != nil {
@@ -174,7 +209,7 @@ func (s *Service) UpdateRole(ctx context.Context, name string, in protocol.Updat
 	if err != nil {
 		return protocol.RoleList{}, err
 	}
-	s.log.Info("edited a role", "role_id", id, "name", newName)
+	s.log.Info("edited a role", "role_id", id, "name", prepared.newName)
 	return s.Roles(ctx, "")
 }
 
