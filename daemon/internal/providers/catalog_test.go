@@ -117,6 +117,7 @@ func TestDefaultModelIsAModelTheTableHas(t *testing.T) {
 func TestEveryModelIsInThePickerOrder(t *testing.T) {
 	owners := modelOwners(t)
 	seen := map[string]bool{}
+	builtinModelOrder := builtinModelOrder()
 	for _, id := range builtinModelOrder {
 		if seen[id] {
 			t.Errorf("%s is in the picker's order twice", id)

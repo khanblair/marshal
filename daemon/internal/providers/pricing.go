@@ -30,20 +30,22 @@ type Price struct {
 // A model that is not in it is not guessed at: the call is still recorded, with its tokens and a
 // cost of zero, and the daemon logs that the model has no price (see Recorder). A missing price
 // shows up as an unpriced model rather than as a made-up number.
-var prices = map[string]Price{
-	// Anthropic's Claude Sonnet tier.
-	"claude-sonnet-4-5": {InputMicros: 3_000_000, OutputMicros: 15_000_000},
-	// OpenAI's small GPT-5 tier.
-	"gpt-5-mini": {InputMicros: 250_000, OutputMicros: 2_000_000},
-	// DeepSeek's chat model, at its cache-miss price. A cache hit costs a fraction of this, and
-	// Marshal does not ask which it was, so this is the upper bound of what a turn costs rather
-	// than an exact figure.
-	"deepseek-chat": {InputMicros: 280_000, OutputMicros: 420_000},
-	// Gemini 2.5 Flash's standard tier.
-	"gemini-2.5-flash": {InputMicros: 300_000, OutputMicros: 2_500_000},
-	// A local model on the person's own machine: no provider bill, so no cost. It is here rather
-	// than left out, because it is a price Marshal knows - nothing - and not one it does not.
-	"qwen2.5-coder:32b": {},
+func prices() map[string]Price {
+	return map[string]Price{
+		// Anthropic's Claude Sonnet tier.
+		"claude-sonnet-4-5": {InputMicros: 3_000_000, OutputMicros: 15_000_000},
+		// OpenAI's small GPT-5 tier.
+		"gpt-5-mini": {InputMicros: 250_000, OutputMicros: 2_000_000},
+		// DeepSeek's chat model, at its cache-miss price. A cache hit costs a fraction of this, and
+		// Marshal does not ask which it was, so this is the upper bound of what a turn costs rather
+		// than an exact figure.
+		"deepseek-chat": {InputMicros: 280_000, OutputMicros: 420_000},
+		// Gemini 2.5 Flash's standard tier.
+		"gemini-2.5-flash": {InputMicros: 300_000, OutputMicros: 2_500_000},
+		// A local model on the person's own machine: no provider bill, so no cost. It is here rather
+		// than left out, because it is a price Marshal knows - nothing - and not one it does not.
+		"qwen2.5-coder:32b": {},
+	}
 }
 
 // microsPerMillion is the unit prices are given in. Money is stored as whole micro-dollars, so a
@@ -58,7 +60,7 @@ const (
 // PriceOf returns what a model costs per million tokens, and whether Marshal knows. A model that is
 // not in the table answers false, which is "unknown", not "free".
 func PriceOf(model string) (Price, bool) {
-	price, ok := prices[model]
+	price, ok := prices()[model]
 	return price, ok
 }
 

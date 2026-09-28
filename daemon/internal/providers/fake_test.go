@@ -42,7 +42,7 @@ func newFakeProvider(t *testing.T) *fakeProvider {
 		}
 		if status != 0 {
 			w.WriteHeader(status)
-			io.WriteString(w, resp)
+			_, _ = io.WriteString(w, resp)
 			return
 		}
 		if stream {
@@ -50,7 +50,7 @@ func newFakeProvider(t *testing.T) *fakeProvider {
 		} else {
 			w.Header().Set("content-type", "application/json")
 		}
-		io.WriteString(w, resp)
+		_, _ = io.WriteString(w, resp)
 	}))
 	t.Cleanup(f.server.Close)
 	return f

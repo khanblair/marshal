@@ -235,7 +235,7 @@ func TestAnOpenAICompatibleStreamedAnswerIsRead(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Stream: %v", err)
 	}
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 
 	got := drain(t, stream)
 	want := []Event{
@@ -254,7 +254,7 @@ func TestAnOpenAICompatibleStreamedCallAsksForUsage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Stream: %v", err)
 	}
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 	drain(t, stream)
 
 	sent := f.sent(t)
@@ -322,7 +322,7 @@ func TestARefusedOpenAICompatibleKeyLooksLikeAnAuthErrorOnAStream(t *testing.T) 
 	if err != nil {
 		t.Fatalf("Stream: %v", err)
 	}
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 	if _, err := stream.Recv(); !errors.Is(err, ErrAuth) {
 		t.Fatalf("Recv error = %v, want it to wrap ErrAuth", err)
 	}

@@ -6,7 +6,7 @@ import "testing"
 // must be one Marshal can price, or its calls would silently be recorded at zero cost and the cost
 // meter would be wrong in a way nobody notices.
 func TestEveryModelMarshalShipsHasAPrice(t *testing.T) {
-	for _, model := range builtinModelOrder {
+	for _, model := range builtinModelOrder() {
 		if _, ok := PriceOf(model); !ok {
 			t.Errorf("%s can be picked but has no price, so its calls would be recorded as free", model)
 		}
@@ -18,10 +18,10 @@ func TestEveryModelMarshalShipsHasAPrice(t *testing.T) {
 // (a model reached through a catch-all like OpenRouter is recorded at zero cost and logged).
 func TestEveryPriceIsForAModelMarshalShips(t *testing.T) {
 	shipped := map[string]bool{}
-	for _, model := range builtinModelOrder {
+	for _, model := range builtinModelOrder() {
 		shipped[model] = true
 	}
-	for model := range prices {
+	for model := range prices() {
 		if !shipped[model] {
 			t.Errorf("the price table prices %s, which no provider in the catalog offers", model)
 		}
@@ -31,7 +31,7 @@ func TestEveryPriceIsForAModelMarshalShips(t *testing.T) {
 // TestPricesArePositiveOrAnExplicitZero refuses a negative rate, which would turn a call into a
 // credit and make the day's total move backwards.
 func TestPricesArePositiveOrAnExplicitZero(t *testing.T) {
-	for model, price := range prices {
+	for model, price := range prices() {
 		if price.InputMicros < 0 || price.OutputMicros < 0 {
 			t.Errorf("%s is priced at %+v, and a price is never negative", model, price)
 		}
@@ -133,7 +133,7 @@ func TestCostOfAFreeModelIsZeroAndKnown(t *testing.T) {
 // TestCostOfNoTokensIsZeroAndKnown means a call a provider billed nothing for adds nothing to the
 // day, whatever model it was.
 func TestCostOfNoTokensIsZeroAndKnown(t *testing.T) {
-	for _, model := range builtinModelOrder {
+	for _, model := range builtinModelOrder() {
 		cost, ok := Cost(model, Usage{})
 		if !ok {
 			t.Errorf("%s answered ok=false for no tokens", model)

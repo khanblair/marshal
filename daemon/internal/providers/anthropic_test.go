@@ -41,7 +41,7 @@ func newFakeAnthropic(t *testing.T) *fakeAnthropic {
 		}
 		if status != 0 {
 			w.WriteHeader(status)
-			io.WriteString(w, `{"type":"error","error":{"type":"authentication_error","message":"the key is not valid"}}`)
+			_, _ = io.WriteString(w, `{"type":"error","error":{"type":"authentication_error","message":"the key is not valid"}}`)
 			return
 		}
 		if stream {
@@ -49,7 +49,7 @@ func newFakeAnthropic(t *testing.T) *fakeAnthropic {
 		} else {
 			w.Header().Set("content-type", "application/json")
 		}
-		io.WriteString(w, resp)
+		_, _ = io.WriteString(w, resp)
 	}))
 	t.Cleanup(f.server.Close)
 	return f
@@ -253,7 +253,7 @@ data: {"type":"message_stop"}`,
 	if err != nil {
 		t.Fatalf("Stream: %v", err)
 	}
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 
 	var got []Event
 	for {
@@ -313,7 +313,7 @@ data: {"type":"message_stop"}`,
 	if err != nil {
 		t.Fatalf("Stream: %v", err)
 	}
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 	for {
 		if _, err := stream.Recv(); err != nil {
 			break
@@ -349,7 +349,7 @@ func TestARefusedKeyLooksLikeAnAuthErrorOnAStream(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Stream: %v", err)
 	}
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 	_, err = stream.Recv()
 	if !errors.Is(err, ErrAuth) {
 		t.Fatalf("Recv error = %v, want it to wrap ErrAuth", err)

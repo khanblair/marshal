@@ -58,53 +58,55 @@ type Info struct {
 // known is every provider Marshal knows, in the order the settings screen lists them
 // (design/store.js's providers, plus LM Studio). Adding a provider here is what makes it appear on
 // that screen, resolve a card's model, and count as a provider the built-in agent can run.
-var known = []Info{
-	{
-		ID: AnthropicID, Name: "Anthropic", ModelsPhrase: "Claude models",
-		Family: FamilyAnthropic,
-		Models: []protocol.AgentModel{
-			{ID: "claude-sonnet-4-5", Name: "Claude Sonnet 4.5", Thinking: true},
+func known() []Info {
+	return []Info{
+		{
+			ID: AnthropicID, Name: "Anthropic", ModelsPhrase: "Claude models",
+			Family: FamilyAnthropic,
+			Models: []protocol.AgentModel{
+				{ID: "claude-sonnet-4-5", Name: "Claude Sonnet 4.5", Thinking: true},
+			},
 		},
-	},
-	{
-		ID: OpenAIID, Name: "OpenAI", ModelsPhrase: "GPT models",
-		Family: FamilyOpenAI,
-		Models: []protocol.AgentModel{
-			{ID: "gpt-5-mini", Name: "GPT-5 mini", Thinking: true},
+		{
+			ID: OpenAIID, Name: "OpenAI", ModelsPhrase: "GPT models",
+			Family: FamilyOpenAI,
+			Models: []protocol.AgentModel{
+				{ID: "gpt-5-mini", Name: "GPT-5 mini", Thinking: true},
+			},
 		},
-	},
-	{
-		ID: GeminiID, Name: "Google Gemini", ModelsPhrase: "Gemini models",
-		Family: FamilyGemini,
-		Models: []protocol.AgentModel{
-			{ID: "gemini-2.5-flash", Name: "Gemini 2.5 Flash", Thinking: true},
+		{
+			ID: GeminiID, Name: "Google Gemini", ModelsPhrase: "Gemini models",
+			Family: FamilyGemini,
+			Models: []protocol.AgentModel{
+				{ID: "gemini-2.5-flash", Name: "Gemini 2.5 Flash", Thinking: true},
+			},
 		},
-	},
-	{
-		ID: DeepSeekID, Name: "DeepSeek", ModelsPhrase: "DeepSeek models",
-		Family: FamilyOpenAI, BaseURL: "https://api.deepseek.com/v1",
-		Models: []protocol.AgentModel{
-			// DeepSeek's chat model has no reasoning-effort setting, so a card cannot ask it to
-			// think harder; its Thinking flag is false for that reason and not because Marshal
-			// cannot set one.
-			{ID: "deepseek-chat", Name: "DeepSeek Chat", Thinking: false},
+		{
+			ID: DeepSeekID, Name: "DeepSeek", ModelsPhrase: "DeepSeek models",
+			Family: FamilyOpenAI, BaseURL: "https://api.deepseek.com/v1",
+			Models: []protocol.AgentModel{
+				// DeepSeek's chat model has no reasoning-effort setting, so a card cannot ask it to
+				// think harder; its Thinking flag is false for that reason and not because Marshal
+				// cannot set one.
+				{ID: "deepseek-chat", Name: "DeepSeek Chat", Thinking: false},
+			},
 		},
-	},
-	{
-		ID: OpenRouterID, Name: "OpenRouter", ModelsPhrase: "Any model on OpenRouter",
-		Family: FamilyOpenAI, BaseURL: "https://openrouter.ai/api/v1", AnyModel: true,
-	},
-	{
-		ID: OllamaID, Name: "Ollama", ModelsPhrase: "Local models",
-		Family: FamilyOpenAI, Local: true, BaseURL: "http://127.0.0.1:11434/v1",
-		Models: []protocol.AgentModel{
-			{ID: "qwen2.5-coder:32b", Name: "Qwen2.5 Coder 32B", Thinking: false},
+		{
+			ID: OpenRouterID, Name: "OpenRouter", ModelsPhrase: "Any model on OpenRouter",
+			Family: FamilyOpenAI, BaseURL: "https://openrouter.ai/api/v1", AnyModel: true,
 		},
-	},
-	{
-		ID: LMStudioID, Name: "LM Studio", ModelsPhrase: "Local models",
-		Family: FamilyOpenAI, Local: true, BaseURL: "http://127.0.0.1:1234/v1", AnyModel: true,
-	},
+		{
+			ID: OllamaID, Name: "Ollama", ModelsPhrase: "Local models",
+			Family: FamilyOpenAI, Local: true, BaseURL: "http://127.0.0.1:11434/v1",
+			Models: []protocol.AgentModel{
+				{ID: "qwen2.5-coder:32b", Name: "Qwen2.5 Coder 32B", Thinking: false},
+			},
+		},
+		{
+			ID: LMStudioID, Name: "LM Studio", ModelsPhrase: "Local models",
+			Family: FamilyOpenAI, Local: true, BaseURL: "http://127.0.0.1:1234/v1", AnyModel: true,
+		},
+	}
 }
 
 // builtinModelOrder is the order the built-in agent's model picker offers models in, first thing
@@ -116,17 +118,20 @@ var known = []Info{
 // lists providers in its own order. Every model the providers name appears here exactly once, and
 // the tests hold the two lists to that (TestEveryModelIsInThePickerOrder), so a model added to a
 // provider cannot silently fall out of a picker.
-var builtinModelOrder = []string{
-	"claude-sonnet-4-5",
-	"gpt-5-mini",
-	"deepseek-chat",
-	"gemini-2.5-flash",
-	"qwen2.5-coder:32b",
+func builtinModelOrder() []string {
+	return []string{
+		"claude-sonnet-4-5",
+		"gpt-5-mini",
+		"deepseek-chat",
+		"gemini-2.5-flash",
+		"qwen2.5-coder:32b",
+	}
 }
 
 // Known returns every provider Marshal knows, in the order the screens list them. The entries are
 // copies, so a caller that changes one - a route filling in a status - cannot change the table.
 func Known() []Info {
+	known := known()
 	out := make([]Info, len(known))
 	for i, info := range known {
 		info.Models = append([]protocol.AgentModel(nil), info.Models...)
@@ -137,7 +142,7 @@ func Known() []Info {
 
 // Lookup returns what Marshal knows about a provider id, and whether it knows it at all.
 func Lookup(id string) (Info, bool) {
-	for _, info := range known {
+	for _, info := range known() {
 		if info.ID == id {
 			return info, true
 		}
@@ -148,7 +153,7 @@ func Lookup(id string) (Info, bool) {
 // modelOwner finds the provider that names a model, and its entry for it. It is how a model id with
 // no provider beside it - which is every model a card holds - finds the provider to call.
 func modelOwner(id string) (Info, protocol.AgentModel, bool) {
-	for _, info := range known {
+	for _, info := range known() {
 		if model, ok := info.Model(id); ok {
 			return info, model, true
 		}
