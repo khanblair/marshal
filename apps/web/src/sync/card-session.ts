@@ -11,8 +11,8 @@ import { batch, createEffect } from "solid-js";
 import type { ApiClient } from "~/data/api-client";
 import { ApiError } from "~/data/api-error";
 import { isRecord } from "~/data/guards";
-import { toCheckpointRows } from "~/data/mappers/checkpoints";
 import { sleepFlags } from "~/data/mappers/card";
+import { toCheckpointRows } from "~/data/mappers/checkpoints";
 import { toNoteInfo } from "~/data/mappers/notes";
 import { isDaemon } from "~/data/sections";
 import type { CardKey } from "~/mock/card-key";
@@ -20,6 +20,7 @@ import { type Ctx, sectionsOf } from "~/mock/context";
 import { toast } from "~/mock/engine";
 import { takeMid } from "~/mock/ids";
 import type { Msg, ToolState } from "~/mock/types";
+import { panelOnDaemon, readPanel } from "./card-panel";
 import { toStoredActivityList, toStoredMessages } from "./chat-mapper";
 import { applyCardPreview } from "./preview";
 
@@ -52,6 +53,8 @@ export async function readOpenCard(
   const wantsActivity = isDaemon("S10", table);
   const wantsPreview = isDaemon("S13", table);
   const wantsNote = isDaemon("S14", table);
+  // The panel's checks, checklists, comments, and members (S12, S15, S16) are read beside the rest.
+  const panel = readPanel(ctx, api, daemonId, key);
   const [messages, activity, checkpoints, preview, note] = await Promise.all([
     wantsChat ? api.messages(daemonId, { limit: FIRST_PAGE }) : null,
     wantsActivity ? api.activity(daemonId, { limit: FIRST_PAGE }) : null,
@@ -66,6 +69,7 @@ export async function readOpenCard(
     // file behind (`card-note.ts`'s `ensureNote` no longer does that once S14 is the daemon's).
     wantsNote ? api.note(daemonId) : null,
   ]);
+  await panel;
   // The card may have been closed, or another one opened, while the daemon was answering.
   if (ctx.S.openId !== key) return;
   if (messages) ctx.S.chat[key] = toStoredMessages(messages.items);
@@ -106,7 +110,8 @@ export function followOpenCard(ctx: Ctx, api: ApiClient, stream: Stream): void {
     !isDaemon("S7c", table) &&
     !isDaemon("S9", table) &&
     !isDaemon("S13", table) &&
-    !isDaemon("S14", table)
+    !isDaemon("S14", table) &&
+    !panelOnDaemon(ctx)
   ) {
     return;
   }

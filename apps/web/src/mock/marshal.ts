@@ -1,7 +1,9 @@
 import { isDaemon } from "~/data/sections";
 import { startSync } from "~/sync";
+import * as alertWrites from "~/sync/alerts";
 import * as cardWrites from "~/sync/card-actions";
 import * as cardHold from "~/sync/card-hold";
+import * as panelWrites from "~/sync/card-panel-actions";
 import { sendToCard } from "~/sync/card-session";
 import * as cardView from "~/sync/card-view";
 import * as chatWrites from "~/sync/chat-actions";
@@ -17,16 +19,15 @@ import * as limitWrites from "~/sync/limit-actions";
 import { saveCardNote } from "~/sync/notes";
 import * as noticeWrites from "~/sync/notice-actions";
 import * as onboardingWrites from "~/sync/onboarding-actions";
+import * as previewWrites from "~/sync/preview";
 import * as profileWrites from "~/sync/profile-actions";
 import * as projects from "~/sync/project-actions";
 import * as providerWrites from "~/sync/provider-actions";
-import * as previewWrites from "~/sync/preview";
 import * as roleWrites from "~/sync/role-actions";
 import { roleNames } from "~/sync/roles";
 import * as savedViews from "~/sync/saved-views";
 import * as scheduleWrites from "~/sync/schedule-actions";
 import { createPaletteSearch } from "~/sync/search";
-import * as alertWrites from "~/sync/alerts";
 import * as sleepWrites from "~/sync/sleep-actions";
 import * as approvals from "./actions/approvals";
 import * as cardCreate from "./actions/card-create";
@@ -193,7 +194,8 @@ function appActions(ctx: Ctx) {
       : onboarding.setOnboardingStep,
     endTour: onboardingOnDaemon ? onboardingWrites.endTour : onboarding.endTour,
     setTheme: settings.setTheme,
-    runChecks: settings.runChecks,
+    runChecks: isDaemon("S12", table) ? panelWrites.runChecks : settings.runChecks,
+    openAttachment: panelWrites.openAttachment,
     // "Simulate CI failure" (N28, B6.4) is the mock's own story until the card is the daemon's and
     // that daemon runs in dev mode, where the two modes are the daemon's own work. It is decided per
     // call rather than once per store, because one store holds both a card the mock made and one the
@@ -278,6 +280,9 @@ function appActions(ctx: Ctx) {
   });
 }
 
+/** The daemon's version of a write when its section is switched, and the mock's until then. */
+const pick = <T>(onDaemon: boolean, daemon: T, mock: T): T => (onDaemon ? daemon : mock);
+
 function cardActions(ctx: Ctx) {
   // The cards are the daemon's once section S5a is switched, so these writes go to it; while the
   // section is still on the mock they are the mock's own. The phase that deletes the mock removes
@@ -296,6 +301,8 @@ function cardActions(ctx: Ctx) {
   // is the daemon's once the section is switched, because it is the daemon that holds the project
   // lock and writes the audit row.
   const bypassOnDaemon = isDaemon("S7b", sectionsOf(ctx.env));
+  const listsOnDaemon = isDaemon("S15", sectionsOf(ctx.env));
+  const commentsOnDaemon = isDaemon("S16", sectionsOf(ctx.env));
   return bindActions(ctx, {
     dragStart,
     moveCard: onDaemon ? cardWrites.moveCard : cards.moveCard,
@@ -330,12 +337,12 @@ function cardActions(ctx: Ctx) {
         ? cardHold.keepAllAwake
         : sessions.keepAllAwake,
     dismissNotice: noticesOnDaemon ? noticeWrites.dismissNotice : sessions.dismissNotice,
-    toggleItem: checklists.toggleItem,
-    addItem: checklists.addItem,
-    removeItem: checklists.removeItem,
-    addChecklist: checklists.addChecklist,
-    deleteChecklist: checklists.deleteChecklist,
-    toggleHideDone: checklists.toggleHideDone,
+    toggleItem: pick(listsOnDaemon, panelWrites.toggleItem, checklists.toggleItem),
+    addItem: pick(listsOnDaemon, panelWrites.addItem, checklists.addItem),
+    removeItem: pick(listsOnDaemon, panelWrites.removeItem, checklists.removeItem),
+    addChecklist: pick(listsOnDaemon, panelWrites.addChecklist, checklists.addChecklist),
+    deleteChecklist: pick(listsOnDaemon, panelWrites.deleteChecklist, checklists.deleteChecklist),
+    toggleHideDone: pick(listsOnDaemon, panelWrites.toggleHideDone, checklists.toggleHideDone),
     restoreCheckpoint: checkpoints.restoreCheckpoint,
     // A card's note (S14): `card-note.ts`'s own `saveNote` decides whether to call this (the
     // section is the daemon's) or write the mock's store directly, so this is never reached while
@@ -346,9 +353,9 @@ function cardActions(ctx: Ctx) {
     startPreview: previewWrites.startCardPreview,
     stopPreview: previewWrites.stopCardPreview,
     takePreviewShot: previewWrites.takeCardPreviewShot,
-    addComment: comments.addComment,
-    deleteComment: comments.deleteComment,
-    toggleMember: comments.toggleMember,
+    addComment: pick(commentsOnDaemon, panelWrites.addComment, comments.addComment),
+    deleteComment: pick(commentsOnDaemon, panelWrites.deleteComment, comments.deleteComment),
+    toggleMember: pick(commentsOnDaemon, panelWrites.toggleMember, comments.toggleMember),
   });
 }
 

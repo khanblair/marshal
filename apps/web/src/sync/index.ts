@@ -6,9 +6,10 @@ import { type Ctx, sectionsOf } from "~/mock/context";
 import { agentsSyncer } from "./agents";
 import { alertsSyncer } from "./alerts";
 import { applyApprovalEvent } from "./approval-actions";
+import { calendarSyncer } from "./calendar";
+import { applyPanelEvent } from "./card-panel";
 import { applyCardSessionEvent, followOpenCard } from "./card-session";
 import { applyTerminalFrame, applyTerminalOutputEvent, followOpenCardTerminal } from "./card-view";
-import { calendarSyncer } from "./calendar";
 import { cardsSyncer } from "./cards";
 import { applyChatSessionEvent, followOpenChat } from "./chat-session";
 import { chatsSyncer } from "./chats";
@@ -21,8 +22,8 @@ import { integrationsSyncer } from "./integrations";
 import { limitsSyncer } from "./limits";
 import { noticesSyncer } from "./notices";
 import { applyPlanUpdated } from "./plan-actions";
-import { applyPreviewEvent } from "./preview";
 import { preferencesSyncer } from "./preferences";
+import { applyPreviewEvent } from "./preview";
 import { profileSyncer } from "./profile";
 import { progressSyncer } from "./progress";
 import { projectsSyncer } from "./projects";
@@ -236,6 +237,8 @@ export function startSync(ctx: Ctx, syncers: readonly Syncer[] = SYNCERS): SyncC
           // A permission request and its answer (section S8b) arrive the same way, so an open
           // chat's approval block appears and updates live rather than only on the card's next open.
           applyApprovalEvent(ctx, event);
+          // What a card's panel holds (sections S12, S15, S16) changed on another screen: read again.
+          applyPanelEvent(ctx, event);
           // A card's live preview changing state (section S13) arrives on the card's own topic too.
           applyPreviewEvent(ctx, event);
           for (const syncer of active) syncer.onEvent?.(ctx, event);
