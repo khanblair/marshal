@@ -41,14 +41,19 @@ const saveButton = () => screen.getByRole("button", { name: "Save profile" });
 const toasts = () => M.S.toasts.map((toast) => toast.msg);
 
 describe("the Profile section on the daemon", () => {
-  it("shows the daemon's profile, with its initials, and keeps the paired devices and the tailnet the mock's", () => {
+  it("shows the daemon's profile and its paired devices, with the tailnet identity the daemon reports", () => {
     render(() => <SettingsView />);
     expect(nameField()).toHaveValue("Ada Okafor");
     expect(emailField()).toHaveValue("ada@example.com");
     expect(zoneField()).toHaveValue("Europe/London");
     expect(saveButton()).toBeDisabled();
     expect(screen.getByLabelText("Your avatar")).toHaveTextContent("AO");
+    // The paired devices are the daemon's own rows (S2b): it holds the token hashes, and these two
+    // are what it answered, not what a prototype seeded.
     expect(screen.getByText("Pixel 8")).toBeInTheDocument();
+    expect(screen.getByText("iPad Air")).toBeInTheDocument();
+    // The tailnet identity is read from the node when there is one, and falls back to the store's
+    // own words when this daemon was never started to join a tailnet.
     expect(screen.getByText("ada@kolaborate.co")).toBeInTheDocument();
   });
 

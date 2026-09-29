@@ -1,4 +1,5 @@
 import { Avatar, Button, Field, Input, Select, SettingsSection } from "@marshal/ui";
+import { createResource, Show } from "solid-js";
 import { M } from "~/mock";
 import { GRID_MIN_220 } from "./auto-fit-grid";
 import { DevicesList } from "./DevicesList";
@@ -24,15 +25,49 @@ function zoneOptions(current: string): readonly (string | { value: string; label
 
 const SUBHEADING = "mt-2 mb-0 text-subtitle leading-5.5 font-semibold";
 
+/**
+ * How reachable this daemon is, by the node's own four words (B9.1, build-plan 9.9). They are
+ * deliberately plain: "signing in" is the state a person has to act on, and it says so by naming
+ * the address the node wants them to open rather than by showing a spinner.
+ */
+const REACHABLE: Record<string, string> = {
+  off: "This machine only",
+  "signing-in": "Waiting for sign-in",
+  online: "On your tailnet",
+  error: "Could not join",
+};
+
 function TailnetIdentity() {
+  // Asked for once when the section draws. The daemon answers "off" at once when it was never
+  // started to join a tailnet, so this never waits on a node that does not exist.
+  const [status] = createResource(async () => await M.tailnetStatus());
+  const node = () => status() ?? null;
   return (
     <>
       <h3 class={SUBHEADING}>Tailnet identity</h3>
       <div class="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1.5 text-body">
         <span class="text-secondary">Account</span>
-        <span>{M.S.profile.tailnet}</span>
+        <span>{node()?.identity || M.S.profile.tailnet}</span>
         <span class="text-secondary">This machine</span>
-        <code class="font-mono text-small">{M.S.profile.node}</code>
+        <code class="font-mono text-small">{node()?.dnsName || M.S.profile.node}</code>
+        <span class="text-secondary">Reachable</span>
+        <span>{REACHABLE[node()?.state ?? "off"] ?? REACHABLE.off}</span>
+        {/* Funnel says what was asked for, not what Tailscale has allowed: the tailnet itself has to
+            allow it too, which is done in the Tailscale admin console, not here. */}
+        <Show when={node()?.funnel}>
+          <span class="text-secondary">Public webhooks</span>
+          <span>Exposed through Tailscale Funnel - only /hooks/*, each request still signed.</span>
+        </Show>
+        <Show when={node()?.state === "error" && node()?.error}>
+          <span class="text-secondary">Why</span>
+          <span class="text-status-danger-text">{node()?.error}</span>
+        </Show>
+        <Show when={node()?.loginUrl}>
+          <span class="text-secondary">Sign in</span>
+          <a href={node()?.loginUrl} target="_blank" rel="noreferrer" class="underline">
+            Open the Tailscale sign-in address
+          </a>
+        </Show>
       </div>
     </>
   );
