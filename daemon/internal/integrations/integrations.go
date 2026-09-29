@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 	"strings"
 	"sync"
@@ -67,11 +68,11 @@ type Info struct {
 func known() []Info {
 	return []Info{
 		{ID: GitHubID, Kind: connectiontest.KindGitHub, Wired: true},
-		{ID: "trello", Kind: "trello"},
-		{ID: "gcal", Kind: "calendar"},
-		{ID: "gmail", Kind: "gmail"},
-		{ID: "telegram", Kind: "telegram"},
-		{ID: "discord", Kind: "discord"},
+		{ID: TrelloID, Kind: KindTrello, Wired: true},
+		{ID: GCalID, Kind: KindGCal, Wired: true},
+		{ID: GmailID, Kind: KindGmail, Wired: true},
+		{ID: TelegramID, Kind: KindTelegram, Wired: true},
+		{ID: DiscordID, Kind: KindDiscord, Wired: true},
 		{ID: ObsidianID, Kind: KindObsidian, Wired: true},
 	}
 }
@@ -106,18 +107,50 @@ type Options struct {
 	// which is what the daemon does. It is the same seam a provider service has for its client
 	// factory: nothing but a test sets it.
 	App func(ctx context.Context) (*githubapp.App, error)
+	// TrelloBaseURL overrides where the Trello API is reached, so the Trello connection test can be
+	// driven against a fake server without dialing Trello. Empty uses the real API, which is what
+	// the daemon does.
+	TrelloBaseURL string
+	// GCalRedirectURL is the daemon's own address Google's consent flow redirects back to.
+	GCalRedirectURL string
+	// GCalBaseURL overrides where the Calendar API is reached, for a test. Empty uses the real API.
+	GCalBaseURL string
+	// GmailBaseURL overrides where the Gmail API is reached, for a test. Empty uses the real API.
+	GmailBaseURL string
+	// TelegramBaseURL overrides where the Telegram Bot API is reached, so the Telegram connection
+	// test can be driven against a fake server without dialing Telegram. Empty uses the real API,
+	// which is what the daemon does (hard rule 3).
+	TelegramBaseURL string
+	// DiscordHTTPClient overrides how Discord's REST API is reached, for the same reason. Nil uses
+	// the real one, which is what the daemon does.
+	DiscordHTTPClient *http.Client
 }
 
 // Service is the one place that knows which connections are set up, and the only reader of a
 // connection's secret. It is built once, when the daemon starts, and is safe for concurrent use.
 type Service struct {
-	store *store.Store
-	keys  security.Keychain
-	log   *slog.Logger
-	now   func() time.Time
-	vault string
-	test  func(ctx context.Context, info Info) (protocol.TestResult, error)
-	appFn func(ctx context.Context) (*githubapp.App, error)
+	store      *store.Store
+	keys       security.Keychain
+	log        *slog.Logger
+	now        func() time.Time
+	vault      string
+	trelloBase string
+	test       func(ctx context.Context, info Info) (protocol.TestResult, error)
+	appFn      func(ctx context.Context) (*githubapp.App, error)
+
+	// gcalRedirectURL is the daemon's own callback address for Google's consent flow.
+	// gcalBase overrides where the Calendar API is reached, for a test; empty means the real one.
+	gcalRedirectURL string
+	gcalBase        string
+	gmailBase       string
+
+	// telegramBase overrides where the Telegram Bot API is reached, for a test.
+	// discordClient overrides how Discord's REST API is reached, for the same reason.
+	telegramBase  string
+	discordClient *http.Client
+	// gcalState is the one pending consent flow's CSRF token, guarded by mu. A daemon runs one
+	// owner's consent flow at a time, so one field is enough.
+	gcalState string
 
 	// webhooks verifies and accepts GitHub's deliveries. It is built with this service, so the
 	// secret it checks against is read from the keychain on every delivery and a secret saved
@@ -128,6 +161,11 @@ type Service struct {
 	monitor githubapp.Sink
 	app     *githubapp.App
 	built   bool
+
+	// trelloCards is the board work a verified Trello delivery is applied through. It is nil until
+	// the daemon attaches it (SetTrelloCards), which is why a delivery with nothing attached is
+	// believed and ignored rather than refused.
+	trelloCards TrelloCards
 
 	// secretsVal is the connection's keychain entry, read once and kept until the connection
 	// changes, so a delivery does not pay for a keychain read. secretsLoaded says whether it has
@@ -147,7 +185,10 @@ func New(st *store.Store, keys security.Keychain, opts Options) (*Service, error
 	}
 	s := &Service{
 		store: st, keys: keys, log: opts.Logger, now: opts.Now, vault: opts.VaultRoot,
-		test: opts.Tester, appFn: opts.App,
+		trelloBase: opts.TrelloBaseURL,
+		test:       opts.Tester, appFn: opts.App,
+		gcalRedirectURL: opts.GCalRedirectURL, gcalBase: opts.GCalBaseURL, gmailBase: opts.GmailBaseURL,
+		telegramBase: opts.TelegramBaseURL, discordClient: opts.DiscordHTTPClient,
 	}
 	if s.log == nil {
 		s.log = slog.Default()

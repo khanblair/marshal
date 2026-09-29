@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"net/http"
 
 	"github.com/khanblair/marshal/daemon/internal/connectiontest"
@@ -33,21 +34,59 @@ func (s *Server) listIntegrations(w http.ResponseWriter, r *http.Request) {
 // and the last result is about something that is no longer stored (section 18).
 func (s *Server) saveIntegration(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	if id != integrations.GitHubID {
-		s.writeError(w, protocol.NotFound("connection").With("id", id))
-		return
-	}
-	var req protocol.SaveGitHubRequest
-	if err := s.decodeJSON(r, &req); err != nil {
-		s.writeError(w, err)
-		return
-	}
-	if err := s.integrations.SaveGitHub(r.Context(), req); err != nil {
+	if err := s.saveOneIntegration(r, id); err != nil {
 		s.writeError(w, translate(err))
 		return
 	}
 	s.integrationsTestAfterConnect(r.Context(), id)
 	s.writeIntegrations(w, r)
+}
+
+// saveOneIntegration reads the body of one connection's save and stores it. Each connection has its
+// own shape - GitHub an App's two ids and its private key, Trello a key, a token, a board, and a
+// webhook - so the id in the address picks which shape is read, and an id with no save shape yet is
+// not found rather than silently accepted. A nil error means the connection was stored.
+func (s *Server) saveOneIntegration(r *http.Request, id string) error {
+	switch id {
+	case integrations.GitHubID:
+		var req protocol.SaveGitHubRequest
+		if err := s.decodeJSON(r, &req); err != nil {
+			return err
+		}
+		return s.integrations.SaveGitHub(r.Context(), req)
+	case integrations.TrelloID:
+		var req protocol.SaveTrelloRequest
+		if err := s.decodeJSON(r, &req); err != nil {
+			return err
+		}
+		return s.integrations.SaveTrello(r.Context(), req)
+	case integrations.GCalID:
+		var req protocol.SaveGoogleCalendarRequest
+		if err := s.decodeJSON(r, &req); err != nil {
+			return err
+		}
+		return s.integrations.SaveGoogleCalendar(r.Context(), req)
+	case integrations.GmailID:
+		var req protocol.SaveGmailRequest
+		if err := s.decodeJSON(r, &req); err != nil {
+			return err
+		}
+		return s.integrations.SaveGmail(r.Context(), req)
+	case integrations.TelegramID:
+		var req protocol.SaveTelegramRequest
+		if err := s.decodeJSON(r, &req); err != nil {
+			return err
+		}
+		return s.integrations.SaveTelegram(r.Context(), req)
+	case integrations.DiscordID:
+		var req protocol.SaveDiscordRequest
+		if err := s.decodeJSON(r, &req); err != nil {
+			return err
+		}
+		return s.integrations.SaveDiscord(r.Context(), req)
+	default:
+		return protocol.NotFound("connection").With("id", id)
+	}
 }
 
 // removeIntegration is DELETE /v1/integrations/{id}: forget a connection's settings and its secret.
@@ -110,6 +149,36 @@ func (s *Server) integrationsTestAfterConnect(ctx context.Context, id string) {
 		s.log.Warn("a connection was saved but its connection test could not be run",
 			"connection", id, "err", err)
 	}
+}
+
+// authorizeGoogleCalendar is GET /v1/integrations/gcal/authorize: the consent URL the owner opens
+// in their own browser. It answers not-found until SaveGoogleCalendar's client is stored.
+func (s *Server) authorizeGoogleCalendar(w http.ResponseWriter, r *http.Request) {
+	url, err := s.integrations.AuthorizeGoogleCalendar(r.Context())
+	if errors.Is(err, integrations.ErrNoGoogleClient) {
+		s.writeError(w, protocol.NotFound("connection").With("id", integrations.GCalID))
+		return
+	}
+	if err != nil {
+		s.writeError(w, translate(err))
+		return
+	}
+	s.writeJSON(w, http.StatusOK, protocol.AuthorizeURL{URL: url})
+}
+
+// callbackGoogleCalendar is GET /v1/integrations/gcal/callback: where Google's own redirect lands
+// after the owner grants access. It answers plain text - a browser tab, not a screen - and then
+// runs the same test a save is followed by, so the connection's status is current at once.
+func (s *Server) callbackGoogleCalendar(w http.ResponseWriter, r *http.Request) {
+	code, state := r.URL.Query().Get("code"), r.URL.Query().Get("state")
+	if err := s.integrations.FinishGoogleCalendar(r.Context(), code, state); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte("Google Calendar could not be connected: " + err.Error()))
+		return
+	}
+	s.integrationsTestAfterConnect(r.Context(), integrations.GCalID)
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte("Google Calendar is connected. You can close this tab."))
 }
 
 // writeIntegrations sends the whole list, stamped with the daemon's time. Every connection route but

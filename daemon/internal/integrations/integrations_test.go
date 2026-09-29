@@ -528,12 +528,4 @@ func TestAnUnknownConnectionIsNotFound(t *testing.T) {
 	if _, err := f.svc.Test(context.Background(), "myspace"); err == nil {
 		t.Fatal("testing an unknown connection should fail")
 	}
-	// A connection of a later phase is known and reads as "cannot test yet" rather than as an error.
-	result, err := f.svc.Test(context.Background(), "trello")
-	if err != nil {
-		t.Fatalf("Test for a later phase's connection: %v", err)
-	}
-	if got := checkNamed(t, result, integrations.CheckSummary); got.State != protocol.CheckStateWarning {
-		t.Fatalf("a later phase's connection reads %+v, want a warning", got)
-	}
 }

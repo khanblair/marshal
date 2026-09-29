@@ -108,9 +108,12 @@ func (s *Service) Remove(ctx context.Context, id string) error {
 	if !ok {
 		return protocol.NotFound("connection").With("id", id)
 	}
-	if info.Wired && id == GitHubID {
-		if err := s.keys.Remove(GitHubID); err != nil && !errors.Is(err, security.ErrNoKey) {
-			return fmt.Errorf("remove the GitHub App's secrets: %w", err)
+	if info.Wired {
+		// Every wired connection that keeps a secret files it under its own id, so removing one is
+		// the same call for all of them. A connection with no secret (the Obsidian vault, which is a
+		// folder) answers ErrNoKey, which is not an error: there was nothing to remove.
+		if err := s.keys.Remove(id); err != nil && !errors.Is(err, security.ErrNoKey) {
+			return fmt.Errorf("remove the %q connection's secrets: %w", id, err)
 		}
 	}
 	err := s.store.Write(ctx, func(q *db.Queries) error {
@@ -120,6 +123,7 @@ func (s *Service) Remove(ctx context.Context, id string) error {
 		return fmt.Errorf("remove the %q connection: %w", id, err)
 	}
 	s.forgetGitHub()
+	s.forgetTrello()
 	return nil
 }
 

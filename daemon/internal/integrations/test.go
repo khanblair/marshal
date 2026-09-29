@@ -91,6 +91,14 @@ func (s *Service) testFor(ctx context.Context, info Info) (protocol.TestResult, 
 		return s.testGitHub(ctx, info)
 	case KindObsidian:
 		return s.testObsidian(ctx, info)
+	case KindTrello:
+		return s.testTrello(ctx, info)
+	case KindGCal:
+		return s.testGCal(ctx, info)
+	case KindGmail:
+		return s.testGmail(ctx, info)
+	case KindTelegram, KindDiscord:
+		return s.testChat(ctx, info)
 	default:
 		return protocol.TestResult{}, protocol.NotFound("connection").With("id", info.ID)
 	}

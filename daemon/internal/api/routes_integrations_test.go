@@ -87,11 +87,9 @@ func TestSavingAnAppThatCouldNotWorkIsRefusedAndChangesNothing(t *testing.T) {
 	}
 }
 
-func TestSavingAConnectionOfALaterPhaseIsNotFound(t *testing.T) {
-	// Trello is a known row, and saving it is not something Marshal can do yet. It is not found
-	// rather than silently accepted, so nothing is pretended.
+func TestSavingAnUnknownConnectionIsNotFound(t *testing.T) {
 	st := newStack(t, withIntegrationsTester(passingTester))
-	st.do(http.MethodPut, "/v1/integrations/trello", githubAppRequest("s3cr3t")).
+	st.do(http.MethodPut, "/v1/integrations/myspace", githubAppRequest("s3cr3t")).
 		apiError(t, http.StatusNotFound, protocol.ErrorCodeNotFound)
 }
 
