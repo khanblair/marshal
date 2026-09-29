@@ -53,7 +53,7 @@ A section is one part of the screens that can switch from mock data to the daemo
 |---|---|---|---|
 | S1 Connection and sign-in | Boot, token or pairing, "Can't reach the daemon", reconnect | 1: 1.12, 1.13 | Daemon |
 | S2a Profile | Avatar menu, name, email, time zone, avatar | 2: 2.15 | Daemon |
-| S2b Devices and Tailscale identity | Paired devices, tailnet name and node on the profile | 9: 9.1, 9.2 | Mock |
+| S2b Devices and Tailscale identity | Paired devices, tailnet name and node on the profile | 9: 9.1, 9.2 | Daemon |
 | S2c Team and people | Member pickers and people beyond the owner | 12: 12.9 | Mock |
 | S3 Projects | Sidebar list and badges, create, rename, remove, project settings | 1: 1.4, 2.14 | Daemon |
 | S4 Agents and models | Agent, model, and thinking pickers everywhere | 1: 1.8 | Daemon |
@@ -81,23 +81,23 @@ A section is one part of the screens that can switch from mock data to the daemo
 | S19b Home: cost | Cost tile and cost per project chart | 4: 4.7, 4.8 | Daemon |
 | S20 Home: activity | Recent activity and its view-all page | 2: 2.3 | Daemon |
 | S21 Home: CI health | CI health list and its view-all page | 6: 6.2, 6.4 | Daemon |
-| S22 Home: coming up | Events, jobs, briefs, due cards | 8: 8.1, 8.5 | Mock |
+| S22 Home: coming up | Events, jobs, briefs, due cards | 8: 8.1, 8.5 | Daemon |
 | S23 Notices | Bell and every notice kind, including sleep reminders | 5: 5.10 | Daemon |
 | S24a Palette and search | Command palette and top bar search over projects, cards, and chats | 2: 2.12 | Daemon |
 | S24b Session and note search | Search over past sessions and notes | 7: 7.10 | Mock |
-| S25 Calendar | Calendar view | 8: 8.5, 12.3 | Mock |
+| S25 Calendar | Calendar view | 8: 8.5, 12.3 | Daemon |
 | S26a Settings: sleep | Idle time, warning time, reminder channel, restore mode | 5: 5.10 | Daemon |
 | S26b Settings: limits | Cost and awake limits | 4: 4.8 | Daemon |
 | S27 Settings: Roles | Role list and editor | 5: 5.1 | Daemon |
 | S28 Settings: Providers | Provider keys and tests | 4: 4.1, 4.9 | Daemon |
 | S29a Integration: GitHub | GitHub row in Settings | 6: 6.1 | Daemon |
 | S29b Integration: Obsidian | Obsidian row | 7: 7.7 | Daemon |
-| S29c Integration: Trello | Trello row | 8: 8.4 | Mock |
-| S29d Integration: Google Calendar | Google Calendar row | 8: 8.5 | Mock |
-| S29e Integration: Gmail | Gmail row | 8: 8.6 | Mock |
-| S29f Integration: Telegram | Telegram row | 9: 9.5 | Mock |
-| S29g Integration: Discord | Discord row | 9: 9.6 | Mock |
-| S30 Settings: Schedules | Briefs and jobs | 8: 8.1 | Mock |
+| S29c Integration: Trello | Trello row | 8: 8.4 | Daemon |
+| S29d Integration: Google Calendar | Google Calendar row | 8: 8.5 | Daemon |
+| S29e Integration: Gmail | Gmail row | 8: 8.6 | Daemon |
+| S29f Integration: Telegram | Telegram row | 9: 9.5 | Daemon |
+| S29g Integration: Discord | Discord row | 9: 9.6 | Daemon |
+| S30 Settings: Schedules | Briefs and jobs | 8: 8.1 | Daemon |
 | S31a Onboarding and tour | Welcome, agents, project, and the Home tour | 2: 2.16, 2.17 | Daemon |
 | S31b Onboarding: connect from anywhere | The pairing and chat apps step | 9: 9.2 | Mock |
 | S32 Screen preferences | Theme, list columns, sort, last view per project, filters, swimlane | 2: 2.5 | Daemon |
@@ -458,10 +458,10 @@ Slices A to D and F touch the same card objects, so the order matters more than 
 
 **Sections cut over:** S2b, S29f, S29g, S31b.
 
-- [ ] **B9.1 Tailscale node and pairing.** The tsnet node inside the daemon, device pairing by scanning a code, and revoking a device. Done when: the daemon is reachable on the tailnet with no separate install, and a phone pairs. The owner signs in (section 3). Cut over S2b and S31b. (Tasks 9.1, 9.2)
-- [ ] **B9.2 Funnel and serving.** Expose only `/hooks/*` publicly with verified signatures, and serve the responsive UI over the tailnet. Done when: only the hook routes are public, and every view and action works on a real phone and tablet through Tailscale. (Tasks 9.3, 9.4)
-- [ ] **B9.3 Telegram and Discord.** Notices, approvals, actions, and voice notes, with their connection tests. Done when: approving and creating a card from each works. The owner creates the bot tokens (section 3). Cut over S29f and S29g. (Tasks 9.5, 9.6)
-- [ ] **B9.4 Notification routing.** Channels per event type and grouped notices. Done when: an event reaches a phone notice in under 5 seconds. (Task 9.7)
+- [ ] **B9.1 Tailscale node and pairing.** The tsnet node inside the daemon, device pairing by scanning a code, and revoking a device. Done when: the daemon is reachable on the tailnet with no separate install, and a phone pairs. The owner signs in (section 3). Cut over S2b and S31b. (Tasks 9.1, 9.2) — **Partly built (2026-09-28), Phase 9 slice 1 and 2.** `tailscale.com/tsnet` v1.102.5 is pinned and wrapped by `internal/tailnet`, the only file that imports it; the API layer reaches it through an interface (`api.TailnetNode`) and is tested with a fake node, so no test touches Tailscale. The daemon now opens a **second, additive** listener beside the loopback one (`Server.serveTailnet`), off unless `--tailnet`/`MARSHAL_TAILNET` asks for it, and the node's own address is recorded on the owner's row so the profile's Tailscale identity fills in. Pairing is built end to end: `POST /v1/me/devices/pairing-code` (five-minute, single-use, one live code, five wrong guesses end it), `POST /v1/devices/pair` - the one route that mints a token with no token of its own - `GET /v1/me/devices`, and `DELETE /v1/me/devices/{id}`; `internal/devices` owns all of it and moved device creation out of `internal/api/accounts.go` so start-up devices and paired ones cannot drift apart. The origin rule now accepts this node's own MagicDNS name and tailnet addresses and no other host. **Not done:** the owner's Tailscale sign-in (section 3), the tailnet/Funnel status screen (build-plan 9.9), and S31b are still open. The paired-devices list is cut over: `DevicesList.tsx` reads the daemon's rows and asks it for a real code instead of its hardcoded one. **Not ticked here:** that is the controller's, once verified. |
+- [ ] **B9.2 Funnel and serving.** Expose only `/hooks/*` publicly with verified signatures, and serve the responsive UI over the tailnet. Done when: only the hook routes are public, and every view and action works on a real phone and tablet through Tailscale. (Tasks 9.3, 9.4) — **Partly built (2026-09-28), Phase 9 slice 3.** `Server.FunnelHandler` answers with the daemon's own routes for a path under `/hooks/` and `not_found` for everything else, checked on the raw path and the cleaned one so `..` cannot walk out of it; a test drives every address that must stay private - `/`, the whole `/v1` tree including health and pairing, `/hooks` with no slash, and two `..` paths - and then proves the two hook routes are still their own signature-verified selves (an unsigned delivery is 401, not 404). Opening Funnel is `--funnel`/`MARSHAL_FUNNEL` beside `--tailnet`, and it changes nothing about what the daemon answers on its own address. **Not done:** Funnel has never been enabled for real (it needs the owner and a Tailscale admin console), and serving the UI to a phone and the real-phone pass are the controller's hands-on checks. **Not ticked here:** that is the controller's, once verified. |
+- [ ] **B9.3 Telegram and Discord.** Notices, approvals, actions, and voice notes, with their connection tests. Done when: approving and creating a card from each works. The owner creates the bot tokens (section 3). Cut over S29f and S29g. (Tasks 9.5, 9.6) — **Partly built (2026-09-28), Phase 9 slice 4.** `github.com/go-telegram/bot` v1.27.0 and `github.com/bwmarrin/discordgo` v0.29.0 are pinned and wrapped by `internal/chatbot`, the only package that imports them: a notice (title, body, link, actions), a connection test, and a receiving loop. The integrations service owns both connections the same way it owns Trello's - the token in the keychain, the chat or channel in the row, `PUT /v1/integrations/{id}` for the save, and the existing test route - and both now read `Wired`. Every bot test drives an in-process fake server (Telegram through `WithServerURL`, Discord through a rewriting transport), so no test reaches either service and no real bot token is used. Incoming commands are read by a pure parser (`internal/chatbot`, approve/reject/new/status/help). **Not done:** the live receive loop is wired but not exercised against a real service (the owner's tokens, checklist section 3), voice notes are acknowledged as voice rather than transcribed, and the S29f/S29g forms are new screen work. **Not ticked here:** that is the controller's, once verified.
+- [ ] **B9.4 Notification routing.** Channels per event type and grouped notices. Done when: an event reaches a phone notice in under 5 seconds. (Task 9.7) — **Partly built (2026-09-28), Phase 9 slice 5.** `internal/notify` owns the routing table (per-event-type channels, with defaults), groups everything that is not asking for an answer into one message per channel, and sends actionable notices at once. It talks to no service itself: a `Sender` is handed in, so every rule is proved in process with a fake. The under-five-seconds rule is measured by a test (an actionable notice and a grouped notice both arrive well inside it). **Not done:** the daemon does not yet build the router or subscribe it to the event bus, so nothing reaches a chat from a live event; that wiring and the settings screen for the routes are the remaining half. **Not ticked here:** that is the controller's, once verified.
 - [ ] **B9.5 Remote machines.** A second daemon on the tailnet. Done when: a project runs on a remote machine from the laptop UI. (Task 9.8)
 
 **Gate (milestone: anywhere):** end-to-end tests run against a daemon reached over the tailnet, and the security rules in `architecture.md` section 13 are tested.

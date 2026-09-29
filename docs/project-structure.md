@@ -511,9 +511,11 @@ moves out of this block when it is built.
   internal/memory/              The vault, lessons, and search
   internal/codemap/             The codebase map
   internal/integrations/        GitHub, Trello, Google Calendar, Gmail, Telegram, Discord
-  internal/notify/              Notice routing
+  internal/chatbot/             The Telegram and Discord bots: notices, tests, and reading a reply
+  internal/notify/              Notice routing and grouping
   internal/security/            Permissions, secret scanning, the audit log, keychain
-  internal/remote/              tsnet and Funnel
+  internal/devices/             Paired devices: the pairing code, and revoking a device
+  internal/tailnet/             The tsnet node and Funnel
   internal/preview/             Per-card dev servers and screenshots
   internal/budgets/             RAM, CPU, and disk self-measurement
   internal/web/embed.go         Embeds the built UI into the daemon

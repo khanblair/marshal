@@ -88,8 +88,8 @@ After adding, add an entry here with the version, purpose, and notes.
 |---|---|---|---|
 | `github.com/google/go-github` | Pin at setup | GitHub API | The most complete Go client |
 | `github.com/bradleyfalzon/ghinstallation/v2` | Pin at setup | GitHub App authentication | Standard way to auth as a GitHub App |
-| `google.golang.org/api` (`gmail/v1`, `calendar/v3`) | Pin at setup | Gmail and Google Calendar | Official Google clients |
-| `golang.org/x/oauth2` | Pin at setup | OAuth for Google and others | Standard |
+| `google.golang.org/api` (`gmail/v1`, `calendar/v3`) | v0.299.0 | Gmail and Google Calendar (B8.3) | Official Google clients, used through `.New(httpClient)` (not `NewService`'s `option` transport), so no code here dials gRPC even though it is a transitive dependency. BSD-3-Clause. Checks (section 1): needed (a Discovery-generated REST client for two APIs is well past 200 lines); license BSD-3-Clause; maintained (Google-released); govulncheck not run (needs network, left to CI); daemon size and download-budget impact not measured this pass (needs `go build` + `pnpm budgets`, on the "needs the controller" list in the Phase 8 report) |
+| `golang.org/x/oauth2` (`google` subpackage) | v0.37.0 | OAuth for Google (B8.3) | Standard, BSD-3-Clause, Go-team maintained |
 | `github.com/go-telegram/bot` | Pin at setup | Telegram bot | Maintained, covers the current Bot API, no extra dependencies |
 | `github.com/bwmarrin/discordgo` | Pin at setup | Discord bot | The most used Go Discord library |
 | Trello | Not a library | Trello REST API | No maintained official Go client. We write a small typed client in `integrations/trello`. |
@@ -98,13 +98,13 @@ After adding, add an entry here with the version, purpose, and notes.
 
 | Library | Version | Used for | Why this one |
 |---|---|---|---|
-| `tailscale.com/tsnet` | Pin at setup | Joining the tailnet from inside the daemon, and Funnel | The official way to embed Tailscale in a Go program |
+| `tailscale.com/tsnet` | v1.102.5 (`tailscale.com`) | Joining the tailnet from inside the daemon, and Funnel | The official way to embed Tailscale in a Go program. Wrapped by `internal/tailnet`, which is the only file that imports it, so the API layer reaches it through an interface and is tested with a fake node and no Tailscale anywhere. |
 | `github.com/zalando/go-keyring` | Pin at setup | OS keychain access | Works on macOS, Linux (Secret Service), and Windows |
 | `github.com/zricethezav/gitleaks/v8` | Pin at setup | Secret scanning on agent commits | Well-known rule set, usable as a library |
 
 **Notes:**
 
-- tsnet adds noticeably to binary size. Measure it in task 9.1 against the download budget.
+- tsnet adds noticeably to binary size. **Measured for task 9.1 on 2026-09-28** (macOS arm64, `CGO_ENABLED=0`, built by compiling `./cmd/marshald` with and without `internal/tailnet`): **+15,864,240 bytes (+15.13 MiB) stripped** with `-ldflags="-s -w"`, or +23,294,480 bytes (+22.22 MiB) unstripped. The whole daemon is 74,301,890 bytes (70.86 MiB) stripped with tsnet, against the download budget of "under 50 MB" in `architecture.md` section 14 - which the daemon already misses without tsnet, at 58,437,650 bytes (55.73 MiB). The budget is a release-build check and this is a bare Go build, so the real reading is the controller's to take, but both numbers are recorded rather than one. **cgo:** tailscale.com reaches `github.com/tailscale/certstore` on macOS and Windows for one feature Marshal does not use, and that store talks to the Keychain through C, which this Mac's Command Line Tools cannot link (`progress-tracker.md`, 2026-09-25). The daemon's no-cgo invariant is kept by a `replace` in `daemon/go.mod` pointing that module at `daemon/third_party/certstore`, a pure-Go stand-in that answers "not available"; without it `go build ./...` in `daemon/` fails at the link of `marshald`.
 - On Linux without a Secret Service (some headless servers), fall back to an encrypted file, and warn the user.
 
 ### 2.7 Preview and misc
