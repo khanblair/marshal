@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { currentTimeZone } from "~/data/time-zones";
 import { initialDraft, initialsOf, repoNameOf } from "./onboarding-draft";
 
 describe("initialsOf", () => {
@@ -34,9 +35,7 @@ describe("initialDraft", () => {
     expect(initialDraft()).toEqual({
       name: "",
       email: "",
-      tz: "Europe/London",
-      avatarChosen: false,
-      keys: { anthropic: "", openai: "", gemini: "" },
+      tz: currentTimeZone(),
       source: "sample",
       path: "",
       url: "",

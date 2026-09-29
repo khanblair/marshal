@@ -63,28 +63,10 @@ export const DEMO_COLUMNS: readonly DemoColumn[] = [
   },
 ];
 
-export const TIME_ZONES = [
-  "Europe/London",
-  "Europe/Lisbon",
-  "Africa/Lagos",
-  "America/New_York",
-  "America/Los_Angeles",
-  "Asia/Singapore",
-] as const;
-
 export const THEME_OPTIONS: readonly { value: Theme; label: string; icon: IconNameInput }[] = [
   { value: "light", label: "Light", icon: "sun" },
   { value: "dark", label: "Dark", icon: "moon" },
   { value: "system", label: "System", icon: "monitor" },
-];
-
-export type KeyId = "anthropic" | "openai" | "gemini";
-
-/** The provider id doubles as the id in `M.S.providers`. */
-export const KEY_FIELDS: readonly { id: KeyId; label: string }[] = [
-  { id: "anthropic", label: "Anthropic API key" },
-  { id: "openai", label: "OpenAI API key" },
-  { id: "gemini", label: "Gemini API key" },
 ];
 
 export type ProjectSource = "folder" | "github" | "sample";

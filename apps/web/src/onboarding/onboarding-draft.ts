@@ -1,17 +1,11 @@
-import {
-  type ChatAppId,
-  DEFAULT_PROJECT_SOURCE,
-  type KeyId,
-  type ProjectSource,
-} from "./onboarding-data";
+import { currentTimeZone } from "~/data/time-zones";
+import { type ChatAppId, DEFAULT_PROJECT_SOURCE, type ProjectSource } from "./onboarding-data";
 
 /** Everything typed or chosen on the five screens. It is only applied to the store on Continue. */
 export interface OnboardingDraft {
   name: string;
   email: string;
   tz: string;
-  avatarChosen: boolean;
-  keys: Record<KeyId, string>;
   source: ProjectSource;
   path: string;
   url: string;
@@ -22,9 +16,7 @@ export function initialDraft(): OnboardingDraft {
   return {
     name: "",
     email: "",
-    tz: "Europe/London",
-    avatarChosen: false,
-    keys: { anthropic: "", openai: "", gemini: "" },
+    tz: currentTimeZone(),
     source: DEFAULT_PROJECT_SOURCE,
     path: "",
     url: "",
@@ -43,9 +35,6 @@ export function initialsOf(name: string): string {
     .slice(0, MAX_INITIALS)
     .toUpperCase();
 }
-
-/** Keys of this many characters or fewer are treated as not entered. */
-export const SHORT_KEY_LENGTH = 8;
 
 /** The last part of a repository path or URL, without `.git`; empty when there is none. */
 export function repoNameOf(value: string): string {

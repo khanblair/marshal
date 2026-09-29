@@ -20,20 +20,23 @@ export function OnboardingFooter(props: OnboardingFooterProps) {
         </Button>
       </Show>
       <span class="flex-1" />
-      <Button
-        size={36}
-        variant="quiet"
-        class="px-3! hover:text-secondary!"
-        onClick={props.flow.skip}
-      >
-        Skip
-      </Button>
+      <Show when={props.flow.canSkip()}>
+        <Button
+          size={36}
+          variant="quiet"
+          class="px-3! hover:text-secondary!"
+          onClick={props.flow.skip}
+        >
+          Skip
+        </Button>
+      </Show>
       <Button
         ref={props.flow.setContinueButton}
         size={36}
         variant="primary"
         class="px-4!"
-        onClick={props.flow.next}
+        disabled={props.flow.saving()}
+        onClick={() => void props.flow.next()}
       >
         {props.flow.continueLabel()}
       </Button>

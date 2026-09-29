@@ -1,36 +1,11 @@
 import type { CreateProjectRequest } from "@marshal/protocol";
 import type { Marshal } from "~/mock";
-import { AGENTS_STEP, CONTROL_STEP, PROFILE_STEP, PROJECT_STEP } from "./onboarding-data";
+import { CONTROL_STEP, PROJECT_STEP } from "./onboarding-data";
 import type { OnboardingDraft } from "./onboarding-draft";
-import { repoNameOf, SHORT_KEY_LENGTH } from "./onboarding-draft";
+import { repoNameOf } from "./onboarding-draft";
 
 /** The part of the store a step writes to. */
-type Store = Pick<Marshal, "S" | "addProject" | "pairingOnDaemon" | "saveProviderKey" | "toast">;
-
-function commitProfile(m: Store, draft: OnboardingDraft): void {
-  const { profile } = m.S;
-  Object.assign(profile, {
-    name: draft.name.trim() || profile.name,
-    email: draft.email.trim(),
-    tz: draft.tz,
-  });
-}
-
-/**
- * Stores the keys typed on the agents step. Each one is saved on the daemon (section S28), which
- * checks it, writes it to the OS keychain, and masks it, so nothing is stored here and nothing is
- * masked here: the daemon's answer fills the store. A key is skipped when none was typed, and one
- * for a provider the daemon does not list is skipped too. A refusal is shown as its own sentence by
- * `optimistic`, and setup carries on.
- */
-function commitKeys(m: Store, draft: OnboardingDraft): void {
-  for (const [id, key] of Object.entries(draft.keys)) {
-    const value = key.trim();
-    if (value.length <= SHORT_KEY_LENGTH) continue;
-    if (!m.S.providers.some((provider) => provider.id === id)) continue;
-    void m.saveProviderKey(id, value);
-  }
-}
+type Store = Pick<Marshal, "S" | "addProject" | "pairingOnDaemon" | "toast">;
 
 /** Adds the first project on the daemon. A refusal shows as a toast and setup carries on. */
 async function addFirstProject(m: Store, request: CreateProjectRequest): Promise<void> {
@@ -71,8 +46,7 @@ function commitChatApps(m: Store, draft: OnboardingDraft): void {
 
 /** Applies what one screen collected to the store. Runs on Continue only, never on Skip or Back. */
 export function commitStep(step: number, draft: OnboardingDraft, m: Store): void {
-  if (step === PROFILE_STEP) commitProfile(m, draft);
-  else if (step === AGENTS_STEP) commitKeys(m, draft);
-  else if (step === PROJECT_STEP) commitProject(m, draft);
+  // The profile is saved by the flow itself, on the daemon, before this screen is left.
+  if (step === PROJECT_STEP) commitProject(m, draft);
   else if (step === CONTROL_STEP) commitChatApps(m, draft);
 }

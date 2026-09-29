@@ -66,7 +66,7 @@ export function Onboarding() {
             <WelcomeStep />
           </Match>
           <Match when={flow.step() === PROFILE_STEP}>
-            <ProfileStep {...shared} nameError={flow.nameError()} />
+            <ProfileStep {...shared} nameError={flow.nameError()} emailError={flow.emailError()} />
           </Match>
           <Match when={flow.step() === AGENTS_STEP}>
             <AgentsStep {...shared} />

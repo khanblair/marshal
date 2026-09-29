@@ -19,58 +19,11 @@ beforeEach(() => {
 });
 
 describe("commitStep on the profile screen", () => {
-  it("saves the trimmed name and email and the time zone", () => {
-    Object.assign(draft, {
-      name: "  Grace Hopper ",
-      email: " grace@navy.mil ",
-      tz: "Asia/Singapore",
-    });
+  it("leaves the profile alone: the flow saves it on the daemon before this screen is left", () => {
+    const before = { ...m.S.profile };
+    Object.assign(draft, { name: "Grace Hopper", email: "grace@navy.mil", tz: "Asia/Singapore" });
     commitStep(1, draft, m);
-    expect(m.S.profile).toMatchObject({
-      name: "Grace Hopper",
-      email: "grace@navy.mil",
-      tz: "Asia/Singapore",
-    });
-  });
-
-  it("keeps the current name when the field is blank", () => {
-    const before = m.S.profile.name;
-    draft.name = "   ";
-    commitStep(1, draft, m);
-    expect(m.S.profile.name).toBe(before);
-  });
-});
-
-describe("commitStep on the agents screen", () => {
-  // The keys go to the daemon (section S28), which stores them in the operating system's keychain
-  // and answers only their masked form, so this screen needs a daemon to save one at all.
-  let daemon: FakeDaemon;
-  let synced: Marshal;
-  beforeEach(async () => {
-    daemon = createFakeDaemon();
-    synced = await createSyncedMarshal(daemon);
-  });
-  afterEach(() => daemon.data.stop());
-
-  const provider = (id: string) => synced.S.providers.find((p) => p.id === id);
-
-  it("saves a key longer than eight characters on the daemon, masked by the daemon", async () => {
-    draft.keys.anthropic = "sk-ant-api03-abcdefgh1234";
-    commitStep(2, draft, synced);
-    await vi.waitFor(() =>
-      expect(provider("anthropic")).toMatchObject({ st: "saved", masked: "sk-ant-…1234" }),
-    );
-    expect(daemon.bodies("PUT /v1/providers/anthropic")).toEqual([
-      { key: "sk-ant-api03-abcdefgh1234" },
-    ]);
-  });
-
-  it("ignores a key of eight characters or fewer, and asks the daemon for nothing", async () => {
-    const before = provider("deepseek");
-    draft.keys.openai = "12345678";
-    commitStep(2, draft, synced);
-    expect(daemon.routes()).not.toContain("PUT /v1/providers/openai");
-    expect(provider("deepseek")).toEqual(before);
+    expect(m.S.profile).toMatchObject(before);
   });
 });
 
