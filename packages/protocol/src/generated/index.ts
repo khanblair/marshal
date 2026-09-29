@@ -742,6 +742,35 @@ export interface UpdateChatRequest {
 }
 
 //////////
+// source: chatbot.go
+
+/**
+ * SaveTelegramRequest is the body that saves a Telegram bot connection. The token is written to the
+ * keychain and never comes back from any route; the chat id is written to the connection's own row,
+ * because it is not a secret and a screen shows it so a person can check where notices go.
+ */
+export interface SaveTelegramRequest {
+  /** Token is the bot's token, the one BotFather hands out. */
+  token: string;
+  /**
+   * ChatID is the chat Marshal sends notices to: a numeric id, or a channel name such as
+   * "@my_channel".
+   */
+  chatId: string;
+}
+/**
+ * SaveDiscordRequest is the body that saves a Discord bot connection. The token is written to the
+ * keychain and never comes back from any route; the channel id is written to the connection's own
+ * row, for the same reason Telegram's chat id is.
+ */
+export interface SaveDiscordRequest {
+  /** Token is the bot's own token, from the Discord developer portal. */
+  token: string;
+  /** ChannelID is the channel Marshal sends notices to. */
+  channelId: string;
+}
+
+//////////
 // source: checkpoint.go
 
 /**
@@ -980,6 +1009,86 @@ export interface TestResult {
   ok: boolean;
   /** RanAt is when the test ran. */
   ranAt: Timestamp;
+}
+
+//////////
+// source: device.go
+
+/**
+ * Device is one paired client as the profile's paired-devices list shows it (B9.2, build-plan
+ * 9.2). It is the row the `devices` table already holds, minus the token hash: a token never
+ * leaves the call that made it.
+ */
+export interface Device {
+  /** ID is the device's opaque id. */
+  id: string;
+  /** Name is what the person called the device when it was paired. */
+  name: string;
+  /**
+   * Kind is what sort of client it is. A paired phone or tablet is `mobile`, a paired browser
+   * is `web`. The `cli` and `dev` kinds belong to the owner token and the dev token and are
+   * never created by pairing.
+   */
+  kind: DeviceKind;
+  /** PairedAt is when the device was given its token. */
+  pairedAt: Timestamp;
+  /** LastSeenAt is the last time the device called, or null when it has not called yet. */
+  lastSeenAt?: Timestamp | null;
+  /**
+   * Revoked is true for a device whose token no longer signs in. A revoked device is kept in
+   * the list so the screen can say it was removed rather than quietly dropping the row.
+   */
+  revoked: boolean;
+}
+/** DeviceList is the answer to GET /v1/devices. */
+export interface DeviceList {
+  /** Devices is every device of the person, oldest first, revoked ones included. */
+  devices: Device[];
+  /** ServerTime is the daemon's clock when the answer was made. */
+  serverTime: Timestamp;
+}
+/**
+ * PairingCode is the answer to POST /v1/devices/pairing-code: the short code the person types on
+ * the device being paired, and the moment it stops working. The code is shown on the device that
+ * already has access and is never sent to the device being paired except by the person reading it
+ * off the screen.
+ */
+export interface PairingCode {
+  /** Code is the short code, grouped for reading, such as "7QX-2LD". */
+  code: string;
+  /** ExpiresAt is when the code stops working. */
+  expiresAt: Timestamp;
+  /** ServerTime is the daemon's clock when the code was made. */
+  serverTime: Timestamp;
+}
+/**
+ * PairDeviceRequest is the body of POST /v1/devices/pair. It is the one route besides health and
+ * the webhooks that takes no token: a device being paired has no token yet, which is the whole
+ * point, so the short-lived code is what authorizes it.
+ */
+export interface PairDeviceRequest {
+  /** Code is the code read off the paired device's screen. */
+  code: string;
+  /** Name is what to call this device in the paired-devices list, such as "Blair's iPhone". */
+  name: string;
+  /**
+   * Kind is what sort of client it is: `mobile` or `web`. The `cli` and `dev` kinds cannot be
+   * paired, because they belong to tokens the daemon writes to disk itself.
+   */
+  kind: DeviceKind;
+}
+/**
+ * PairDeviceResponse is the answer to POST /v1/devices/pair: the token the new device stores and
+ * signs in with from then on, and the row it now owns. The token is sent once, in this answer, and
+ * the database keeps only its hash.
+ */
+export interface PairDeviceResponse {
+  /** Token is the device's token. It is never sent again. */
+  token: string;
+  /** Device is the row that was just made. */
+  device: Device;
+  /** ServerTime is the daemon's clock when the device was paired. */
+  serverTime: Timestamp;
 }
 
 //////////
@@ -2737,6 +2846,76 @@ export interface SaveGitHubRequest {
    */
   webhookSecret: string;
 }
+/**
+ * SaveTrelloRequest is the body of the call that saves the Trello connection (B8.2). It is the
+ * connection's own shape rather than GitHub's: Trello has no App, so what it needs is the API key
+ * and token that stand for the person, the board Marshal watches, and the two things a delivery
+ * needs to be believed - the webhook secret and the callback URL the delivery was signed for.
+ * The token and the webhook secret are written to the keychain and never come back from any route;
+ * the key, the board, and the callback URL are written to the connection's own row.
+ */
+export interface SaveTrelloRequest {
+  /** APIKey is the Trello API key, the public half of the credential. */
+  apiKey: string;
+  /**
+   * Token is the Trello token the key is used with. It is the secret half, and is the same one a
+   * person copies from Trello's own "generate a token" page.
+   */
+  token: string;
+  /**
+   * ProjectID is the Marshal project this board is linked to. One project links to one board
+   * (docs/marshal-product-scope.md section 19.2), so the sync is one board in and one project out,
+   * with no guessing about which card belongs where.
+   */
+  projectId: string;
+  /** BoardID is the board Marshal watches: the one cards are read from and written to. */
+  boardId: string;
+  /**
+   * NewCardListID is the board list a new Trello card is imported from: a card added there becomes
+   * a Marshal card in ProjectID. Empty means Trello never creates a Marshal card, which is the
+   * honest state of a connection that only reads.
+   */
+  newCardListId?: string;
+  /**
+   * WebhookSecret is what Trello signs a delivery to this connection with. It is the `secret`
+   * chosen when the webhook is made.
+   */
+  webhookSecret: string;
+  /**
+   * CallbackURL is the address the webhook was made for, exactly as it was registered with
+   * Trello. Trello signs a delivery over its body followed by this URL, so Marshal cannot check a
+   * signature without knowing it, and it cannot be guessed from the request.
+   */
+  callbackUrl: string;
+}
+/**
+ * SaveGoogleCalendarRequest is the body that saves the Google Calendar OAuth client (B8.3). This
+ * stores the client only; the token comes later, through the consent flow AuthorizeURL starts.
+ */
+export interface SaveGoogleCalendarRequest {
+  /** ClientID is the OAuth client's id, from the Google Cloud console. */
+  clientId: string;
+  /** ClientSecret is the OAuth client's secret. */
+  clientSecret: string;
+}
+/**
+ * AuthorizeURL is the answer to the call that starts a Google OAuth consent flow: the address a
+ * person opens in their own browser to grant Marshal read-only access.
+ */
+export interface AuthorizeURL {
+  url: string;
+}
+/**
+ * SaveGmailRequest is the body that saves the Gmail connection (B8.3): which label to watch, and
+ * which Marshal project a labeled email becomes a card in. It carries no client of its own -
+ * Gmail shares the OAuth client and the token Google Calendar's own consent already granted.
+ */
+export interface SaveGmailRequest {
+  /** Label is the Gmail label a person adds to an email to have Marshal turn it into a card. */
+  label: string;
+  /** ProjectID is the Marshal project a labeled email becomes a card in. */
+  projectId: string;
+}
 
 //////////
 // source: label.go
@@ -4198,6 +4377,90 @@ export interface SavedViewUpdatedEventData {
 }
 
 //////////
+// source: schedule.go
+
+/** Schedule is one scheduled item as the screens see it (apps/web/src/mock/settings-types.ts). */
+export interface Schedule {
+  id: string;
+  name: string;
+  kind: string; // "brief" | "job"
+  icon: string;
+  trigger: string; // "Cron" | "Interval" | "One-time" | "Event"
+  when: string;
+  time: string;
+  days: number /* int */[];
+  action: string;
+  project: string;
+  enabled: boolean;
+  missed: string;
+}
+/** ScheduleList is the response to GET /v1/schedules. */
+export interface ScheduleList {
+  schedules: Schedule[];
+  serverTime: Timestamp;
+}
+/**
+ * ScheduleRun is one firing of a schedule: when, whether the handler succeeded, and what it left
+ * behind - a brief's own composed text, for a brief (B8.5).
+ */
+export interface ScheduleRun {
+  id: string;
+  runAt: Timestamp;
+  status: string;
+  details?: string;
+}
+/** ScheduleRunList is the answer to GET /v1/schedules/{id}/runs, newest first. */
+export interface ScheduleRunList {
+  runs: ScheduleRun[];
+  serverTime: Timestamp;
+}
+/** SaveScheduleRequest is the body for POST/PUT /v1/schedules. */
+export interface SaveScheduleRequest {
+  id?: string;
+  project: string;
+  name: string;
+  kind: string;
+  icon: string;
+  trigger: string;
+  when: string;
+  time: string;
+  days: number /* int */[];
+  action: string;
+  enabled: boolean;
+  missed: string;
+}
+/**
+ * CalendarEvent is one Google Calendar item (coming up / calendar view). It is only ever populated
+ * once Google Calendar is connected (B8.3); GoogleConnected on the list that carries it says which.
+ * Start is the one field the daemon fills in; a cutover's mapper derives Time and DayOffset from
+ * it (the mock's own relative shape), since only the viewer's own clock knows what day is "today".
+ */
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  start: Timestamp;
+  time?: string;
+  days?: number /* int */[];
+  dayOffset?: number /* int */;
+}
+/**
+ * CalendarList is the answer to GET /v1/calendar: the one call N21 asks for so the calendar view
+ * and Home's coming-up list read everything on the calendar together, rather than three separate
+ * addresses. Schedules is every schedule, enabled or not - the same list GET /v1/schedules answers
+ * - not only the ones inside the asked-for range, because a schedule's own days and time, not a
+ * range, say which days it draws on; the screen already knows to skip a disabled one. DueCards is
+ * scoped to the range. GoogleConnected is false with an always-empty Events until B8.3 connects
+ * Google Calendar for real: never sample data.
+ */
+export interface CalendarList {
+  schedules: Schedule[];
+  dueCards: Card[];
+  events: CalendarEvent[];
+  googleConnected: boolean;
+  serverTime: Timestamp;
+}
+
+//////////
 // source: search.go
 
 /**
@@ -4752,6 +5015,79 @@ export interface SmellLinter {
   command: string[];
   /** Family is the smell family this linter's findings are filed under. */
   family: SmellFamily;
+}
+
+//////////
+// source: tailnet.go
+
+/**
+ * TailnetStatus is the answer to GET /v1/tailnet: what the daemon's own node on the person's
+ * tailnet is doing (B9.1, B9.2, build-plan task 9.9). It is the state the tailnet and Funnel
+ * status screens draw, and what the profile's Tailscale identity is filled from.
+ * State is one of four words, in the order a node goes through them:
+ *   - "off": the daemon was not started to join a tailnet, so it is reachable on this machine
+ *     only. This is the default.
+ *   - "signing-in": the node exists but nobody has signed it in yet. The daemon prints a login
+ *     address as LoginURL; until it is opened, the node is not on the tailnet.
+ *   - "online": the node is on the tailnet and the daemon serves on it.
+ *   - "error": joining failed. Error says what happened, in words a person can act on.
+ */
+export interface TailnetStatus {
+  /** Enabled is true when the daemon was started to join a tailnet. */
+  enabled: boolean;
+  /** State is "off", "signing-in", "online", or "error". */
+  state: string;
+  /** Hostname is the node's name on the tailnet. */
+  hostname: string;
+  /**
+   * DNSName is the node's full MagicDNS name, such as "marshal.tailnet-name.ts.net". Empty
+   * until the node is online.
+   */
+  dnsName: string;
+  /** IPs are the node's tailnet addresses, IPv4 first. Empty until the node is online. */
+  ips: string[];
+  /**
+   * Identity is the Tailscale account this machine is signed in as, such as
+   * "blair@example.com". Empty until the node is online.
+   */
+  identity: string;
+  /**
+   * LoginURL is the address a person opens to sign this node in, while State is "signing-in".
+   * Empty at every other time.
+   */
+  loginUrl: string;
+  /**
+   * Funnel is true when the daemon was started to expose /hooks/* through Funnel. It says what
+   * was asked for, not what Tailscale has allowed: Funnel also has to be turned on for the
+   * tailnet, in the Tailscale admin console.
+   */
+  funnel: boolean;
+  /** Error is what went wrong, while State is "error". Empty at every other time. */
+  error: string;
+  /** ServerTime is the daemon's clock when the answer was made. */
+  serverTime: Timestamp;
+}
+/**
+ * TailnetPeer is one other machine on the tailnet and whether it is a Marshal daemon (B9.5).
+ * The Marshal field is why this type exists: Tailscale lists every machine on the network, and
+ * only Marshal's own health answer separates the daemons worth talking to from the rest. Address
+ * is the base URL another daemon would be reached at.
+ */
+export interface TailnetPeer {
+  host: string;
+  address: string;
+  os?: string;
+  online: boolean;
+  marshal: boolean;
+}
+/**
+ * TailnetPeerList is GET /v1/tailnet/peers (B9.5): every other machine on the tailnet, newest
+ * answers only - the list is read rather than kept, so there is nothing here but the machines.
+ */
+export interface TailnetPeerList {
+  peers: TailnetPeer[];
+  /** ServerTime is the daemon's clock when the answer was made. */
+  serverTime: Timestamp;
 }
 
 //////////

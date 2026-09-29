@@ -1,0 +1,20 @@
+{
+  "id": "01H1234567890ABCDEFGHJKMNP",
+  "name": "Morning brief",
+  "kind": "brief",
+  "icon": "sun",
+  "trigger": "Cron",
+  "when": "Every weekday at 09:00",
+  "time": "09:00",
+  "days": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "action": "morning_brief",
+  "project": "small-repo",
+  "enabled": true,
+  "missed": "run_now"
+}

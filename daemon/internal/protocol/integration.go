@@ -98,3 +98,60 @@ type SaveGitHubRequest struct {
 	// against it before its body is read (B6.1).
 	WebhookSecret string `json:"webhookSecret"`
 }
+
+// SaveTrelloRequest is the body of the call that saves the Trello connection (B8.2). It is the
+// connection's own shape rather than GitHub's: Trello has no App, so what it needs is the API key
+// and token that stand for the person, the board Marshal watches, and the two things a delivery
+// needs to be believed - the webhook secret and the callback URL the delivery was signed for.
+//
+// The token and the webhook secret are written to the keychain and never come back from any route;
+// the key, the board, and the callback URL are written to the connection's own row.
+type SaveTrelloRequest struct {
+	// APIKey is the Trello API key, the public half of the credential.
+	APIKey string `json:"apiKey"`
+	// Token is the Trello token the key is used with. It is the secret half, and is the same one a
+	// person copies from Trello's own "generate a token" page.
+	Token string `json:"token"`
+	// ProjectID is the Marshal project this board is linked to. One project links to one board
+	// (docs/marshal-product-scope.md section 19.2), so the sync is one board in and one project out,
+	// with no guessing about which card belongs where.
+	ProjectID string `json:"projectId"`
+	// BoardID is the board Marshal watches: the one cards are read from and written to.
+	BoardID string `json:"boardId"`
+	// NewCardListID is the board list a new Trello card is imported from: a card added there becomes
+	// a Marshal card in ProjectID. Empty means Trello never creates a Marshal card, which is the
+	// honest state of a connection that only reads.
+	NewCardListID string `json:"newCardListId,omitempty"`
+	// WebhookSecret is what Trello signs a delivery to this connection with. It is the `secret`
+	// chosen when the webhook is made.
+	WebhookSecret string `json:"webhookSecret"`
+	// CallbackURL is the address the webhook was made for, exactly as it was registered with
+	// Trello. Trello signs a delivery over its body followed by this URL, so Marshal cannot check a
+	// signature without knowing it, and it cannot be guessed from the request.
+	CallbackURL string `json:"callbackUrl"`
+}
+
+// SaveGoogleCalendarRequest is the body that saves the Google Calendar OAuth client (B8.3). This
+// stores the client only; the token comes later, through the consent flow AuthorizeURL starts.
+type SaveGoogleCalendarRequest struct {
+	// ClientID is the OAuth client's id, from the Google Cloud console.
+	ClientID string `json:"clientId"`
+	// ClientSecret is the OAuth client's secret.
+	ClientSecret string `json:"clientSecret"`
+}
+
+// AuthorizeURL is the answer to the call that starts a Google OAuth consent flow: the address a
+// person opens in their own browser to grant Marshal read-only access.
+type AuthorizeURL struct {
+	URL string `json:"url"`
+}
+
+// SaveGmailRequest is the body that saves the Gmail connection (B8.3): which label to watch, and
+// which Marshal project a labeled email becomes a card in. It carries no client of its own -
+// Gmail shares the OAuth client and the token Google Calendar's own consent already granted.
+type SaveGmailRequest struct {
+	// Label is the Gmail label a person adds to an email to have Marshal turn it into a card.
+	Label string `json:"label"`
+	// ProjectID is the Marshal project a labeled email becomes a card in.
+	ProjectID string `json:"projectId"`
+}

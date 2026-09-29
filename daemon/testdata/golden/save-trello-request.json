@@ -1,0 +1,9 @@
+{
+  "apiKey": "a-synthetic-trello-key",
+  "token": "a-synthetic-trello-token",
+  "projectId": "small-repo",
+  "boardId": "5abbe4b7ddc1b351ef961414",
+  "newCardListId": "5abbe4b7ddc1b351ef961420",
+  "webhookSecret": "a-synthetic-trello-webhook-secret",
+  "callbackUrl": "https://marshal.local/hooks/trello"
+}

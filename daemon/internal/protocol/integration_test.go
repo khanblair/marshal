@@ -108,3 +108,18 @@ func TestSaveGitHubRequestGolden(t *testing.T) {
 		WebhookSecret:  "a-synthetic-webhook-secret",
 	})
 }
+
+// A Trello save has the connection's own shape rather than GitHub's: the public key, the board, and
+// the two things a delivery needs to be believed. The token and the webhook secret go to the
+// keychain and never come back from a route; the key, the board, and the callback URL are the row.
+func TestSaveTrelloRequestGolden(t *testing.T) {
+	testutil.Golden(t, "save-trello-request", protocol.SaveTrelloRequest{
+		APIKey:        "a-synthetic-trello-key",
+		Token:         "a-synthetic-trello-token",
+		ProjectID:     "small-repo",
+		BoardID:       "5abbe4b7ddc1b351ef961414",
+		NewCardListID: "5abbe4b7ddc1b351ef961420",
+		WebhookSecret: "a-synthetic-trello-webhook-secret",
+		CallbackURL:   "https://marshal.local/hooks/trello",
+	})
+}

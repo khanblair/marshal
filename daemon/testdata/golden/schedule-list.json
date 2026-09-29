@@ -1,0 +1,45 @@
+{
+  "schedules": [
+    {
+      "id": "01H1234567890ABCDEFGHJKMNP",
+      "name": "Morning brief",
+      "kind": "brief",
+      "icon": "sun",
+      "trigger": "Cron",
+      "when": "Every weekday at 09:00",
+      "time": "09:00",
+      "days": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "action": "morning_brief",
+      "project": "small-repo",
+      "enabled": true,
+      "missed": "run_now"
+    },
+    {
+      "id": "01H1234567890ABCDEFGHJKMNPQ",
+      "name": "Evening brief",
+      "kind": "brief",
+      "icon": "sunset",
+      "trigger": "Cron",
+      "when": "Every weekday at 18:00",
+      "time": "18:00",
+      "days": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "action": "Send the brief to the app and Obsidian",
+      "project": "All projects",
+      "enabled": true,
+      "missed": "Skip"
+    }
+  ],
+  "serverTime": "2026-09-28T12:00:00.000Z"
+}
