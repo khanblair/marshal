@@ -1,5 +1,6 @@
 import { isDaemon } from "~/data/sections";
 import { startSync } from "~/sync";
+import * as agentWrites from "~/sync/agent-actions";
 import * as alertWrites from "~/sync/alerts";
 import * as cardWrites from "~/sync/card-actions";
 import * as cardHold from "~/sync/card-hold";
@@ -12,6 +13,7 @@ import * as ciWrites from "~/sync/ci-actions";
 import * as connection from "~/sync/connection-actions";
 import * as devices from "~/sync/devices";
 import { loadCardDiff, loadFileHunks } from "~/sync/diff";
+import { browseFolders } from "~/sync/folder-actions";
 import { homeActivityPage } from "~/sync/home-feed";
 import * as integrationWrites from "~/sync/integration-actions";
 import * as integrations from "~/sync/integrations";
@@ -222,6 +224,9 @@ function appActions(ctx: Ctx) {
     // form ever comes back, and the test runs in the daemon, so there is no mock behaviour to fall
     // back to. A store with no data layer answers "not connected" the way every other daemon
     // action does.
+    browseFolders,
+    scanAgents: agentWrites.scanAgents,
+    testAgent: agentWrites.testAgent,
     saveProviderKey: providerWrites.saveProviderKey,
     testProviderKey: providerWrites.testProviderKey,
     // The connections (S29a for GitHub) are the daemon's once their section is switched: the

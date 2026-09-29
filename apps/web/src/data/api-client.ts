@@ -247,7 +247,10 @@ function routeMethods({ request, command, bytes }: Transport): Omit<ApiClient, "
     // Every project's CI health in one answer (section S21, B6.2 to B6.4).
     ciSnapshot: (o) => request("GET", "/v1/ci", o),
     agents: (o) => request("GET", "/v1/agents", o),
-    refreshAgents: (o) => request("POST", "/v1/agents/refresh", o),
+    refreshAgents: (o) => request("POST", "/v1/agents/refresh", slow(o)),
+    folders: (path, o) =>
+      request("GET", `/v1/folders${path ? `?${new URLSearchParams({ path })}` : ""}`, o),
+    testAgent: (aid, o) => request("POST", `/v1/agents/${id(aid)}/test`, slow(o)),
     listChats: (pid, archived, o) =>
       request("GET", `/v1/projects/${id(pid)}/chats${archived ? "?archived=true" : ""}`, o),
     createChat: (pid, body, o) => request("POST", `/v1/projects/${id(pid)}/chats`, { ...o, body }),

@@ -1,5 +1,6 @@
 import type {
   ActivityItem,
+  FolderListing,
   AddCardCheckRequest,
   AddChecklistItemRequest,
   AgentCatalog,
@@ -421,6 +422,10 @@ export interface ApiClient {
    * already in changes nothing. A refusal carries the daemon's own sentence and a stable reason. */
   setCardView(id: string, body: SetViewRequest, options?: CallOptions): Promise<CardView>;
   agents(options?: CallOptions): Promise<AgentCatalog>;
+  /** The folders inside one folder of the daemon's computer, home when no path is given. For picking a repository. */
+  folders(path?: string, options?: CallOptions): Promise<FolderListing>;
+  /** Looks at one agent program again, by its kind or tool id, and says what it found. It sends no prompt. */
+  testAgent(id: string, options?: CallOptions): Promise<TestResult>;
   refreshAgents(options?: CallOptions): Promise<AgentCatalog>;
   /** A project's chats. `archived` asks for the archived ones instead of the live ones. */
   listChats(

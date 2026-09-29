@@ -1,4 +1,4 @@
-import type { Agent, Preview } from "@marshal/protocol";
+import type { Agent, AgentTool, Preview } from "@marshal/protocol";
 import type { ConnectionState } from "~/data/connection-machine";
 import type { CheckpointRow } from "~/data/mappers/checkpoints";
 import type { NoteInfo } from "~/data/mappers/notes";
@@ -63,6 +63,8 @@ export interface State {
   projects: Project[];
   /** The daemon's agent catalog, as mirrored by `sync/agents.ts`. The built-in agent is added by `mock/agents.ts`. */
   agents: Agent[];
+  /** Other agent programs the daemon found that Marshal cannot start yet, as mirrored by `sync/agents.ts`. */
+  agentTools: AgentTool[];
   cards: Card[];
   chat: Record<CardKey, Msg[]>;
   act: Record<CardKey, Activity[]>;

@@ -20,8 +20,12 @@ export function wireAgent(fields: Partial<Agent> & { kind: Agent["kind"] }): Age
 }
 
 /** A catalog answer with these agents, in this order. */
-export const wireCatalog = (agents: readonly Agent[]): AgentCatalog => ({
+export const wireCatalog = (
+  agents: readonly Agent[],
+  tools: AgentCatalog["tools"] = [],
+): AgentCatalog => ({
   agents: [...agents],
+  tools: [...tools],
   serverTime: GOLDEN_CATALOG.serverTime,
 });
 

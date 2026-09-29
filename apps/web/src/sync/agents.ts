@@ -11,8 +11,10 @@ const sameAgents = (a: readonly Agent[], b: readonly Agent[]): boolean =>
  * applying the same catalog twice (a snapshot and a `Resync` both do) redraws nothing.
  */
 export function applyAgentCatalog(ctx: Ctx, catalog: AgentCatalog): void {
-  if (sameAgents(ctx.S.agents, catalog.agents)) return;
-  ctx.S.agents = structuredClone(catalog.agents);
+  if (!sameAgents(ctx.S.agents, catalog.agents)) ctx.S.agents = structuredClone(catalog.agents);
+  if (JSON.stringify(ctx.S.agentTools) !== JSON.stringify(catalog.tools)) {
+    ctx.S.agentTools = structuredClone(catalog.tools);
+  }
 }
 
 /** Section S4: the agent catalog, loaded on connect and on every return, with no events of its own. */

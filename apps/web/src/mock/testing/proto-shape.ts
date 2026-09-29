@@ -66,7 +66,8 @@ function scheduleFields(schedule: Json): Json {
 /**
  * The whole state without what the port keeps beyond the prototype's fields:
  *
- * - `agents`, the daemon's catalog (the prototype's fixed table is in `M.AGENTS`), and `stats`, the
+ * - `agents`, the daemon's catalog (the prototype's fixed table is in `M.AGENTS`), `agentTools`, the
+ *   other agent programs it found, and `stats`, the
  *   stored Home numbers (`sync/home-stats.ts`).
  * - `checkpoints`, a card's restore points, which the port keeps in the store (Phase 5, B5.3) and
  *   fills from the daemon's own activity. The prototype keeps no such state: its `CardDetail.dc.html`
@@ -79,7 +80,13 @@ function scheduleFields(schedule: Json): Json {
  */
 function withoutPortOnly(value: unknown): unknown {
   if (!isObject(value) || !Array.isArray(value.cards) || !("agents" in value)) return value;
-  const { agents: _daemon, stats: _numbers, checkpoints: _restorePoints, ...rest } = value;
+  const {
+    agents: _daemon,
+    agentTools: _tools,
+    stats: _numbers,
+    checkpoints: _restorePoints,
+    ...rest
+  } = value;
   const sleep = rest.sleep;
   const shown = isObject(sleep) ? { ...rest, sleep: sleepFields(sleep) } : rest;
   return Array.isArray(shown.integrations)

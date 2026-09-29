@@ -146,6 +146,9 @@ const API = [
   "rolesOnDaemon",
   "runChecks",
   "openAttachment",
+  "scanAgents",
+  "testAgent",
+  "browseFolders",
   "saveCardNote",
   "saveLimits",
   "savePlan",
@@ -290,6 +293,11 @@ describe("index.ts boot", () => {
       "saveAlertChannels",
       // Opening a file the daemon keeps with a comment (S16): the prototype has no kept files.
       "openAttachment",
+      // Looking for agent programs again and testing one (S4): the prototype had a fixed list.
+      "scanAgents",
+      "testAgent",
+      // Browsing the daemon's folders to pick a repository: the prototype had a typed path only.
+      "browseFolders",
       "chooseAvatar",
       "endTour",
       "setOnboardingStep",

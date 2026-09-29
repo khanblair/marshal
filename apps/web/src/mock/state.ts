@@ -129,6 +129,7 @@ export function initialState(seed: Seed, opts: StateOptions): State {
     projects: [],
     // Agents come from the daemon too (`sync/agents.ts`).
     agents: [],
+    agentTools: [],
     ...projectState(),
     // The prototype's saved views are its own: on the daemon they are the daemon's, and the client's
     // own "All cards" (`ensureProjectState`) is all a project has until they are loaded.

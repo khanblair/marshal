@@ -489,6 +489,73 @@ function answerAlertsOrPanel(router: Router, request: FakeRequest): Response | u
   );
 }
 
+/** The folders of a small pretend disk: the home folder, a code folder with one repository, and a notes folder. */
+const FAKE_HOME = "/Users/ada";
+const FAKE_DISK: Record<string, { name: string; repo?: boolean }[]> = {
+  [FAKE_HOME]: [{ name: "code" }, { name: "notes" }],
+  [`${FAKE_HOME}/code`]: [{ name: "marshal", repo: true }, { name: "scratch" }],
+  [`${FAKE_HOME}/code/marshal`]: [{ name: "apps" }],
+};
+
+function answerFolders(router: Router, request: FakeRequest): Response {
+  const asked = new URL(request.url, "http://fake-daemon").searchParams.get("path") ?? "";
+  const path = asked === "" || asked === "~" ? FAKE_HOME : asked;
+  const inside = FAKE_DISK[path];
+  if (!inside && !Object.keys(FAKE_DISK).some((known) => known.startsWith(`${path}/`))) {
+    return refuse(
+      STATUS.notFound,
+      "not_found",
+      "Marshal cannot find that folder. It may have been removed.",
+    );
+  }
+  const parent = path === "/" ? "" : path.slice(0, path.lastIndexOf("/")) || "/";
+  return jsonAnswer({
+    path,
+    parent,
+    home: FAKE_HOME,
+    isGitRepo: path === `${FAKE_HOME}/code/marshal`,
+    folders: (inside ?? []).map((entry) => ({
+      name: entry.name,
+      path: `${path}/${entry.name}`,
+      isGitRepo: entry.repo === true,
+    })),
+    truncated: false,
+    serverTime: router.now(),
+  });
+}
+
+/** The agent catalog, a scan of it, and the test of one agent. */
+function answerAgentRoute(router: Router, request: FakeRequest, key: string): Response | undefined {
+  if (request.method === "GET" && pathOf(request.url) === "/v1/folders") {
+    return answerFolders(router, request);
+  }
+  const tested = /^\/v1\/agents\/([^/]+)\/test$/.exec(pathOf(request.url))?.[1];
+  if (request.method === "POST" && tested) return answerAgentTest(router, tested);
+  if (key === "GET /v1/agents" || key === "POST /v1/agents/refresh") {
+    return jsonAnswer({ ...router.catalog, serverTime: router.now() });
+  }
+  return undefined;
+}
+
+/** A test of one agent: a pass for an agent or tool the catalog lists, and not found for any other. */
+function answerAgentTest(router: Router, id: string): Response {
+  const known =
+    router.catalog.agents.some((agent) => agent.kind === id) ||
+    router.catalog.tools.some((tool) => tool.id === id);
+  if (!known)
+    return refuse(
+      STATUS.notFound,
+      "not_found",
+      "Marshal cannot find that agent. It may have been removed.",
+    );
+  return jsonAnswer({
+    connectionId: id,
+    ok: true,
+    checks: [{ name: "Installed", state: "passed", message: "It is on this computer." }],
+    ranAt: router.now(),
+  });
+}
+
 /** The routes of the settings screens and a card's panel, tried in turn until one answers. */
 function answerSettingsRoutes(
   router: Router,
@@ -533,9 +600,8 @@ function answer(router: Router, request: FakeRequest): Response {
   if (key === "POST /v1/projects") return createProject(router.state, request);
   if (request.method === "PATCH" && id) return updateProject(router.state, id, request);
   if (request.method === "DELETE" && id) return removeProject(router.state, id);
-  if (key === "GET /v1/agents" || key === "POST /v1/agents/refresh") {
-    return jsonAnswer({ ...router.catalog, serverTime: router.now() });
-  }
+  const agentAnswer = answerAgentRoute(router, request, key);
+  if (agentAnswer) return agentAnswer;
   const settings = answerSettingsRoutes(router, request, projectExists);
   if (settings) return settings;
   const schedule = answerScheduleRoute(router.schedules, request);
