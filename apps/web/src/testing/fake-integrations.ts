@@ -28,6 +28,7 @@ const DEFAULT_COOLDOWN_MS = 5000;
 const MS_PER_SECOND = 1000;
 const GITHUB = "github";
 const OBSIDIAN = "obsidian";
+const NTFY = "ntfy";
 const SAVE_PATH = /^\/v1\/integrations\/([^/]+)$/;
 const TEST_PATH = /^\/v1\/integrations\/([^/]+)\/test$/;
 const LIST_PATH = "/v1/integrations";
@@ -59,6 +60,7 @@ const KNOWN: readonly { id: string; kind: string }[] = [
   { id: "gmail", kind: "gmail" },
   { id: "telegram", kind: "telegram" },
   { id: "discord", kind: "discord" },
+  { id: "ntfy", kind: "ntfy" },
   { id: "obsidian", kind: "obsidian" },
 ];
 
@@ -209,13 +211,13 @@ function detailFor(row: Integration, last: TestResult | undefined): string {
 }
 
 function saveConnection(store: IntegrationStore, id: string, request: FakeRequest): Response {
-  // Only the GitHub App has a save shape today, and an id with no save shape is refused rather than
+  // Only the GitHub App and ntfy have a save shape here, and an id with none is refused rather than
   // silently accepted, exactly as the daemon's `saveIntegration` refuses it.
-  if (id !== GITHUB) return notFound();
+  if (id !== GITHUB && id !== NTFY) return notFound();
   const row = find(store, id);
   if (!row) return notFound();
   const body = bodyOf(request);
-  const refusal = store.refuseSave(id, body);
+  const refusal = id === NTFY ? ntfyRefusal(body) : store.refuseSave(id, body);
   if (refusal) return errorAnswer(STATUS.badRequest, "invalid_argument", refusal);
   row.st = "connected";
   // The daemon tests a connection that has just changed, and does so without the cooldown
@@ -304,7 +306,27 @@ function obsidianChecks(_row: Integration): TestCheck[] {
 
 /** Which connection's checks to run, by id, so testing one connection never answers another's shape. */
 function defaultChecksFor(row: Integration): TestCheck[] {
+  if (row.id === NTFY) return ntfyChecks();
   return row.id === OBSIDIAN ? obsidianChecks(row) : githubChecks(row);
+}
+
+/** ntfy needs only a topic: an open topic on a public server has no token. */
+function ntfyRefusal(body: Record<string, unknown>): string | undefined {
+  const topic = typeof body.topic === "string" ? body.topic.trim() : "";
+  return topic ? undefined : "Choose the ntfy topic Marshal should send notices to.";
+}
+
+/** The ntfy test's own checks, as `daemon/internal/chatbot/ntfy.go` asks them. */
+function ntfyChecks(): TestCheck[] {
+  const message = "Marshal sent a test message to the topic.";
+  return [
+    {
+      name: SUMMARY,
+      state: "passed",
+      message: "ntfy is set up and Marshal can send notices to it.",
+    },
+    { name: "Topic", state: "passed", message },
+  ];
 }
 
 /** The App's four values must all be there: the key alone, or the secret alone, is no connection. */

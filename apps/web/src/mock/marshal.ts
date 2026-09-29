@@ -26,6 +26,7 @@ import { roleNames } from "~/sync/roles";
 import * as savedViews from "~/sync/saved-views";
 import * as scheduleWrites from "~/sync/schedule-actions";
 import { createPaletteSearch } from "~/sync/search";
+import * as alertWrites from "~/sync/alerts";
 import * as sleepWrites from "~/sync/sleep-actions";
 import * as approvals from "./actions/approvals";
 import * as cardCreate from "./actions/card-create";
@@ -119,6 +120,11 @@ function queries(ctx: Ctx) {
     // notice's buttons and the Sessions panel of Settings then go through the daemon.
     noticesOnDaemon: (c: Ctx) => isDaemon("S23", sectionsOf(c.env)),
     sleepOnDaemon: (c: Ctx) => isDaemon("S26a", sectionsOf(c.env)),
+    // True while onboarding's pairing and alert-apps step (S31b) is the daemon's: it makes a real
+    // pairing code and saves real connections. It needs a daemon that answers, so a store with none,
+    // or one that is not online, shows the design's own picture of the step.
+    pairingOnDaemon: (c: Ctx) =>
+      isDaemon("S31b", sectionsOf(c.env)) && c.S.connection?.state === "online",
     // True while "Simulate CI failure" is the daemon's for this card (N28, B6.4): the card is the
     // daemon's own and that daemon runs in dev mode, which is the only mode that has the routes. The
     // card menu reads it to decide which items to draw, so the rule lives beside the action that
@@ -225,6 +231,7 @@ function appActions(ctx: Ctx) {
     connectGoogleCalendar: integrationWrites.connectGoogleCalendar,
     connectGmail: integrationWrites.connectGmail,
     connectTelegram: integrationWrites.connectTelegram,
+    connectNtfy: integrationWrites.connectNtfy,
     connectDiscord: integrationWrites.connectDiscord,
     // The paired devices (S2b): the list is the daemon's once its section is switched, and the
     // pairing code and a revoke are its own calls - the prototype's hardcoded code is gone.
@@ -259,11 +266,14 @@ function appActions(ctx: Ctx) {
     // The sleep settings (S26a) are the daemon's once the section is switched. The mock's own write
     // stays in the screen's `sleep-actions.ts`, which picks this or that by `sleepOnDaemon`.
     saveSleepSettings: sleepWrites.saveSleepSettings,
+    alerts: alertWrites.currentAlerts,
+    saveAlertChannels: alertWrites.saveAlertChannels,
     addProject: projects.addProject,
     renameProject: projects.renameProject,
     saveProject: projects.saveProject,
     removeProject: projects.removeProject,
     signIn: connection.signIn,
+    pairWithCode: connection.pairWithCode,
     reconnect: connection.reconnect,
   });
 }

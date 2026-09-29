@@ -23,6 +23,8 @@ const CARD_MAPS = ["chat", "act", "checks", "notes", "preview"] as const;
 const DAEMON_PROJECT_FIELDS = ["branch", "dev", "lockBypass"] as const;
 /** A schedule's own project id, which round-trips a save to the daemon; the prototype has no such
  * field, since it never saves a schedule anywhere. */
+/** Connections the port lists that the prototype never drew, so its seed has no row for them. */
+const PORT_ONLY_INTEGRATIONS = ["ntfy"];
 const DAEMON_SCHEDULE_FIELDS = ["projectId"] as const;
 /** Fake pull request number of a card moved to review by hand: this plus the card number. */
 const FAKE_PR_BASE = 300;
@@ -79,7 +81,15 @@ function withoutPortOnly(value: unknown): unknown {
   if (!isObject(value) || !Array.isArray(value.cards) || !("agents" in value)) return value;
   const { agents: _daemon, stats: _numbers, checkpoints: _restorePoints, ...rest } = value;
   const sleep = rest.sleep;
-  return isObject(sleep) ? { ...rest, sleep: sleepFields(sleep) } : rest;
+  const shown = isObject(sleep) ? { ...rest, sleep: sleepFields(sleep) } : rest;
+  return Array.isArray(shown.integrations)
+    ? {
+        ...shown,
+        integrations: shown.integrations.filter(
+          (row) => !PORT_ONLY_INTEGRATIONS.includes(isObject(row) ? String(row.id) : ""),
+        ),
+      }
+    : shown;
 }
 
 /** A sleep settings object without the port-only `keepAwake` length. */

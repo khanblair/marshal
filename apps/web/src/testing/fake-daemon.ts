@@ -25,6 +25,7 @@ import type {
   Project,
   ProjectCI,
   Provider,
+  AlertSettings,
   Role,
   SavedView,
   Schedule,
@@ -41,6 +42,7 @@ import { type FakeSockets, fakeSockets } from "~/data/testing/fake-web-socket";
 import { golden } from "~/data/testing/golden";
 import { type MemoryStorage, memoryStorage } from "~/data/testing/memory-storage";
 import { TOKEN_KEY } from "~/data/token";
+import { answerAlertsRoute, type AlertsStore, createAlertsStore } from "./fake-alerts";
 import { answerCardRoute, type CardStore, type FakeCardDiff, type HistoryRow } from "./fake-cards";
 import { answerChatRoute, type ChatMessageRow, type ChatStore } from "./fake-chats";
 import { answerCIRoute, type CIStore, createCIStore } from "./fake-ci";
@@ -141,6 +143,8 @@ export interface FakeDaemonOptions {
   sleep?: SleepSettings;
   /** The schedules it starts with (section S30). The golden `schedule-list` by default. */
   schedules?: readonly Schedule[];
+  /** The alert settings it starts with (section S26c). The golden `alert-settings` by default. */
+  alerts?: AlertSettings;
   /** The projects that have CI data (section S21). None by default, so each reads as not connected. */
   ci?: readonly ProjectCI[];
   /** A card's preview it starts with (section S13), one per card. None by default: all stopped. */
@@ -199,6 +203,8 @@ export interface FakeDaemon {
   sleep: SleepStore;
   /** The schedules it holds now (section S30). */
   schedules: ScheduleStore;
+  /** The alert settings it holds now (section S26c). */
+  alerts: AlertsStore;
   /** Every project's CI health it holds now (section S21). A test seeds it and reads it back. */
   ci: CIStore;
   /** Every card's preview it holds now (section S13), by the daemon's own card id. */
@@ -384,6 +390,7 @@ interface Router {
   notices: NoticesStore;
   sleep: SleepStore;
   schedules: ScheduleStore;
+  alerts: AlertsStore;
   ci: CIStore;
   previews: PreviewStore;
 }
@@ -395,6 +402,9 @@ interface Router {
  * removed instead of watching it vanish, and the status answers "off", which is what a daemon that
  * was never started with `--tailnet` truthfully is.
  */
+/** The one pairing code the fake daemon makes and accepts. */
+export const FAKE_PAIRING_CODE = "7QX-2LD";
+
 const FAKE_DEVICES = [
   {
     id: "01H1234567890ABCDEFGHJKMNPQ",
@@ -421,7 +431,7 @@ function answerDeviceRoute(router: Router, request: FakeRequest): Response | nul
   }
   if (key === "POST /v1/me/devices/pairing-code") {
     return jsonAnswer({
-      code: "7QX-2LD",
+      code: FAKE_PAIRING_CODE,
       expiresAt: "2026-09-28T10:00:00.000Z",
       serverTime: router.now(),
     });
@@ -446,6 +456,28 @@ function answerDeviceRoute(router: Router, request: FakeRequest): Response | nul
   return null;
 }
 
+/**
+ * The route that trades a pairing code for a token, which takes no token of its own. The one code
+ * the fake makes is accepted and answers the daemon's own token, so a device that pairs is signed in;
+ * any other is refused with the daemon's own 401, the same for a wrong, spent, or expired code.
+ */
+function answerPairRoute(router: Router, request: FakeRequest): Response {
+  const body = bodyOf(request);
+  if (body.code !== FAKE_PAIRING_CODE) {
+    return refuse(
+      STATUS.unauthorized,
+      "unauthorized",
+      "Sign in again. This device's token is missing or no longer valid.",
+    );
+  }
+  const device = {
+    ...FAKE_DEVICES[0],
+    name: String(body.name ?? ""),
+    kind: String(body.kind ?? ""),
+  };
+  return jsonAnswer({ token: router.token(), device, serverTime: router.now() });
+}
+
 /** Answers one request the way the real daemon's router does, including who may ask. */
 function answer(router: Router, request: FakeRequest): Response {
   const key = keyOf(request);
@@ -454,6 +486,7 @@ function answer(router: Router, request: FakeRequest): Response {
   if (key === "GET /v1/health") {
     return jsonAnswer({ ...golden<Health>("health"), serverTime: router.now() });
   }
+  if (key === "POST /v1/devices/pair") return answerPairRoute(router, request);
   if (request.headers.authorization !== `Bearer ${router.token()}`) {
     return refuse(
       STATUS.unauthorized,
@@ -487,6 +520,8 @@ function answer(router: Router, request: FakeRequest): Response {
   if (notices) return notices;
   const sleep = answerSleepRoute(router.sleep, request);
   if (sleep) return sleep;
+  const alerts = answerAlertsRoute(router.alerts, request);
+  if (alerts) return alerts;
   const schedule = answerScheduleRoute(router.schedules, request);
   if (schedule) return schedule;
   const calendar = answerCalendarRoute(router.schedules, request);
@@ -657,6 +692,7 @@ interface Slices {
   notices: NoticesStore;
   sleep: SleepStore;
   schedules: ScheduleStore;
+  alerts: AlertsStore;
   ci: CIStore;
   previews: PreviewStore;
 }
@@ -708,6 +744,7 @@ function createSlices(
     notices: createNoticesStore({ notices: options.notices, publish: emit, now }),
     sleep: createSleepStore({ settings: options.sleep }),
     schedules: createScheduleStore({ schedules: options.schedules, now }),
+    alerts: createAlertsStore({ settings: options.alerts }),
     ci: createCIStore({ projects: options.ci, now }),
     previews: createPreviewStore({
       previews: options.previews,
@@ -841,6 +878,7 @@ export function createFakeDaemon(options: FakeDaemonOptions = {}): FakeDaemon {
     notices: slices.notices,
     sleep: slices.sleep,
     schedules: slices.schedules,
+    alerts: slices.alerts,
     ci: slices.ci,
     previews: slices.previews,
     ...switches(state),

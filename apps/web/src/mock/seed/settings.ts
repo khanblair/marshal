@@ -190,6 +190,13 @@ export const seedIntegrations = (): Integration[] => [
     detail: "The bot token expired. Reconnect Discord to keep approvals working there.",
   },
   {
+    id: "ntfy",
+    name: "ntfy",
+    icon: "bell",
+    st: "none",
+    detail: "",
+  },
+  {
     id: "obsidian",
     name: "Obsidian",
     icon: "book-open",
