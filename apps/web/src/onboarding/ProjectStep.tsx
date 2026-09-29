@@ -1,6 +1,6 @@
-import { Button, ChoiceCard, Field, Icon, Input } from "@marshal/ui";
+import { ChoiceCard, Field, Icon, Input } from "@marshal/ui";
 import { For, Show } from "solid-js";
-import { isDesktop, pickFolder } from "~/data/desktop";
+import { FolderInput } from "~/app/FolderInput";
 import { SOURCE_CHOICES } from "./onboarding-data";
 import { StepIntro } from "./StepIntro";
 import type { StepProps } from "./StepProps";
@@ -33,26 +33,7 @@ export function ProjectStep(props: StepProps) {
       </div>
       <Show when={props.draft.source === "folder"}>
         <Field label="Repository folder">
-          <div class="flex gap-2">
-            <Input
-              mono
-              class="flex-1 min-w-0"
-              value={props.draft.path}
-              onInput={(e) => props.setDraft("path", e.currentTarget.value)}
-              placeholder="~/code/my-repo"
-            />
-            <Show when={isDesktop()}>
-              <Button
-                type="button"
-                onClick={async () => {
-                  const chosen = await pickFolder();
-                  if (chosen) props.setDraft("path", chosen);
-                }}
-              >
-                Choose…
-              </Button>
-            </Show>
-          </div>
+          <FolderInput value={props.draft.path} onChange={(path) => props.setDraft("path", path)} />
         </Field>
       </Show>
       <Show when={props.draft.source === "github"}>

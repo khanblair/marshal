@@ -11,8 +11,6 @@ vi.hoisted(() => {
 
 const PHONE_WIDTH_PX = 390;
 const DESKTOP_WIDTH_PX = 1440;
-/** Longer than the eight characters below which a key is ignored. */
-const LONG_KEY = "sk-ant-api03-abcdefgh1234";
 
 const pristine = JSON.stringify({
   profile: M.S.profile,
@@ -54,6 +52,8 @@ const nameInput = (): HTMLInputElement =>
 const goTo = (step: number): void => {
   M.set({ obStep: step });
 };
+
+const NAME_REQUIRED = "Enter your name. It shows on cards you comment on.";
 
 describe("Onboarding welcome screen", () => {
   it("is a modal dialog named by its title, on step 1 of 5", () => {
@@ -105,6 +105,7 @@ describe("Onboarding focus", () => {
   it("gives Continue focus again after each step", () => {
     render(() => <Onboarding />);
     click("Continue");
+    goTo(2);
     screen.getByRole("button", { name: "Skip" }).focus();
     vi.advanceTimersByTime(30);
     expect(screen.getByRole("button", { name: "Continue" })).toHaveFocus();
@@ -112,7 +113,7 @@ describe("Onboarding focus", () => {
 });
 
 describe("Onboarding steps", () => {
-  it("walks through the five screens with Continue and back with Back", () => {
+  it("walks through the five screens with Continue and back with Back", async () => {
     render(() => <Onboarding />);
     const titles = [
       "Set up your profile",
@@ -122,9 +123,12 @@ describe("Onboarding steps", () => {
     ];
     goTo(1);
     type(nameInput(), "Ada");
+    type(screen.getByPlaceholderText("you@example.com"), "ada@example.com");
     for (const [index, title] of titles.slice(1).entries()) {
       click("Continue");
-      expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(title);
+      await vi.waitFor(() =>
+        expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(title),
+      );
       expect(screen.getByText(`Step ${index + 3} of 5`)).toBeInTheDocument();
     }
     expect(screen.getByRole("button", { name: "Open Marshal" })).toBeInTheDocument();
@@ -143,13 +147,12 @@ describe("Onboarding steps", () => {
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Welcome to Marshal");
   });
 
-  it("Skip goes on without saving anything", () => {
+  it("Skip goes on without saving anything, on every screen but the profile", () => {
     render(() => <Onboarding />);
-    goTo(1);
-    type(nameInput(), "Grace Hopper");
+    goTo(2);
     const before = M.S.profile.name;
     click("Skip");
-    expect(M.S.obStep).toBe(2);
+    expect(M.S.obStep).toBe(3);
     expect(M.S.profile.name).toBe(before);
   });
 });
@@ -159,21 +162,43 @@ describe("Onboarding profile screen", () => {
 
   it("asks for a name when Continue is pressed with none, and stays put", () => {
     render(() => <Onboarding />);
-    expect(screen.queryByText("Enter a name to continue.")).toBeNull();
+    expect(screen.queryByText(NAME_REQUIRED)).toBeNull();
     click("Continue");
-    expect(screen.getByText("Enter a name to continue.")).toBeInTheDocument();
+    expect(screen.getByText(NAME_REQUIRED)).toBeInTheDocument();
     expect(M.S.obStep).toBe(1);
   });
 
-  it("drops the error as soon as a name is typed, and Continue then saves the profile", () => {
+  it("has no Skip, because the profile is the account", () => {
+    render(() => <Onboarding />);
+    expect(screen.queryByRole("button", { name: "Skip" })).toBeNull();
+  });
+
+  it("drops the error as soon as a name is typed, and Continue then saves the profile", async () => {
     render(() => <Onboarding />);
     click("Continue");
     type(nameInput(), "  Grace Hopper ");
-    expect(screen.queryByText("Enter a name to continue.")).toBeNull();
-    type(screen.getByPlaceholderText("Optional"), "grace@navy.mil");
+    expect(screen.queryByText(NAME_REQUIRED)).toBeNull();
+    type(screen.getByPlaceholderText("you@example.com"), "grace@navy.mil");
     click("Continue");
+    await vi.waitFor(() => expect(M.S.obStep).toBe(2));
     expect(M.S.profile).toMatchObject({ name: "Grace Hopper", email: "grace@navy.mil" });
-    expect(M.S.obStep).toBe(2);
+  });
+
+  it("refuses a one-letter name, a name with no letters, and an email that is not an address", async () => {
+    render(() => <Onboarding />);
+    type(nameInput(), "G");
+    click("Continue");
+    expect(screen.getByText(/at least 2 characters/)).toBeInTheDocument();
+    type(nameInput(), "1234");
+    expect(screen.getByText(/at least one letter/)).toBeInTheDocument();
+    type(nameInput(), "Grace Hopper");
+    type(screen.getByPlaceholderText("you@example.com"), "grace@navy");
+    click("Continue");
+    expect(screen.getByText(/does not look like an email address/)).toBeInTheDocument();
+    expect(M.S.obStep).toBe(1);
+    type(screen.getByPlaceholderText("you@example.com"), "grace@navy.mil");
+    click("Continue");
+    await vi.waitFor(() => expect(M.S.obStep).toBe(2));
   });
 
   it("keeps the error after Back and Skip, as the design does, until Continue works", () => {
@@ -181,29 +206,32 @@ describe("Onboarding profile screen", () => {
     click("Continue");
     click("Back");
     click("Skip");
-    expect(screen.getByText("Enter a name to continue.")).toBeInTheDocument();
+    expect(screen.getByText(NAME_REQUIRED)).toBeInTheDocument();
   });
 
-  it("shows initials for the name, and a question mark without one", () => {
+  it("shows initials for the name, and a user icon without one", () => {
     render(() => <Onboarding />);
-    expect(screen.getByLabelText("Avatar preview")).toHaveTextContent("?");
+    expect(screen.getByLabelText("Avatar preview")).toHaveTextContent("");
+    expect(screen.getByLabelText("Avatar preview").querySelector("svg")).not.toBeNull();
     type(nameInput(), "ada okafor");
     expect(screen.getByLabelText("Avatar preview")).toHaveTextContent("AO");
   });
 
-  it("Upload image toasts and turns into Change image", () => {
+  it("Upload image asks for a picture, and turns into Change image once there is one", () => {
     render(() => <Onboarding />);
     click("Upload image");
     expect(M.S.toasts.map((toast) => toast.msg)).toContain("Choose an image to use as your avatar");
+    M.S.profile.avatar = "/v1/users/u/avatar?v=1";
     expect(screen.getByRole("button", { name: "Change image" })).toBeInTheDocument();
   });
 
-  it("saves the chosen time zone", () => {
+  it("saves the chosen time zone", async () => {
     render(() => <Onboarding />);
     type(nameInput(), "Ada");
+    type(screen.getByPlaceholderText("you@example.com"), "ada@example.com");
     fireEvent.change(screen.getByRole("combobox"), { target: { value: "Asia/Singapore" } });
     click("Continue");
-    expect(M.S.profile.tz).toBe("Asia/Singapore");
+    await vi.waitFor(() => expect(M.S.profile.tz).toBe("Asia/Singapore"));
   });
 
   it("switches the theme at once", () => {
@@ -224,9 +252,9 @@ describe("Onboarding agents screen", () => {
     render(() => <Onboarding />);
     const rows = screen.getAllByRole("listitem");
     expect(rows.map((row) => row.textContent)).toEqual([
-      "Claude Code2.0.14Found",
-      "Codex0.42.0Found",
-      "Gemini CLI0.8.1Found",
+      "Claude Code2.0.14FoundTest",
+      "Codex0.42.0FoundTest",
+      "Gemini CLI0.8.1FoundTest",
     ]);
   });
 
@@ -234,17 +262,86 @@ describe("Onboarding agents screen", () => {
     const restore = useCatalog(M, GOLDEN_CATALOG);
     render(() => <Onboarding />);
     const rows = screen.getAllByRole("listitem").map((row) => row.textContent);
+    // The details of a row (a warning, an install command) are folded away until the chevron opens them.
     expect(rows).toEqual([
-      "Claude Code2.1.282Found",
-      expect.stringMatching(
-        /^Gemini CLI0\.36\.0FoundMarshal has not been tested with Gemini CLI 0\.36\.0\./,
-      ),
-      expect.stringMatching(
-        /^CodexNot installedCodex is not installed\. Install it with: npm install -g @openai\/codex$/,
-      ),
+      "Claude Code2.1.282FoundTest",
+      "Gemini CLI0.36.0FoundTest",
+      "CodexNot installedTest",
+      // The golden catalog also lists a tool the scan found, which is drawn after the agents.
+      "Qwen Code0.15.6FoundTest",
     ]);
     expect(screen.getByText("Not installed")).toBeVisible();
+    expect(screen.queryByText(/npm install -g @openai\/codex/)).toBeNull();
+    click("Show details of Gemini CLI");
+    expect(
+      screen.getByText(/Marshal has not been tested with Gemini CLI 0\.36\.0\./),
+    ).toBeVisible();
+    click("Show details of Codex");
+    expect(screen.getByText(/npm install -g @openai\/codex/)).toBeVisible();
+    click("Hide details of Codex");
+    expect(screen.queryByText(/npm install -g @openai\/codex/)).toBeNull();
     restore();
+  });
+
+  it("lists the other tools it found, with how each takes its work, apart from the agents it can start", () => {
+    M.S.agentTools = [
+      {
+        id: "qwen",
+        name: "Qwen Code",
+        version: "0.15.6",
+        interface: "acp",
+        note: "Not switched on yet.",
+      },
+      { id: "pi", name: "Pi", version: "0.70.6", interface: "rpc", note: "No adapter yet." },
+    ];
+    render(() => <Onboarding />);
+    expect(screen.getByText("Also found on this computer")).toBeVisible();
+    expect(screen.getByText("Qwen Code").closest("li")).toHaveTextContent("Found");
+    click("Show details of Qwen Code");
+    expect(screen.getByText("Qwen Code").closest("li")).toHaveTextContent("Agent Client Protocol");
+    click("Show details of Pi");
+    expect(screen.getByText("Pi").closest("li")).toHaveTextContent("RPC mode");
+    M.S.agentTools = [];
+  });
+
+  it("shows no other-tools section when the scan found none", () => {
+    render(() => <Onboarding />);
+    expect(screen.queryByText("Also found on this computer")).toBeNull();
+  });
+
+  it("Scan again asks the daemon to look again and says it did", async () => {
+    const scan = vi.spyOn(M, "scanAgents").mockResolvedValue(true);
+    render(() => <Onboarding />);
+    click("Scan again");
+    expect(screen.getByRole("button", { name: "Scanning…" })).toBeDisabled();
+    await vi.waitFor(() => expect(screen.getByText("Scanned just now.")).toBeVisible());
+    expect(scan).toHaveBeenCalledTimes(1);
+    scan.mockRestore();
+  });
+
+  it("Test on a row runs that agent's test and shows each check and what to do", async () => {
+    const test = vi.spyOn(M, "testAgent").mockResolvedValue({
+      ok: false,
+      checks: [
+        { name: "Installed", state: "passed", message: "Gemini CLI is on this computer." },
+        {
+          name: "Agent Client Protocol",
+          state: "failed",
+          message: "It did not answer.",
+          fix: "Run it in a terminal.",
+        },
+      ],
+    });
+    render(() => <Onboarding />);
+    click("Test Gemini CLI");
+    await vi.waitFor(() => expect(screen.getByText("Test failed")).toBeVisible());
+    expect(test).toHaveBeenCalledWith("gemini");
+    expect(screen.getByText(/Gemini CLI is on this computer\./)).toBeVisible();
+    expect(screen.getByText(/What to do: Run it in a terminal\./)).toBeVisible();
+    // The answer opens itself, and the chevron folds it away again.
+    click("Hide details of Gemini CLI");
+    expect(screen.queryByText("Test failed")).toBeNull();
+    test.mockRestore();
   });
 
   it("does not list the built-in agent as found, because it is Marshal's own", () => {
@@ -279,17 +376,10 @@ describe("Onboarding agents screen", () => {
     restore();
   });
 
-  it("hands the typed key to the provider key action on Continue", () => {
-    const save = vi.spyOn(M, "saveProviderKey");
+  it("has no API key fields: keys are added in Settings", () => {
     render(() => <Onboarding />);
-    const field = screen.getByLabelText("Anthropic API key");
-    expect(field).toHaveAttribute("type", "password");
-    type(field, LONG_KEY);
-    click("Continue");
-    // The key is stored by the daemon (section S28), which masks it; what this screen owes is the
-    // call, with the key it collected. The stored, masked row is `commit-step.test.ts`'s subject.
-    expect(save).toHaveBeenCalledWith("anthropic", LONG_KEY);
-    save.mockRestore();
+    expect(screen.queryByLabelText(/API key/)).toBeNull();
+    expect(screen.getByText(/add an API key for a provider in Settings/)).toBeVisible();
   });
 });
 

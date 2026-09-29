@@ -1,8 +1,8 @@
 import { Button, Icon } from "@marshal/ui";
 import { For, Show } from "solid-js";
 import { M } from "~/mock";
-import { CHAT_APPS, type ChatAppId, PAIRING_CODE } from "./onboarding-data";
 import { ControlStepLive } from "./ControlStepLive";
+import { CHAT_APPS, type ChatAppId, PAIRING_CODE } from "./onboarding-data";
 import { StatusCheck } from "./StatusCheck";
 import { StepIntro } from "./StepIntro";
 import type { StepProps } from "./StepProps";
