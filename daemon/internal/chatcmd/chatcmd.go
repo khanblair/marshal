@@ -32,10 +32,35 @@ type Approver interface {
 	Respond(ctx context.Context, approvalID string, decision protocol.ApprovalDecision, optionID, actor string) error
 }
 
+// Project is one project a chat can add a card to.
+type Project struct {
+	// ID is the project's id, which a card is created under.
+	ID string
+	// Name is what the person calls it, and what they type to choose it.
+	Name string
+}
+
+// Cards adds a card on behalf of a chat. It is the projects service, narrowed to what a message
+// needs, so this package learns nothing about boards and a test hands in a recorder.
+type Cards interface {
+	// Projects lists the projects a card can be added to.
+	Projects(ctx context.Context) ([]Project, error)
+	// CreateCard adds a card to a project's backlog.
+	CreateCard(ctx context.Context, projectID string, in protocol.CreateCardRequest) (protocol.Card, error)
+}
+
 // Service runs a bot's receive loop against the daemon.
 type Service struct {
 	approver Approver
 	log      *slog.Logger
+	cards    Cards
+}
+
+// WithCards lets a chat add cards ("new <project> <title>"). Without it the service still answers
+// approvals, and says adding a card is not set up rather than staying silent.
+func (s *Service) WithCards(cards Cards) *Service {
+	s.cards = cards
+	return s
 }
 
 // New builds the service. The approver is required: a receive loop that cannot act on what it reads
@@ -67,6 +92,10 @@ func (s *Service) handle(ctx context.Context, bot chatbot.Bot, in chatbot.Incomi
 		// A voice note is passed on with no text on purpose: Marshal does not transcribe, so a
 		// person is asked to type rather than having their words guessed at (hard rule 3).
 		s.reply(ctx, bot, "Marshal heard a voice note but does not read them. Please type your answer.")
+		return
+	}
+	if cmd := chatbot.Parse(in.Text); cmd.Verb == chatbot.VerbNew {
+		s.newCard(ctx, bot, cmd)
 		return
 	}
 	target, decision, asked := s.read(in.Text)
@@ -155,4 +184,77 @@ func (s *Service) reply(ctx context.Context, bot chatbot.Bot, text string) {
 	if err := bot.Notify(ctx, chatbot.Notice{Title: text}); err != nil {
 		s.log.Warn("a chat reply could not be sent", "err", err)
 	}
+}
+
+// newCard adds the card a message asked for and says where it went. The first word is the project;
+// when it names none and there is only one project, it is the start of the title, because a person
+// with one project should not have to name it.
+func (s *Service) newCard(ctx context.Context, bot chatbot.Bot, cmd chatbot.Command) {
+	if s.cards == nil {
+		s.reply(ctx, bot, "Adding a card from a chat is not set up on this computer.")
+		return
+	}
+	projects, err := s.cards.Projects(ctx)
+	if err != nil {
+		s.log.Warn("a chat could not list the projects", "err", err)
+		s.reply(ctx, bot, "Marshal could not read its projects just now. Try again in a moment.")
+		return
+	}
+	project, title, ok := chooseProject(projects, cmd)
+	if !ok {
+		s.reply(ctx, bot, noSuchProject(cmd.Target, projects))
+		return
+	}
+	card, err := s.cards.CreateCard(ctx, project.ID, protocol.CreateCardRequest{
+		Title: title, Body: "Added from a " + string(bot.Kind()) + " chat.",
+	})
+	if err != nil {
+		var perr *protocol.Error
+		if errors.As(err, &perr) && perr.Message != "" {
+			s.reply(ctx, bot, perr.Message)
+			return
+		}
+		s.log.Warn("a chat could not add a card", "project", project.ID, "err", err)
+		s.reply(ctx, bot, "Marshal could not add that card. Try again in a moment.")
+		return
+	}
+	s.log.Info("added a card from a chat", "card", card.ID, "project", project.ID)
+	s.reply(ctx, bot, fmt.Sprintf("Added %q to %s.", card.Title, project.Name))
+}
+
+// chooseProject finds the project a message names, by id or name, ignoring case. A word that is only
+// the start of one name still counts when it is unique. With one project and a first word that names
+// nothing, the whole message is the title.
+func chooseProject(projects []Project, cmd chatbot.Command) (Project, string, bool) {
+	word := strings.ToLower(cmd.Target)
+	for _, project := range projects {
+		if strings.ToLower(project.ID) == word || strings.ToLower(project.Name) == word {
+			return project, cmd.Text, true
+		}
+	}
+	var starts []Project
+	for _, project := range projects {
+		if strings.HasPrefix(strings.ToLower(project.Name), word) || strings.HasPrefix(strings.ToLower(project.ID), word) {
+			starts = append(starts, project)
+		}
+	}
+	if len(starts) == 1 {
+		return starts[0], cmd.Text, true
+	}
+	if len(projects) == 1 {
+		return projects[0], cmd.Target + " " + cmd.Text, true
+	}
+	return Project{}, "", false
+}
+
+// noSuchProject says which projects a card can go to, so the person can send the message again.
+func noSuchProject(word string, projects []Project) string {
+	if len(projects) == 0 {
+		return "Marshal has no projects yet, so there is nowhere to add a card."
+	}
+	names := make([]string, len(projects))
+	for i, project := range projects {
+		names[i] = project.Name
+	}
+	return fmt.Sprintf("Marshal has no project called %q. Choose one of: %s.", word, strings.Join(names, ", "))
 }

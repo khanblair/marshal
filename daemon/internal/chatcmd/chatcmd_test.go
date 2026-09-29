@@ -199,3 +199,109 @@ func TestAnInternalFailureIsNotReadOutLoud(t *testing.T) {
 		t.Error("an internal error was read out loud to a person")
 	}
 }
+
+// fakeCards is a set of projects and a record of the cards a chat asked for.
+type fakeCards struct {
+	mu       sync.Mutex
+	projects []chatcmd.Project
+	created  []protocol.CreateCardRequest
+	inside   []string
+	fail     error
+}
+
+func (f *fakeCards) Projects(context.Context) ([]chatcmd.Project, error) {
+	return f.projects, nil
+}
+
+func (f *fakeCards) CreateCard(_ context.Context, projectID string, in protocol.CreateCardRequest) (protocol.Card, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.fail != nil {
+		return protocol.Card{}, f.fail
+	}
+	f.created = append(f.created, in)
+	f.inside = append(f.inside, projectID)
+	return protocol.Card{ID: "card-1", Title: in.Title}, nil
+}
+
+// hearWithCards drives one message through a service that can add cards.
+func hearWithCards(t *testing.T, cards *fakeCards, text string) string {
+	t.Helper()
+	bot := &fakeBot{}
+	svc, err := chatcmd.New(&fakeApprover{}, nil)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	svc.WithCards(cards)
+	if err := svc.Run(context.Background(), bot); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	bot.start(context.Background(), chatbot.Incoming{ChatID: "1", Text: text})
+	bot.mu.Lock()
+	defer bot.mu.Unlock()
+	if len(bot.sent) == 0 {
+		return ""
+	}
+	return bot.sent[len(bot.sent)-1]
+}
+
+func twoProjects() *fakeCards {
+	return &fakeCards{projects: []chatcmd.Project{{ID: "api", Name: "api-gateway"}, {ID: "web", Name: "web-dashboard"}}}
+}
+
+func TestANewMessageAddsACardInTheProjectItNames(t *testing.T) {
+	cards := twoProjects()
+	reply := hearWithCards(t, cards, "new web Fix the flaky login test")
+	if len(cards.created) != 1 || cards.inside[0] != "web" || cards.created[0].Title != "Fix the flaky login test" {
+		t.Fatalf("the cards made were %+v in %v, want one in web", cards.created, cards.inside)
+	}
+	if reply != `Added "Fix the flaky login test" to web-dashboard.` {
+		t.Errorf("the reply is %q, want it to say where the card went", reply)
+	}
+}
+
+func TestAProjectIsFoundByNameOrByTheStartOfIt(t *testing.T) {
+	cards := twoProjects()
+	hearWithCards(t, cards, "new api-gateway: Rotate the keys")
+	hearWithCards(t, cards, "new web-d Add a chart")
+	if len(cards.inside) != 2 || cards.inside[0] != "api" || cards.inside[1] != "web" {
+		t.Errorf("the cards went to %v, want api then web", cards.inside)
+	}
+}
+
+func TestWithOneProjectTheWholeMessageIsTheTitle(t *testing.T) {
+	cards := &fakeCards{projects: []chatcmd.Project{{ID: "api", Name: "api-gateway"}}}
+	reply := hearWithCards(t, cards, "new Fix the login")
+	if len(cards.created) != 1 || cards.created[0].Title != "Fix the login" || cards.inside[0] != "api" {
+		t.Fatalf("the cards made were %+v in %v, want the whole message as the title", cards.created, cards.inside)
+	}
+	if reply == "" {
+		t.Error("nothing was said back")
+	}
+}
+
+func TestAnUnknownProjectAddsNothingAndListsTheOnesThereAre(t *testing.T) {
+	cards := twoProjects()
+	reply := hearWithCards(t, cards, "new mobile Fix the icon")
+	if len(cards.created) != 0 {
+		t.Fatalf("a card was added to a project that does not exist: %+v", cards.created)
+	}
+	if reply != `Marshal has no project called "mobile". Choose one of: api-gateway, web-dashboard.` {
+		t.Errorf("the reply is %q", reply)
+	}
+}
+
+func TestTheDaemonsSentenceIsSaidWhenACardIsRefused(t *testing.T) {
+	cards := twoProjects()
+	cards.fail = protocol.InvalidArgument("A card needs a title.")
+	if reply := hearWithCards(t, cards, "new web Something"); reply != "A card needs a title." {
+		t.Errorf("the reply is %q, want the daemon's own sentence", reply)
+	}
+}
+
+func TestAChatWithNoCardsSetUpSaysSoInsteadOfStayingSilent(t *testing.T) {
+	reply, _ := hear(t, &fakeApprover{}, "new web Fix it")
+	if reply != "Adding a card from a chat is not set up on this computer." {
+		t.Errorf("the reply is %q", reply)
+	}
+}

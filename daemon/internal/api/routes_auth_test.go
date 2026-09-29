@@ -201,6 +201,8 @@ func TestARouteIsRegisteredOnlyWhenItsServiceIsThere(t *testing.T) {
 	// The sleep settings are their own service: they are the numbers the idle timer is driven by,
 	// and they outlive every session.
 	sleepSettingsRoutes := []string{"GET /v1/settings/sleep", "PUT /v1/settings/sleep"}
+	// The alert settings are the notification router's, kept in the settings service's table.
+	alertRoutes := []string{"GET /v1/settings/alerts", "PUT /v1/settings/alerts"}
 	// The quality routes need both the projects service, which owns the card and the project the
 	// findings and the profile belong to, and the quality module, which owns the checks.
 	qualityRoutes := []string{
@@ -255,7 +257,7 @@ func TestARouteIsRegisteredOnlyWhenItsServiceIsThere(t *testing.T) {
 		"checkpoints": checkpointRoutes, "pull requests": pullRequestRoutes,
 		"handoffs": handoffRoutes, "notes": noteRoutes, "lessons": lessonRoutes,
 		"integrator": integratorRoutes, "review": reviewRoutes,
-		"notices": noticeRoutes, "sleep settings": sleepSettingsRoutes, "quality": qualityRoutes,
+		"notices": noticeRoutes, "sleep settings": sleepSettingsRoutes, "alerts": alertRoutes, "quality": qualityRoutes,
 		"ci": ciRoutes, "ci simulation": ciSimulateRoutes, "local ci": localCIRoutes,
 		"preview": previewRoutes, "schedules": scheduleRoutes, "calendar": calendarRoutes, "devices": deviceRoutes,
 		"tailnet": tailnetRoutes,
@@ -297,7 +299,7 @@ func TestARouteIsRegisteredOnlyWhenItsServiceIsThere(t *testing.T) {
 		"no quality": withoutQuality(), "no integrations": withoutIntegrations(),
 		"no ci": withoutCI(), "no local ci": withoutLocalCI(),
 		"no preview": withoutPreview(), "no schedules": withoutSchedules(),
-		"no devices": withoutDevices(),
+		"no devices": withoutDevices(), "no alerts": withoutAlerts(),
 	} {
 		tests = append(tests, struct {
 			name    string
@@ -340,6 +342,8 @@ func TestARouteIsRegisteredOnlyWhenItsServiceIsThere(t *testing.T) {
 			have["notices"] = !st.cfg.noSessions
 			// The sleep settings follow their own service.
 			have["sleep settings"] = !st.cfg.noSleepSettings
+			// The alert settings are built beside the sleep settings, over the same service.
+			have["alerts"] = !st.cfg.noAlerts && !st.cfg.noSleepSettings
 			// The quality routes need the quality module and the projects service it reads a card
 			// and a project through.
 			have["quality"] = !st.cfg.noQuality && !st.cfg.noProjects

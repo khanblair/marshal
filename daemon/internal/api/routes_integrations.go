@@ -84,6 +84,12 @@ func (s *Server) saveOneIntegration(r *http.Request, id string) error {
 			return err
 		}
 		return s.integrations.SaveDiscord(r.Context(), req)
+	case integrations.NtfyID:
+		var req protocol.SaveNtfyRequest
+		if err := s.decodeJSON(r, &req); err != nil {
+			return err
+		}
+		return s.integrations.SaveNtfy(r.Context(), req)
 	default:
 		return protocol.NotFound("connection").With("id", id)
 	}

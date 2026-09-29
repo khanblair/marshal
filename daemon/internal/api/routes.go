@@ -90,6 +90,10 @@ const (
 	// is one cron over the whole daemon. The calendar and Home's coming-up call of a later slice
 	// (B8.4) reads through the same service and takes this bit beside it.
 	needsSchedules
+	// needsAlerts registers the routes that read and write which channel each kind of alert goes to
+	// (B9.4). It is a bit of its own because the alert settings are the notification router's, which
+	// a daemon can be built without.
+	needsAlerts
 	// needsDevices registers the routes that list the paired devices, make the code that pairs a new
 	// one, and revoke one (B9.1, build-plan 9.2). It is a bit of its own and not part of needsAccounts
 	// because a device is a client rather than a person: the profile is read through the accounts
@@ -267,6 +271,8 @@ func mergeNoticeAndQualityRoutes() []routeSpec {
 		{"DELETE /v1/notices/{id}", needsSessions, (*Server).dismissNotice},
 		{"GET /v1/settings/sleep", needsSleepSettings, (*Server).getSleepSettings},
 		{"PUT /v1/settings/sleep", needsSleepSettings, (*Server).setSleepSettings},
+		{"GET /v1/settings/alerts", needsAlerts, (*Server).getAlertSettings},
+		{"PUT /v1/settings/alerts", needsAlerts, (*Server).setAlertSettings},
 		{"GET /v1/cards/{id}/findings", needsProjects | needsQuality, (*Server).cardFindings},
 		{"POST /v1/cards/{id}/findings/{findingId}/fix", needsProjects | needsQuality, (*Server).fixFinding},
 		{"POST /v1/cards/{id}/findings/{findingId}/dismiss", needsProjects | needsQuality, (*Server).dismissFinding},
@@ -400,6 +406,8 @@ func (s *Server) hasLaterPhaseServices(needs routeNeeds) bool {
 	case needs&needsReview != 0 && s.review == nil:
 		return false
 	case needs&needsSleepSettings != 0 && s.sleepSettings == nil:
+		return false
+	case needs&needsAlerts != 0 && s.alerts == nil:
 		return false
 	case needs&needsQuality != 0 && s.quality == nil:
 		return false

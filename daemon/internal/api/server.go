@@ -143,6 +143,9 @@ type Deps struct {
 	// goes. When it is set, GET and PUT /v1/settings/sleep are registered. The notices themselves
 	// come from Sessions, which owns the groups, so the notice routes need no service of their own.
 	SleepSettings *settings.Service
+	// Alerts reads and writes which channel each kind of alert goes to (B9.4). Nil leaves the alert
+	// settings routes out.
+	Alerts AlertSettings
 	// Quality reads a card's code-smell findings, asks the card's agent to fix one, dismisses one
 	// with a reason, and reads and writes a project's smell profile (B5.8, architecture.md section
 	// 17). When it is set, and Projects is too, the five quality routes are registered.
@@ -242,6 +245,7 @@ type Server struct {
 	review       *review.Service
 
 	sleepSettings *settings.Service
+	alerts        AlertSettings
 	quality       *quality.Service
 	integrations  *integrations.Service
 	webhooks      *githubapp.Receiver
@@ -277,6 +281,7 @@ func New(settings config.Settings, log *slog.Logger, now func() time.Time, deps 
 		integrator:      deps.Integrator,
 		review:          deps.Review,
 		sleepSettings:   deps.SleepSettings,
+		alerts:          deps.Alerts,
 		quality:         deps.Quality,
 		integrations:    deps.Integrations,
 		webhooks:        deps.Webhooks,

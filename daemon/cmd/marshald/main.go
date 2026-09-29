@@ -211,7 +211,7 @@ func serve(ctx context.Context, settings config.Settings, env platform.Env, log 
 	// things is one message, and an approval sent at once. It talks to no service itself - the
 	// connections service builds the bot for the channel - so a daemon with no chat connected routes
 	// to nowhere rather than failing, and it runs for as long as the daemon does.
-	buildNotifications(ctx, log, mods.integrations, bus)
+	alerts := buildNotifications(ctx, log, mods.integrations, bus, mods.sleepSettings, linkBase(node, settings.Port))
 
 	// The chat receive loops (B9.3): Telegram and Discord can answer an approval the same way a
 	// screen does. They start the first time a connection for them is saved, so a person who adds a
@@ -236,7 +236,7 @@ func serve(ctx context.Context, settings config.Settings, env platform.Env, log 
 		Auditlog: mods.auditlog, Providers: mods.providers, CostLimits: mods.costLimits,
 		ConnectionTests: mods.connectionTests, Roles: mods.roles,
 		PullRequests: mods.pullRequests, Review: mods.review, Integrator: mods.integrator,
-		SleepSettings: mods.sleepSettings, Quality: mods.quality,
+		SleepSettings: mods.sleepSettings, Alerts: alerts, Quality: mods.quality,
 		Integrations: mods.integrations, Webhooks: mods.integrations.Receiver(),
 		CI: mods.ci, LocalCI: mods.localCI, Preview: mods.preview,
 		Schedules: mods.schedules,
@@ -357,6 +357,9 @@ func startChatCommands(ctx context.Context, log *slog.Logger, mods daemonModules
 	if err != nil {
 		return fmt.Errorf("start chat commands: %w", err)
 	}
+	if mods.proj != nil {
+		commands.WithCards(chatCards{svc: mods.proj})
+	}
 	go watchChats(ctx, log, mods.integrations, commands)
 	return nil
 }
@@ -467,7 +470,10 @@ const tailnetIdentityInterval = 10 * time.Second
 // Telegram or Discord: the connections service builds the bot for the channel, and a chat nobody has
 // connected means the notice goes nowhere, which is a logged nothing rather than an error - so a
 // daemon with no chat set up still serves the app exactly as it did before.
-func buildNotifications(ctx context.Context, log *slog.Logger, links *integrations.Service, bus *events.Bus) {
+func buildNotifications(
+	ctx context.Context, log *slog.Logger, links *integrations.Service, bus *events.Bus,
+	saved notify.RouteStore, base func() string,
+) api.AlertSettings {
 	sender := notify.SenderFunc(func(callCtx context.Context, channel notify.Channel, notice chatbot.Notice) error {
 		if links == nil {
 			return nil
@@ -482,13 +488,68 @@ func buildNotifications(ctx context.Context, log *slog.Logger, links *integratio
 		defer func() { _ = bot.Close() }()
 		return bot.Notify(callCtx, notice)
 	})
-	router, err := notify.New(sender, notify.Options{Logger: log})
+	router, err := notify.New(sender, notify.Options{Logger: log, LinkBase: base})
 	if err != nil {
 		// notify.New only ever refuses a nil sender, and this one is not nil.
 		log.Warn("the notification router could not be built", "error", err)
-		return
+		return nil
 	}
 	go router.Follow(ctx, bus)
+	return alertSettings(ctx, log, router, links, saved)
+}
+
+// alertSettings makes the router's routing table something a screen can read and change, and
+// applies the choices saved before the last restart. A daemon with nowhere to keep choices still
+// routes with the defaults, so it answers no settings rather than failing to start.
+func alertSettings(
+	ctx context.Context, log *slog.Logger, router *notify.Service, links *integrations.Service, saved notify.RouteStore,
+) api.AlertSettings {
+	alerts, err := notify.NewAlerts(router, saved, func(callCtx context.Context) map[notify.Channel]bool {
+		return connectedChannels(callCtx, links)
+	}, time.Now)
+	if err != nil {
+		log.Warn("the alert settings could not be built", "error", err)
+		return nil
+	}
+	if err := alerts.Load(ctx); err != nil {
+		log.Warn("the saved alert choices could not be read, so the defaults stand", "error", err)
+	}
+	return alerts
+}
+
+// connectedChannels says which alert channels have a connection that is set up.
+func connectedChannels(ctx context.Context, links *integrations.Service) map[notify.Channel]bool {
+	up := map[notify.Channel]bool{}
+	if links == nil {
+		return up
+	}
+	list, err := links.List(ctx)
+	if err != nil {
+		return up
+	}
+	for _, row := range list {
+		switch row.ID {
+		case integrations.TelegramID, integrations.DiscordID, integrations.NtfyID:
+			up[notify.Channel(row.ID)] = row.Status == protocol.IntegrationStatusConnected
+		}
+	}
+	return up
+}
+
+// linkBase is the address a phone opens Marshal at: this node's MagicDNS name on the daemon's port,
+// once the node is online. Before that, or on a daemon with no tailnet, it is empty and a notice
+// carries no link to a card, which is better than one that cannot open.
+func linkBase(node *tailnet.Node, port int) func() string {
+	return func() string {
+		if node == nil {
+			return ""
+		}
+		status := node.Status()
+		if status.State != tailnet.StateOnline || status.DNSName == "" {
+			return ""
+		}
+		return "http://" + net.JoinHostPort(status.DNSName, strconv.Itoa(port))
+	}
 }
 
 // chatRecheckInterval is how often the daemon looks for a chat connection that has been set up
@@ -883,4 +944,26 @@ func realAgentOf(kind protocol.AgentKind, d catalog.Detected, log *slog.Logger) 
 	default:
 		return nil, fmt.Errorf("%w: %s", agents.ErrUnknownKind, kind)
 	}
+}
+
+// chatCards is the card work a chat can ask for, answered by the projects service. It is an adapter
+// for the same reason trelloCards is: the two signatures do not meet without one.
+type chatCards struct {
+	svc *projects.Service
+}
+
+func (c chatCards) Projects(ctx context.Context) ([]chatcmd.Project, error) {
+	list, err := c.svc.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]chatcmd.Project, len(list.Projects))
+	for i, project := range list.Projects {
+		out[i] = chatcmd.Project{ID: project.ID, Name: project.Name}
+	}
+	return out, nil
+}
+
+func (c chatCards) CreateCard(ctx context.Context, projectID string, in protocol.CreateCardRequest) (protocol.Card, error) {
+	return c.svc.CreateCard(ctx, projectID, in)
 }

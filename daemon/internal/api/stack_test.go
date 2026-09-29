@@ -92,6 +92,10 @@ type stackConfig struct {
 	// the store, and cmd/marshald always builds the service. It is here because every service the
 	// server can be given has a stack without it, so a route that needs one is proven to follow it.
 	noSleepSettings bool
+	// noAlerts leaves the notification router's alert settings out, so the routes that read and
+	// write where each alert goes are not registered. The daemon always builds them; the option is
+	// here for the same reason as the others.
+	noAlerts bool
 	// noQuality leaves the quality module out, so the routes that read a card's findings, act on
 	// one, and read and write a project's smell profile are not registered. This is not a case the
 	// daemon ships in: the module needs only the store, the projects service, and Git, and
@@ -202,6 +206,7 @@ func withoutPullRequests() stackOption           { return func(c *stackConfig) {
 func withoutIntegrator() stackOption             { return func(c *stackConfig) { c.noIntegrator = true } }
 func withoutReview() stackOption                 { return func(c *stackConfig) { c.noReview = true } }
 func withoutSleepSettings() stackOption          { return func(c *stackConfig) { c.noSleepSettings = true } }
+func withoutAlerts() stackOption                 { return func(c *stackConfig) { c.noAlerts = true } }
 func withoutQuality() stackOption                { return func(c *stackConfig) { c.noQuality = true } }
 func withoutIntegrations() stackOption           { return func(c *stackConfig) { c.noIntegrations = true } }
 func withoutCI() stackOption                     { return func(c *stackConfig) { c.noCI = true } }

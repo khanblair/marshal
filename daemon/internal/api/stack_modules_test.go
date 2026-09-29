@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"sync"
+	"testing"
 	"time"
 
 	"github.com/khanblair/marshal/daemon/internal/accounts"
@@ -13,6 +14,7 @@ import (
 	"github.com/khanblair/marshal/daemon/internal/api"
 	"github.com/khanblair/marshal/daemon/internal/auditlog"
 	"github.com/khanblair/marshal/daemon/internal/cardhistory"
+	"github.com/khanblair/marshal/daemon/internal/chatbot"
 	"github.com/khanblair/marshal/daemon/internal/chats"
 	"github.com/khanblair/marshal/daemon/internal/ci"
 	"github.com/khanblair/marshal/daemon/internal/connectiontest"
@@ -25,6 +27,7 @@ import (
 	"github.com/khanblair/marshal/daemon/internal/integrator"
 	"github.com/khanblair/marshal/daemon/internal/localci"
 	"github.com/khanblair/marshal/daemon/internal/memory"
+	"github.com/khanblair/marshal/daemon/internal/notify"
 	"github.com/khanblair/marshal/daemon/internal/preview"
 	"github.com/khanblair/marshal/daemon/internal/providers"
 	"github.com/khanblair/marshal/daemon/internal/pullrequest"
@@ -368,6 +371,9 @@ func (st *stack) startModules() {
 			t.Fatalf("make the settings service: %v", err)
 		}
 		deps.SleepSettings = sleepSvc
+		if !st.cfg.noAlerts {
+			deps.Alerts = alertSettingsOver(t, sleepSvc)
+		}
 		if st.mgr != nil {
 			st.mgr.SetSleepSettings(sleepSvc)
 		}
@@ -417,4 +423,19 @@ func (st *stack) startModules() {
 	t.Cleanup(st.stopServer)
 	st.base = "http://" + listener.Addr().String()
 	st.client = &http.Client{Transport: &http.Transport{DisableKeepAlives: true}, Timeout: 30 * time.Second}
+}
+
+// alertSettingsOver builds the alert settings the way cmd/marshald builds them: a router that sends
+// nowhere, over the settings service as its store of choices.
+func alertSettingsOver(t *testing.T, store notify.RouteStore) *notify.Alerts {
+	t.Helper()
+	router, err := notify.New(notify.SenderFunc(func(context.Context, notify.Channel, chatbot.Notice) error { return nil }), notify.Options{})
+	if err != nil {
+		t.Fatalf("make the notification router: %v", err)
+	}
+	alerts, err := notify.NewAlerts(router, store, nil, nil)
+	if err != nil {
+		t.Fatalf("make the alert settings: %v", err)
+	}
+	return alerts
 }
