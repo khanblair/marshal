@@ -10,6 +10,7 @@ import (
 
 	"github.com/khanblair/marshal/daemon/internal/accounts"
 	"github.com/khanblair/marshal/daemon/internal/agents/catalog"
+	"github.com/khanblair/marshal/daemon/internal/agents/trust"
 	"github.com/khanblair/marshal/daemon/internal/audit"
 	"github.com/khanblair/marshal/daemon/internal/auditlog"
 	"github.com/khanblair/marshal/daemon/internal/briefs"
@@ -172,7 +173,8 @@ func buildCoreModules(st *store.Store, bus *events.Bus, settings config.Settings
 	}
 	proj, err := projects.New(projects.Deps{Store: st, Bus: bus, Git: git, DataDir: settings.DataDir},
 		projects.WithLogger(log), projects.WithSessionStopper(late), projects.WithAwakeCounter(late),
-		projects.WithSessionStates(states), projects.WithMemoryRemover(lateMem))
+		projects.WithSessionStates(states), projects.WithMemoryRemover(lateMem),
+		projects.WithFolderTruster(trust.Folder))
 	if err != nil {
 		return coreDaemonModules{}, fmt.Errorf("start the projects module: %w", err)
 	}

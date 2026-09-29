@@ -210,6 +210,8 @@ type Service struct {
 	gateMu sync.RWMutex
 	gate   ReviewGate
 	lists  ChecklistGate
+	// trust marks a folder as trusted in the agent CLIs' own settings. It is nil in tests.
+	trust func(dir string) error
 }
 
 // Option changes how New builds a Service.
@@ -256,6 +258,22 @@ func WithSessionStates(states SessionStates) Option {
 		if states != nil {
 			s.states = states
 		}
+	}
+}
+
+// WithFolderTruster sets what marks a project folder or a card's worktree as trusted in the agent
+// CLIs' own settings, so that a CLI does not stop on its trust question. A failure is only logged.
+func WithFolderTruster(trust func(dir string) error) Option {
+	return func(s *Service) { s.trust = trust }
+}
+
+// trustFolder calls the truster, if there is one.
+func (s *Service) trustFolder(dir string) {
+	if s.trust == nil || dir == "" {
+		return
+	}
+	if err := s.trust(dir); err != nil {
+		s.log.Warn("could not mark a folder as trusted for the agent CLIs", "dir", dir, "error", err)
 	}
 }
 

@@ -373,3 +373,21 @@ func TestCreateAcceptsARepositoryWithoutCommits(t *testing.T) {
 		t.Errorf("Create = %+v, %v; want a project on main with an unknown language", project, err)
 	}
 }
+
+func TestCreateTrustsTheProjectFolder(t *testing.T) {
+	var got []string
+	e := newEnv(t, projects.WithFolderTruster(func(dir string) error {
+		got = append(got, dir)
+		return nil
+	}))
+	path := testutil.Fixture(t, "small-repo")
+	project, err := e.svc.Create(context.Background(), protocol.CreateProjectRequest{
+		Source: protocol.ProjectSourceFolder, Path: path,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || !sameFolder(t, got[0], project.Path) {
+		t.Errorf("trusted folders = %v, want the project folder %q", got, project.Path)
+	}
+}

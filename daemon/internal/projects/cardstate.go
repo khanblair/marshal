@@ -211,6 +211,7 @@ func (s *Service) SetWorktree(ctx context.Context, id, path, branch string) (pro
 		return protocol.Card{}, err
 	}
 	if changed {
+		s.trustFolder(path)
 		s.publish(protocol.ProjectTopic(card.ProjectID), protocol.EventTypeCardUpdated, protocol.CardEventData{Card: card}, false)
 	}
 	return card, nil

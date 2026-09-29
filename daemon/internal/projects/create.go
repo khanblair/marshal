@@ -73,6 +73,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput, opts ...CreateOpti
 	if err != nil {
 		return protocol.Project{}, err
 	}
+	s.trustFolder(info.Root)
 	s.log.Info("added a project", "project_id", project.ID, "language", project.Language,
 		"monorepo", project.IsMonorepo)
 	s.publish(protocol.HomeTopic, protocol.EventTypeProjectCreated, protocol.ProjectEventData{Project: project}, true)
