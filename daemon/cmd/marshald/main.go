@@ -27,14 +27,18 @@ import (
 	"github.com/khanblair/marshal/daemon/internal/agents/gemini"
 	"github.com/khanblair/marshal/daemon/internal/api"
 	"github.com/khanblair/marshal/daemon/internal/buildinfo"
+	"github.com/khanblair/marshal/daemon/internal/chatbot"
+	"github.com/khanblair/marshal/daemon/internal/chatcmd"
 	"github.com/khanblair/marshal/daemon/internal/ci"
 	"github.com/khanblair/marshal/daemon/internal/config"
+	"github.com/khanblair/marshal/daemon/internal/devices"
 	"github.com/khanblair/marshal/daemon/internal/events"
 	"github.com/khanblair/marshal/daemon/internal/fixture"
 	"github.com/khanblair/marshal/daemon/internal/github"
 	"github.com/khanblair/marshal/daemon/internal/gitx"
 	"github.com/khanblair/marshal/daemon/internal/integrations"
 	"github.com/khanblair/marshal/daemon/internal/memory"
+	"github.com/khanblair/marshal/daemon/internal/notify"
 	"github.com/khanblair/marshal/daemon/internal/platform"
 	"github.com/khanblair/marshal/daemon/internal/projects"
 	"github.com/khanblair/marshal/daemon/internal/protocol"
@@ -46,6 +50,7 @@ import (
 	"github.com/khanblair/marshal/daemon/internal/session"
 	sleepsettings "github.com/khanblair/marshal/daemon/internal/settings"
 	"github.com/khanblair/marshal/daemon/internal/store"
+	"github.com/khanblair/marshal/daemon/internal/tailnet"
 	"github.com/khanblair/marshal/daemon/internal/webui"
 )
 
@@ -124,43 +129,16 @@ func run(args []string, stdout, stderr io.Writer) int {
 // order: the server stops accepting and closes its event streams first (Run does that), then the
 // session manager stops every live agent, then the event bus closes, then the database.
 func serve(ctx context.Context, settings config.Settings, env platform.Env, log *slog.Logger) (err error) {
-	dataDir, err := filepath.Abs(settings.DataDir)
+	state, err := openDaemonState(ctx, settings, log)
 	if err != nil {
-		return fmt.Errorf("resolve the data folder %s: %w", settings.DataDir, err)
-	}
-	settings.DataDir = dataDir
-	if err := os.MkdirAll(settings.DataDir, dataDirMode); err != nil {
-		return fmt.Errorf("make the data folder %s: %w", settings.DataDir, err)
-	}
-	// The lock is acquired before anything below touches the database or opens a listener: a
-	// daemon that lost the race for this data folder must do neither.
-	lock, err := platform.AcquireLock(filepath.Join(settings.DataDir, lockFileName))
-	if err != nil {
-		if errors.Is(err, platform.ErrAlreadyRunning) {
-			log.Error("cannot start: another daemon already holds the lock", "data_dir", settings.DataDir, "error", err)
-		}
 		return err
 	}
+	settings, st, bus := state.settings, state.store, state.bus
 	defer func() {
-		if releaseErr := lock.Release(); releaseErr != nil {
-			err = errors.Join(err, fmt.Errorf("release the lock: %w", releaseErr))
+		if closeErr := state.Close(); closeErr != nil {
+			err = errors.Join(err, closeErr)
 		}
 	}()
-	log.Info("starting", "version", buildinfo.Version, "mode", settings.Mode, "data_dir", settings.DataDir)
-	st, err := store.Open(ctx, filepath.Join(settings.DataDir, databaseFile), store.WithLogger(log))
-	if err != nil {
-		return fmt.Errorf("open the database: %w", err)
-	}
-	defer func() {
-		if closeErr := st.Close(); closeErr != nil {
-			err = errors.Join(err, fmt.Errorf("close the database: %w", closeErr))
-		}
-	}()
-	bus, err := events.New()
-	if err != nil {
-		return fmt.Errorf("start the event bus: %w", err)
-	}
-	defer bus.Close()
 
 	mods, err := buildModules(ctx, st, bus, settings, env, log)
 	if err != nil {
@@ -207,6 +185,40 @@ func serve(ctx context.Context, settings config.Settings, env platform.Env, log 
 	// person's machine is not left with one running after Marshal is gone. It stops before the
 	// session manager, the bus, and the store, because it is registered last of the three.
 	defer mods.preview.Close()
+	// The scheduler, the Marshal-to-Trello move sync, and the Gmail poller (B8.1-B8.3): started
+	// together after every module a run can reach exists, stopped together in reverse order before
+	// the session manager, the bus, and the store.
+	stopAutomation, err := startAutomationWatchers(ctx, mods)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if closeErr := stopAutomation(); closeErr != nil {
+			err = errors.Join(err, closeErr)
+		}
+	}()
+
+	// The paired-devices service (B9.1, B9.2): the code a phone types in, the device rows, and
+	// revoking one. It needs only the store and the clock, so it is built here beside the accounts
+	// it pairs for rather than in buildModules.
+	pairedDevices := devices.NewService(st, devices.WithLogger(log), devices.WithClock(time.Now)) // The tailnet node (B9.1): a second, additive listener beside the loopback one, off unless it
+	// was asked for. It is built before the server so the server can serve on it, and closed after
+	// the server has stopped accepting - see the defer just below.
+	node := buildTailnetNode(ctx, settings, st, log)
+	defer closeTailnet(node, &err)
+
+	// The notification router (B9.4): which chat each kind of event reaches, grouped so a burst of
+	// things is one message, and an approval sent at once. It talks to no service itself - the
+	// connections service builds the bot for the channel - so a daemon with no chat connected routes
+	// to nowhere rather than failing, and it runs for as long as the daemon does.
+	buildNotifications(ctx, log, mods.integrations, bus)
+
+	// The chat receive loops (B9.3): Telegram and Discord can answer an approval the same way a
+	// screen does. They start the first time a connection for them is saved, so a person who adds a
+	// bot from Settings does not have to restart the daemon, and each one runs for as long as it does.
+	if err := startChatCommands(ctx, log, mods); err != nil {
+		return err
+	}
 
 	dev, err := api.EnsureAccounts(ctx, st, api.AccountsConfig{
 		DataDir: settings.DataDir, Dev: settings.Dev(), Now: time.Now, Log: log,
@@ -216,18 +228,7 @@ func serve(ctx context.Context, settings config.Settings, env platform.Env, log 
 	}
 	// The fixture loads before the restore below starts, and before Run serves anything, so the
 	// restore and the first requests never see a half-made fixture.
-	loaded := loadFixture(ctx, settings, mods.proj, mods.sessions, log)
-	if loaded {
-		// A fixture writes session rows so the screens have something to draw, and those sessions
-		// have no process behind them. Restoring them would start an agent for every one of the
-		// prototype's cards at every daemon start, which is neither wanted nor cheap, so a loaded
-		// fixture leaves them for a person to resume (the manual side of architecture.md 5.3).
-		log.Info("the fixture is loaded, so its sessions are left for a person to resume")
-	} else {
-		// Restoring sessions runs in its own goroutine, bounded by its own timeout, so a slow or
-		// stuck agent program never delays Run below from serving the health endpoint.
-		go restoreSessions(ctx, mods.sessions, log)
-	}
+	startCardWork(ctx, settings, mods, log)
 	return api.New(settings, log, time.Now, api.Deps{
 		Store: st, Bus: bus, Dev: dev, Projects: mods.proj, Sessions: mods.sessions,
 		Catalog: mods.catalog, Dashboard: mods.dashboard, History: mods.history,
@@ -238,9 +239,140 @@ func serve(ctx context.Context, settings config.Settings, env platform.Env, log 
 		SleepSettings: mods.sleepSettings, Quality: mods.quality,
 		Integrations: mods.integrations, Webhooks: mods.integrations.Receiver(),
 		CI: mods.ci, LocalCI: mods.localCI, Preview: mods.preview,
-		MCP:   mods.mcpHost,
-		WebUI: webUIFS(),
+		Schedules: mods.schedules,
+		Devices:   pairedDevices,
+		Tailnet:   node,
+		Funnel:    settings.Funnel,
+		MCP:       mods.mcpHost,
+		WebUI:     webUIFS(),
 	}).Run(ctx)
+}
+
+// acquireDaemonLock takes the run lock for a data folder. It logs the one failure serve treats as
+// special - another daemon already holds it - before answering it, since every other failure to
+// start is already visible in the error serve returns.
+func acquireDaemonLock(dataDir string, log *slog.Logger) (*platform.Lock, error) {
+	lock, err := platform.AcquireLock(filepath.Join(dataDir, lockFileName))
+	if err != nil {
+		if errors.Is(err, platform.ErrAlreadyRunning) {
+			log.Error("cannot start: another daemon already holds the lock", "data_dir", dataDir, "error", err)
+		}
+		return nil, err
+	}
+	return lock, nil
+}
+
+// daemonState is what serve opens before building any module: the data folder resolved to an
+// absolute path, the run lock that folder is held under, the database, and the event bus. Close
+// releases them in the reverse order Open acquired them, joining every failure into one error the
+// way serve's own defers used to.
+type daemonState struct {
+	settings config.Settings
+	lock     *platform.Lock
+	store    *store.Store
+	bus      *events.Bus
+}
+
+// openDaemonState resolves the data folder, makes it if it is missing, and opens the lock, the
+// database, and the event bus in that order - the order a daemon that lost the race for this data
+// folder, or whose database will not open, must touch nothing further for. A step that fails closes
+// whatever the steps before it opened before answering the error.
+func openDaemonState(ctx context.Context, settings config.Settings, log *slog.Logger) (*daemonState, error) {
+	dataDir, err := filepath.Abs(settings.DataDir)
+	if err != nil {
+		return nil, fmt.Errorf("resolve the data folder %s: %w", settings.DataDir, err)
+	}
+	settings.DataDir = dataDir
+	if err := os.MkdirAll(settings.DataDir, dataDirMode); err != nil {
+		return nil, fmt.Errorf("make the data folder %s: %w", settings.DataDir, err)
+	}
+	lock, err := acquireDaemonLock(settings.DataDir, log)
+	if err != nil {
+		return nil, err
+	}
+	log.Info("starting", "version", buildinfo.Version, "mode", settings.Mode, "data_dir", settings.DataDir)
+	st, err := store.Open(ctx, filepath.Join(settings.DataDir, databaseFile), store.WithLogger(log))
+	if err != nil {
+		_ = lock.Release()
+		return nil, fmt.Errorf("open the database: %w", err)
+	}
+	bus, err := events.New()
+	if err != nil {
+		_ = st.Close()
+		_ = lock.Release()
+		return nil, fmt.Errorf("start the event bus: %w", err)
+	}
+	return &daemonState{settings: settings, lock: lock, store: st, bus: bus}, nil
+}
+
+// Close releases a daemonState's lock, database, and event bus, in the reverse order Open acquired
+// them: the bus first, then the database, then the lock, joining every failure into one error.
+func (d *daemonState) Close() error {
+	var err error
+	d.bus.Close()
+	if closeErr := d.store.Close(); closeErr != nil {
+		err = errors.Join(err, fmt.Errorf("close the database: %w", closeErr))
+	}
+	if releaseErr := d.lock.Release(); releaseErr != nil {
+		err = errors.Join(err, fmt.Errorf("release the lock: %w", releaseErr))
+	}
+	return err
+}
+
+// startAutomationWatchers starts the scheduler, the Marshal-to-Trello move sync, and the Gmail
+// poller (B8.1-B8.3), in that order, and returns how to stop all three in reverse order. The
+// scheduler is the one of the three whose own rows can fire immediately once it starts, so it
+// starts first and stops last, the same "last started, first stopped" order the modules it depends
+// on already follow.
+func startAutomationWatchers(ctx context.Context, mods daemonModules) (func() error, error) {
+	if err := mods.schedules.Start(ctx); err != nil {
+		return nil, fmt.Errorf("start the scheduler: %w", err)
+	}
+	if err := mods.trelloOutbound.Start(ctx); err != nil {
+		mods.schedules.Stop()
+		return nil, fmt.Errorf("start the Trello outbound sync: %w", err)
+	}
+	mods.gmailPoller.Start(ctx)
+	return func() error {
+		var stopErr error
+		if closeErr := mods.gmailPoller.Close(); closeErr != nil {
+			stopErr = errors.Join(stopErr, fmt.Errorf("stop the Gmail poller: %w", closeErr))
+		}
+		if closeErr := mods.trelloOutbound.Close(); closeErr != nil {
+			stopErr = errors.Join(stopErr, fmt.Errorf("stop the Trello outbound sync: %w", closeErr))
+		}
+		mods.schedules.Stop()
+		return stopErr
+	}, nil
+}
+
+// startChatCommands starts the chat command service and its receive-loop watcher (B9.3), when the
+// daemon has a session manager to run a command against. A daemon built in stub mode still has one,
+// so this only ever skips when sessions itself failed to build.
+func startChatCommands(ctx context.Context, log *slog.Logger, mods daemonModules) error {
+	if mods.sessions == nil {
+		return nil
+	}
+	commands, err := chatcmd.New(mods.sessions, log)
+	if err != nil {
+		return fmt.Errorf("start chat commands: %w", err)
+	}
+	go watchChats(ctx, log, mods.integrations, commands)
+	return nil
+}
+
+// startCardWork loads the fixture named by --fixture or MARSHAL_FIXTURE, or, when none was asked
+// for, restores the sessions left over from the last run (docs/architecture.md 5.3). A fixture's
+// sessions have no process behind them, so a loaded fixture leaves them for a person to resume by
+// hand instead of restoring them.
+func startCardWork(ctx context.Context, settings config.Settings, mods daemonModules, log *slog.Logger) {
+	if loadFixture(ctx, settings, mods.proj, mods.sessions, log) {
+		log.Info("the fixture is loaded, so its sessions are left for a person to resume")
+		return
+	}
+	// Restoring sessions runs in its own goroutine, bounded by its own timeout, so a slow or
+	// stuck agent program never delays Run below from serving the health endpoint.
+	go restoreSessions(ctx, mods.sessions, log)
 }
 
 // webUIFS is the built web app, or nil when the build that made this binary never copied one in
@@ -252,6 +384,155 @@ func webUIFS() fs.FS {
 		return nil
 	}
 	return webui.FS()
+}
+
+// tailnetStateDir is where the node's own Tailscale state lives: one folder under the daemon's
+// data folder, so signing in once survives a restart and nothing is written outside the data
+// folder the daemon owns.
+const tailnetStateDir = "tailnet"
+
+// buildTailnetNode makes the node the daemon joins, or nil for a daemon that was not asked to join
+// a tailnet - which is every daemon until someone switches it on. The node is made here rather than
+// in serve so that serve stays a list of what it opens and closes rather than a list of how.
+//
+// Starting the identity watcher is part of making the node: it reads the node's own status until
+// the daemon stops, so it has to begin before the server starts serving on the tailnet.
+func buildTailnetNode(ctx context.Context, settings config.Settings, st *store.Store, log *slog.Logger) *tailnet.Node {
+	if !settings.Tailnet {
+		return nil
+	}
+	node := tailnet.New(tailnet.Config{
+		Dir:      filepath.Join(settings.DataDir, tailnetStateDir),
+		Hostname: settings.TailnetHostname,
+		Logger:   log,
+	})
+	go watchTailnetIdentity(ctx, node, st, log)
+	return node
+}
+
+// closeTailnet closes the node after the server has stopped serving on it, and joins any failure
+// into the daemon's own error, the way every other close in serve does. A daemon that was never
+// asked to join a tailnet has no node and closes nothing.
+func closeTailnet(node *tailnet.Node, join *error) {
+	if node == nil {
+		return
+	}
+	if err := node.Close(); err != nil {
+		*join = errors.Join(*join, fmt.Errorf("close the tailnet node: %w", err))
+	}
+}
+
+// tailnetStatusSource is what the identity watcher reads: the node's own view of itself. It is
+// an interface so the watcher can be driven by a test without a node that can join anything.
+type tailnetStatusSource interface {
+	Status() protocol.TailnetStatus
+}
+
+// watchTailnetIdentity writes the Tailscale account the daemon's node joined as into the owner's
+// row, so the profile's Tailscale identity (B9.1) comes from the node itself. It reads the node's
+// status rather than waiting on the join, because a node that nobody has signed in to has no
+// identity yet and a daemon that never joins has nothing to write. It stops with the daemon.
+func watchTailnetIdentity(ctx context.Context, node tailnetStatusSource, st *store.Store, log *slog.Logger) {
+	owner, err := st.Queries().GetOwner(ctx)
+	if err != nil {
+		log.Warn("could not find the owner to record a Tailscale identity for", "error", err)
+		return
+	}
+	ticker := time.NewTicker(tailnetIdentityInterval)
+	defer ticker.Stop()
+	for {
+		if identity := node.Status().Identity; identity != "" && identity != owner.TailnetIdentity {
+			if err := st.SetTailnetIdentity(ctx, owner.ID, identity); err != nil {
+				log.Warn("could not record the Tailscale account this machine joined as", "error", err)
+			} else {
+				owner.TailnetIdentity = identity
+				log.Info("recorded the Tailscale account", "identity", identity)
+			}
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
+}
+
+// tailnetIdentityInterval is how often the node is asked whether it has signed in yet.
+const tailnetIdentityInterval = 10 * time.Second
+
+// buildNotifications is the notification router (B9.4, build-plan 9.7), built once and running
+// against the event bus until the daemon stops.
+//
+// It sends through whichever chat connection a person saved. The router itself knows nothing about
+// Telegram or Discord: the connections service builds the bot for the channel, and a chat nobody has
+// connected means the notice goes nowhere, which is a logged nothing rather than an error - so a
+// daemon with no chat set up still serves the app exactly as it did before.
+func buildNotifications(ctx context.Context, log *slog.Logger, links *integrations.Service, bus *events.Bus) {
+	sender := notify.SenderFunc(func(callCtx context.Context, channel notify.Channel, notice chatbot.Notice) error {
+		if links == nil {
+			return nil
+		}
+		bot, err := links.ChatBot(callCtx, chatbot.Kind(channel))
+		if err != nil {
+			if errors.Is(err, integrations.ErrNotConnected) {
+				return nil
+			}
+			return err
+		}
+		defer func() { _ = bot.Close() }()
+		return bot.Notify(callCtx, notice)
+	})
+	router, err := notify.New(sender, notify.Options{Logger: log})
+	if err != nil {
+		// notify.New only ever refuses a nil sender, and this one is not nil.
+		log.Warn("the notification router could not be built", "error", err)
+		return
+	}
+	go router.Follow(ctx, bus)
+}
+
+// chatRecheckInterval is how often the daemon looks for a chat connection that has been set up
+// since it last looked. Nothing announces a connection as "ready for a receive loop", so a watcher
+// is what turns a token pasted in Settings into a bot that starts answering.
+const chatRecheckInterval = 10 * time.Second
+
+// watchChats starts each chat bot's receive loop the first time a connection for it is saved, and
+// leaves it running (B9.3, build-plan 9.5 and 9.6).
+//
+// It is a watcher rather than one call at start-up because a bot is most often connected from
+// Settings after the daemon is already up, and a person who has just pasted a token should not have
+// to restart anything for it to work. Each kind is started at most once: the loop the bot started
+// keeps running, and a second bot of the same kind would answer the same messages twice.
+func watchChats(ctx context.Context, log *slog.Logger, links *integrations.Service, commands *chatcmd.Service) {
+	if links == nil {
+		return
+	}
+	started := map[chatbot.Kind]bool{}
+	for {
+		for _, kind := range []chatbot.Kind{chatbot.KindTelegram, chatbot.KindDiscord} {
+			if started[kind] {
+				continue
+			}
+			bot, err := links.ChatBot(ctx, kind)
+			if err != nil {
+				// No connection saved for this service yet, which is the ordinary state of a
+				// daemon nobody has set a bot up on. Nothing is wrong and nothing is logged.
+				continue
+			}
+			started[kind] = true
+			log.Info("chat commands are on", "service", kind)
+			go func(bot chatbot.Bot) {
+				if err := commands.Run(ctx, bot); err != nil && ctx.Err() == nil {
+					log.Warn("a chat bot stopped receiving", "service", bot.Kind(), "error", err)
+				}
+			}(bot)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(chatRecheckInterval):
+		}
+	}
 }
 
 // vaultRoot is where the memory module keeps a person's knowledge base: one `vault` folder under the

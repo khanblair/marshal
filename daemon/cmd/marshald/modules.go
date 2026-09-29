@@ -11,6 +11,7 @@ import (
 	"github.com/khanblair/marshal/daemon/internal/agents/catalog"
 	"github.com/khanblair/marshal/daemon/internal/audit"
 	"github.com/khanblair/marshal/daemon/internal/auditlog"
+	"github.com/khanblair/marshal/daemon/internal/briefs"
 	"github.com/khanblair/marshal/daemon/internal/cardhistory"
 	"github.com/khanblair/marshal/daemon/internal/chats"
 	"github.com/khanblair/marshal/daemon/internal/ci"
@@ -31,11 +32,13 @@ import (
 	"github.com/khanblair/marshal/daemon/internal/platform"
 	"github.com/khanblair/marshal/daemon/internal/preview"
 	"github.com/khanblair/marshal/daemon/internal/projects"
+	"github.com/khanblair/marshal/daemon/internal/protocol"
 	"github.com/khanblair/marshal/daemon/internal/providers"
 	"github.com/khanblair/marshal/daemon/internal/pullrequest"
 	"github.com/khanblair/marshal/daemon/internal/quality"
 	"github.com/khanblair/marshal/daemon/internal/review"
 	"github.com/khanblair/marshal/daemon/internal/roles"
+	"github.com/khanblair/marshal/daemon/internal/schedules"
 	"github.com/khanblair/marshal/daemon/internal/search"
 	"github.com/khanblair/marshal/daemon/internal/security"
 	"github.com/khanblair/marshal/daemon/internal/session"
@@ -90,6 +93,15 @@ type daemonModules struct {
 	// GitHub App today, and later phases' services (B6.1, B6.7, architecture.md section 18). It
 	// holds the GitHub delivery receiver, which is what the webhook route hands deliveries to.
 	integrations *integrations.Service
+	// trelloOutbound watches Marshal's own card.moved events and mirrors a card that reaches done
+	// onto its linked Trello card (B8.2, the Marshal-to-Trello direction). It is always built -
+	// nothing here needs Trello to be connected, only the event bus - and a card that is not linked
+	// to Trello is the ordinary path its own apply takes, not an error.
+	trelloOutbound *integrations.OutboundSync
+	// gmailPoller reads Gmail's watched label on a timer and turns a message into a card, once
+	// (B8.3). It is always built - nothing here needs Gmail to be connected, only a store to poll
+	// against - and every poll with nothing set up answers nothing, quietly.
+	gmailPoller *integrations.GmailPoller
 	// ci is the CI monitor: it turns a workflow run on a card's branch into a card's CI state and
 	// runs the failure loop of section 9 (B6.2, B6.3). It is always built - it needs the store, the
 	// projects service, Git, and the roles service, all of which exist whether or not GitHub is
@@ -119,6 +131,10 @@ type daemonModules struct {
 	// agent ask where a name is (B7.5, build-plan task 7.9). It is what the internal MCP server's
 	// search_codebase answers from.
 	codemap *codemap.Map
+	// schedules owns the scheduled jobs and briefs and the cron that runs them (B8.1, build-plan
+	// 8.1). It is always built - its rows are the store's and its clock is the daemon's - and it is
+	// started only once every module a run can reach exists.
+	schedules *schedules.Service
 }
 
 // coreDaemonModules is git, the project and session machinery, and the recorders every later
@@ -337,11 +353,14 @@ type lateDaemonModules struct {
 	mergeQueue     *integrator.Service
 	qualitySvc     *quality.Service
 	integrationSvc *integrations.Service
+	trelloOutbound *integrations.OutboundSync
+	gmailPoller    *integrations.GmailPoller
 	ciSvc          *ci.Service
 	localCISvc     *localci.Service
 	previewSvc     *preview.Service
 	codeMap        *codemap.Map
 	mcpHost        *mcpserver.Host
+	schedSvc       *schedules.Service
 }
 
 // buildLateModules makes the GitHub pull-request and review services, the merge queue, the
@@ -391,8 +410,11 @@ func buildLateModules(st *store.Store, bus *events.Bus, settings config.Settings
 	// nobody has connected GitHub to. Until then every delivery is refused. The vault root is handed
 	// in from the memory module, so the Obsidian row and the test name the one folder Marshal writes
 	// memory in rather than a second copy of the same path.
+	gcalRedirect := fmt.Sprintf("http://%s/v1/integrations/gcal/callback", loopbackAddress(settings.Port))
 	integrationSvc, err := integrations.New(st, security.NewOSKeychain(platform.AppName(settings.Mode)),
-		integrations.Options{Logger: log, Now: time.Now, VaultRoot: cm.mem.Root()})
+		integrations.Options{
+			Logger: log, Now: time.Now, VaultRoot: cm.mem.Root(), GCalRedirectURL: gcalRedirect,
+		})
 	if err != nil {
 		return lateDaemonModules{}, fmt.Errorf("start the integrations module: %w", err)
 	}
@@ -412,6 +434,23 @@ func buildLateModules(st *store.Store, bus *events.Bus, settings config.Settings
 	// Every verified delivery the receiver accepts reaches the monitor, which is what turns a
 	// replayed webhook into a card's CI state.
 	integrationSvc.SetMonitor(ciSvc)
+	// The board work a believed Trello delivery is applied through (B8.2, architecture.md section
+	// 19.4): the projects service makes and moves the cards, adapted here so the connections package
+	// never depends on the board module. Without it a believed delivery is logged and nothing else,
+	// which is why attaching it is not optional in a real daemon.
+	integrationSvc.SetTrelloCards(trelloCards{svc: core.proj})
+	// The Marshal-to-Trello half of the move sync (B8.2): watches card.moved on the event bus and
+	// mirrors a card reaching done onto its linked Trello card, once Start runs (main.go).
+	trelloOutbound, err := integrations.NewOutboundSync(integrationSvc, bus)
+	if err != nil {
+		return lateDaemonModules{}, fmt.Errorf("start the Trello outbound sync: %w", err)
+	}
+	// Gmail's inbound half (B8.3): a labeled message becomes a card, on a timer (docs/marshal-
+	// product-scope.md 19.1's "cheap polling as a backup" - Gmail has no webhook Marshal can take).
+	gmailPoller, err := integrations.NewGmailPoller(integrationSvc)
+	if err != nil {
+		return lateDaemonModules{}, fmt.Errorf("start the Gmail poller: %w", err)
+	}
 	// Local CI (B6.5, build-plan 6.5): the project's own workflow files, run in the card's worktree.
 	// It reads the worktree through the projects service and starts each step through internal/proc,
 	// so nothing here needs a forge, a token, or a network.
@@ -468,11 +507,41 @@ func buildLateModules(st *store.Store, bus *events.Bus, settings config.Settings
 	// on the attacher because a daemon that could not resolve its own executable still gives its
 	// sessions the summary, and because it is read per turn rather than once (session/aware.go).
 	core.sessions.SetAwareness(attacher)
+	// The scheduler (B8.1, build-plan 8.1): the scheduled jobs and briefs, and the cron that runs
+	// them. It needs only the store - the rows are what it runs - and it is built here so that the
+	// routes that edit a schedule and the cron that runs one are the same object.
+	schedSvc := schedules.NewService(st, log)
+	// Briefs (B8.5, build-plan task 8.7): gathered from the same projects service every card route
+	// reads, never a query of its own. Registered under the schedule's Kind, not its Action -
+	// every brief's Action is a person's own free-text sentence describing what happens, not a
+	// dispatchable key (executeSchedule's fallback, internal/schedules/service.go).
+	schedSvc.RegisterHandler("brief", briefs.New(core.proj).Handle)
 	return lateDaemonModules{
 		pullReq: pullReq, reviewSvc: reviewSvc, mergeQueue: mergeQueue, qualitySvc: qualitySvc,
-		integrationSvc: integrationSvc, ciSvc: ciSvc, localCISvc: localCISvc, previewSvc: previewSvc,
-		codeMap: codeMap, mcpHost: mcpHost,
+		integrationSvc: integrationSvc, trelloOutbound: trelloOutbound, gmailPoller: gmailPoller,
+		ciSvc: ciSvc, localCISvc: localCISvc, previewSvc: previewSvc,
+		codeMap: codeMap, mcpHost: mcpHost, schedSvc: schedSvc,
 	}, nil
+}
+
+// trelloCards is the board work the Trello sync writes through, answered by the projects service.
+// It exists because the two signatures differ in a way Go will not adapt: the projects service's
+// CreateCard takes its own options variadically, so it does not structurally satisfy the sync's
+// interface, and an adapter is clearer than changing either side for the other's convenience.
+type trelloCards struct {
+	svc *projects.Service
+}
+
+func (t trelloCards) CreateCard(ctx context.Context, projectID string, in protocol.CreateCardRequest) (protocol.Card, error) {
+	return t.svc.CreateCard(ctx, projectID, in)
+}
+
+func (t trelloCards) MoveCard(ctx context.Context, id string, in protocol.MoveCardRequest) (protocol.Card, error) {
+	return t.svc.MoveCard(ctx, id, in)
+}
+
+func (t trelloCards) Card(ctx context.Context, id string) (protocol.Card, error) {
+	return t.svc.Card(ctx, id)
 }
 
 // buildModules makes git, projects, the agent registry and catalog, and the session manager, in
@@ -498,7 +567,10 @@ func buildModules(ctx context.Context, st *store.Store, bus *events.Bus, setting
 		auditlog: cm.auditRead, providers: core.providerSvc, costLimits: core.costLimits,
 		connectionTests: core.connectionTests, roles: cm.roleSvc, pullRequests: late.pullReq,
 		review: late.reviewSvc, integrator: late.mergeQueue, sleepSettings: core.sleepSettingsSvc,
-		quality: late.qualitySvc, integrations: late.integrationSvc, ci: late.ciSvc, localCI: late.localCISvc,
+		quality: late.qualitySvc, integrations: late.integrationSvc, trelloOutbound: late.trelloOutbound,
+		gmailPoller: late.gmailPoller,
+		ci:          late.ciSvc, localCI: late.localCISvc,
 		preview: late.previewSvc, memory: cm.mem, mcpHost: late.mcpHost, codemap: late.codeMap,
+		schedules: late.schedSvc,
 	}, nil
 }
