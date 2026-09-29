@@ -25,6 +25,11 @@ import type { Syncer } from "./syncer";
 const CONNECTION_SECTIONS: Readonly<Record<string, SectionId>> = {
   github: "S29a",
   obsidian: "S29b",
+  trello: "S29c",
+  gcal: "S29d",
+  gmail: "S29e",
+  telegram: "S29f",
+  discord: "S29g",
 };
 
 /** The GitHub App connection's own id, the one its row, its keychain entry, and its test are filed under. */
@@ -36,6 +41,21 @@ export const GITHUB_ID = "github";
  * but no save and no keychain entry.
  */
 export const OBSIDIAN_ID = "obsidian";
+
+/** The Trello connection's own id (section S29c). */
+export const TRELLO_ID = "trello";
+
+/** The Google Calendar connection's own id (section S29d). */
+export const GCAL_ID = "gcal";
+
+/** The Gmail connection's own id (section S29e). */
+export const GMAIL_ID = "gmail";
+
+/** The Telegram connection's own id (section S29f). */
+export const TELEGRAM_ID = "telegram";
+
+/** The Discord connection's own id (section S29g). */
+export const DISCORD_ID = "discord";
 
 export const integrationsSyncer: Syncer<IntegrationState[]> = {
   section: "S29a",

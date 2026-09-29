@@ -7,14 +7,26 @@ import {
   SettingsPanel,
   SettingsSection,
 } from "@marshal/ui";
-import { batch, For, Show } from "solid-js";
+import { batch, For, Match, Show, Switch } from "solid-js";
 import { type Integration, M } from "~/mock";
-import { OBSIDIAN_ID } from "~/sync/integrations";
+import {
+  DISCORD_ID,
+  GCAL_ID,
+  GMAIL_ID,
+  OBSIDIAN_ID,
+  TELEGRAM_ID,
+  TRELLO_ID,
+} from "~/sync/integrations";
 import { GRID_MIN_240 } from "./auto-fit-grid";
+import { DiscordForm } from "./DiscordForm";
 import { createEditState, type EditState } from "./edit-state";
 import { GitHubAppForm } from "./GitHubAppForm";
+import { GmailForm } from "./GmailForm";
+import { GoogleCalendarForm } from "./GoogleCalendarForm";
 import { ObsidianPanel } from "./ObsidianPanel";
+import { TelegramForm } from "./TelegramForm";
 import { TestChecks } from "./TestChecks";
+import { TrelloForm } from "./TrelloForm";
 
 interface StatusSpec {
   label: string;
@@ -108,12 +120,26 @@ function IntegrationCard(props: { integration: Integration; edit: EditState }) {
       {/* What the last connection test looked at, as a provider row shows its own. */}
       <Show when={props.integration.lastTest}>{(test) => <TestChecks test={test()} />}</Show>
       <Show when={onDaemon() && open()}>
-        <Show
-          when={props.integration.id === OBSIDIAN_ID}
-          fallback={<GitHubAppForm integration={props.integration} edit={props.edit} />}
-        >
-          <ObsidianPanel integration={props.integration} />
-        </Show>
+        <Switch fallback={<GitHubAppForm integration={props.integration} edit={props.edit} />}>
+          <Match when={props.integration.id === OBSIDIAN_ID}>
+            <ObsidianPanel integration={props.integration} />
+          </Match>
+          <Match when={props.integration.id === TRELLO_ID}>
+            <TrelloForm integration={props.integration} edit={props.edit} />
+          </Match>
+          <Match when={props.integration.id === GCAL_ID}>
+            <GoogleCalendarForm integration={props.integration} edit={props.edit} />
+          </Match>
+          <Match when={props.integration.id === GMAIL_ID}>
+            <GmailForm integration={props.integration} edit={props.edit} />
+          </Match>
+          <Match when={props.integration.id === TELEGRAM_ID}>
+            <TelegramForm integration={props.integration} edit={props.edit} />
+          </Match>
+          <Match when={props.integration.id === DISCORD_ID}>
+            <DiscordForm integration={props.integration} edit={props.edit} />
+          </Match>
+        </Switch>
       </Show>
     </SettingsPanel>
   );

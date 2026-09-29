@@ -74,13 +74,13 @@ describe("the integrations section", () => {
     expect(github()?.lastTest?.ok).toBe(true);
   });
 
-  it("leaves every connection whose section is still the mock's exactly as the seed made it", () => {
-    const ctx = contextOf(createTestMarshal());
+  it("leaves a connection whose section is still the mock's exactly as the seed made it", () => {
+    const ctx = contextOf(createTestMarshal({ sections: { ...sectionStatus, S29c: "mock" } }));
     const trello = () => ctx.S.integrations.find((integration) => integration.id === "trello");
     const before = unwrap(trello());
     applyIntegrationList(ctx, list);
-    // The daemon's answer names a "trello" row too, but Trello's own section (S29c) is not switched,
-    // so its mock row keeps the sentence the seed gave it.
+    // The daemon's answer names a "trello" row too, but with S29c pinned to the mock here, its
+    // mock row keeps the sentence the seed gave it.
     expect(unwrap(trello())).toEqual(before);
     expect(trello()?.st).toBe("connected");
   });
@@ -109,13 +109,15 @@ describe("the integrations section", () => {
     const daemonStore = createTestMarshal();
     expect(connectionOnDaemon(contextOf(daemonStore), "github")).toBe(true);
     expect(connectionOnDaemon(contextOf(daemonStore), "obsidian")).toBe(true);
-    // Trello, the calendar, and the rest are later phases' sections, so the daemon owns none of them.
-    expect(connectionOnDaemon(contextOf(daemonStore), "trello")).toBe(false);
-    expect(connectionOnDaemon(contextOf(daemonStore), "gcal")).toBe(false);
+    expect(connectionOnDaemon(contextOf(daemonStore), "trello")).toBe(true);
+    expect(connectionOnDaemon(contextOf(daemonStore), "gcal")).toBe(true);
     const mockStore = createTestMarshal({ sections: { ...sectionStatus, S29a: "mock" } });
     expect(connectionOnDaemon(contextOf(mockStore), "github")).toBe(false);
     const obsidianMockStore = createTestMarshal({ sections: { ...sectionStatus, S29b: "mock" } });
     expect(connectionOnDaemon(contextOf(obsidianMockStore), "obsidian")).toBe(false);
+    // Trello's own section (S29c) pinned back to the mock reads the same way.
+    const trelloMockStore = createTestMarshal({ sections: { ...sectionStatus, S29c: "mock" } });
+    expect(connectionOnDaemon(contextOf(trelloMockStore), "trello")).toBe(false);
   });
 });
 

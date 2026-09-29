@@ -1,4 +1,12 @@
-import type { SaveGitHubRequest } from "@marshal/protocol";
+import type {
+  AuthorizeURL,
+  SaveDiscordRequest,
+  SaveGitHubRequest,
+  SaveGmailRequest,
+  SaveGoogleCalendarRequest,
+  SaveTelegramRequest,
+  SaveTrelloRequest,
+} from "@marshal/protocol";
 import { M } from "~/mock";
 
 /**
@@ -13,6 +21,51 @@ export function connectGitHub(body: SaveGitHubRequest): Promise<boolean> {
     if (saved) M.toast("GitHub connected");
     return saved;
   });
+}
+
+/** Stores the Trello connection and says so. The daemon tests it as part of the same call. */
+export function connectTrello(body: SaveTrelloRequest): Promise<boolean> {
+  return M.connectTrello(body).then((saved) => {
+    if (saved) M.toast("Trello connected");
+    return saved;
+  });
+}
+
+/** Stores the Telegram bot connection and says so. The daemon tests it as part of the same call. */
+export function connectTelegram(body: SaveTelegramRequest): Promise<boolean> {
+  return M.connectTelegram(body).then((saved) => {
+    if (saved) M.toast("Telegram connected");
+    return saved;
+  });
+}
+
+/** Stores the Discord bot connection and says so. The daemon tests it as part of the same call. */
+export function connectDiscord(body: SaveDiscordRequest): Promise<boolean> {
+  return M.connectDiscord(body).then((saved) => {
+    if (saved) M.toast("Discord connected");
+    return saved;
+  });
+}
+
+/** Stores which Gmail label to watch and says so. Sharing Google Calendar's own access. */
+export function connectGmail(body: SaveGmailRequest): Promise<boolean> {
+  return M.connectGmail(body).then((saved) => {
+    if (saved) M.toast("Gmail connected");
+    return saved;
+  });
+}
+
+/** Stores the Google Calendar OAuth client. Granting access is a separate step. */
+export function connectGoogleCalendar(body: SaveGoogleCalendarRequest): Promise<boolean> {
+  return M.connectGoogleCalendar(body).then((saved) => {
+    if (saved) M.toast("Google Calendar's client is saved. Grant access to finish connecting.");
+    return saved;
+  });
+}
+
+/** The consent URL for Google Calendar's OAuth flow. */
+export function authorizeGoogleCalendar(): Promise<AuthorizeURL | null> {
+  return M.authorizeGoogleCalendar();
 }
 
 /** Runs a connection's own test now and says what it found. */

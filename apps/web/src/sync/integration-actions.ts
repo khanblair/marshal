@@ -1,6 +1,23 @@
-import type { IntegrationList, SaveGitHubRequest } from "@marshal/protocol";
+import type {
+  AuthorizeURL,
+  IntegrationList,
+  SaveDiscordRequest,
+  SaveGitHubRequest,
+  SaveGmailRequest,
+  SaveGoogleCalendarRequest,
+  SaveTelegramRequest,
+  SaveTrelloRequest,
+} from "@marshal/protocol";
 import type { Ctx } from "~/mock/context";
-import { applyIntegrationList, GITHUB_ID } from "./integrations";
+import {
+  applyIntegrationList,
+  DISCORD_ID,
+  GCAL_ID,
+  GITHUB_ID,
+  GMAIL_ID,
+  TELEGRAM_ID,
+  TRELLO_ID,
+} from "./integrations";
 
 /*
  * The writes the Settings Integrations screen makes on the daemon (section S29a). Every one of them
@@ -44,6 +61,67 @@ export async function connectGitHub(c: Ctx, body: SaveGitHubRequest): Promise<bo
   const api = c.env.data?.api;
   if (!api) return false;
   return write(c, `integration:${GITHUB_ID}`, () => api.saveIntegration(GITHUB_ID, body));
+}
+
+/** Stores the Trello connection: the key, the token, the board, and the webhook secret's pair. */
+export async function connectTrello(c: Ctx, body: SaveTrelloRequest): Promise<boolean> {
+  const api = c.env.data?.api;
+  if (!api) return false;
+  return write(c, `integration:${TRELLO_ID}`, () => api.saveIntegration(TRELLO_ID, body));
+}
+
+/**
+ * Stores the Telegram bot connection: the bot's token and the chat notices go to. The daemon writes
+ * the token to the keychain, tests the bot against Telegram, and answers the whole list.
+ */
+export async function connectTelegram(c: Ctx, body: SaveTelegramRequest): Promise<boolean> {
+  const api = c.env.data?.api;
+  if (!api) return false;
+  return write(c, `integration:${TELEGRAM_ID}`, () => api.saveIntegration(TELEGRAM_ID, body));
+}
+
+/**
+ * Stores the Discord bot connection: the bot's token and the channel notices go to. The daemon
+ * writes the token to the keychain, tests the bot against Discord, and answers the whole list.
+ */
+export async function connectDiscord(c: Ctx, body: SaveDiscordRequest): Promise<boolean> {
+  const api = c.env.data?.api;
+  if (!api) return false;
+  return write(c, `integration:${DISCORD_ID}`, () => api.saveIntegration(DISCORD_ID, body));
+}
+
+/**
+ * Stores the Google Calendar OAuth client. This alone does not connect anything: the row stays
+ * "Not connected" until the owner opens `authorizeGoogleCalendar`'s URL and grants access.
+ */
+export async function connectGoogleCalendar(
+  c: Ctx,
+  body: SaveGoogleCalendarRequest,
+): Promise<boolean> {
+  const api = c.env.data?.api;
+  if (!api) return false;
+  return write(c, `integration:${GCAL_ID}`, () => api.saveIntegration(GCAL_ID, body));
+}
+
+/**
+ * Stores which Gmail label to watch and which project a labeled email becomes a card in. It has
+ * no client of its own: Google Calendar's own consent, once granted, covers Gmail too.
+ */
+export async function connectGmail(c: Ctx, body: SaveGmailRequest): Promise<boolean> {
+  const api = c.env.data?.api;
+  if (!api) return false;
+  return write(c, `integration:${GMAIL_ID}`, () => api.saveIntegration(GMAIL_ID, body));
+}
+
+/** The consent URL for Google Calendar's OAuth flow, for the owner's own browser to open. */
+export async function authorizeGoogleCalendar(c: Ctx): Promise<AuthorizeURL | null> {
+  const api = c.env.data?.api;
+  if (!api) return null;
+  try {
+    return await api.authorizeGoogleCalendar();
+  } catch {
+    return null;
+  }
 }
 
 /** Forgets a connection's settings and its secret. One that was never set up is not an error. */
