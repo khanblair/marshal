@@ -84,8 +84,9 @@ func newSession(a *Adapter, spec agents.StartSpec, life context.Context, cancel 
 }
 
 // open starts a new Claude Code process: a new session when resumeID is empty, or the one it
-// names otherwise.
-func (a *Adapter) open(ctx context.Context, spec agents.StartSpec, resumeID string) (agents.SessionHandle, error) {
+// names otherwise. A non-empty freshID starts a new session under that id, for a resume whose
+// conversation Claude Code never saved.
+func (a *Adapter) open(ctx context.Context, spec agents.StartSpec, resumeID, freshID string) (agents.SessionHandle, error) {
 	if err := absoluteCwd(spec); err != nil {
 		return agents.SessionHandle{}, err
 	}
@@ -94,6 +95,9 @@ func (a *Adapter) open(ctx context.Context, spec agents.StartSpec, resumeID stri
 		return agents.SessionHandle{}, err
 	}
 	id, args, err := idAndArgs(resumeID, common, spec.Instructions)
+	if freshID != "" {
+		id, args, err = freshID, startArgs(common, freshID, spec.Instructions), nil
+	}
 	if err != nil {
 		return agents.SessionHandle{}, err
 	}

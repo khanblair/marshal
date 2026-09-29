@@ -54,6 +54,10 @@ type Config struct {
 	// ResumeArgs gives the arguments that pick up a session that an earlier process had. A nil
 	// value means the CLI cannot resume, and Resume returns agents.ErrCannotResume.
 	ResumeArgs func(sessionID string) []string
+	// Saved, when set, says whether the CLI has saved a conversation under a session id. Resume
+	// starts a new session under the same id when it says no, because a CLI that was never given a
+	// first message has nothing to pick up. A nil value means Resume always resumes.
+	Saved func(sessionID string) bool
 	// SpecArgs turns the settings of a session into extra arguments, for example a model flag,
 	// added after the others on Start and on Resume alike. A nil value means the program takes none
 	// of them, or that the person's own configuration of it is what should apply.

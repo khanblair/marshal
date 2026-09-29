@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"path/filepath"
+	"strings"
 
 	"github.com/khanblair/marshal/daemon/internal/agents"
 )
@@ -36,7 +37,7 @@ func Factory(cfg Config) agents.Factory {
 
 // Start starts a new Claude Code process and a session in it.
 func (a *Adapter) Start(ctx context.Context, spec agents.StartSpec) (agents.SessionHandle, error) {
-	return a.open(ctx, spec, "")
+	return a.open(ctx, spec, "", "")
 }
 
 // Resume starts a new Claude Code process with --resume and picks up the session with the given
@@ -47,8 +48,18 @@ func (a *Adapter) Resume(
 	if sessionID == "" {
 		return agents.SessionHandle{}, fmt.Errorf("%w: there is no session id to resume", agents.ErrCannotResume)
 	}
-	return a.open(ctx, spec, sessionID)
+	h, err := a.open(ctx, spec, sessionID, "")
+	if err != nil && strings.Contains(err.Error(), noConversation) {
+		// Claude Code only saves a conversation once it has a first message. A session that was
+		// started and never spoken to has nothing to resume, so it starts again under its own id.
+		a.log.Info("no saved conversation to resume, starting the session again", "session_id", sessionID)
+		return a.open(ctx, spec, "", sessionID)
+	}
+	return h, err
 }
+
+// noConversation is what Claude Code prints when --resume names a session it never saved.
+const noConversation = "No conversation found"
 
 // Send starts a turn and returns at once. It returns agents.ErrBusy while a turn is running.
 func (a *Adapter) Send(ctx context.Context, h agents.SessionHandle, msg agents.UserMessage) error {
