@@ -19,6 +19,7 @@ const schedule = (over: Partial<Schedule>): Schedule => ({
   days: [1, 2, 3, 4, 5],
   action: "Do the thing",
   project: "All projects",
+  projectId: "",
   enabled: true,
   missed: "Run once on wake",
   ...over,

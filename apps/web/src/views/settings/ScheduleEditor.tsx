@@ -1,6 +1,7 @@
 import { Button, cx, Field, Input, Select } from "@marshal/ui";
-import { batch, Show, untrack } from "solid-js";
+import { Show, untrack } from "solid-js";
 import { M, type Schedule } from "~/mock";
+import { requestFrom } from "~/sync/schedule-actions";
 import { GRID_MIN_200 } from "./auto-fit-grid";
 import type { EditState } from "./edit-state";
 import { fieldValue } from "./form-field";
@@ -19,14 +20,15 @@ function saveSchedule(schedule: Schedule, form: HTMLFormElement, edit: EditState
     edit.fail(WHEN_ERROR);
     return;
   }
-  batch(() => {
-    Object.assign(schedule, {
-      name: fieldValue(form, "name").trim() || schedule.name,
-      trigger: fieldValue(form, "trigger"),
-      when,
-      missed: fieldValue(form, "missed"),
-      action: fieldValue(form, "action").trim() || schedule.action,
-    });
+  const body = requestFrom(schedule, {
+    name: fieldValue(form, "name").trim() || schedule.name,
+    trigger: fieldValue(form, "trigger"),
+    when,
+    missed: fieldValue(form, "missed"),
+    action: fieldValue(form, "action").trim() || schedule.action,
+  });
+  void M.saveSchedule(schedule.id, body).then((ok) => {
+    if (!ok) return;
     edit.close();
     M.toast("Schedule saved");
   });

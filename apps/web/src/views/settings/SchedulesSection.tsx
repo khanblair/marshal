@@ -1,6 +1,8 @@
+import type { ScheduleRun } from "@marshal/protocol";
 import { Button, Icon, ItemText, SettingsPanel, SettingsSection, Switch } from "@marshal/ui";
-import { batch, For, Show } from "solid-js";
+import { createSignal, For, Show } from "solid-js";
 import { M, type Schedule } from "~/mock";
+import { requestFrom } from "~/sync/schedule-actions";
 import type { EditState } from "./edit-state";
 import { ScheduleEditor } from "./ScheduleEditor";
 
@@ -9,36 +11,70 @@ const FRIDAY = 5;
 const WEEKDAYS = Array.from({ length: FRIDAY - MONDAY + 1 }, (_, i) => MONDAY + i);
 
 function toggleSchedule(schedule: Schedule, enabled: boolean): void {
-  batch(() => {
-    schedule.enabled = enabled;
-    M.toast(enabled ? "Schedule turned on" : "Schedule turned off");
+  void M.saveSchedule(schedule.id, requestFrom(schedule, { enabled })).then((ok) => {
+    if (ok) M.toast(enabled ? "Schedule turned on" : "Schedule turned off");
+  });
+}
+
+/** Removes a schedule, after asking. Its run history goes with it. */
+function removeSchedule(schedule: Schedule): void {
+  M.confirm({
+    title: `Delete "${schedule.name}"`,
+    message: "This removes the schedule and its run history. It cannot be undone.",
+    action: "Delete",
+    destructive: true,
+    run: () => {
+      void M.deleteSchedule(schedule.id).then((ok) => {
+        if (ok) M.toast("Schedule deleted");
+      });
+    },
   });
 }
 
 /** A new schedule starts off, with its form open, in the project you were last in. */
 function addSchedule(edit: EditState): void {
-  const id = `s${Date.now()}`;
-  batch(() => {
-    M.S.schedules.push({
-      id,
-      name: "New schedule",
-      kind: "job",
-      icon: "clock",
-      trigger: "Cron",
-      when: "Every weekday at 9:00",
-      time: "09:00",
-      days: [...WEEKDAYS],
-      action: "Send a message to the Orchestrator",
-      project: M.proj(M.S.route.pid)?.name ?? "",
-      enabled: false,
-      missed: "Skip",
-    });
-    edit.moveTo(id);
+  void M.createSchedule({
+    project: M.S.route.pid ?? "",
+    name: "New schedule",
+    kind: "job",
+    icon: "clock",
+    trigger: "Cron",
+    when: "Every weekday at 9:00",
+    time: "09:00",
+    days: [...WEEKDAYS],
+    action: "Send a message to the Orchestrator",
+    enabled: false,
+    missed: "Skip",
+  }).then((created) => {
+    if (created) edit.moveTo(created.id);
   });
+}
+
+/** The last run's own line: when it fired, whether it worked, and what it left behind - a
+ * brief's own composed text, for a brief. */
+function LastRun(props: { run: ScheduleRun }) {
+  return (
+    <div class="px-4 pb-3 text-small text-secondary whitespace-pre-wrap">
+      <span class={props.run.status === "failed" ? "text-status-danger-text" : ""}>
+        {new Date(props.run.runAt).toLocaleString()} - {props.run.status}
+      </span>
+      <Show when={props.run.details}>
+        <div class="mt-1">{props.run.details}</div>
+      </Show>
+    </div>
+  );
 }
 
 function ScheduleItem(props: { schedule: Schedule; edit: EditState }) {
   const editing = () => props.edit.id() === props.schedule.id;
+  const [runs, setRuns] = createSignal<ScheduleRun[] | null>(null);
+  const toggleHistory = (): void => {
+    if (runs() !== null) {
+      setRuns(null);
+      return;
+    }
+    void M.scheduleRuns(props.schedule.id).then(setRuns);
+  };
   return (
     <div class="border-b border-border">
       <div class="flex flex-wrap items-center gap-x-3 gap-y-2 py-3 px-4">
@@ -59,10 +95,26 @@ function ScheduleItem(props: { schedule: Schedule; edit: EditState }) {
           />
           {props.schedule.enabled ? "On" : "Off"}
         </label>
+        <Button size={28} onClick={toggleHistory}>
+          {runs() !== null ? "Hide history" : "History"}
+        </Button>
         <Button size={28} onClick={() => props.edit.toggle(props.schedule.id)}>
           {editing() ? "Close" : "Edit"}
         </Button>
+        <Button size={28} variant="destructive" onClick={() => removeSchedule(props.schedule)}>
+          Delete
+        </Button>
       </div>
+      <Show when={runs()}>
+        {(list) => (
+          <Show
+            when={list().length > 0}
+            fallback={<div class="px-4 pb-3 text-small text-secondary">Never run yet.</div>}
+          >
+            <For each={list().slice(0, 5)}>{(run) => <LastRun run={run} />}</For>
+          </Show>
+        )}
+      </Show>
       <Show when={editing()}>
         <ScheduleEditor schedule={props.schedule} edit={props.edit} />
       </Show>

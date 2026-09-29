@@ -31,32 +31,28 @@ export interface Integration {
    */
   lastTest?: IntegrationTest;
 }
-export interface Schedule {
-  id: string;
-  name: string;
-  kind: "brief" | "job";
-  icon: string;
-  trigger: string;
-  when: string;
-  time: string;
-  days: number[];
-  action: string;
-  project: string;
-  enabled: boolean;
-  missed: string;
-}
-export interface CalEvent {
-  id: string;
-  title: string;
-  time: string;
-  days?: number[];
-  dayOffset?: number;
-}
+/**
+ * A schedule row: the daemon's, mapped by `~/data/mappers/schedules.ts`. It is defined there, not
+ * here, so the mapper never depends on the mock, and re-exported here because the screens import
+ * their store types from `~/mock`.
+ */
+export type { ScheduleRow as Schedule } from "~/data/mappers/schedules";
+/**
+ * A calendar event: the daemon's, mapped by `~/data/mappers/calendar.ts`. It is defined there, not
+ * here, so the mapper never depends on the mock, and re-exported here because the screens import
+ * their store types from `~/mock`.
+ */
+export type { CalEvent } from "~/data/mappers/calendar";
 interface Device {
   id: string;
   name: string;
   kind: string;
   last: number;
+  /**
+   * True for a device whose token was revoked. The row stays in the list so the screen can say one
+   * was removed rather than watching it vanish (B9.1); the mock's own rows are never revoked.
+   */
+  revoked?: boolean;
 }
 export interface Profile {
   /** The daemon's id for the person. The mock's profile has none. */
