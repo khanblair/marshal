@@ -25,3 +25,15 @@ type SaveDiscordRequest struct {
 	// ChannelID is the channel Marshal sends notices to.
 	ChannelID string `json:"channelId"`
 }
+
+// SaveNtfyRequest is the body that saves an ntfy connection. The token is written to the keychain
+// and never comes back from any route; the server and the topic are written to the connection's own
+// row, because a screen shows them so a person can check where notices go.
+type SaveNtfyRequest struct {
+	// Server is the ntfy server's address. Empty means ntfy's own public server.
+	Server string `json:"server"`
+	// Topic is where notices are published.
+	Topic string `json:"topic"`
+	// Token is an access token for a server that needs one. Empty is fine for an open topic.
+	Token string `json:"token"`
+}

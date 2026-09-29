@@ -1,0 +1,42 @@
+{
+  "routes": [
+    {
+      "event": "approval.requested",
+      "label": "Needs your approval",
+      "channels": [
+        "telegram",
+        "discord"
+      ]
+    },
+    {
+      "event": "agent.stuck",
+      "label": "An agent is stuck or needs you",
+      "channels": [
+        "telegram"
+      ]
+    },
+    {
+      "event": "ci.failed",
+      "label": "CI failed",
+      "channels": []
+    }
+  ],
+  "channels": [
+    {
+      "id": "telegram",
+      "name": "Telegram",
+      "connected": true
+    },
+    {
+      "id": "discord",
+      "name": "Discord",
+      "connected": false
+    },
+    {
+      "id": "ntfy",
+      "name": "ntfy",
+      "connected": true
+    }
+  ],
+  "serverTime": "2026-09-28T12:00:00.000Z"
+}

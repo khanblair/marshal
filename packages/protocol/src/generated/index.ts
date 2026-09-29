@@ -95,6 +95,61 @@ export interface AgentCatalog {
 }
 
 //////////
+// source: alerts.go
+
+/** AlertRoute is where one kind of alert goes. */
+export interface AlertRoute {
+  /** Event names the kind of alert, in the daemon's own words, such as "agent.stuck". */
+  event: string;
+  /** Label is what the screen calls it, such as "An agent is stuck or needs you". */
+  label: string;
+  /**
+   * Channels are the channel ids it goes to, such as "telegram" and "ntfy". Empty means the alert
+   * is off. Never null.
+   */
+  channels: string[];
+}
+/** AlertChannel is one place an alert can be sent, and whether it can be used yet. */
+export interface AlertChannel {
+  /** ID is the channel's own id, the same as the connection that sends to it. */
+  id: string;
+  /** Name is what the screen calls it, such as "Telegram". */
+  name: string;
+  /**
+   * Connected is true when the connection is set up. A channel that is not can still be chosen, so
+   * a choice made before connecting is kept, but nothing is sent until it is.
+   */
+  connected: boolean;
+}
+/** AlertSettings is the answer to GET and PUT /v1/settings/alerts. */
+export interface AlertSettings {
+  /** Routes has one row per kind of alert, in the order the screen shows them. Never null. */
+  routes: AlertRoute[];
+  /**
+   * Channels has one entry per place an alert can be sent, in the order the screen shows them.
+   * Never null.
+   */
+  channels: AlertChannel[];
+  /** ServerTime is the daemon's time when the answer was made. */
+  serverTime: Timestamp;
+}
+/** AlertRouteChoice is one alert's channels as a person chose them. */
+export interface AlertRouteChoice {
+  /** Event names the kind of alert. */
+  event: string;
+  /** Channels are where it goes. Empty turns the alert off. */
+  channels: string[];
+}
+/**
+ * SaveAlertSettingsRequest is the body of PUT /v1/settings/alerts. An alert left out keeps the
+ * channels it had, so a screen may send only what changed.
+ */
+export interface SaveAlertSettingsRequest {
+  /** Routes are the alerts whose channels changed. */
+  routes: AlertRouteChoice[];
+}
+
+//////////
 // source: approvals.go
 
 /**
@@ -768,6 +823,19 @@ export interface SaveDiscordRequest {
   token: string;
   /** ChannelID is the channel Marshal sends notices to. */
   channelId: string;
+}
+/**
+ * SaveNtfyRequest is the body that saves an ntfy connection. The token is written to the keychain
+ * and never comes back from any route; the server and the topic are written to the connection's own
+ * row, because a screen shows them so a person can check where notices go.
+ */
+export interface SaveNtfyRequest {
+  /** Server is the ntfy server's address. Empty means ntfy's own public server. */
+  server: string;
+  /** Topic is where notices are published. */
+  topic: string;
+  /** Token is an access token for a server that needs one. Empty is fine for an open topic. */
+  token: string;
 }
 
 //////////
