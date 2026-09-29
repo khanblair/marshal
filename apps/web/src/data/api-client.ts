@@ -201,6 +201,11 @@ function roleQuery(project: string | undefined): string {
   return project ? `?${new URLSearchParams({ project })}` : "";
 }
 
+/** A schedules list's project filter, as a query string. Left out, every schedule is listed. */
+function scheduleQuery(project: string | undefined): string {
+  return project ? `?${new URLSearchParams({ project })}` : "";
+}
+
 /** The typed method of each route. Path segments are escaped, and a call with no body sends none. */
 function routeMethods({ request, command, bytes }: Transport): Omit<ApiClient, "request"> {
   const id = encodeURIComponent;
@@ -268,6 +273,14 @@ function routeMethods({ request, command, bytes }: Transport): Omit<ApiClient, "
     preferences: (o) => request("GET", "/v1/me/preferences", o),
     updatePreferences: (body, o) => request("PATCH", "/v1/me/preferences", { ...o, body }),
     resetFirstLaunch: (o) => request("POST", "/v1/dev/reset-first-launch", o),
+    // The paired devices and the tailnet (B9.1, B9.2, section S2b): the list a phone appears in,
+    // the code a new one is paired with, revoking one, and what the daemon's own node on the tailnet
+    // is doing - including whether /hooks/* was asked to be exposed to the public internet.
+    listDevices: (o) => request("GET", "/v1/me/devices", o),
+    createPairingCode: (o) => request("POST", "/v1/me/devices/pairing-code", o),
+    removeDevice: (did, o) => command("DELETE", `/v1/me/devices/${id(did)}`, o),
+    tailnetStatus: (o) => request("GET", "/v1/tailnet", o),
+    tailnetPeers: (o) => request("GET", "/v1/tailnet/peers", o),
     listSavedViews: (pid, o) => request("GET", `/v1/projects/${id(pid)}/saved-views`, o),
     createSavedView: (pid, body, o) =>
       request("POST", `/v1/projects/${id(pid)}/saved-views`, { ...o, body }),
@@ -287,6 +300,15 @@ function routeMethods({ request, command, bytes }: Transport): Omit<ApiClient, "
       request("PUT", `/v1/integrations/${id(iid)}`, { ...slow(o), body }),
     removeIntegration: (iid, o) => request("DELETE", `/v1/integrations/${id(iid)}`, o),
     testIntegration: (iid, o) => request("POST", `/v1/integrations/${id(iid)}/test`, slow(o)),
+    authorizeGoogleCalendar: (o) => request("GET", "/v1/integrations/gcal/authorize", o),
+    // Schedules and the calendar (B8.1, B8.4, N21): the Schedules screen's own list, add, edit, and
+    // delete, and the one call the calendar view and Home's coming-up list read.
+    listSchedules: (project, o) => request("GET", `/v1/schedules${scheduleQuery(project)}`, o),
+    createSchedule: (body, o) => request("POST", "/v1/schedules", { ...o, body }),
+    saveSchedule: (sid, body, o) => request("PUT", `/v1/schedules/${id(sid)}`, { ...o, body }),
+    deleteSchedule: (sid, o) => command("DELETE", `/v1/schedules/${id(sid)}`, o),
+    scheduleRuns: (sid, o) => request("GET", `/v1/schedules/${id(sid)}/runs`, o),
+    getCalendar: (start, end, o) => request("GET", `/v1/calendar?start=${start}&end=${end}`, o),
     listLimits: (o) => request("GET", "/v1/limits", o),
     setLimit: (scope, kind, body, o) =>
       request("PUT", `/v1/limits/${id(scope)}/${id(kind)}`, { ...o, body }),

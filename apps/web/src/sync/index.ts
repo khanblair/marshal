@@ -7,10 +7,12 @@ import { agentsSyncer } from "./agents";
 import { applyApprovalEvent } from "./approval-actions";
 import { applyCardSessionEvent, followOpenCard } from "./card-session";
 import { applyTerminalFrame, applyTerminalOutputEvent, followOpenCardTerminal } from "./card-view";
+import { calendarSyncer } from "./calendar";
 import { cardsSyncer } from "./cards";
 import { applyChatSessionEvent, followOpenChat } from "./chat-session";
 import { chatsSyncer } from "./chats";
 import { ciSyncer } from "./ci";
+import { devicesSyncer } from "./devices";
 import { homeFeedSyncer } from "./home-feed";
 import { homeStatsSyncer } from "./home-stats";
 import { integrationsSyncer } from "./integrations";
@@ -25,6 +27,7 @@ import { projectsSyncer } from "./projects";
 import { providersSyncer } from "./providers";
 import { rolesSyncer } from "./roles";
 import { savedViewsSyncer } from "./saved-views";
+import { schedulesSyncer } from "./schedules";
 import { sleepSettingsSyncer } from "./sleep-settings";
 import type { SyncControl } from "./sync-control";
 import type { Syncer } from "./syncer";
@@ -64,7 +67,14 @@ const SYNCERS: readonly Syncer[] = [
   savedViewsSyncer,
   preferencesSyncer,
   profileSyncer,
+  // The paired devices and the tailnet identity's own list (S2b): the devices belong to the person
+  // the profile names, so they are read right after it.
+  devicesSyncer,
   progressSyncer,
+  // Schedules (S30) and Google Calendar's events (S25): B8.1/B8.4/N21. The coming-up list (S22)
+  // reads the same store fields these two fill, so no syncer of its own is needed for it.
+  schedulesSyncer,
+  calendarSyncer,
 ];
 
 const LOAD_FAILED = "Marshal could not load your data from the daemon. Try again.";

@@ -1,8 +1,10 @@
 import type {
   ActivityItem,
   AgentCatalog,
+  AuthorizeURL,
   BoardSnapshot,
   BypassRequest,
+  CalendarList,
   Card,
   CardDiff,
   CardView,
@@ -19,6 +21,7 @@ import type {
   CreateRoleRequest,
   CreateSavedViewRequest,
   DecideApprovalRequest,
+  DeviceList,
   EditPlanRequest,
   FeedEntry,
   FileHunks,
@@ -34,6 +37,7 @@ import type {
   NoticeActionRequest,
   NoticeActionResult,
   NoticeList,
+  PairingCode,
   Page,
   Preferences,
   PreviewShotRequest,
@@ -51,10 +55,19 @@ import type {
   RoleSpec,
   SavedView,
   SavedViewListSnapshot,
+  SaveDiscordRequest,
   SaveGitHubRequest,
+  SaveGmailRequest,
+  SaveGoogleCalendarRequest,
   SaveLessonRequest,
   SaveNoteRequest,
   SaveProviderRequest,
+  SaveScheduleRequest,
+  SaveTelegramRequest,
+  SaveTrelloRequest,
+  Schedule,
+  ScheduleList,
+  ScheduleRunList,
   SearchSnapshot,
   SendMessageRequest,
   SetLimitRequest,
@@ -62,6 +75,8 @@ import type {
   SimulateCIFailureRequest,
   SimulateCIFailureResult,
   SleepSettings,
+  TailnetPeerList,
+  TailnetStatus,
   TestResult,
   UpdateCardRequest,
   UpdateChatRequest,
@@ -388,6 +403,28 @@ export interface ApiClient {
   updatePreferences(body: UpdatePreferencesRequest, options?: CallOptions): Promise<Preferences>;
   /** Puts onboarding and the tour back to the start. It exists only on a daemon that runs in dev mode. */
   resetFirstLaunch(options?: CallOptions): Promise<Progress>;
+  /**
+   * The paired devices (section S2b): every device of this person, oldest first, revoked ones
+   * included so the screen can say one was removed rather than watching a row vanish.
+   */
+  listDevices(options?: CallOptions): Promise<DeviceList>;
+  /**
+   * Makes the short code a new device types in. One code is live at a time and it expires in five
+   * minutes; a code that is spent by a pairing, or guessed at too often, stops working.
+   */
+  createPairingCode(options?: CallOptions): Promise<PairingCode>;
+  /** A device loses access at once. Removing someone else's device is a not-found, not a refusal. */
+  removeDevice(id: string, options?: CallOptions): Promise<void>;
+  /**
+   * What the daemon's own node on the person's tailnet is doing (B9.1, section S2b): off, signing
+   * in, online, or in error, with the sign-in address while one is needed.
+   */
+  tailnetStatus(options?: CallOptions): Promise<TailnetStatus>;
+  /**
+   * The other machines on this tailnet and which of them answer as a Marshal daemon (B9.5). It
+   * answers an empty list on a daemon that was not started to join a tailnet.
+   */
+  tailnetPeers(options?: CallOptions): Promise<TailnetPeerList>;
   listSavedViews(projectId: string, options?: CallOptions): Promise<SavedViewListSnapshot>;
   /** Saves a view. A name the project already uses replaces that view and keeps its id. */
   createSavedView(
@@ -424,15 +461,21 @@ export interface ApiClient {
    */
   listIntegrations(options?: CallOptions): Promise<IntegrationList>;
   /**
-   * Stores a connection's settings. Today that is the GitHub App's whole setup - the App's id, its
-   * installation id, its private key, and its webhook secret - which arrives together because no
-   * part of it is any use alone. The key and the secret go to the OS keychain and never come back.
-   * The daemon tests the connection as part of this call, so the answered row already carries the
-   * last test's result.
+   * Stores a connection's settings: the GitHub App's whole setup, Trello's key and token and
+   * board, the Google Calendar OAuth client, or a chat bot's token and chat - whichever shape the
+   * connection's own id takes. A secret goes to the OS keychain and never comes back. The daemon
+   * tests the connection as part of this call, so the answered row already carries the last test's
+   * result.
    */
   saveIntegration(
     id: string,
-    body: SaveGitHubRequest,
+    body:
+      | SaveGitHubRequest
+      | SaveTrelloRequest
+      | SaveGoogleCalendarRequest
+      | SaveGmailRequest
+      | SaveTelegramRequest
+      | SaveDiscordRequest,
     options?: CallOptions,
   ): Promise<IntegrationList>;
   /** Forgets a connection's settings and its secret. Removing one that was never set up is not an error. */
@@ -443,6 +486,23 @@ export interface ApiClient {
    * the daemon's cooldown, is an error.
    */
   testIntegration(id: string, options?: CallOptions): Promise<TestResult>;
+  /** The consent URL for Google Calendar's OAuth flow, opened in the owner's own browser. */
+  authorizeGoogleCalendar(options?: CallOptions): Promise<AuthorizeURL>;
+  /** Every scheduled brief and job, or one project's when a project id is given. */
+  listSchedules(project?: string, options?: CallOptions): Promise<ScheduleList>;
+  /** Creates a schedule. The daemon makes its id. */
+  createSchedule(body: SaveScheduleRequest, options?: CallOptions): Promise<Schedule>;
+  /** Edits one schedule. */
+  saveSchedule(id: string, body: SaveScheduleRequest, options?: CallOptions): Promise<Schedule>;
+  /** Removes a schedule and its run history. */
+  deleteSchedule(id: string, options?: CallOptions): Promise<void>;
+  /** A schedule's own run history, newest first - a brief's own composed text is a run's details. */
+  scheduleRuns(id: string, options?: CallOptions): Promise<ScheduleRunList>;
+  /**
+   * The schedules, the due cards, and Google Calendar's events for one date range (start and end,
+   * both epoch milliseconds) - the calendar view and Home's coming-up list's one call.
+   */
+  getCalendar(start: number, end: number, options?: CallOptions): Promise<CalendarList>;
   /** Every cost and awake ceiling that is set, global ones first (sections S26b, S19b). */
   listLimits(options?: CallOptions): Promise<LimitList>;
   /** Sets one ceiling. The scope and kind come from the path; the body carries only the number. */

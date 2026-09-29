@@ -8,6 +8,7 @@ import * as chatWrites from "~/sync/chat-actions";
 import { retryChat, sendToChat } from "~/sync/chat-session";
 import * as ciWrites from "~/sync/ci-actions";
 import * as connection from "~/sync/connection-actions";
+import * as devices from "~/sync/devices";
 import { loadCardDiff, loadFileHunks } from "~/sync/diff";
 import { homeActivityPage } from "~/sync/home-feed";
 import * as integrationWrites from "~/sync/integration-actions";
@@ -23,6 +24,7 @@ import * as previewWrites from "~/sync/preview";
 import * as roleWrites from "~/sync/role-actions";
 import { roleNames } from "~/sync/roles";
 import * as savedViews from "~/sync/saved-views";
+import * as scheduleWrites from "~/sync/schedule-actions";
 import { createPaletteSearch } from "~/sync/search";
 import * as sleepWrites from "~/sync/sleep-actions";
 import * as approvals from "./actions/approvals";
@@ -219,8 +221,28 @@ function appActions(ctx: Ctx) {
     // which owns the keychain entry and the last test's result. The mock's own "connect" story
     // stays in the screen for the rows whose sections are still the mock's.
     connectGitHub: integrationWrites.connectGitHub,
+    connectTrello: integrationWrites.connectTrello,
+    connectGoogleCalendar: integrationWrites.connectGoogleCalendar,
+    connectGmail: integrationWrites.connectGmail,
+    connectTelegram: integrationWrites.connectTelegram,
+    connectDiscord: integrationWrites.connectDiscord,
+    // The paired devices (S2b): the list is the daemon's once its section is switched, and the
+    // pairing code and a revoke are its own calls - the prototype's hardcoded code is gone.
+    pairingCode: devices.currentPairingCode,
+    createPairingCode: devices.requestPairingCode,
+    removeDevice: devices.removeDevice,
+    tailnetStatus: devices.readTailnetStatus,
+    tailnetPeers: devices.readTailnetPeers,
+    authorizeGoogleCalendar: integrationWrites.authorizeGoogleCalendar,
     disconnectIntegration: integrationWrites.disconnectIntegration,
     testIntegration: integrationWrites.testIntegration,
+    // Schedules (S30) and Google Calendar's events (S25/S22): the daemon's once their sections are
+    // switched. A schedule's own save/delete already exist through the daemon; the screen's local
+    // push/splice fallback stays for a store still on the mock.
+    createSchedule: scheduleWrites.createSchedule,
+    saveSchedule: scheduleWrites.saveSchedule,
+    deleteSchedule: scheduleWrites.deleteSchedule,
+    scheduleRuns: scheduleWrites.scheduleRuns,
     // The limits (S26b) are the daemon's once the section is switched: the save compares the form
     // with the store and PUTs or DELETEs one ceiling at a time. The mock's own save lives in the
     // form itself, which picks this or that by `limitsOnDaemon`.
