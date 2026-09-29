@@ -20,7 +20,7 @@ const bitsPerKiB = 10
 // body may not be larger than the size limit. The error is always a *protocol.Error with the code
 // invalid_argument and a plain sentence, so a handler can pass it straight to writeError.
 func (s *Server) decodeJSON(r *http.Request, dst any) error {
-	decoder := json.NewDecoder(http.MaxBytesReader(nil, r.Body, s.limits.MaxBodyBytes))
+	decoder := json.NewDecoder(http.MaxBytesReader(nil, r.Body, s.bodyLimitOf(r)))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(dst); err != nil {
 		return s.decodeError(err)

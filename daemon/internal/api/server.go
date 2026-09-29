@@ -20,6 +20,7 @@ import (
 	"github.com/khanblair/marshal/daemon/internal/auditlog"
 	"github.com/khanblair/marshal/daemon/internal/buildinfo"
 	"github.com/khanblair/marshal/daemon/internal/cardhistory"
+	"github.com/khanblair/marshal/daemon/internal/cardpanel"
 	"github.com/khanblair/marshal/daemon/internal/chats"
 	ci "github.com/khanblair/marshal/daemon/internal/ci"
 	"github.com/khanblair/marshal/daemon/internal/config"
@@ -146,6 +147,9 @@ type Deps struct {
 	// Alerts reads and writes which channel each kind of alert goes to (B9.4). Nil leaves the alert
 	// settings routes out.
 	Alerts AlertSettings
+	// CardPanel serves a card's acceptance checks, checklists, comments with attachments, and members
+	// (B10.2, B10.5, B10.6). Nil leaves those routes out.
+	CardPanel *cardpanel.Service
 	// Quality reads a card's code-smell findings, asks the card's agent to fix one, dismisses one
 	// with a reason, and reads and writes a project's smell profile (B5.8, architecture.md section
 	// 17). When it is set, and Projects is too, the five quality routes are registered.
@@ -231,6 +235,7 @@ type Server struct {
 	chats     *chats.Service
 	search    *search.Service
 	memory    *memory.Service
+	cardPanel *cardpanel.Service
 	accounts  *accounts.Service
 	auditlog  *auditlog.Service
 
@@ -282,6 +287,7 @@ func New(settings config.Settings, log *slog.Logger, now func() time.Time, deps 
 		review:          deps.Review,
 		sleepSettings:   deps.SleepSettings,
 		alerts:          deps.Alerts,
+		cardPanel:       deps.CardPanel,
 		quality:         deps.Quality,
 		integrations:    deps.Integrations,
 		webhooks:        deps.Webhooks,

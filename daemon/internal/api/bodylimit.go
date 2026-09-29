@@ -3,22 +3,37 @@ package api
 import (
 	"mime"
 	"net/http"
+	"strings"
 
 	"github.com/khanblair/marshal/daemon/internal/protocol"
 )
 
 const jsonMediaType = "application/json"
 
+// commentBodyBytes is the size a new comment's body may reach: files travel inside it as base64, so
+// the 6 MiB a comment may keep in files (protocol.MaxCommentFileBytes) needs 8 MiB and some room.
+const commentBodyBytes = 9 << 20
+
+// bodyLimitOf is the size limit of this request's body. Only posting a comment may exceed the
+// ordinary limit, and only up to what its attachments need.
+func (s *Server) bodyLimitOf(r *http.Request) int64 {
+	if r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/v1/cards/") && strings.HasSuffix(r.URL.Path, "/comments") {
+		return max(s.limits.MaxBodyBytes, commentBodyBytes)
+	}
+	return s.limits.MaxBodyBytes
+}
+
 // limitBody stops a request body from growing past the limit. A body over the limit reads as an
 // error, and decodeJSON turns that into a plain answer. A declared length that is already too
 // large is refused before anything is read.
 func (s *Server) limitBody(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.ContentLength > s.limits.MaxBodyBytes {
-			s.writeError(w, errBodyTooLarge(s.limits.MaxBodyBytes))
+		limit := s.bodyLimitOf(r)
+		if r.ContentLength > limit {
+			s.writeError(w, errBodyTooLarge(limit))
 			return
 		}
-		r.Body = http.MaxBytesReader(w, r.Body, s.limits.MaxBodyBytes)
+		r.Body = http.MaxBytesReader(w, r.Body, limit)
 		next.ServeHTTP(w, r)
 	})
 }

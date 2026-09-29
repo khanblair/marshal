@@ -18,6 +18,7 @@ import (
 	"github.com/khanblair/marshal/daemon/internal/agents/catalog"
 	"github.com/khanblair/marshal/daemon/internal/api"
 	"github.com/khanblair/marshal/daemon/internal/audit"
+	"github.com/khanblair/marshal/daemon/internal/cardpanel"
 	"github.com/khanblair/marshal/daemon/internal/config"
 	"github.com/khanblair/marshal/daemon/internal/devices"
 	"github.com/khanblair/marshal/daemon/internal/events"
@@ -96,6 +97,11 @@ type stackConfig struct {
 	// write where each alert goes are not registered. The daemon always builds them; the option is
 	// here for the same reason as the others.
 	noAlerts bool
+	// noCardPanel leaves the card panel out, so the routes of a card's checks, checklists, comments,
+	// and members are not registered.
+	noCardPanel bool
+	// panelAgent is what the card panel sends a comment that asks the agent to. Nil sends nowhere.
+	panelAgent cardpanel.Agent
 	// noQuality leaves the quality module out, so the routes that read a card's findings, act on
 	// one, and read and write a project's smell profile are not registered. This is not a case the
 	// daemon ships in: the module needs only the store, the projects service, and Git, and
@@ -207,10 +213,14 @@ func withoutIntegrator() stackOption             { return func(c *stackConfig) {
 func withoutReview() stackOption                 { return func(c *stackConfig) { c.noReview = true } }
 func withoutSleepSettings() stackOption          { return func(c *stackConfig) { c.noSleepSettings = true } }
 func withoutAlerts() stackOption                 { return func(c *stackConfig) { c.noAlerts = true } }
-func withoutQuality() stackOption                { return func(c *stackConfig) { c.noQuality = true } }
-func withoutIntegrations() stackOption           { return func(c *stackConfig) { c.noIntegrations = true } }
-func withoutCI() stackOption                     { return func(c *stackConfig) { c.noCI = true } }
-func withoutLocalCI() stackOption                { return func(c *stackConfig) { c.noLocalCI = true } }
+func withoutCardPanel() stackOption              { return func(c *stackConfig) { c.noCardPanel = true } }
+func withPanelAgent(a cardpanel.Agent) stackOption {
+	return func(c *stackConfig) { c.panelAgent = a }
+}
+func withoutQuality() stackOption      { return func(c *stackConfig) { c.noQuality = true } }
+func withoutIntegrations() stackOption { return func(c *stackConfig) { c.noIntegrations = true } }
+func withoutCI() stackOption           { return func(c *stackConfig) { c.noCI = true } }
+func withoutLocalCI() stackOption      { return func(c *stackConfig) { c.noLocalCI = true } }
 func withLocalCIRunner(r localci.Runner) stackOption {
 	return func(c *stackConfig) { c.localCIRunner = r }
 }

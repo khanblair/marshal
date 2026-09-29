@@ -203,6 +203,20 @@ func TestARouteIsRegisteredOnlyWhenItsServiceIsThere(t *testing.T) {
 	sleepSettingsRoutes := []string{"GET /v1/settings/sleep", "PUT /v1/settings/sleep"}
 	// The alert settings are the notification router's, kept in the settings service's table.
 	alertRoutes := []string{"GET /v1/settings/alerts", "PUT /v1/settings/alerts"}
+	// The card panel's routes are its own service's: a card's acceptance checks, checklists, comments
+	// with their attachments, and the people on it.
+	panelRoutes := []string{
+		"GET /v1/cards/{id}/checks", "POST /v1/cards/{id}/checks", "POST /v1/cards/{id}/checks/run",
+		"DELETE /v1/cards/{id}/checks/{check}",
+		"GET /v1/cards/{id}/checklists", "POST /v1/cards/{id}/checklists",
+		"PATCH /v1/cards/{id}/checklists/{list}", "DELETE /v1/cards/{id}/checklists/{list}",
+		"POST /v1/cards/{id}/checklists/{list}/items", "PUT /v1/cards/{id}/checklists/{list}/items/{item}",
+		"DELETE /v1/cards/{id}/checklists/{list}/items/{item}",
+		"GET /v1/cards/{id}/comments", "POST /v1/cards/{id}/comments",
+		"DELETE /v1/cards/{id}/comments/{comment}", "GET /v1/cards/{id}/attachments/{attachment}",
+		"GET /v1/cards/{id}/members", "PUT /v1/cards/{id}/members/{user}",
+		"DELETE /v1/cards/{id}/members/{user}",
+	}
 	// The quality routes need both the projects service, which owns the card and the project the
 	// findings and the profile belong to, and the quality module, which owns the checks.
 	qualityRoutes := []string{
@@ -257,7 +271,7 @@ func TestARouteIsRegisteredOnlyWhenItsServiceIsThere(t *testing.T) {
 		"checkpoints": checkpointRoutes, "pull requests": pullRequestRoutes,
 		"handoffs": handoffRoutes, "notes": noteRoutes, "lessons": lessonRoutes,
 		"integrator": integratorRoutes, "review": reviewRoutes,
-		"notices": noticeRoutes, "sleep settings": sleepSettingsRoutes, "alerts": alertRoutes, "quality": qualityRoutes,
+		"notices": noticeRoutes, "sleep settings": sleepSettingsRoutes, "alerts": alertRoutes, "card panel": panelRoutes, "quality": qualityRoutes,
 		"ci": ciRoutes, "ci simulation": ciSimulateRoutes, "local ci": localCIRoutes,
 		"preview": previewRoutes, "schedules": scheduleRoutes, "calendar": calendarRoutes, "devices": deviceRoutes,
 		"tailnet": tailnetRoutes,
@@ -299,7 +313,7 @@ func TestARouteIsRegisteredOnlyWhenItsServiceIsThere(t *testing.T) {
 		"no quality": withoutQuality(), "no integrations": withoutIntegrations(),
 		"no ci": withoutCI(), "no local ci": withoutLocalCI(),
 		"no preview": withoutPreview(), "no schedules": withoutSchedules(),
-		"no devices": withoutDevices(), "no alerts": withoutAlerts(),
+		"no devices": withoutDevices(), "no alerts": withoutAlerts(), "no card panel": withoutCardPanel(),
 	} {
 		tests = append(tests, struct {
 			name    string
@@ -344,6 +358,8 @@ func TestARouteIsRegisteredOnlyWhenItsServiceIsThere(t *testing.T) {
 			have["sleep settings"] = !st.cfg.noSleepSettings
 			// The alert settings are built beside the sleep settings, over the same service.
 			have["alerts"] = !st.cfg.noAlerts && !st.cfg.noSleepSettings
+			// The card panel is built over the projects service, which finds a card's worktree.
+			have["card panel"] = !st.cfg.noCardPanel && !st.cfg.noProjects
 			// The quality routes need the quality module and the projects service it reads a card
 			// and a project through.
 			have["quality"] = !st.cfg.noQuality && !st.cfg.noProjects

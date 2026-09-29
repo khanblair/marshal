@@ -94,6 +94,11 @@ const (
 	// (B9.4). It is a bit of its own because the alert settings are the notification router's, which
 	// a daemon can be built without.
 	needsAlerts
+	// needsCardPanel registers the routes of a card's checks, checklists, comments, attachments, and
+	// members (B10.2, B10.5, B10.6). It is a bit of its own because the panel is one service that a
+	// daemon can be built without, and its cards are looked up in the store rather than through
+	// the projects service.
+	needsCardPanel
 	// needsDevices registers the routes that list the paired devices, make the code that pairs a new
 	// one, and revoke one (B9.1, build-plan 9.2). It is a bit of its own and not part of needsAccounts
 	// because a device is a client rather than a person: the profile is read through the accounts
@@ -271,6 +276,24 @@ func mergeNoticeAndQualityRoutes() []routeSpec {
 		{"DELETE /v1/notices/{id}", needsSessions, (*Server).dismissNotice},
 		{"GET /v1/settings/sleep", needsSleepSettings, (*Server).getSleepSettings},
 		{"PUT /v1/settings/sleep", needsSleepSettings, (*Server).setSleepSettings},
+		{"GET /v1/cards/{id}/checks", needsCardPanel, (*Server).getCardChecks},
+		{"POST /v1/cards/{id}/checks", needsCardPanel, (*Server).addCardCheck},
+		{"POST /v1/cards/{id}/checks/run", needsCardPanel, (*Server).runCardChecks},
+		{"DELETE /v1/cards/{id}/checks/{check}", needsCardPanel, (*Server).removeCardCheck},
+		{"GET /v1/cards/{id}/checklists", needsCardPanel, (*Server).getChecklists},
+		{"POST /v1/cards/{id}/checklists", needsCardPanel, (*Server).createChecklist},
+		{"PATCH /v1/cards/{id}/checklists/{list}", needsCardPanel, (*Server).updateChecklist},
+		{"DELETE /v1/cards/{id}/checklists/{list}", needsCardPanel, (*Server).deleteChecklist},
+		{"POST /v1/cards/{id}/checklists/{list}/items", needsCardPanel, (*Server).addChecklistItem},
+		{"PUT /v1/cards/{id}/checklists/{list}/items/{item}", needsCardPanel, (*Server).tickChecklistItem},
+		{"DELETE /v1/cards/{id}/checklists/{list}/items/{item}", needsCardPanel, (*Server).removeChecklistItem},
+		{"GET /v1/cards/{id}/comments", needsCardPanel, (*Server).getComments},
+		{"POST /v1/cards/{id}/comments", needsCardPanel, (*Server).postComment},
+		{"DELETE /v1/cards/{id}/comments/{comment}", needsCardPanel, (*Server).deleteComment},
+		{"GET /v1/cards/{id}/attachments/{attachment}", needsCardPanel, (*Server).getAttachment},
+		{"GET /v1/cards/{id}/members", needsCardPanel, (*Server).getCardMembers},
+		{"PUT /v1/cards/{id}/members/{user}", needsCardPanel, (*Server).addCardMember},
+		{"DELETE /v1/cards/{id}/members/{user}", needsCardPanel, (*Server).removeCardMember},
 		{"GET /v1/settings/alerts", needsAlerts, (*Server).getAlertSettings},
 		{"PUT /v1/settings/alerts", needsAlerts, (*Server).setAlertSettings},
 		{"GET /v1/cards/{id}/findings", needsProjects | needsQuality, (*Server).cardFindings},
@@ -408,6 +431,8 @@ func (s *Server) hasLaterPhaseServices(needs routeNeeds) bool {
 	case needs&needsSleepSettings != 0 && s.sleepSettings == nil:
 		return false
 	case needs&needsAlerts != 0 && s.alerts == nil:
+		return false
+	case needs&needsCardPanel != 0 && s.cardPanel == nil:
 		return false
 	case needs&needsQuality != 0 && s.quality == nil:
 		return false

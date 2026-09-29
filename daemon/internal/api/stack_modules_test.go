@@ -5,6 +5,7 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/khanblair/marshal/daemon/internal/api"
 	"github.com/khanblair/marshal/daemon/internal/auditlog"
 	"github.com/khanblair/marshal/daemon/internal/cardhistory"
+	"github.com/khanblair/marshal/daemon/internal/cardpanel"
 	"github.com/khanblair/marshal/daemon/internal/chatbot"
 	"github.com/khanblair/marshal/daemon/internal/chats"
 	"github.com/khanblair/marshal/daemon/internal/ci"
@@ -296,6 +298,19 @@ func (st *stack) startModules() {
 			t.Fatalf("make the local CI service: %v", err)
 		}
 		deps.LocalCI = svc
+	}
+	if !st.cfg.noCardPanel && !st.cfg.noProjects {
+		// The card panel, built the way cmd/marshald builds it. Its runner is the local-CI one, so a
+		// check a test runs never starts a process, and its files live under the stack's data folder.
+		panel, err := cardpanel.New(cardpanel.Deps{
+			Store: st.store, Bus: st.bus, Worktrees: st.proj, Runner: st.cfg.localCIRunner,
+			Agent: st.cfg.panelAgent, AttachmentsDir: filepath.Join(st.dataDir, "attachments"),
+			Log: st.log, Now: st.now,
+		})
+		if err != nil {
+			t.Fatalf("make the card panel: %v", err)
+		}
+		deps.CardPanel = panel
 	}
 	if !st.cfg.noPreview && !st.cfg.noProjects {
 		// The preview module is built the way cmd/marshald builds it: over the projects service,
