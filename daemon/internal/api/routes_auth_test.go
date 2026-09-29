@@ -178,6 +178,7 @@ func TestARouteIsRegisteredOnlyWhenItsServiceIsThere(t *testing.T) {
 	// follow the connections service the GitHub app is reached through.
 	integrationRoutes := []string{
 		"GET /v1/integrations", "PUT /v1/integrations/{id}", "DELETE /v1/integrations/{id}",
+		"GET /v1/integrations/gcal/authorize", "GET /v1/integrations/gcal/callback",
 	}
 	// Asking a connection to test itself needs the connections service and the runner that runs it.
 	integrationTestRoutes := []string{"POST /v1/integrations/{id}/test"}
@@ -217,6 +218,15 @@ func TestARouteIsRegisteredOnlyWhenItsServiceIsThere(t *testing.T) {
 	// Running a card's workflow steps locally needs the projects service, which reads the worktree
 	// the steps run in. Nothing else: a local run keeps no state and sends no event.
 	localCIRoutes := []string{"POST /v1/cards/{id}/local-ci"}
+	// The schedule routes are their own service's: a schedule outlives any one project, so they
+	// follow the scheduler rather than the projects service.
+	scheduleRoutes := []string{
+		"GET /v1/schedules", "POST /v1/schedules", "PUT /v1/schedules/{id}", "DELETE /v1/schedules/{id}",
+		"GET /v1/schedules/{id}/runs",
+	}
+	// The calendar route needs both the scheduler and the projects service, for the schedules and
+	// the due cards; Google Calendar's own events are read only when integrations is also there.
+	calendarRoutes := []string{"GET /v1/calendar"}
 	// The preview routes need the projects service, which owns the card, its worktree, and its
 	// project's dev command, and the preview module, which owns the dev server and its screenshots.
 	previewRoutes := []string{
@@ -224,6 +234,16 @@ func TestARouteIsRegisteredOnlyWhenItsServiceIsThere(t *testing.T) {
 		"POST /v1/cards/{id}/preview/stop", "POST /v1/cards/{id}/preview/shots",
 		"GET /v1/cards/{id}/preview/shots/{file}",
 	}
+	// The paired-device routes are the devices service's own: a device outlives any one project,
+	// and the code that pairs a new one is a daemon-wide secret rather than a person's. The route
+	// that exchanges a code for a token takes no token and so is not a domain route at all: it is
+	// registered beside health and checked in routes_devices_test.go.
+	deviceRoutes := []string{
+		"GET /v1/me/devices", "POST /v1/me/devices/pairing-code", "DELETE /v1/me/devices/{id}",
+	}
+	// The tailnet status needs no service - the server holds the node or holds nothing - so it is
+	// registered on every stack that has a store at all.
+	tailnetRoutes := []string{"GET /v1/tailnet", "GET /v1/tailnet/peers"}
 	groups := map[string][]string{
 		"projects": projectRoutes, "sessions": sessionRoutes, "hold": holdRoutes, "start": startRoute,
 		"cards": cardRoutes, "labels": labelRoutes, "home": homeRoutes,
@@ -237,7 +257,8 @@ func TestARouteIsRegisteredOnlyWhenItsServiceIsThere(t *testing.T) {
 		"integrator": integratorRoutes, "review": reviewRoutes,
 		"notices": noticeRoutes, "sleep settings": sleepSettingsRoutes, "quality": qualityRoutes,
 		"ci": ciRoutes, "ci simulation": ciSimulateRoutes, "local ci": localCIRoutes,
-		"preview": previewRoutes,
+		"preview": previewRoutes, "schedules": scheduleRoutes, "calendar": calendarRoutes, "devices": deviceRoutes,
+		"tailnet": tailnetRoutes,
 	}
 	count := 0
 	for _, group := range groups {
@@ -275,7 +296,8 @@ func TestARouteIsRegisteredOnlyWhenItsServiceIsThere(t *testing.T) {
 		"no review": withoutReview(), "no sleep settings": withoutSleepSettings(),
 		"no quality": withoutQuality(), "no integrations": withoutIntegrations(),
 		"no ci": withoutCI(), "no local ci": withoutLocalCI(),
-		"no preview": withoutPreview(),
+		"no preview": withoutPreview(), "no schedules": withoutSchedules(),
+		"no devices": withoutDevices(),
 	} {
 		tests = append(tests, struct {
 			name    string
@@ -345,6 +367,16 @@ func TestARouteIsRegisteredOnlyWhenItsServiceIsThere(t *testing.T) {
 			// The preview routes need the preview module and the projects service it reads a card, its
 			// worktree, and its project's dev command through.
 			have["preview"] = !st.cfg.noPreview && !st.cfg.noProjects
+			// The schedule routes need only the scheduler: nothing about them reads a project or
+			// any other service.
+			have["schedules"] = !st.cfg.noSchedules
+			// The calendar route needs both the scheduler and the projects service.
+			have["calendar"] = !st.cfg.noSchedules && !st.cfg.noProjects
+			// The paired-device routes follow the devices service, the same way every other group
+			// follows the service it calls.
+			have["devices"] = !st.cfg.noDevices
+			// The tailnet status needs no service at all.
+			have["tailnet"] = true
 			for name, group := range groups {
 				for _, pattern := range group {
 					method, path := concretePath(pattern)

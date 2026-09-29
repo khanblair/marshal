@@ -84,6 +84,17 @@ const (
 	// task 7.12). It carries needsProjects beside it, because the card a note belongs to is read
 	// through the projects service - the note's file is found from the card's number and title.
 	needsMemory
+	// needsSchedules registers the routes that list the scheduled jobs and briefs and add, edit, and
+	// delete one (B8.1, build-plan 8.1). It is a bit of its own and not part of needsProjects
+	// because a schedule outlives any one project: a brief spans every project, and the scheduler
+	// is one cron over the whole daemon. The calendar and Home's coming-up call of a later slice
+	// (B8.4) reads through the same service and takes this bit beside it.
+	needsSchedules
+	// needsDevices registers the routes that list the paired devices, make the code that pairs a new
+	// one, and revoke one (B9.1, build-plan 9.2). It is a bit of its own and not part of needsAccounts
+	// because a device is a client rather than a person: the profile is read through the accounts
+	// service, and these are the machines signed in with it.
+	needsDevices
 	// rawBody marks a route that reads its body as it is and not as JSON, such as an image upload.
 	// It is not a service, and has ignores it.
 	rawBody
@@ -110,6 +121,8 @@ func domainRoutes() []routeSpec {
 	routes = append(routes, providerLimitAndRoleRoutes()...)
 	routes = append(routes, mergeNoticeAndQualityRoutes()...)
 	routes = append(routes, ciPreviewAndIntegrationRoutes()...)
+	routes = append(routes, schedulesAndCalendarRoutes()...)
+	routes = append(routes, deviceAndTailnetRoutes()...)
 	return routes
 }
 
@@ -278,6 +291,42 @@ func ciPreviewAndIntegrationRoutes() []routeSpec {
 		{"PUT /v1/integrations/{id}", needsIntegrations, (*Server).saveIntegration},
 		{"DELETE /v1/integrations/{id}", needsIntegrations, (*Server).removeIntegration},
 		{"POST /v1/integrations/{id}/test", needsIntegrations | needsConnectionTests, (*Server).testIntegration},
+		{"GET /v1/integrations/gcal/authorize", needsIntegrations, (*Server).authorizeGoogleCalendar},
+		{"GET /v1/integrations/gcal/callback", needsIntegrations, (*Server).callbackGoogleCalendar},
+	}
+}
+
+// schedulesAndCalendarRoutes is the Schedules screen's own list and the four routes that add, edit,
+// and remove one, plus the one call the calendar and Home's coming-up list will read (B8.1, B8.4).
+// Nothing else in the daemon owns a schedule, so a stack with no schedules service answers
+// not_found to all of them rather than registering a route that could only fail.
+func schedulesAndCalendarRoutes() []routeSpec {
+	return []routeSpec{
+		{"GET /v1/schedules", needsSchedules, (*Server).listSchedules},
+		{"POST /v1/schedules", needsSchedules, (*Server).createSchedule},
+		{"PUT /v1/schedules/{id}", needsSchedules, (*Server).saveSchedule},
+		{"DELETE /v1/schedules/{id}", needsSchedules, (*Server).deleteSchedule},
+		{"GET /v1/schedules/{id}/runs", needsSchedules, (*Server).scheduleRuns},
+		{"GET /v1/calendar", needsSchedules | needsProjects, (*Server).calendarRange},
+	}
+}
+
+// deviceAndTailnetRoutes is the paired-devices list, the code that pairs a new device, and
+// revoking one (B9.1, B9.2). The route that exchanges a code for a token is deliberately not here:
+// it takes no token, so it is registered beside health in handler(), and the Funnel handler refuses
+// it along with everything outside /hooks/.
+func deviceAndTailnetRoutes() []routeSpec {
+	return []routeSpec{
+		{"GET /v1/me/devices", needsDevices, (*Server).listDevices},
+		{"POST /v1/me/devices/pairing-code", needsDevices, (*Server).createPairingCode},
+		{"DELETE /v1/me/devices/{id}", needsDevices, (*Server).revokeDevice},
+		// The tailnet status needs no service: the server already holds the node, or holds nothing
+		// and says "off". It is a domain route so it sits behind the owner token, like the paired
+		// devices it sits beside, and so the token test covers it.
+		{"GET /v1/tailnet", 0, (*Server).tailnetStatus},
+		// The peer list is the same shape of answer as the status: the server already holds the
+		// node, or holds nothing and lists no machines.
+		{"GET /v1/tailnet/peers", 0, (*Server).tailnetPeers},
 	}
 }
 
@@ -363,6 +412,10 @@ func (s *Server) hasLaterPhaseServices(needs routeNeeds) bool {
 	case needs&needsPreview != 0 && s.preview == nil:
 		return false
 	case needs&needsMemory != 0 && s.memory == nil:
+		return false
+	case needs&needsSchedules != 0 && s.schedules == nil:
+		return false
+	case needs&needsDevices != 0 && s.devices == nil:
 		return false
 	}
 	return true
