@@ -20,7 +20,9 @@ import (
 type Telegram struct {
 	bot    *tgbot.Bot
 	chatID any
-	now    func() time.Time
+	// chat is the chat as it was configured, kept as typed to check who a message came from.
+	chat string
+	now  func() time.Time
 
 	// handle is the receive loop's own handler, set once by Start and read by the update handler.
 	// The mutex is here because Start is called from the daemon's goroutine while an update may
@@ -57,7 +59,7 @@ func NewTelegram(cfg TelegramConfig) (*Telegram, error) {
 	if now == nil {
 		now = time.Now
 	}
-	t := &Telegram{chatID: telegramChatID(cfg.ChatID), now: now}
+	t := &Telegram{chatID: telegramChatID(cfg.ChatID), chat: strings.TrimSpace(cfg.ChatID), now: now}
 	// The default handler catches every update that has no more specific one, which is every
 	// message including a voice note. Registering only a text handler would silently drop a voice
 	// note, and a dropped message looks exactly like a broken bot.
@@ -88,6 +90,10 @@ func (t *Telegram) Start(ctx context.Context, handle Handler) error {
 // onUpdate hands one update to the receive loop's handler. An update the library sends that is not a
 // message at all is ignored, because there is nothing for a person to have said.
 func (t *Telegram) onUpdate(ctx context.Context, _ *tgbot.Bot, update *tgbotmodels.Update) {
+	if update.CallbackQuery != nil {
+		t.onCallback(ctx, update.CallbackQuery)
+		return
+	}
 	message := update.Message
 	if message == nil {
 		return
@@ -99,10 +105,20 @@ func (t *Telegram) onUpdate(ctx context.Context, _ *tgbot.Bot, update *tgbotmode
 		return
 	}
 	handle(ctx, Incoming{
-		ChatID: strconv.FormatInt(message.Chat.ID, 10),
-		Text:   message.Text,
-		Voice:  message.Voice != nil,
+		ChatID:   strconv.FormatInt(message.Chat.ID, 10),
+		ChatName: chatName(message.Chat.Username),
+		Text:     message.Text,
+		Voice:    message.Voice != nil,
 	})
+}
+
+// Accepts is true for a message from the chat this bot was set up with: the same numeric id, or the
+// channel name it was given. A message from any other chat is not acted on.
+func (t *Telegram) Accepts(in Incoming) bool {
+	if t.chat == "" {
+		return false
+	}
+	return in.ChatID == t.chat || (in.ChatName != "" && strings.EqualFold(in.ChatName, t.chat))
 }
 
 // telegramChatID turns a typed chat into what the Bot API expects: a number when the person gave a
@@ -120,10 +136,11 @@ func (t *Telegram) Kind() Kind { return KindTelegram }
 
 // Notify sends one notice to the chat.
 func (t *Telegram) Notify(ctx context.Context, notice Notice) error {
-	if _, err := t.bot.SendMessage(ctx, &tgbot.SendMessageParams{
-		ChatID: t.chatID,
-		Text:   render(notice),
-	}); err != nil {
+	params := &tgbot.SendMessageParams{ChatID: t.chatID, Text: render(notice)}
+	if keyboard := telegramKeyboard(notice.Actions); keyboard != nil {
+		params.Text, params.ReplyMarkup = renderPlain(notice), keyboard
+	}
+	if _, err := t.bot.SendMessage(ctx, params); err != nil {
 		return fmt.Errorf("send a Telegram notice: %w", err)
 	}
 	return nil
@@ -199,4 +216,52 @@ func telegramFailure(err error, what string) (message, fix string) {
 	default:
 		return what + " Marshal could not reach Telegram.", checkConnectionFix
 	}
+}
+
+// onCallback hands a pressed button to the receive loop as if the person had typed what the button
+// carries, and tells Telegram the press was seen so the button stops spinning.
+func (t *Telegram) onCallback(ctx context.Context, query *tgbotmodels.CallbackQuery) {
+	_, _ = t.bot.AnswerCallbackQuery(ctx, &tgbot.AnswerCallbackQueryParams{CallbackQueryID: query.ID})
+	message := query.Message.Message
+	if message == nil || query.Data == "" {
+		return
+	}
+	t.mu.Lock()
+	handle := t.handle
+	t.mu.Unlock()
+	if handle == nil {
+		return
+	}
+	handle(ctx, Incoming{
+		ChatID:   strconv.FormatInt(message.Chat.ID, 10),
+		ChatName: chatName(message.Chat.Username),
+		Text:     query.Data,
+	})
+}
+
+// maxTelegramCallbackBytes is the longest text Telegram lets a button carry back.
+const maxTelegramCallbackBytes = 64
+
+// telegramKeyboard draws a notice's actions as one row of buttons each, or answers nil when there
+// are none or one would not fit Telegram's limit, in which case the actions are listed as text.
+func telegramKeyboard(actions []Action) *tgbotmodels.InlineKeyboardMarkup {
+	if len(actions) == 0 {
+		return nil
+	}
+	rows := make([][]tgbotmodels.InlineKeyboardButton, 0, len(actions))
+	for _, action := range actions {
+		if action.Data == "" || len(action.Data) > maxTelegramCallbackBytes {
+			return nil
+		}
+		rows = append(rows, []tgbotmodels.InlineKeyboardButton{{Text: action.Label, CallbackData: action.Data}})
+	}
+	return &tgbotmodels.InlineKeyboardMarkup{InlineKeyboard: rows}
+}
+
+// chatName is a chat's public name with its @, or empty when it has none.
+func chatName(username string) string {
+	if username == "" {
+		return ""
+	}
+	return "@" + username
 }

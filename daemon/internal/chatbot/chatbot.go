@@ -81,6 +81,10 @@ type Bot interface {
 	// Test checks the connection and answers what to show the person, in the shape every other
 	// connection test answers in (docs/architecture.md section 18).
 	Test(ctx context.Context) (protocol.TestResult, error)
+	// Accepts says whether a message came from the chat this connection is for. Only such messages
+	// are acted on: a bot can be found and written to by anyone, so the chat it was set up with is
+	// the one place an approval or a new card may be asked for from.
+	Accepts(in Incoming) bool
 	// Close releases the bot's own resources. It is a no-op on a bot that holds none.
 	Close() error
 }
@@ -90,6 +94,9 @@ type Bot interface {
 type Incoming struct {
 	// ChatID is the chat the message came from, so a reply goes back to the same place.
 	ChatID string
+	// ChatName is the chat's public name where the service has one, such as "@my_channel" on
+	// Telegram. Empty otherwise.
+	ChatName string
 	// Text is what the person typed. It is empty for a voice note.
 	Text string
 	// Voice is true when the message was a voice note rather than text. The words are not read
@@ -101,10 +108,16 @@ type Incoming struct {
 // it must not block for long; the daemon's handling answers back through the same bot's Notify.
 type Handler func(ctx context.Context, in Incoming)
 
-// render turns a notice into the plain text a chat shows. It is plain and not Markdown on purpose:
-// a card title is a person's own words, and a title with an underscore or an asterisk in it must not
-// fail to send because the words happened to look like formatting.
-func render(n Notice) string {
+// render turns a notice into the plain text a chat shows, with its actions listed as text. It is
+// plain and not Markdown on purpose: a card title is a person's own words, and a title with an
+// underscore or an asterisk in it must not fail to send because the words happened to look like
+// formatting.
+func render(n Notice) string { return renderNotice(n, true) }
+
+// renderPlain is render without the actions, for a service that draws them as buttons instead.
+func renderPlain(n Notice) string { return renderNotice(n, false) }
+
+func renderNotice(n Notice, listActions bool) string {
 	var b strings.Builder
 	if n.Title != "" {
 		b.WriteString(n.Title)
@@ -121,7 +134,7 @@ func render(n Notice) string {
 		}
 		b.WriteString(n.URL)
 	}
-	if len(n.Actions) > 0 {
+	if listActions && len(n.Actions) > 0 {
 		lines := make([]string, 0, len(n.Actions))
 		for _, action := range n.Actions {
 			lines = append(lines, action.Label+" ("+action.Data+")")

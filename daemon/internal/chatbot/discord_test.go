@@ -162,3 +162,60 @@ func TestDiscordNoticeReachesTheChannel(t *testing.T) {
 		}
 	}
 }
+
+func TestDiscordAcceptsOnlyItsChannelAndNtfyAcceptsNothing(t *testing.T) {
+	d, err := chatbot.NewDiscord(chatbot.DiscordConfig{Token: "TESTTOKEN", ChannelID: "555"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !d.Accepts(chatbot.Incoming{ChatID: "555"}) || d.Accepts(chatbot.Incoming{ChatID: "556"}) {
+		t.Error("Discord accepted the wrong channel")
+	}
+	empty, _ := chatbot.NewDiscord(chatbot.DiscordConfig{Token: "TESTTOKEN"})
+	if empty.Accepts(chatbot.Incoming{}) {
+		t.Error("Discord accepted a message when no channel was set")
+	}
+	n, err := chatbot.NewNtfy(chatbot.NtfyConfig{Topic: "t"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n.Accepts(chatbot.Incoming{ChatID: "t"}) {
+		t.Error("ntfy accepted a message, but it only sends")
+	}
+}
+
+func TestADiscordNoticeWithActionsCarriesButtons(t *testing.T) {
+	srv, calls := discordServer(t, false)
+	bot, err := chatbot.NewDiscord(chatbot.DiscordConfig{Token: "TESTTOKEN", ChannelID: "555", HTTPClient: discordClient(t, srv)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = bot.Notify(context.Background(), chatbot.Notice{Title: "Needs you", Actions: []chatbot.Action{
+		{Label: "Approve", Data: "approval:X:allow_once"}, {Label: "Reject", Data: "approval:X:reject_once"},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := calls.sent[0]
+	for _, want := range []string{`"custom_id":"approval:X:allow_once"`, `"label":"Reject"`, `"type":1`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("the message has no %s:\n%s", want, body)
+		}
+	}
+	if strings.Contains(body, "Approve (approval") {
+		t.Errorf("the actions were listed as text beside their buttons:\n%s", body)
+	}
+}
+
+func TestADiscordButtonPressReachesTheHandlerAsTheTextItCarries(t *testing.T) {
+	srv, _ := discordServer(t, false)
+	bot, err := chatbot.NewDiscord(chatbot.DiscordConfig{Token: "TESTTOKEN", ChannelID: "555", HTTPClient: discordClient(t, srv)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got chatbot.Incoming
+	bot.InteractionForTest(context.Background(), "555", "approval:X:allow_once", func(_ context.Context, in chatbot.Incoming) { got = in })
+	if got.Text != "approval:X:allow_once" || got.ChatID != "555" {
+		t.Fatalf("incoming = %+v", got)
+	}
+}

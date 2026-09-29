@@ -123,6 +123,9 @@ func (e *ntfyStatusError) Error() string { return fmt.Sprintf("ntfy answered %d"
 // Start does nothing and returns at once: ntfy has no messages to read.
 func (n *Ntfy) Start(context.Context, Handler) error { return nil }
 
+// Accepts is false: ntfy only sends, so nothing that arrives from it is ever acted on.
+func (n *Ntfy) Accepts(Incoming) bool { return false }
+
 // Close is a no-op: the publisher holds an HTTP client and nothing that needs releasing.
 func (n *Ntfy) Close() error { return nil }
 

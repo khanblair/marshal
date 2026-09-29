@@ -48,6 +48,10 @@ func NewDiscord(cfg DiscordConfig) (*Discord, error) {
 	if err != nil {
 		return nil, fmt.Errorf("build the Discord bot: %w", err)
 	}
+	// Buttons need no intent. Typed replies (approve <id>, new <project> <title>) need the message
+	// content intent, which Discord holds back from a bot until it is switched on in the developer
+	// portal; without it a server message arrives empty and the bot only answers to buttons.
+	session.Identify.Intents |= discordgo.IntentsGuildMessages | discordgo.IntentsDirectMessages | discordgo.IntentMessageContent
 	if cfg.HTTPClient != nil {
 		session.Client = cfg.HTTPClient
 	}
@@ -63,7 +67,11 @@ func (d *Discord) Kind() Kind { return KindDiscord }
 
 // Notify sends one notice to the channel.
 func (d *Discord) Notify(_ context.Context, notice Notice) error {
-	if _, err := d.session.ChannelMessageSend(d.channelID, render(notice)); err != nil {
+	message := &discordgo.MessageSend{Content: render(notice)}
+	if rows := discordButtons(notice.Actions); rows != nil {
+		message.Content, message.Components = renderPlain(notice), rows
+	}
+	if _, err := d.session.ChannelMessageSendComplex(d.channelID, message); err != nil {
 		return fmt.Errorf("send a Discord notice: %w", err)
 	}
 	return nil
@@ -116,6 +124,9 @@ func (d *Discord) channelCheck() protocol.TestCheck {
 // server is never asked for the gateway at all (hard rule 3). A message from a bot is ignored, so
 // two bots in one channel cannot answer each other forever.
 func (d *Discord) Start(ctx context.Context, handle Handler) error {
+	d.session.AddHandler(func(_ *discordgo.Session, i *discordgo.InteractionCreate) {
+		d.onInteraction(ctx, i, handle)
+	})
 	d.session.AddHandler(func(_ *discordgo.Session, m *discordgo.MessageCreate) {
 		if m.Author == nil || m.Author.Bot {
 			return
@@ -126,6 +137,61 @@ func (d *Discord) Start(ctx context.Context, handle Handler) error {
 		return fmt.Errorf("open the Discord gateway: %w", err)
 	}
 	return nil
+}
+
+// Discord's limits on buttons: five to a row, five rows, and a custom id of at most 100 characters.
+const (
+	discordButtonsPerRow = 5
+	discordMaxRows       = 5
+	discordMaxCustomID   = 100
+	discordMaxLabel      = 80
+)
+
+// discordButtons draws a notice's actions as buttons, or answers nil when there are none or one
+// would not fit Discord's limits, in which case the actions are listed as text.
+func discordButtons(actions []Action) []discordgo.MessageComponent {
+	if len(actions) == 0 || len(actions) > discordButtonsPerRow*discordMaxRows {
+		return nil
+	}
+	var rows []discordgo.MessageComponent
+	var row discordgo.ActionsRow
+	for _, action := range actions {
+		if action.Data == "" || len(action.Data) > discordMaxCustomID {
+			return nil
+		}
+		label := action.Label
+		if len([]rune(label)) > discordMaxLabel {
+			label = string([]rune(label)[:discordMaxLabel])
+		}
+		row.Components = append(row.Components, discordgo.Button{Label: label, Style: discordgo.SecondaryButton, CustomID: action.Data})
+		if len(row.Components) == discordButtonsPerRow {
+			rows = append(rows, row)
+			row = discordgo.ActionsRow{}
+		}
+	}
+	if len(row.Components) > 0 {
+		rows = append(rows, row)
+	}
+	return rows
+}
+
+// onInteraction hands a pressed button to the receive loop as if the person had typed what the
+// button carries, after telling Discord the press was seen so the button does not show a failure.
+func (d *Discord) onInteraction(ctx context.Context, i *discordgo.InteractionCreate, handle Handler) {
+	if i == nil || i.Type != discordgo.InteractionMessageComponent {
+		return
+	}
+	data := i.MessageComponentData().CustomID
+	_ = d.session.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{Type: discordgo.InteractionResponseDeferredMessageUpdate})
+	if data == "" {
+		return
+	}
+	handle(ctx, Incoming{ChatID: i.ChannelID, Text: data})
+}
+
+// Accepts is true for a message from the channel this bot was set up with.
+func (d *Discord) Accepts(in Incoming) bool {
+	return d.channelID != "" && in.ChatID == d.channelID
 }
 
 // Close ends the bot. A session whose gateway was never opened has nothing to close, and a failure
