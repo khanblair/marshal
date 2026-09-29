@@ -1,0 +1,17 @@
+{
+  "$schema": "../gen/schemas/mobile-schema.json",
+  "identifier": "remote-daemon",
+  "description": "What the page the daemon serves may do once the window has been handed to it: read a pairing QR code, tap the phone on approve and on errors, and read the links that open the app (which is why it may listen for events). Only the person's own tailnet addresses on the daemon's port reach this - MagicDNS names and tailnet IPs - and nothing else: no files, no shell, no notifications.",
+  "windows": ["main"],
+  "remote": {
+    "urls": ["http://*.ts.net:47800/*", "http://100.*:47800/*"]
+  },
+  "platforms": ["android", "iOS"],
+  "permissions": [
+    "core:event:default",
+    "deep-link:default",
+    "barcode-scanner:default",
+    "haptics:allow-impact-feedback",
+    "haptics:allow-notification-feedback"
+  ]
+}

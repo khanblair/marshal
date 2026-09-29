@@ -1,0 +1,36 @@
+[package]
+name = "marshal-mobile"
+version = "0.0.1"
+description = "Marshal phone app: a remote control for the daemon, reached over the tailnet."
+edition = "2021"
+rust-version = "1.85"
+publish = false
+
+# A phone app is a library the Android and iOS projects load, so this crate is a cdylib as well as
+# a plain lib (docs/mobile.md section 8). It never embeds the daemon: it shows the page the daemon
+# serves, the way the desktop shell does.
+[lib]
+name = "marshal_mobile_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-deep-link = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# The camera reader and haptics exist only on a phone, so a desktop `cargo check` of this crate
+# does not have to build them.
+[target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
+tauri-plugin-barcode-scanner = "2"
+tauri-plugin-haptics = "2"
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

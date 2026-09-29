@@ -1,0 +1,5 @@
+# Matches the cognitive-complexity ceiling the Go and TypeScript sides hold everywhere else in
+# this repo (docs/code-standards.md's smell rules), so the shell's own smell check has one number
+# to remember, not three.
+cognitive-complexity-threshold = 15
+too-many-arguments-threshold = 6
