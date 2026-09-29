@@ -1,0 +1,30 @@
+{
+  "checklists": [
+    {
+      "id": "01M3LIST00000000000000000A",
+      "name": "Done when",
+      "required": true,
+      "peopleOnly": false,
+      "hideChecked": false,
+      "items": [
+        {
+          "id": "01M3ITEM00000000000000000A",
+          "text": "Tests are green",
+          "done": true,
+          "doneByKind": "agent",
+          "doneById": "",
+          "doneAt": "2026-09-28T12:00:00.000Z"
+        },
+        {
+          "id": "01M3ITEM00000000000000000B",
+          "text": "Docs updated",
+          "done": false,
+          "doneByKind": "",
+          "doneById": "",
+          "doneAt": null
+        }
+      ]
+    }
+  ],
+  "serverTime": "2026-09-28T12:00:00.000Z"
+}

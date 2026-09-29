@@ -27,6 +27,15 @@
     "approved",
     "denied"
   ],
+  "AttachmentKind": [
+    "image",
+    "file",
+    "link"
+  ],
+  "AuthorKind": [
+    "person",
+    "agent"
+  ],
   "BypassRefusalReason": [
     "unacknowledged",
     "locked"
@@ -86,6 +95,11 @@
     "passed",
     "failed",
     "warning"
+  ],
+  "CheckStatus": [
+    "pending",
+    "passed",
+    "failed"
   ],
   "DeviceKind": [
     "web",
@@ -234,7 +248,8 @@
     "move_needs_review",
     "move_checks_not_passed",
     "move_card_merging",
-    "move_quality_blocking"
+    "move_quality_blocking",
+    "move_checklist_open"
   ],
   "NeedsReasonKind": [
     "plan-ready",

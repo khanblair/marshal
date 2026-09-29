@@ -1,0 +1,21 @@
+{
+  "checks": [
+    {
+      "id": "01M3CHECK0000000000000000A",
+      "name": "Tests pass",
+      "kind": "command",
+      "command": "go test ./...",
+      "status": "passed",
+      "runRef": "run-1790000000000"
+    },
+    {
+      "id": "01M3CHECK0000000000000000B",
+      "name": "Reviewer approval",
+      "kind": "review",
+      "command": "",
+      "status": "pending",
+      "runRef": ""
+    }
+  ],
+  "serverTime": "2026-09-28T12:00:00.000Z"
+}

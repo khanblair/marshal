@@ -508,6 +508,9 @@ const (
 	// code smell. It is the quality module's own rule (architecture.md section 17.1): the smell
 	// goes back to the card's agent, and the card stays where it is until it is fixed or dismissed.
 	MoveRefusalReasonQualityBlocking MoveRefusalReason = "move_quality_blocking"
+	// MoveRefusalReasonChecklistOpen is a move to ready of a card with a required checklist that
+	// still has an open line (B10.5).
+	MoveRefusalReasonChecklistOpen MoveRefusalReason = "move_checklist_open"
 )
 
 // MoveRefusalReasonValues lists every reason a move can be refused, in the order
@@ -517,7 +520,7 @@ func MoveRefusalReasonValues() []MoveRefusalReason {
 		MoveRefusalReasonFromDone, MoveRefusalReasonToDone, MoveRefusalReasonToNeeds,
 		MoveRefusalReasonNeedsPullRequest, MoveRefusalReasonNeedsReview,
 		MoveRefusalReasonChecksNotPassed, MoveRefusalReasonCardMerging,
-		MoveRefusalReasonQualityBlocking,
+		MoveRefusalReasonQualityBlocking, MoveRefusalReasonChecklistOpen,
 	}
 }
 

@@ -1,0 +1,29 @@
+{
+  "comments": [
+    {
+      "id": "01M3COMM00000000000000000A",
+      "authorKind": "person",
+      "authorId": "01M3USER00000000000000000A",
+      "body": "@agent please read the spec",
+      "attachments": [
+        {
+          "id": "01M3ATTA00000000000000000A",
+          "kind": "file",
+          "name": "spec.md",
+          "sizeBytes": 2048,
+          "url": ""
+        },
+        {
+          "id": "01M3ATTA00000000000000000B",
+          "kind": "link",
+          "name": "example.com/spec",
+          "sizeBytes": 0,
+          "url": "https://example.com/spec"
+        }
+      ],
+      "agentReadAt": "2026-09-28T12:00:00.000Z",
+      "createdAt": "2026-09-28T12:00:00.000Z"
+    }
+  ],
+  "serverTime": "2026-09-28T12:00:00.000Z"
+}
