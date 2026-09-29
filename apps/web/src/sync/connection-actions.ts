@@ -3,6 +3,7 @@ import { ApiError } from "~/data/api-error";
 import type { Ctx } from "~/mock/context";
 import { platform } from "~/platform";
 
+const HTTP_UNAUTHORIZED = 401;
 const REFUSED_CODE = "That code did not work. Check it, or ask for a new one in Settings, Profile.";
 const NAME_LIMIT = 60;
 const NOT_CONNECTED = "Marshal cannot reach the computer. Check the connection and try again.";
@@ -46,7 +47,7 @@ export async function pairWithCode(ctx: Ctx, code: string, name: string): Promis
     data.connection.retryNow();
     return "";
   } catch (error) {
-    if (error instanceof ApiError && error.status === 401) return REFUSED_CODE;
+    if (error instanceof ApiError && error.status === HTTP_UNAUTHORIZED) return REFUSED_CODE;
     return error instanceof ApiError ? error.message : NOT_CONNECTED;
   }
 }

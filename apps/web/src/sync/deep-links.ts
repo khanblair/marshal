@@ -1,6 +1,6 @@
 import { createEffect, createSignal } from "solid-js";
-import { go, openCard } from "~/mock/actions/navigation";
 import { newCard } from "~/mock/actions/card-create";
+import { go, openCard } from "~/mock/actions/navigation";
 import type { Ctx } from "~/mock/context";
 import { toast } from "~/mock/engine";
 import { type Platform, platform } from "~/platform";

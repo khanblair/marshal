@@ -1,9 +1,9 @@
-import {
-  type Device as WireDevice,
-  type DeviceList,
-  type PairingCode,
-  type TailnetPeerList,
-  type TailnetStatus,
+import type {
+  DeviceList,
+  PairingCode,
+  TailnetPeerList,
+  TailnetStatus,
+  Device as WireDevice,
 } from "@marshal/protocol";
 import { createSignal } from "solid-js";
 import type { ApiClient } from "~/data/api-client";

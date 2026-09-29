@@ -1,8 +1,8 @@
 import {
-  type Event as WireEvent,
   EventTypeNoticeCreated,
   EventTypeNoticeDismissed,
   type NoticeList,
+  type Event as WireEvent,
 } from "@marshal/protocol";
 import type { ApiClient } from "~/data/api-client";
 import { isRecord } from "~/data/guards";

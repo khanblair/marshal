@@ -1,7 +1,7 @@
 import {
-  type NoticeActionRequest,
   NoticeActionKeepAll,
   NoticeActionKeepAwake,
+  type NoticeActionRequest,
   NoticeActionSleepAll,
 } from "@marshal/protocol";
 import type { SleepNotice } from "~/data/mappers/notices";

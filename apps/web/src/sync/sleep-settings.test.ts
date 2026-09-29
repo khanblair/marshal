@@ -1,13 +1,12 @@
 import type { SleepSettings } from "@marshal/protocol";
 import { afterEach, describe, expect, it } from "vitest";
+import type { ApiClient } from "~/data/api-client";
 import { toSleepChoice } from "~/data/mappers/sleep-settings";
 import { golden } from "~/data/testing/golden";
 import type { Marshal } from "~/mock";
 import { createFakeDaemon, type FakeDaemon } from "~/testing/fake-daemon";
 import { PROTOTYPE_PROJECTS } from "~/testing/projects";
-import { createSyncedMarshal, createTestMarshal } from "~/testing/test-store";
-import type { ApiClient } from "~/data/api-client";
-import { contextOf } from "~/testing/test-store";
+import { contextOf, createSyncedMarshal, createTestMarshal } from "~/testing/test-store";
 import { applySleepChoice, sleepSettingsSyncer } from "./sleep-settings";
 
 // Section S26a: the numbers and choices behind automatic sleep. The daemon holds them in the

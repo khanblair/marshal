@@ -1,5 +1,5 @@
-import { toSleepChoice, toWireSleepSettings } from "~/data/mappers/sleep-settings";
 import type { SleepChoice } from "~/data/mappers/sleep-settings";
+import { toSleepChoice, toWireSleepSettings } from "~/data/mappers/sleep-settings";
 import type { Ctx } from "~/mock/context";
 import { toast } from "~/mock/engine";
 import { applySleepChoice } from "./sleep-settings";

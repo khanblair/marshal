@@ -4,9 +4,9 @@ import { sectionStatus } from "~/data/sections";
 import type { Marshal } from "~/mock";
 import type { Ctx } from "~/mock/context";
 import type { Card } from "~/mock/types";
+import * as platformModule from "~/platform";
 import { cardId, type HistoryRow, historyRow, wireCard } from "~/testing/fake-cards";
 import { createFakeDaemon, type FakeDaemon } from "~/testing/fake-daemon";
-import * as platformModule from "~/platform";
 import { PROTOTYPE_PROJECTS } from "~/testing/projects";
 import { contextOf, createSyncedMarshal } from "~/testing/test-store";
 import {

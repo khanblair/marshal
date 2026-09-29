@@ -6,10 +6,10 @@ import { isDaemon } from "~/data/sections";
 import type { CardKey } from "~/mock/card-key";
 import { type Ctx, sectionsOf } from "~/mock/context";
 import { toast } from "~/mock/engine";
-import { platform } from "~/platform";
-import { card as cardOf } from "~/mock/selectors";
 import { takeMid } from "~/mock/ids";
+import { card as cardOf } from "~/mock/selectors";
 import type { ApprovalMsg, ApprovalState } from "~/mock/types";
+import { platform } from "~/platform";
 
 /*
  * The approval flow's own writes and its two live events (section S8b, B3.4, N7): the answer a

@@ -1,7 +1,7 @@
 import type { SaveScheduleRequest, ScheduleRun } from "@marshal/protocol";
-import { toScheduleRow, type ScheduleRow } from "~/data/mappers/schedules";
-import { proj } from "~/mock/selectors";
+import { type ScheduleRow, toScheduleRow } from "~/data/mappers/schedules";
 import type { Ctx } from "~/mock/context";
+import { proj } from "~/mock/selectors";
 
 /*
  * The writes the Schedules screen makes on the daemon (section S30, B8.1). A save answers the one
