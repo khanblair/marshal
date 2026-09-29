@@ -59,7 +59,10 @@ func sampleAgents() []protocol.Agent {
 }
 
 func TestAgentCatalogGolden(t *testing.T) {
-	testutil.Golden(t, "agents", protocol.NewAgentCatalog(sampleAgents(), agentsNow))
+	testutil.Golden(t, "agents", protocol.NewAgentCatalog(sampleAgents(), agentsNow).WithTools([]protocol.AgentTool{
+		{ID: "qwen", Name: "Qwen Code", Version: "0.15.6", Interface: protocol.AgentToolInterfaceACP,
+			Note: "It speaks the Agent Client Protocol. Marshal has no adapter switched on for it yet."},
+	}))
 }
 
 func TestAgentCatalogNeverEncodesAListAsNull(t *testing.T) {
@@ -67,7 +70,7 @@ func TestAgentCatalogNeverEncodesAListAsNull(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := `{"agents":[],"serverTime":"2026-09-25T10:20:00.000Z"}`
+	want := `{"agents":[],"tools":[],"serverTime":"2026-09-25T10:20:00.000Z"}`
 	if string(empty) != want {
 		t.Errorf("got %s\nwant %s", empty, want)
 	}

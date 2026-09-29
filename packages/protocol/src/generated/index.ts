@@ -78,6 +78,46 @@ export interface Agent {
   /** Capabilities says what Marshal can do with the agent. */
   capabilities: AgentCapabilities;
 }
+/**
+ * AgentToolInterface says how another agent program takes its work, which decides whether Marshal
+ * could drive it: over the Agent Client Protocol, by one prompt at a time, or over its own RPC.
+ */
+/** AgentToolInterfaceACP is a program that runs as an Agent Client Protocol server on stdio. */
+export const AgentToolInterfaceACP = "acp";
+/**
+ * AgentToolInterfacePrint is a program that answers one prompt at a time in print mode, with
+ * streaming JSON on the CLIs that offer it.
+ */
+export const AgentToolInterfacePrint = "print";
+/** AgentToolInterfaceRPC is a program with its own RPC mode. */
+export const AgentToolInterfaceRPC = "rpc";
+export type AgentToolInterface =
+  | typeof AgentToolInterfaceACP
+  | typeof AgentToolInterfacePrint
+  | typeof AgentToolInterfaceRPC;
+/** Every AgentToolInterface, in the order the Go list gives them. */
+export const AgentToolInterfaceValues: readonly AgentToolInterface[] = [
+  AgentToolInterfaceACP,
+  AgentToolInterfacePrint,
+  AgentToolInterfaceRPC,
+];
+/**
+ * AgentTool is another coding agent program found on this computer that Marshal cannot start
+ * sessions with yet. It is listed so a person can see what Marshal saw and test it, and it is never
+ * offered for a card.
+ */
+export interface AgentTool {
+  /** ID is the tool's own id, such as "qwen", which the test call takes. */
+  id: string;
+  /** Name is the words shown to people, such as "Qwen Code". */
+  name: string;
+  /** Version is the installed version. */
+  version: string;
+  /** Interface says how the program takes its work. */
+  interface: AgentToolInterface;
+  /** Note is one plain sentence about what Marshal can and cannot do with it. */
+  note: string;
+}
 /** AgentCatalog is the answer to GET /v1/agents. */
 export interface AgentCatalog {
   /**
@@ -87,6 +127,11 @@ export interface AgentCatalog {
    * them.
    */
   agents: Agent[];
+  /**
+   * Tools are the other agent programs found on this computer that Marshal cannot start yet.
+   * Only installed ones are listed. Never null.
+   */
+  tools: AgentTool[];
   /**
    * ServerTime is the daemon's time when the answer was made. The catalog itself may come from
    * a check that was made a few minutes earlier.
@@ -2543,6 +2588,41 @@ export interface Hello {
   sinceSeq: number /* uint64 */;
   /** Epoch is the epoch that SinceSeq belongs to, or empty on a first connection. */
   epoch: string;
+}
+
+//////////
+// source: folders.go
+
+/**
+ * MaxFolderEntries is the most folders one listing carries. A folder with more is cut, and Truncated
+ * says so.
+ */
+export const MaxFolderEntries = 500;
+/** FolderEntry is one folder inside the listed one. */
+export interface FolderEntry {
+  /** Name is the folder's own name. */
+  name: string;
+  /** Path is the folder's full path, which the next listing asks for. */
+  path: string;
+  /** IsGitRepo is true when the folder holds a Git repository. */
+  isGitRepo: boolean;
+}
+/** FolderListing is the answer to GET /v1/folders?path=. */
+export interface FolderListing {
+  /** Path is the folder that was listed, as a full path. */
+  path: string;
+  /** Parent is the folder above it, or empty at the top of the disk. */
+  parent: string;
+  /** Home is the person's home folder, where a browser starts. */
+  home: string;
+  /** IsGitRepo is true when the listed folder itself holds a Git repository. */
+  isGitRepo: boolean;
+  /** Folders are the folders inside it, by name, with the hidden ones left out. Never null. */
+  folders: FolderEntry[];
+  /** Truncated is true when the folder holds more than MaxFolderEntries folders. */
+  truncated: boolean;
+  /** ServerTime is the daemon's time when the answer was made. */
+  serverTime: Timestamp;
 }
 
 //////////

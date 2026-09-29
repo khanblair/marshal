@@ -1,0 +1,20 @@
+{
+  "path": "/Users/ada/code",
+  "parent": "/Users/ada",
+  "home": "/Users/ada",
+  "isGitRepo": false,
+  "folders": [
+    {
+      "name": "marshal",
+      "path": "/Users/ada/code/marshal",
+      "isGitRepo": true
+    },
+    {
+      "name": "notes",
+      "path": "/Users/ada/code/notes",
+      "isGitRepo": false
+    }
+  ],
+  "truncated": false,
+  "serverTime": "2026-09-30T12:00:00.000Z"
+}

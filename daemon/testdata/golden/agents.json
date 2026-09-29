@@ -118,5 +118,14 @@
       }
     }
   ],
+  "tools": [
+    {
+      "id": "qwen",
+      "name": "Qwen Code",
+      "version": "0.15.6",
+      "interface": "acp",
+      "note": "It speaks the Agent Client Protocol. Marshal has no adapter switched on for it yet."
+    }
+  ],
   "serverTime": "2026-09-25T10:20:00.000Z"
 }

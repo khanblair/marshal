@@ -23,6 +23,11 @@
     "untested",
     "missing"
   ],
+  "AgentToolInterface": [
+    "acp",
+    "print",
+    "rpc"
+  ],
   "ApprovalDecision": [
     "approved",
     "denied"

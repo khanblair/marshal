@@ -61,6 +61,41 @@ type Agent struct {
 	Capabilities AgentCapabilities `json:"capabilities"`
 }
 
+// AgentToolInterface says how another agent program takes its work, which decides whether Marshal
+// could drive it: over the Agent Client Protocol, by one prompt at a time, or over its own RPC.
+type AgentToolInterface string
+
+const (
+	// AgentToolInterfaceACP is a program that runs as an Agent Client Protocol server on stdio.
+	AgentToolInterfaceACP AgentToolInterface = "acp"
+	// AgentToolInterfacePrint is a program that answers one prompt at a time in print mode, with
+	// streaming JSON on the CLIs that offer it.
+	AgentToolInterfacePrint AgentToolInterface = "print"
+	// AgentToolInterfaceRPC is a program with its own RPC mode.
+	AgentToolInterfaceRPC AgentToolInterface = "rpc"
+)
+
+// AgentToolInterfaceValues lists every interface.
+func AgentToolInterfaceValues() []AgentToolInterface {
+	return []AgentToolInterface{AgentToolInterfaceACP, AgentToolInterfacePrint, AgentToolInterfaceRPC}
+}
+
+// AgentTool is another coding agent program found on this computer that Marshal cannot start
+// sessions with yet. It is listed so a person can see what Marshal saw and test it, and it is never
+// offered for a card.
+type AgentTool struct {
+	// ID is the tool's own id, such as "qwen", which the test call takes.
+	ID string `json:"id"`
+	// Name is the words shown to people, such as "Qwen Code".
+	Name string `json:"name"`
+	// Version is the installed version.
+	Version string `json:"version"`
+	// Interface says how the program takes its work.
+	Interface AgentToolInterface `json:"interface"`
+	// Note is one plain sentence about what Marshal can and cannot do with it.
+	Note string `json:"note"`
+}
+
 // AgentCatalog is the answer to GET /v1/agents.
 type AgentCatalog struct {
 	// Agents has one entry for each kind of agent that a card can use, whether or not it is
@@ -68,6 +103,9 @@ type AgentCatalog struct {
 	// there is nothing to install. The three CLI kinds come first, in the order the pickers show
 	// them.
 	Agents []Agent `json:"agents"`
+	// Tools are the other agent programs found on this computer that Marshal cannot start yet.
+	// Only installed ones are listed. Never null.
+	Tools []AgentTool `json:"tools"`
 	// ServerTime is the daemon's time when the answer was made. The catalog itself may come from
 	// a check that was made a few minutes earlier.
 	ServerTime Timestamp `json:"serverTime"`
@@ -83,5 +121,13 @@ func NewAgentCatalog(agents []Agent, now time.Time) AgentCatalog {
 		}
 		out[i] = agent
 	}
-	return AgentCatalog{Agents: out, ServerTime: NewTimestamp(now)}
+	return AgentCatalog{Agents: out, Tools: []AgentTool{}, ServerTime: NewTimestamp(now)}
+}
+
+// WithTools returns the catalog with the other agent programs found. A nil list stays empty.
+func (c AgentCatalog) WithTools(tools []AgentTool) AgentCatalog {
+	if tools != nil {
+		c.Tools = tools
+	}
+	return c
 }

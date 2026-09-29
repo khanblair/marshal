@@ -25,6 +25,7 @@ func allEnums() map[string][]string {
 		"ThinkingMode":          names(protocol.ThinkingModeValues()),
 		"AgentKind":             names(protocol.AgentKindValues()),
 		"AgentStatus":           names(protocol.AgentStatusValues()),
+		"AgentToolInterface":    names(protocol.AgentToolInterfaceValues()),
 		"SessionState":          names(protocol.SessionStateValues()),
 		"FeedKind":              names(protocol.FeedKindValues()),
 		"NoticeKind":            names(protocol.NoticeKindValues()),
