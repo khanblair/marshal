@@ -13,8 +13,8 @@ import {
   DISCORD_ID,
   GCAL_ID,
   GMAIL_ID,
-  OBSIDIAN_ID,
   NTFY_ID,
+  OBSIDIAN_ID,
   TELEGRAM_ID,
   TRELLO_ID,
 } from "~/sync/integrations";
@@ -24,8 +24,8 @@ import { createEditState, type EditState } from "./edit-state";
 import { GitHubAppForm } from "./GitHubAppForm";
 import { GmailForm } from "./GmailForm";
 import { GoogleCalendarForm } from "./GoogleCalendarForm";
-import { ObsidianPanel } from "./ObsidianPanel";
 import { NtfyForm } from "./NtfyForm";
+import { ObsidianPanel } from "./ObsidianPanel";
 import { TelegramForm } from "./TelegramForm";
 import { TestChecks } from "./TestChecks";
 import { TrelloForm } from "./TrelloForm";

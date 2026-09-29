@@ -31,6 +31,10 @@ export function createEditState() {
     fail(message: string): void {
       setError(message);
     },
+    /** Takes the error away, for a form that is about to try again. */
+    clearError(): void {
+      setError(null);
+    },
   };
 }
 

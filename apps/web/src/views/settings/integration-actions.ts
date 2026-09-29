@@ -1,5 +1,6 @@
 import type {
   AuthorizeURL,
+  DetectTelegramChatAnswer,
   SaveDiscordRequest,
   SaveGitHubRequest,
   SaveGmailRequest,
@@ -30,6 +31,13 @@ export function connectTrello(body: SaveTrelloRequest): Promise<boolean> {
     if (saved) M.toast("Trello connected");
     return saved;
   });
+}
+
+/** Finds the chat that most recently wrote to the bot whose token is given. Nothing is saved. */
+export function detectTelegramChat(
+  token: string,
+): Promise<DetectTelegramChatAnswer | { error: string }> {
+  return M.detectTelegramChat({ token });
 }
 
 /** Stores the Telegram bot connection and says so. The daemon tests it as part of the same call. */
