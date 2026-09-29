@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { patchGradle, patchMainActivity, patchManifest } from "./patch-android.mjs";
+import { patchBuildTask, patchGradle, patchMainActivity, patchManifest } from "./patch-android.mjs";
 
 const MANIFEST = `<manifest>
     <application android:usesCleartextTraffic="\${usesCleartextTraffic}">
@@ -85,4 +85,14 @@ test("the real generated project, when one exists, takes every patch", {
     patchGradle(readFileSync(`${app}/build.gradle.kts`, "utf8")),
     /"usesCleartextTraffic"\] = "true"/,
   );
+});
+
+test("Gradle reaches the Tauri CLI through pnpm's workspace filter, once", () => {
+  const generated = 'val args = listOf("tauri", "android", "android-studio-script");';
+  const patched = patchBuildTask(generated);
+  assert.match(
+    patched,
+    /listOf\("--filter", "mobile", "exec", "tauri", "android", "android-studio-script"\)/,
+  );
+  assert.equal(patchBuildTask(patched), patched);
 });

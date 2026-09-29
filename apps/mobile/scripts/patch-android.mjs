@@ -1,7 +1,7 @@
 // Makes the Android project Tauri generates fit this app, since `src-tauri/gen/` is generated and
 // never committed. Run with --init to make the project first when it does not exist yet.
 //
-// Three changes:
+// Four changes:
 //  1. Allow plain http. The daemon is reached at a tailnet address such as
 //     http://marshal-laptop.tail1234.ts.net:47800, and Android refuses cleartext traffic in a
 //     release build by default. The traffic never leaves the person's own tailnet, where WireGuard
@@ -11,6 +11,9 @@
 //  3. Sign a release build with the key in `gen/android/keystore.properties`, when that file exists.
 //     CI writes it from repository secrets (.github/workflows/release.yml); without it the build is
 //     left unsigned, which is what a person building on their own machine wants.
+//  4. Reach the Tauri CLI from Gradle. Gradle runs `pnpm tauri ...` inside src-tauri, which is not a
+//     pnpm package, and pnpm 11 answers "Command tauri not found" from there. It is run through the
+//     workspace's own filter instead, which finds the CLI from any folder.
 
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
@@ -99,6 +102,14 @@ export function patchMainActivity(kotlin) {
   return kotlin.includes("class MainActivity : TauriActivity()") ? MAIN_ACTIVITY : kotlin;
 }
 
+/** Runs the Tauri CLI through pnpm's workspace filter, so it is found from src-tauri. */
+export function patchBuildTask(kotlin) {
+  return kotlin.replace(
+    'listOf("tauri", "android", "android-studio-script")',
+    'listOf("--filter", "mobile", "exec", "tauri", "android", "android-studio-script")',
+  );
+}
+
 function patchFile(path, patch) {
   if (!existsSync(path)) {
     console.error(
@@ -125,6 +136,21 @@ function main() {
   patchFile(
     join(app, "src", "main", "java", "com", "marshal", "mobile", "MainActivity.kt"),
     patchMainActivity,
+  );
+  patchFile(
+    join(
+      project,
+      "buildSrc",
+      "src",
+      "main",
+      "java",
+      "com",
+      "marshal",
+      "mobile",
+      "kotlin",
+      "BuildTask.kt",
+    ),
+    patchBuildTask,
   );
   console.log("The Android project allows the tailnet's plain-http address and takes shared text.");
 }
