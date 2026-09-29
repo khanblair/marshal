@@ -1,6 +1,8 @@
 import { ConnectionLost, ErrorState, OfflineBanner, SignIn } from "@marshal/ui";
-import { createSignal, onCleanup } from "solid-js";
+import { createSignal, onCleanup, onMount } from "solid-js";
 import { M } from "~/mock";
+import { platform } from "~/platform";
+import { parsePairingScan } from "~/platform/pairing";
 import { isPhone } from "./shell-layout";
 
 const TICK_MS = 1000;
@@ -36,12 +38,49 @@ export function ConnectionLostScreen() {
 
 /** The daemon does not know this device. The token is kept only by the token store, never here. */
 export function SignInScreen() {
+  const [pairing, setPairing] = createSignal(false);
+  const [pairError, setPairError] = createSignal("");
+  const device = platform();
+  const pair = (code: string, name: string) => {
+    setPairing(true);
+    setPairError("");
+    void M.pairWithCode(code, name)
+      .then(setPairError)
+      .finally(() => setPairing(false));
+  };
+  const deviceName = () => {
+    if (device.kind === "mobile") return "Phone app";
+    return isPhone() ? "Phone browser" : "Web browser";
+  };
+  const scan = () => {
+    void device.scanCode().then((text) => {
+      const code = parsePairingScan(text);
+      if (code) pair(code, deviceName());
+      else if (text)
+        setPairError("That is not a Marshal code. Scan the one shown in Pair a device.");
+    });
+  };
+  // A phone that opened the address from the QR code arrives with the code in it. It is taken out
+  // of the address at once, so it is not left in the history or a bookmark.
+  onMount(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("pair");
+    if (!code) return;
+    params.delete("pair");
+    const rest = params.toString();
+    window.history.replaceState(null, "", window.location.pathname + (rest ? `?${rest}` : ""));
+    pair(code, deviceName());
+  });
   return (
     <SignIn
       phone={isPhone()}
-      busy={M.S.connection?.busy}
+      busy={M.S.connection?.busy || pairing()}
       error={M.S.connection?.rejection}
       onSubmit={(token) => M.signIn(token)}
+      onPair={pair}
+      onScan={device.canScanCode ? scan : undefined}
+      pairError={pairError()}
+      deviceName={deviceName()}
     />
   );
 }
@@ -49,7 +88,14 @@ export function SignInScreen() {
 /** The bar for a connection that dropped while the app has data. */
 export function OfflineNotice() {
   const seconds = createCountdown(() => M.S.connection?.retryAt);
-  return <OfflineBanner retryInSeconds={seconds()} />;
+  const updatedAt = () => M.S.connection?.updatedAt;
+  return (
+    <OfflineBanner
+      retryInSeconds={seconds()}
+      machine={M.S.profile.node || "your computer"}
+      updatedAgo={updatedAt() ? M.rel(updatedAt() as number).toLowerCase() : undefined}
+    />
+  );
 }
 
 /** The first snapshots could not be loaded, though the daemon answers. */

@@ -1,6 +1,7 @@
 import type {
   ActivityItem,
   AgentCatalog,
+  AlertSettings,
   AuthorizeURL,
   BoardSnapshot,
   BypassRequest,
@@ -37,6 +38,8 @@ import type {
   NoticeActionRequest,
   NoticeActionResult,
   NoticeList,
+  PairDeviceRequest,
+  PairDeviceResponse,
   PairingCode,
   Page,
   Preferences,
@@ -55,9 +58,11 @@ import type {
   RoleSpec,
   SavedView,
   SavedViewListSnapshot,
+  SaveAlertSettingsRequest,
   SaveDiscordRequest,
   SaveGitHubRequest,
   SaveGmailRequest,
+  SaveNtfyRequest,
   SaveGoogleCalendarRequest,
   SaveLessonRequest,
   SaveNoteRequest,
@@ -145,6 +150,11 @@ export interface ApiClientOptions {
   timeoutMs?: number;
   /** Called once for every 401 answer, before the error is thrown. */
   onUnauthorized?: (error: ApiError) => void;
+  /**
+   * True while the daemon cannot be reached. A change is then refused before it is sent, and never
+   * kept to send later: acting on state that may be old could be wrong or unsafe.
+   */
+  isOffline?: () => boolean;
   /** The local clock in ms. It is only for the clock offset, and tests replace it. */
   localNow?: () => number;
 }
@@ -413,6 +423,11 @@ export interface ApiClient {
    * minutes; a code that is spent by a pairing, or guessed at too often, stops working.
    */
   createPairingCode(options?: CallOptions): Promise<PairingCode>;
+  /**
+   * Trades the code read off a paired device's screen for a token of this device's own. It takes no
+   * token, because a device being paired has none, and every refusal of the code is a 401.
+   */
+  pairDevice(body: PairDeviceRequest, options?: CallOptions): Promise<PairDeviceResponse>;
   /** A device loses access at once. Removing someone else's device is a not-found, not a refusal. */
   removeDevice(id: string, options?: CallOptions): Promise<void>;
   /**
@@ -475,7 +490,8 @@ export interface ApiClient {
       | SaveGoogleCalendarRequest
       | SaveGmailRequest
       | SaveTelegramRequest
-      | SaveDiscordRequest,
+      | SaveDiscordRequest
+      | SaveNtfyRequest,
     options?: CallOptions,
   ): Promise<IntegrationList>;
   /** Forgets a connection's settings and its secret. Removing one that was never set up is not an error. */
@@ -564,4 +580,8 @@ export interface ApiClient {
   sleepSettings(options?: CallOptions): Promise<SleepSettings>;
   /** Saves them. A value the screen would not offer is refused with the sentence the form shows. */
   saveSleepSettings(body: SleepSettings, options?: CallOptions): Promise<SleepSettings>;
+  /** Which channel each kind of alert goes to, and which channels are connected (section S26c). */
+  alertSettings(options?: CallOptions): Promise<AlertSettings>;
+  /** Changes where some alerts go. An alert left out keeps its channels; an unknown one is refused. */
+  saveAlertSettings(body: SaveAlertSettingsRequest, options?: CallOptions): Promise<AlertSettings>;
 }

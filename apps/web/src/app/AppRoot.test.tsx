@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { M } from "~/mock";
+import * as platformModule from "~/platform";
 import { AppRoot } from "./AppRoot";
 import { DESKTOP_PX, PHONE_PX, resetShell } from "./shell-test-utils";
 
@@ -107,7 +108,15 @@ const connectTo = (
   state: NonNullable<typeof M.S.connection>["state"],
   more: Partial<NonNullable<typeof M.S.connection>> = {},
 ) => {
-  M.S.connection = { state, retryAt: null, detail: "", rejection: "", busy: false, ...more };
+  M.S.connection = {
+    state,
+    retryAt: null,
+    detail: "",
+    rejection: "",
+    busy: false,
+    updatedAt: null,
+    ...more,
+  };
 };
 
 describe("AppRoot and the daemon", () => {
@@ -126,7 +135,7 @@ describe("AppRoot and the daemon", () => {
     expect(screen.queryByRole("heading", { name: "Can't reach the daemon" })).toBeNull();
     connectTo("online");
     expect(appRoot()).toHaveAttribute("data-connection", "online");
-    expect(screen.queryByText(/You're offline/)).toBeNull();
+    expect(screen.queryByText(/Can't reach/)).toBeNull();
   });
 
   it("shows a skeleton of the app, in its own layout, while the first data loads", () => {
@@ -174,12 +183,22 @@ describe("AppRoot and the daemon", () => {
   it("shows the app with the offline bar on top while it reconnects", () => {
     connectTo("reconnecting");
     render(() => <AppRoot />);
-    const bar = screen.getByText(/You're offline/);
+    const bar = screen.getByText(/Can't reach/);
     expect(bar.closest("[role=status]")).not.toBeNull();
     expect(screen.getByRole("banner")).toBeInTheDocument();
     expect(appRoot()).toHaveAttribute("data-connection", "reconnecting");
     connectTo("online");
-    expect(screen.queryByText(/You're offline/)).toBeNull();
+    expect(screen.queryByText(/Can't reach/)).toBeNull();
+  });
+
+  it("says which machine cannot be reached and how old the data on screen is", () => {
+    vi.useFakeTimers({ now: new Date("2026-09-29T10:00:00Z") });
+    M.S.profile.node = "office-pc.tail1.ts.net";
+    connectTo("reconnecting", { updatedAt: Date.now() - 5 * 60_000 });
+    render(() => <AppRoot />);
+    expect(screen.getByText(/Can't reach office-pc.tail1.ts.net\./)).toHaveTextContent(
+      "Can't reach office-pc.tail1.ts.net. Last updated 5 min ago. Marshal reconnects on its own. Changes can't be made until then.",
+    );
   });
 
   it("shows sign-in for a device the daemon does not know, and hands over the trimmed token", () => {
@@ -201,6 +220,44 @@ describe("AppRoot and the daemon", () => {
     render(() => <AppRoot />);
     expect(screen.getByRole("alert")).toHaveTextContent(sentence);
     expect(screen.getByLabelText("Access token")).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("pairs with a typed code, and shows the sentence when the daemon refuses it", async () => {
+    const pair = vi.spyOn(M, "pairWithCode").mockResolvedValue("That code did not work.");
+    connectTo("unauthorized");
+    render(() => <AppRoot />);
+    fireEvent.input(screen.getByLabelText("Pairing code"), { target: { value: " 7QX-2LD " } });
+    fireEvent.click(screen.getByRole("button", { name: "Pair this device" }));
+    expect(pair).toHaveBeenCalledWith("7QX-2LD", expect.stringMatching(/browser/i));
+    expect(await screen.findByText("That code did not work.")).toBeInTheDocument();
+  });
+
+  it("pairs by itself from the code in the address, and takes the code out of the address", () => {
+    const pair = vi.spyOn(M, "pairWithCode").mockResolvedValue("");
+    window.history.replaceState(null, "", "/?pair=7QX-2LD&x=1");
+    connectTo("unauthorized");
+    render(() => <AppRoot />);
+    expect(pair).toHaveBeenCalledWith("7QX-2LD", expect.any(String));
+    expect(window.location.search).toBe("?x=1");
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("offers Scan the QR code only on a device that can, and pairs with what it reads", async () => {
+    const pair = vi.spyOn(M, "pairWithCode").mockResolvedValue("");
+    connectTo("unauthorized");
+    const { unmount } = render(() => <AppRoot />);
+    expect(screen.queryByRole("button", { name: "Scan the QR code" })).toBeNull();
+    unmount();
+    const scanCode = vi.fn().mockResolvedValue("marshal://pair?host=a%3A1&code=7QX-2LD");
+    vi.spyOn(platformModule, "platform").mockReturnValue({
+      ...platformModule.createPlatform("web"),
+      kind: "mobile",
+      canScanCode: true,
+      scanCode,
+    });
+    render(() => <AppRoot />);
+    fireEvent.click(screen.getByRole("button", { name: "Scan the QR code" }));
+    await vi.waitFor(() => expect(pair).toHaveBeenCalledWith("7QX-2LD", "Phone app"));
   });
 
   it("shows a busy sign-in while the token is checked", () => {

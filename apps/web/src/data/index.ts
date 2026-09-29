@@ -95,6 +95,10 @@ export function createData(options: DataOptions): Data {
     clock,
     fetch: options.fetch,
     onUnauthorized: (error) => link.connection?.reportUnauthorized(error),
+    isOffline: () => {
+      const state = link.connection?.state();
+      return state === "reconnecting" || state === "unreachable";
+    },
   });
   const stream = createEventStream({
     url: toEventsUrl(baseUrl, options.page ?? globalThis.location),

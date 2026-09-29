@@ -47,6 +47,8 @@ interface ConnectionView {
   rejection: string;
   /** True from the moment a token is submitted until the daemon has answered. */
   busy: boolean;
+  /** When the app last had fresh data, in ms on this device's clock, or null before the first. */
+  updatedAt: number | null;
 }
 
 /** The single mutable app state (`M.S`). Field names and shapes match the prototype. */

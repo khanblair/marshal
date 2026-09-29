@@ -8,7 +8,7 @@ import {
 import { isRecord } from "./guards";
 
 /** Reasons that come from the app and not from the daemon: no answer, too slow, cancelled, unreadable. */
-export type ClientErrorCode = "unreachable" | "timeout" | "aborted" | "bad_response";
+export type ClientErrorCode = "unreachable" | "timeout" | "aborted" | "bad_response" | "offline";
 
 /** Every code an `ApiError` can carry: the daemon's own codes and the client-only ones. */
 export type ApiErrorCode = ErrorCode | ClientErrorCode;
@@ -19,6 +19,7 @@ const CLIENT_MESSAGES: Record<ClientErrorCode, string> = {
   unreachable: "Marshal can't reach the daemon. Check that it is running.",
   timeout: "The daemon took too long to answer. Try again in a moment.",
   aborted: "The request was cancelled before the daemon answered.",
+  offline: "You're offline. Marshal can't make changes until it reconnects.",
   bad_response:
     "The daemon sent an answer that Marshal can't read. Try again, and update Marshal if it keeps happening.",
 };

@@ -2,7 +2,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { sectionStatus } from "~/data/sections";
 import { TOKEN_KEY } from "~/data/token";
 import type { Marshal } from "~/mock";
-import { createFakeDaemon, FAKE_TOKEN, type FakeDaemon } from "~/testing/fake-daemon";
+import {
+  createFakeDaemon,
+  FAKE_PAIRING_CODE,
+  FAKE_TOKEN,
+  type FakeDaemon,
+} from "~/testing/fake-daemon";
 import { PROTOTYPE_PROJECTS, wireProject } from "~/testing/projects";
 import {
   contextOf,
@@ -164,6 +169,31 @@ describe("sign in", () => {
     await vi.waitFor(() => expect(projectIds(M)).toEqual(["api", "web", "mobile"]));
     expect(M.S.connection?.state).toBe("online");
     expect(d.storage.values.get(TOKEN_KEY)).toBe(FAKE_TOKEN);
+  });
+
+  it("pairs with the code from another device, keeps the token it gets, and loads the app", async () => {
+    const d = open({ storedToken: null, projects: PROTOTYPE_PROJECTS });
+    const M = createTestMarshal({ data: d.data });
+    await vi.waitFor(() => expect(M.S.connection?.state).toBe("unauthorized"));
+    expect(await M.pairWithCode(` ${FAKE_PAIRING_CODE} `, " Phone browser ")).toBe("");
+    expect(d.bodies("POST /v1/devices/pair")).toEqual([
+      { code: FAKE_PAIRING_CODE, name: "Phone browser", kind: "web" },
+    ]);
+    expect(d.storage.values.get(TOKEN_KEY)).toBe(FAKE_TOKEN);
+    await d.connect();
+    await vi.waitFor(() => expect(projectIds(M)).toEqual(["api", "web", "mobile"]));
+    expect(M.S.connection?.state).toBe("online");
+  });
+
+  it("says a wrong code did not work, in words a person can act on, and keeps no token", async () => {
+    const d = open({ storedToken: null });
+    const M = createTestMarshal({ data: d.data });
+    await vi.waitFor(() => expect(M.S.connection?.state).toBe("unauthorized"));
+    expect(await M.pairWithCode("NOP-000", "Phone browser")).toBe(
+      "That code did not work. Check it, or ask for a new one in Settings, Profile.",
+    );
+    expect(d.storage.values.get(TOKEN_KEY)).toBeUndefined();
+    expect(M.S.connection?.state).toBe("unauthorized");
   });
 
   it("ignores an empty token", async () => {

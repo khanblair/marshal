@@ -4,6 +4,7 @@ import { ApiError } from "~/data/api-error";
 import { isDaemon } from "~/data/sections";
 import { type Ctx, sectionsOf } from "~/mock/context";
 import { agentsSyncer } from "./agents";
+import { alertsSyncer } from "./alerts";
 import { applyApprovalEvent } from "./approval-actions";
 import { applyCardSessionEvent, followOpenCard } from "./card-session";
 import { applyTerminalFrame, applyTerminalOutputEvent, followOpenCardTerminal } from "./card-view";
@@ -12,6 +13,7 @@ import { cardsSyncer } from "./cards";
 import { applyChatSessionEvent, followOpenChat } from "./chat-session";
 import { chatsSyncer } from "./chats";
 import { ciSyncer } from "./ci";
+import { followDeepLinks } from "./deep-links";
 import { devicesSyncer } from "./devices";
 import { homeFeedSyncer } from "./home-feed";
 import { homeStatsSyncer } from "./home-stats";
@@ -49,6 +51,7 @@ const SYNCERS: readonly Syncer[] = [
   agentsSyncer,
   limitsSyncer,
   sleepSettingsSyncer,
+  alertsSyncer,
   providersSyncer,
   rolesSyncer,
   // The connections Marshal is set up with (S29a for GitHub). It publishes no topic and needs only
@@ -91,6 +94,8 @@ interface Progress {
   loaded: boolean;
   /** True once the app came online and asked for them. */
   asked: boolean;
+  /** When the last snapshot or event arrived, on this device's clock. It stops moving while offline. */
+  seenAt: number | null;
 }
 
 /**
@@ -116,6 +121,7 @@ function createReloader(ctx: Ctx, data: Data, active: readonly Syncer[], progres
       if (mine !== newest) return;
       batch(() => {
         progress.loaded = true;
+        progress.seenAt = Date.now();
         ctx.S.loadError = "";
         ctx.S.ready = true;
       });
@@ -146,6 +152,7 @@ function followConnection(ctx: Ctx, data: Data, progress: Progress, reload: () =
         detail: describeError(error),
         rejection: refused ? (error?.message ?? "") : "",
         busy: false,
+        updatedAt: progress.seenAt,
       };
       ctx.S.ready = progress.loaded || state === "unreachable" || state === "unauthorized";
     });
@@ -205,7 +212,7 @@ export function startSync(ctx: Ctx, syncers: readonly Syncer[] = SYNCERS): SyncC
   if (!data) return null;
   const table = sectionsOf(ctx.env);
   const active = syncers.filter((syncer) => isDaemon(syncer.section, table));
-  const progress: Progress = { loaded: false, asked: false };
+  const progress: Progress = { loaded: false, asked: false, seenAt: null };
   const reload = createReloader(ctx, data, active, progress);
   // Reads the open project chat again, which is set once the effects below exist (see
   // `followOpenChat`): what was said while the connection was away is not replayed. `resendTerminal`
@@ -216,6 +223,7 @@ export function startSync(ctx: Ctx, syncers: readonly Syncer[] = SYNCERS): SyncC
   const stops = [
     data.onEvents((events) =>
       batch(() => {
+        progress.seenAt = Date.now();
         for (const event of events) {
           // A card's own events come to the panel, not to a section-wide syncer; the two are
           // separate because a card is opened and closed while a section stays switched on.
@@ -261,6 +269,8 @@ export function startSync(ctx: Ctx, syncers: readonly Syncer[] = SYNCERS): SyncC
     resendTerminal = followOpenCardTerminal(ctx, data.api, data.stream);
     // What a section does between snapshots, such as saving a preference the person changed.
     const stopped = active.flatMap((syncer) => syncer.start?.(ctx, data.api) ?? []);
+    // The links that open the app at a card or a shared note, from a notice or another app.
+    stopped.push(followDeepLinks(ctx));
     return () => {
       for (const stop of stopped) stop();
       dispose();

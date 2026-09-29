@@ -40,6 +40,7 @@ export type SectionId =
   | "S25"
   | "S26a"
   | "S26b"
+  | "S26c"
   | "S27"
   | "S28"
   | "S29a"
@@ -49,6 +50,7 @@ export type SectionId =
   | "S29e"
   | "S29f"
   | "S29g"
+  | "S29h"
   | "S30"
   | "S31a"
   | "S31b"
@@ -99,6 +101,7 @@ export const sectionStatus: Readonly<Record<SectionId, SectionStatus>> = {
   S25: "daemon",
   S26a: "daemon",
   S26b: "daemon",
+  S26c: "daemon",
   S27: "daemon",
   S28: "daemon",
   S29a: "daemon",
@@ -108,9 +111,10 @@ export const sectionStatus: Readonly<Record<SectionId, SectionStatus>> = {
   S29e: "daemon",
   S29f: "daemon",
   S29g: "daemon",
+  S29h: "daemon",
   S30: "daemon",
   S31a: "daemon",
-  S31b: "mock",
+  S31b: "daemon",
   S32: "daemon",
 };
 

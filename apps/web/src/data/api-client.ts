@@ -85,7 +85,7 @@ function requestBody(o: RequestOptions): Blob | string | null {
 
 /** The part that talks over the network: headers, time limits, and the way each call can fail. */
 function createTransport(options: ApiClientOptions): Transport {
-  const { getToken, clock, onUnauthorized, localNow = Date.now } = options;
+  const { getToken, clock, onUnauthorized, isOffline, localNow = Date.now } = options;
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const root = (options.baseUrl ?? "").replace(/\/+$/, "");
   const send = options.fetch ?? ((input, init) => globalThis.fetch(input, init));
@@ -120,6 +120,7 @@ function createTransport(options: ApiClientOptions): Transport {
 
   /** Sends one request and returns the text of a success. Throws an `ApiError` for anything else. */
   async function exchange(method: Method, path: string, o: RequestOptions, wantsBytes = false) {
+    if (method !== "GET" && isOffline?.()) throw clientError("offline");
     const sentAt = localNow();
     const answer = await receive(method, path, o, wantsBytes);
     if (!answer.ok) {
@@ -278,6 +279,7 @@ function routeMethods({ request, command, bytes }: Transport): Omit<ApiClient, "
     // is doing - including whether /hooks/* was asked to be exposed to the public internet.
     listDevices: (o) => request("GET", "/v1/me/devices", o),
     createPairingCode: (o) => request("POST", "/v1/me/devices/pairing-code", o),
+    pairDevice: (body, o) => request("POST", "/v1/devices/pair", { ...o, body }),
     removeDevice: (did, o) => command("DELETE", `/v1/me/devices/${id(did)}`, o),
     tailnetStatus: (o) => request("GET", "/v1/tailnet", o),
     tailnetPeers: (o) => request("GET", "/v1/tailnet/peers", o),
@@ -333,6 +335,8 @@ function routeMethods({ request, command, bytes }: Transport): Omit<ApiClient, "
     dismissNotice: (notice, o) => command("DELETE", `/v1/notices/${id(notice)}`, o),
     sleepSettings: (o) => request("GET", "/v1/settings/sleep", o),
     saveSleepSettings: (body, o) => request("PUT", "/v1/settings/sleep", { ...o, body }),
+    alertSettings: (o) => request("GET", "/v1/settings/alerts", o),
+    saveAlertSettings: (body, o) => request("PUT", "/v1/settings/alerts", { ...o, body }),
   };
 }
 

@@ -133,6 +133,32 @@ describe("failures", () => {
   });
 });
 
+describe("offline", () => {
+  it("refuses a change before sending it while the daemon cannot be reached, and never keeps it", async () => {
+    let offline = true;
+    const { client, calls } = make(
+      {
+        "POST /v1/projects/web-dashboard/cards": () => jsonAnswer(card),
+        "GET /v1/projects/web-dashboard": () => jsonAnswer(project),
+      },
+      { isOffline: () => offline },
+    );
+    const refused = await failureOf(client.createCard("web-dashboard", { title: "New" }));
+    expect(refused).toMatchObject({
+      code: "offline",
+      message: "You're offline. Marshal can't make changes until it reconnects.",
+    });
+    expect(calls).toHaveLength(0);
+    // A read still goes out, so the connection can find out that the daemon is back.
+    await client.getProject("web-dashboard");
+    expect(calls).toHaveLength(1);
+    // Nothing was queued: back online, no earlier change is sent by itself.
+    offline = false;
+    await client.getProject("web-dashboard");
+    expect(calls.map((c) => c.method)).toEqual(["GET", "GET"]);
+  });
+});
+
 describe("401", () => {
   it("calls onUnauthorized once and throws the daemon's code", async () => {
     const onUnauthorized = vi.fn();
