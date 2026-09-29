@@ -128,3 +128,16 @@ func prototypeModels(kind protocol.AgentKind) []protocol.AgentModel {
 	}
 	return []protocol.AgentModel{}
 }
+
+// Test answers a passing result that says it is the stub, so a screen test in dev mode shows its own
+// shape without pretending a real program was checked.
+func (s *Stub) Test(_ context.Context, id string) (protocol.TestResult, error) {
+	if _, ok := targetOf(id); !ok {
+		return protocol.TestResult{}, ErrUnknownAgent
+	}
+	return protocol.NewTestResult(id, []protocol.TestCheck{{
+		Name: "Stub", State: protocol.CheckStateWarning,
+		Message: "This daemon runs the scripted stub agent, so nothing on this computer was checked.",
+		Fix:     "Start the daemon with --agent real to check the real programs.",
+	}}, s.now()), nil
+}

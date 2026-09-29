@@ -7,7 +7,7 @@ tmp_dir = "tmp"
   # the daemon looks for the stub agent in its own folder.
   cmd = "go build -o ../dist/bin/marshald ./cmd/marshald"
   entrypoint = ["../dist/bin/marshald"]
-  args_bin = ["--dev", "--fixture", "prototype"]
+  args_bin = ["--dev", "--fixture", "prototype", "--agent", "real"]
   include_ext = ["go"]
   exclude_dir = ["tmp", "testdata"]
   exclude_regex = ["_test\\.go$"]

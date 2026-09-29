@@ -146,6 +146,10 @@ func (p *ProgramProbe) readVersion(ctx context.Context, path string) (Semver, er
 	}
 	version, ok := ParseSemver(string(out))
 	if !ok {
+		// Some programs (Pi) print their version on standard error.
+		version, ok = ParseSemver(child.StderrTail())
+	}
+	if !ok {
 		return Semver{}, errors.New("its answer holds no version")
 	}
 	return version, nil

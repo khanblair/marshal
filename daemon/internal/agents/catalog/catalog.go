@@ -50,6 +50,9 @@ type Source interface {
 	// Detect returns what List is made from, with the place of each program, for the session
 	// manager. The order is the order of Kinds.
 	Detect(ctx context.Context) ([]Detected, error)
+	// Test looks at one agent, by its kind or its tool id, without sending any prompt. An id that is
+	// not listed answers an error that wraps ErrUnknownAgent.
+	Test(ctx context.Context, id string) (protocol.TestResult, error)
 }
 
 // Options sets up a Catalog. Every field is optional.
@@ -89,6 +92,7 @@ var _ Source = (*Catalog)(nil)
 type snapshot struct {
 	at    time.Time
 	found []Detected
+	tools []ToolDetected
 }
 
 // flight is a detection run in progress. Callers that arrive while it runs wait for it instead of
@@ -180,7 +184,7 @@ func (c *Catalog) get(ctx context.Context, force bool) (snapshot, error) {
 func (c *Catalog) run(f *flight) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
 	defer cancel()
-	snap := snapshot{found: c.detectAll(ctx)}
+	snap := snapshot{found: c.detectAll(ctx), tools: c.detectTools(ctx)}
 	snap.at = c.now()
 	c.mu.Lock()
 	c.cached = &snap
@@ -269,7 +273,7 @@ func catalogOf(snap snapshot, now time.Time, builtin BuiltinModels) protocol.Age
 	for _, d := range snap.found {
 		agents = append(agents, agentOf(d, builtin))
 	}
-	return protocol.NewAgentCatalog(agents, now)
+	return protocol.NewAgentCatalog(agents, now).WithTools(toolsOf(snap.tools))
 }
 
 // agentOf makes the wire form of one detected agent. The place of the program is left out.
