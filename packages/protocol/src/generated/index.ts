@@ -673,6 +673,229 @@ export interface SendMessageRequest {
 }
 
 //////////
+// source: cardpanel.go
+
+/** CheckStatus is where an acceptance check stands. */
+/** CheckStatusPending means the check has not been run since it was added. */
+export const CheckStatusPending = "pending";
+/** CheckStatusPassed means the last run passed. */
+export const CheckStatusPassed = "passed";
+/** CheckStatusFailed means the last run failed. */
+export const CheckStatusFailed = "failed";
+export type CheckStatus =
+  | typeof CheckStatusPending
+  | typeof CheckStatusPassed
+  | typeof CheckStatusFailed;
+/** Every CheckStatus, in the order the Go list gives them. */
+export const CheckStatusValues: readonly CheckStatus[] = [
+  CheckStatusPending,
+  CheckStatusPassed,
+  CheckStatusFailed,
+];
+/**
+ * CardCheck is one acceptance check on a card: a command Marshal runs in the card's worktree, or a
+ * review the card must earn. A card cannot finish until every check has passed.
+ */
+export interface CardCheck {
+  /** ID is the check's opaque id. */
+  id: string;
+  /** Name is what the check is called, such as "Tests pass". */
+  name: string;
+  /** Kind is "command" for a check Marshal runs, or "review" for the reviewer's approval. */
+  kind: string;
+  /** Command is the shell command a command check runs. Empty for a review check. */
+  command: string;
+  /** Status is the answer of the last run. */
+  status: CheckStatus;
+  /**
+   * RunRef names the run or commit the status came from, so a person can tell whether it is still
+   * the answer. Empty until the check has run.
+   */
+  runRef: string;
+}
+/** CardCheckList is the answer to every card-checks call. */
+export interface CardCheckList {
+  /** Checks are the card's checks in the order they are drawn. Never null. */
+  checks: CardCheck[];
+  /** ServerTime is the daemon's time when the answer was made. */
+  serverTime: Timestamp;
+}
+/** AddCardCheckRequest is the body of POST /v1/cards/{id}/checks. */
+export interface AddCardCheckRequest {
+  /** Name is what the check is called. */
+  name: string;
+  /** Command is the shell command to run in the card's worktree. */
+  command: string;
+}
+/** ChecklistItem is one line of a checklist. */
+export interface ChecklistItem {
+  /** ID is the item's opaque id. */
+  id: string;
+  /** Text is what the line says. */
+  text: string;
+  /** Done says the line is ticked. */
+  done: boolean;
+  /** DoneByKind is "person" or "agent" for a ticked line, and empty for an open one. */
+  doneByKind: string;
+  /** DoneByID is the user id of the person who ticked it, or empty for the agent or an open line. */
+  doneById: string;
+  /** DoneAt is when it was last ticked or reopened. Null if it never was. */
+  doneAt?: Timestamp | null;
+}
+/** Checklist is a named list on a card. */
+export interface Checklist {
+  /** ID is the checklist's opaque id. */
+  id: string;
+  /** Name is the list's title. */
+  name: string;
+  /** Required means the card cannot go to Ready to merge while a line is open. */
+  required: boolean;
+  /** PeopleOnly means only a person may tick a line; the agent is refused. */
+  peopleOnly: boolean;
+  /** HideChecked keeps ticked lines out of sight. */
+  hideChecked: boolean;
+  /** Items are the lines in the order they are drawn. Never null. */
+  items: ChecklistItem[];
+}
+/** ChecklistList is the answer to every checklist call. */
+export interface ChecklistList {
+  /** Checklists are the card's lists in the order they are drawn. Never null. */
+  checklists: Checklist[];
+  /** ServerTime is the daemon's time when the answer was made. */
+  serverTime: Timestamp;
+}
+/** CreateChecklistRequest is the body of POST /v1/cards/{id}/checklists. */
+export interface CreateChecklistRequest {
+  /** Name is the list's title. Empty means "Checklist". */
+  name: string;
+}
+/**
+ * UpdateChecklistRequest is the body of PATCH /v1/cards/{id}/checklists/{list}. A field left out is
+ * left as it was.
+ */
+export interface UpdateChecklistRequest {
+  /** Name renames the list. */
+  name?: string;
+  /** Required turns the merge gate on or off. */
+  required?: boolean;
+  /** PeopleOnly turns the agent's right to tick on or off. */
+  peopleOnly?: boolean;
+  /** HideChecked turns hiding of ticked lines on or off. */
+  hideChecked?: boolean;
+}
+/** AddChecklistItemRequest is the body of POST /v1/cards/{id}/checklists/{list}/items. */
+export interface AddChecklistItemRequest {
+  /** Text is what the line says. */
+  text: string;
+}
+/** TickChecklistItemRequest is the body of PUT /v1/cards/{id}/checklists/{list}/items/{item}. */
+export interface TickChecklistItemRequest {
+  /** Done is true to tick the line and false to reopen it. */
+  done: boolean;
+}
+/** AttachmentKind says what an attachment is. */
+/** AttachmentKindImage is a picture. */
+export const AttachmentKindImage = "image";
+/** AttachmentKindFile is any other file. */
+export const AttachmentKindFile = "file";
+/** AttachmentKindLink is a web address. */
+export const AttachmentKindLink = "link";
+export type AttachmentKind =
+  | typeof AttachmentKindImage
+  | typeof AttachmentKindFile
+  | typeof AttachmentKindLink;
+/** Every AttachmentKind, in the order the Go list gives them. */
+export const AttachmentKindValues: readonly AttachmentKind[] = [
+  AttachmentKindImage,
+  AttachmentKindFile,
+  AttachmentKindLink,
+];
+/** MaxAttachmentBytes is the most one attached file may hold. */
+export const MaxAttachmentBytes = 5 << 20;
+/** MaxCommentFileBytes is the most the files of one comment may hold together. */
+export const MaxCommentFileBytes = 6 << 20;
+/** MaxCommentChars is the most a comment's text may hold. */
+export const MaxCommentChars = 10000;
+/** Attachment is a file, image, or link on a comment. A file is data the agent reads and is never run. */
+export interface Attachment {
+  /** ID is the attachment's opaque id. */
+  id: string;
+  /** Kind says whether it is an image, a file, or a link. */
+  kind: AttachmentKind;
+  /** Name is the file name, or the link without its scheme. */
+  name: string;
+  /** SizeBytes is the file's size. Zero for a link. */
+  sizeBytes: number /* int64 */;
+  /** URL is the link's address. Empty for a file. */
+  url: string;
+}
+/** AuthorKind says who wrote a comment. */
+/** AuthorKindPerson is a person. */
+export const AuthorKindPerson = "person";
+/** AuthorKindAgent is the card's agent. */
+export const AuthorKindAgent = "agent";
+export type AuthorKind = typeof AuthorKindPerson | typeof AuthorKindAgent;
+/** Every AuthorKind, in the order the Go list gives them. */
+export const AuthorKindValues: readonly AuthorKind[] = [AuthorKindPerson, AuthorKindAgent];
+/** Comment is one comment on a card. */
+export interface Comment {
+  /** ID is the comment's opaque id. */
+  id: string;
+  /** AuthorKind says whether a person or the card's agent wrote it. */
+  authorKind: AuthorKind;
+  /** AuthorID is the user id of the person. Empty for the agent. */
+  authorId: string;
+  /** Body is the text. */
+  body: string;
+  /** Attachments are its files, images, and links. Never null. */
+  attachments: Attachment[];
+  /** AgentReadAt is when the card's agent read it. Null until it did. */
+  agentReadAt?: Timestamp | null;
+  /** CreatedAt is when it was posted. */
+  createdAt: Timestamp;
+}
+/** CommentList is the answer to every comment call. */
+export interface CommentList {
+  /** Comments are the card's comments, oldest first. Never null. */
+  comments: Comment[];
+  /** ServerTime is the daemon's time when the answer was made. */
+  serverTime: Timestamp;
+}
+/**
+ * NewAttachment is one attachment in a new comment. A link has a URL. A file has a name and its
+ * bytes, base64 encoded, at most MaxAttachmentBytes.
+ */
+export interface NewAttachment {
+  /** Kind is "image", "file", or "link". */
+  kind: AttachmentKind;
+  /** Name is the file name. Ignored for a link. */
+  name: string;
+  /** MimeType is the file's type, as the browser named it. */
+  mimeType: string;
+  /** URL is the address of a link. */
+  url: string;
+  /** Data is the file's bytes, base64 encoded. */
+  data: string;
+}
+/** PostCommentRequest is the body of POST /v1/cards/{id}/comments. */
+export interface PostCommentRequest {
+  /** Body is the text. It may be empty when there is an attachment. */
+  body: string;
+  /**
+   * Attachments are the files, images, and links to keep with it. A link written in the text is
+   * added by the daemon.
+   */
+  attachments: NewAttachment[];
+}
+/** CardMembers is the answer to every member call: the people on a card, in the order they were added. */
+export interface CardMembers {
+  /** UserIDs are the people's user ids. Never null. */
+  userIds: string[];
+  /** ServerTime is the daemon's time when the answer was made. */
+  serverTime: Timestamp;
+}
+
+//////////
 // source: chat.go
 
 /**
@@ -1820,6 +2043,11 @@ export const MoveRefusalReasonCardMerging = "move_card_merging";
  * goes back to the card's agent, and the card stays where it is until it is fixed or dismissed.
  */
 export const MoveRefusalReasonQualityBlocking = "move_quality_blocking";
+/**
+ * MoveRefusalReasonChecklistOpen is a move to ready of a card with a required checklist that
+ * still has an open line (B10.5).
+ */
+export const MoveRefusalReasonChecklistOpen = "move_checklist_open";
 export type MoveRefusalReason =
   | typeof MoveRefusalReasonFromDone
   | typeof MoveRefusalReasonToDone
@@ -1828,7 +2056,8 @@ export type MoveRefusalReason =
   | typeof MoveRefusalReasonNeedsReview
   | typeof MoveRefusalReasonChecksNotPassed
   | typeof MoveRefusalReasonCardMerging
-  | typeof MoveRefusalReasonQualityBlocking;
+  | typeof MoveRefusalReasonQualityBlocking
+  | typeof MoveRefusalReasonChecklistOpen;
 /** Every MoveRefusalReason, in the order the Go list gives them. */
 export const MoveRefusalReasonValues: readonly MoveRefusalReason[] = [
   MoveRefusalReasonFromDone,
@@ -1839,6 +2068,7 @@ export const MoveRefusalReasonValues: readonly MoveRefusalReason[] = [
   MoveRefusalReasonChecksNotPassed,
   MoveRefusalReasonCardMerging,
   MoveRefusalReasonQualityBlocking,
+  MoveRefusalReasonChecklistOpen,
 ];
 /**
  * HoldRefusalReason is why a pause or a sleep of a card was refused (architecture.md section 5.1,

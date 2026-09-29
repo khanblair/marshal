@@ -1,0 +1,4 @@
+{
+  "name": "Lint clean",
+  "command": "go vet ./..."
+}

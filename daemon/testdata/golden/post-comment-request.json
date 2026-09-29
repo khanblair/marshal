@@ -1,0 +1,12 @@
+{
+  "body": "Is this the right file?",
+  "attachments": [
+    {
+      "kind": "file",
+      "name": "notes.txt",
+      "mimeType": "text/plain",
+      "url": "",
+      "data": "aGVsbG8="
+    }
+  ]
+}
