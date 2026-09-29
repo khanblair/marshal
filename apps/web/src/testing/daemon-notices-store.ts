@@ -11,8 +11,9 @@
  * notice names its cards by those ids and the store works in card keys, so a notice whose cards the
  * store cannot place is not drawn at all.
  */
-import { afterAll, beforeAll, expect, vi } from "vitest";
+
 import type { Card as WireCard } from "@marshal/protocol";
+import { afterAll, beforeAll, expect, vi } from "vitest";
 import { applyNoticeList } from "~/sync/notices";
 import { wireCard } from "./fake-cards";
 import { createFakeDaemon, type FakeDaemon } from "./fake-daemon";

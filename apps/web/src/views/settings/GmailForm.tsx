@@ -1,6 +1,6 @@
 import { Button, Field, Input, Select } from "@marshal/ui";
 import { createSignal, Show } from "solid-js";
-import { M, type Integration } from "~/mock";
+import { type Integration, M } from "~/mock";
 import type { EditState } from "./edit-state";
 import { fieldValue } from "./form-field";
 import { connectGmail, disconnectConnection, testConnection } from "./integration-actions";

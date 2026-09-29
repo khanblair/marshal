@@ -1,7 +1,7 @@
 import { Match, Switch } from "solid-js";
 import { M } from "~/mock";
-import type { EditState } from "./edit-state";
 import { AlertsSection } from "./AlertsSection";
+import type { EditState } from "./edit-state";
 import { GeneralSection } from "./GeneralSection";
 import { HelpSection } from "./HelpSection";
 import { IntegrationsSection } from "./IntegrationsSection";

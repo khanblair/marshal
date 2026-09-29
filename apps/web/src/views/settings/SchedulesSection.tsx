@@ -10,6 +10,9 @@ const MONDAY = 1;
 const FRIDAY = 5;
 const WEEKDAYS = Array.from({ length: FRIDAY - MONDAY + 1 }, (_, i) => MONDAY + i);
 
+/** How many of a schedule's latest runs are listed. */
+const RECENT_RUNS = 5;
+
 function toggleSchedule(schedule: Schedule, enabled: boolean): void {
   void M.saveSchedule(schedule.id, requestFrom(schedule, { enabled })).then((ok) => {
     if (ok) M.toast(enabled ? "Schedule turned on" : "Schedule turned off");
@@ -111,7 +114,7 @@ function ScheduleItem(props: { schedule: Schedule; edit: EditState }) {
             when={list().length > 0}
             fallback={<div class="px-4 pb-3 text-small text-secondary">Never run yet.</div>}
           >
-            <For each={list().slice(0, 5)}>{(run) => <LastRun run={run} />}</For>
+            <For each={list().slice(0, RECENT_RUNS)}>{(run) => <LastRun run={run} />}</For>
           </Show>
         )}
       </Show>

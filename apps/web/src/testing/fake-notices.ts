@@ -15,16 +15,16 @@
  * gone does.
  */
 import {
+  EventTypeNoticeDismissed,
   type Notice,
   NoticeActionKeepAll,
   NoticeActionKeepAwake,
+  type NoticeActionResult,
   NoticeActionSleepAll,
   NoticeActionSleepNow,
-  type NoticeActionResult,
   type NoticeList,
-  EventTypeNoticeDismissed,
 } from "@marshal/protocol";
-import { errorAnswer, type FakeRequest, emptyAnswer, jsonAnswer } from "~/data/testing/fake-fetch";
+import { emptyAnswer, errorAnswer, type FakeRequest, jsonAnswer } from "~/data/testing/fake-fetch";
 import { golden } from "~/data/testing/golden";
 
 /** Tells the event stream about a change, as the daemon does after it. The home topic and the four

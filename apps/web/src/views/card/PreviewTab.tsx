@@ -1,8 +1,8 @@
 import {
   type PreviewShot,
+  type PreviewShotKind,
   PreviewShotKindAfter,
   PreviewShotKindBefore,
-  type PreviewShotKind,
 } from "@marshal/protocol";
 import { Button, Icon } from "@marshal/ui";
 import { createEffect, createSignal, Index, onCleanup, Show } from "solid-js";

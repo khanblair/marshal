@@ -13,10 +13,10 @@
  * otherwise see a number nobody chose.
  */
 import {
-  type SleepSettings,
   SleepChannelInApp,
   SleepRestoreAuto,
   SleepRestoreManual,
+  type SleepSettings,
 } from "@marshal/protocol";
 import { errorAnswer, type FakeRequest, jsonAnswer } from "~/data/testing/fake-fetch";
 import { golden } from "~/data/testing/golden";

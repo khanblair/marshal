@@ -29,7 +29,8 @@ function bodyOf(request: FakeRequest): SaveAlertSettingsRequest {
   }
 }
 
-const refuse = (message: string): Response => errorAnswer(400, "invalid_argument", message);
+const BAD_REQUEST = 400;
+const refuse = (message: string): Response => errorAnswer(BAD_REQUEST, "invalid_argument", message);
 
 function save(store: AlertsStore, request: FakeRequest): Response {
   const choices = bodyOf(request).routes ?? [];
