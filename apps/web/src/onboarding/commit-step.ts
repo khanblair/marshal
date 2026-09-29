@@ -5,7 +5,7 @@ import type { OnboardingDraft } from "./onboarding-draft";
 import { repoNameOf, SHORT_KEY_LENGTH } from "./onboarding-draft";
 
 /** The part of the store a step writes to. */
-type Store = Pick<Marshal, "S" | "addProject" | "saveProviderKey" | "toast">;
+type Store = Pick<Marshal, "S" | "addProject" | "pairingOnDaemon" | "saveProviderKey" | "toast">;
 
 function commitProfile(m: Store, draft: OnboardingDraft): void {
   const { profile } = m.S;
@@ -60,6 +60,9 @@ function commitProject(m: Store, draft: OnboardingDraft): void {
 }
 
 function commitChatApps(m: Store, draft: OnboardingDraft): void {
+  // Once the daemon owns the step, each connection is saved by its own form and read back from the
+  // daemon, so there is nothing left to mark here.
+  if (m.pairingOnDaemon()) return;
   for (const [id, connected] of Object.entries(draft.chatApps)) {
     const integration = m.S.integrations.find((x) => x.id === id);
     if (connected && integration) integration.st = "connected";

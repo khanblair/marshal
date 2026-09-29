@@ -2,12 +2,13 @@ import { Button, Icon } from "@marshal/ui";
 import { For, Show } from "solid-js";
 import { M } from "~/mock";
 import { CHAT_APPS, type ChatAppId, PAIRING_CODE } from "./onboarding-data";
+import { ControlStepLive } from "./ControlStepLive";
 import { StatusCheck } from "./StatusCheck";
 import { StepIntro } from "./StepIntro";
 import type { StepProps } from "./StepProps";
 
-/** Screen 5: pair a phone, and connect Telegram or Discord for approvals. */
-export function ControlStep(props: StepProps) {
+/** Screen 5 on the mock: a fixed code, and chat apps that only turn a switch. */
+function MockControlStep(props: StepProps) {
   const connect = (id: ChatAppId, name: string) => {
     props.setDraft("chatApps", id, true);
     M.toast(`${name} connected`);
@@ -55,5 +56,18 @@ export function ControlStep(props: StepProps) {
         )}
       </For>
     </>
+  );
+}
+
+/**
+ * Screen 5: pair a phone, and connect Telegram, Discord, or ntfy for alerts. Once the daemon owns the
+ * step (section S31b) it makes a real pairing code and saves the real connections; before that it is
+ * the design's own picture of both.
+ */
+export function ControlStep(props: StepProps) {
+  return (
+    <Show when={M.pairingOnDaemon()} fallback={<MockControlStep {...props} />}>
+      <ControlStepLive />
+    </Show>
   );
 }
