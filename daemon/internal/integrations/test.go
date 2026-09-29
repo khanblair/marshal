@@ -97,7 +97,7 @@ func (s *Service) testFor(ctx context.Context, info Info) (protocol.TestResult, 
 		return s.testGCal(ctx, info)
 	case KindGmail:
 		return s.testGmail(ctx, info)
-	case KindTelegram, KindDiscord:
+	case KindTelegram, KindDiscord, KindNtfy:
 		return s.testChat(ctx, info)
 	default:
 		return protocol.TestResult{}, protocol.NotFound("connection").With("id", info.ID)

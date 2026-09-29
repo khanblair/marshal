@@ -29,6 +29,8 @@ const (
 	KindTelegram Kind = "telegram"
 	// KindDiscord is a Discord bot, reached through the REST API.
 	KindDiscord Kind = "discord"
+	// KindNtfy is an ntfy topic. It only receives notices.
+	KindNtfy Kind = "ntfy"
 )
 
 // checkConnectionFix is the fix a person reads when a chat service call failed for a reason that is
@@ -37,7 +39,7 @@ const (
 const checkConnectionFix = "Check this computer's connection, then test again."
 
 // Valid reports whether k is a chat service Marshal knows.
-func (k Kind) Valid() bool { return k == KindTelegram || k == KindDiscord }
+func (k Kind) Valid() bool { return k == KindTelegram || k == KindDiscord || k == KindNtfy }
 
 // Action is one thing a person can do from a notice, drawn as a button where the service has them
 // and listed as text where it does not. Data is what comes back when it is pressed; it is opaque to

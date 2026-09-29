@@ -14,6 +14,8 @@ const (
 	// CheckChat is the check that a message reaches the chat or channel, which is what proves where
 	// notices go.
 	CheckChat = "Chat"
+	// CheckTopic is the check that a message reaches an ntfy topic.
+	CheckTopic = "Topic"
 )
 
 // summaryCheck is the one sentence a connection row shows, built from the checks themselves: the

@@ -173,3 +173,37 @@ func TestAChatConnectionSavedWithNothingShowsTheRightKind(t *testing.T) {
 		}
 	}
 }
+
+func TestNtfySavesWithATopicAloneAndTestsAgainstAFakeServer(t *testing.T) {
+	var published []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		published = append(published, string(body))
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(srv.Close)
+	f := newFixture(t, func(o *integrations.Options) { o.NtfyHTTPClient = srv.Client() })
+	ctx := context.Background()
+	if err := f.svc.SaveNtfy(ctx, protocol.SaveNtfyRequest{Server: srv.URL, Topic: "  "}); err == nil {
+		t.Fatal("an ntfy connection with no topic was saved")
+	}
+	if err := f.svc.SaveNtfy(ctx, protocol.SaveNtfyRequest{Server: srv.URL, Topic: "marshal-x"}); err != nil {
+		t.Fatalf("SaveNtfy: %v", err)
+	}
+	result, err := f.svc.Test(ctx, integrations.NtfyID)
+	if err != nil || !result.OK {
+		t.Fatalf("the ntfy test answered %+v (%v), want a pass", result, err)
+	}
+	if len(published) != 1 || !strings.Contains(published[0], `"topic":"marshal-x"`) {
+		t.Errorf("the fake server saw %v, want one publish to the topic", published)
+	}
+	list, err := f.svc.List(ctx)
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	for _, row := range list {
+		if row.ID == integrations.NtfyID && row.Status != protocol.IntegrationStatusConnected {
+			t.Errorf("the row reads %q after saving, want connected with a topic alone", row.Status)
+		}
+	}
+}

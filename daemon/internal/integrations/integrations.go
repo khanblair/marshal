@@ -73,6 +73,7 @@ func known() []Info {
 		{ID: GmailID, Kind: KindGmail, Wired: true},
 		{ID: TelegramID, Kind: KindTelegram, Wired: true},
 		{ID: DiscordID, Kind: KindDiscord, Wired: true},
+		{ID: NtfyID, Kind: KindNtfy, Wired: true},
 		{ID: ObsidianID, Kind: KindObsidian, Wired: true},
 	}
 }
@@ -124,6 +125,9 @@ type Options struct {
 	// DiscordHTTPClient overrides how Discord's REST API is reached, for the same reason. Nil uses
 	// the real one, which is what the daemon does.
 	DiscordHTTPClient *http.Client
+	// NtfyHTTPClient overrides how an ntfy server is reached, for the same reason. Nil uses the real
+	// one, which is what the daemon does.
+	NtfyHTTPClient *http.Client
 }
 
 // Service is the one place that knows which connections are set up, and the only reader of a
@@ -148,6 +152,7 @@ type Service struct {
 	// discordClient overrides how Discord's REST API is reached, for the same reason.
 	telegramBase  string
 	discordClient *http.Client
+	ntfyClient    *http.Client
 	// gcalState is the one pending consent flow's CSRF token, guarded by mu. A daemon runs one
 	// owner's consent flow at a time, so one field is enough.
 	gcalState string
@@ -189,6 +194,7 @@ func New(st *store.Store, keys security.Keychain, opts Options) (*Service, error
 		test:       opts.Tester, appFn: opts.App,
 		gcalRedirectURL: opts.GCalRedirectURL, gcalBase: opts.GCalBaseURL, gmailBase: opts.GmailBaseURL,
 		telegramBase: opts.TelegramBaseURL, discordClient: opts.DiscordHTTPClient,
+		ntfyClient: opts.NtfyHTTPClient,
 	}
 	if s.log == nil {
 		s.log = slog.Default()

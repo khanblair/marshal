@@ -26,20 +26,26 @@ const TelegramID = "telegram"
 // DiscordID is the Discord connection's own id.
 const DiscordID = "discord"
 
+// NtfyID is the ntfy connection's own id.
+const NtfyID = "ntfy"
+
 // KindTelegram and KindDiscord are the kinds the two chat connections' rows and tests are filed
 // under. They are the same words as the bot's own kinds, so a row, a bot, and a screen never have to
 // translate between two names for the same service.
 const (
 	KindTelegram = string(chatbot.KindTelegram)
 	KindDiscord  = string(chatbot.KindDiscord)
+	KindNtfy     = string(chatbot.KindNtfy)
 )
 
 // chatConfig is the non-secret half of a chat connection, stored in the `integrations` row's
 // config_json. Only where notices go is in it: the chat id is not a secret, and a screen shows it so
 // a person can check it against the chat they made.
 type chatConfig struct {
-	// ChatID is the Telegram chat or the Discord channel notices are sent to.
+	// ChatID is the Telegram chat, the Discord channel, or the ntfy topic notices are sent to.
 	ChatID string `json:"chatId"`
+	// Server is the ntfy server's address; empty is ntfy's own. Only ntfy has one.
+	Server string `json:"server,omitempty"`
 }
 
 // chatSecrets is the secret half, stored in the OS keychain as one JSON document under the
@@ -59,6 +65,34 @@ func (s *Service) SaveTelegram(ctx context.Context, req protocol.SaveTelegramReq
 // SaveDiscord stores the Discord connection, replacing whatever was there (B9.3).
 func (s *Service) SaveDiscord(ctx context.Context, req protocol.SaveDiscordRequest) error {
 	return s.saveChat(ctx, DiscordID, KindDiscord, req.Token, req.ChannelID)
+}
+
+// SaveNtfy stores the ntfy connection, replacing whatever was there. Unlike a chat bot it needs no
+// token: an open topic on a public server has none, so only the topic is required.
+func (s *Service) SaveNtfy(ctx context.Context, req protocol.SaveNtfyRequest) error {
+	if strings.TrimSpace(req.Topic) == "" {
+		return protocol.InvalidArgument("Choose the ntfy topic Marshal should send notices to.")
+	}
+	secrets, err := json.Marshal(chatSecrets{Token: strings.TrimSpace(req.Token)})
+	if err != nil {
+		return fmt.Errorf("write the ntfy connection's secrets: %w", err)
+	}
+	if err := s.keys.Set(NtfyID, string(secrets)); err != nil {
+		return fmt.Errorf("save the ntfy connection's secret in the keychain: %w", err)
+	}
+	config, err := json.Marshal(chatConfig{ChatID: strings.TrimSpace(req.Topic), Server: strings.TrimSpace(req.Server)})
+	if err != nil {
+		return fmt.Errorf("write the ntfy connection's settings: %w", err)
+	}
+	err = s.store.Write(ctx, func(q *db.Queries) error {
+		return q.UpsertIntegration(ctx, db.UpsertIntegrationParams{
+			ID: NtfyID, Kind: KindNtfy, ConfigJSON: string(config), KeychainRef: NtfyID,
+		})
+	})
+	if err != nil {
+		return fmt.Errorf("save the ntfy connection's settings: %w", err)
+	}
+	return nil
 }
 
 // saveChat is the write half both chat connections share. A token and a place to send are both
@@ -120,7 +154,8 @@ func (s *Service) botFor(ctx context.Context, id string, kind chatbot.Kind) (cha
 	if err != nil {
 		return nil, err
 	}
-	if secrets.Token == "" || config.ChatID == "" {
+	// An ntfy topic can be open, so it is connected with a topic alone; a bot always needs a token.
+	if config.ChatID == "" || (secrets.Token == "" && kind != chatbot.KindNtfy) {
 		return nil, ErrNotConnected
 	}
 	switch kind {
@@ -140,6 +175,15 @@ func (s *Service) botFor(ctx context.Context, id string, kind chatbot.Kind) (cha
 			return nil, fmt.Errorf("build the Discord bot: %w", err)
 		}
 		return bot, nil
+	case chatbot.KindNtfy:
+		bot, err := chatbot.NewNtfy(chatbot.NtfyConfig{
+			Server: config.Server, Topic: config.ChatID, Token: secrets.Token,
+			HTTPClient: s.ntfyClient, Now: s.now,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("build the ntfy publisher: %w", err)
+		}
+		return bot, nil
 	default:
 		return nil, protocol.NotFound("connection").With("id", string(kind))
 	}
@@ -152,6 +196,8 @@ func chatConnectionID(kind chatbot.Kind) (string, bool) {
 		return TelegramID, true
 	case chatbot.KindDiscord:
 		return DiscordID, true
+	case chatbot.KindNtfy:
+		return NtfyID, true
 	default:
 		return "", false
 	}
