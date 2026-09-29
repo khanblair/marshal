@@ -16,6 +16,15 @@ import { ListView } from "~/views/list/ListView";
 import { dependencyLines, spanOf } from "~/views/timeline/timeline-geometry";
 import { barTip, planMove } from "~/views/timeline/timeline-model";
 
+// This suite's card notes are the mock's, so S14 reads as mock in the note module.
+vi.mock("~/data/sections", async (original) => {
+  const real = await original<typeof import("~/data/sections")>();
+  return {
+    ...real,
+    isDaemon: (id: string, table?: never) => id !== "S14" && real.isDaemon(id as never, table),
+  };
+});
+
 /*
  * The store and the fake daemon it follows are built here, before any import runs, because the
  * views read the one store `~/mock` hands out: it has to be made with the section table that puts
@@ -38,7 +47,7 @@ const host = await vi.hoisted(async () => {
   // mock's, which is a state the register really has while the sections switch one at a time.
   window.M = createTestMarshal({
     data: daemon.data,
-    sections: { ...DAEMON_CARDS, ...MOCK_HISTORY, S17: "mock" },
+    sections: { ...DAEMON_CARDS, ...MOCK_HISTORY, S14: "mock", S17: "mock" },
   });
   return { daemon };
 });

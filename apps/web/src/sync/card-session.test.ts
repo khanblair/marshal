@@ -37,6 +37,7 @@ const history = [
 ];
 
 const SECTIONS = { ...sectionStatus, S8a: "daemon" as const, S10: "daemon" as const };
+const NOTES_ON_MOCK = { ...SECTIONS, S14: "mock" as const };
 
 let daemon: FakeDaemon | null = null;
 afterEach(() => {
@@ -45,9 +46,9 @@ afterEach(() => {
 });
 
 /** A store that follows a fake daemon holding one card and its history, waited for until it is ready. */
-async function storeWithHistory() {
+async function storeWithHistory(sections: typeof SECTIONS = SECTIONS) {
   daemon = createFakeDaemon({ projects: PROTOTYPE_PROJECTS, cards: [CARD], history });
-  const M = createTestMarshal({ data: daemon.data, sections: SECTIONS });
+  const M = createTestMarshal({ data: daemon.data, sections });
   await daemon.connect();
   await vi.waitFor(() => expect(M.S.ready).toBe(true));
   return { M, ctx: contextOf(M), d: daemon };
@@ -121,7 +122,7 @@ describe("reading the open card's history", () => {
   });
 
   it("reads no note while section S14 is still the mock's", async () => {
-    const { ctx, d } = await storeWithHistory();
+    const { ctx, d } = await storeWithHistory(NOTES_ON_MOCK);
     ctx.S.openId = KEY;
     await readOpenCard(ctx, d.data.api, { daemonId: CARD.id }, KEY);
     expect(ctx.S.notes?.[KEY]).toBeUndefined();

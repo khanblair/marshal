@@ -77,6 +77,8 @@ const answer = (query: string, over: Partial<PaletteHits> = {}): PaletteHits => 
   projects: [row("Projects", "api-gateway", { hint: "Go" })],
   cards: [row("Cards", "api-gateway #41 Fix token refresh on login", { card: "api#41" })],
   chats: [row("Chats", "Token rotation question", { hint: "api-gateway" })],
+  sessions: [],
+  notes: [],
   ...over,
 });
 
@@ -84,6 +86,26 @@ describe("paletteResults with the daemon's answer", () => {
   it("shows the matching actions, then the daemon's projects, cards, and chats, then the settings", () => {
     const list = paletteResults(M, "a", answer("a"));
     expect(groups(list)).toEqual(["Actions", "Projects", "Cards", "Chats", "Settings"]);
+  });
+
+  it("lists past sessions and notes after the chats", () => {
+    const list = paletteResults(
+      M,
+      "a",
+      answer("a", {
+        sessions: [row("Sessions", "api#41 Fix token refresh on login")],
+        notes: [row("Notes", "api#41 Fix token refresh on login")],
+      }),
+    );
+    expect(groups(list)).toEqual([
+      "Actions",
+      "Projects",
+      "Cards",
+      "Chats",
+      "Sessions",
+      "Notes",
+      "Settings",
+    ]);
   });
 
   it("puts the daemon's rows in place of the store's own project and card rows", () => {

@@ -29,7 +29,7 @@ function withNeedsGroup(M: Marshal, all: PaletteCommand[]): PaletteCommand[] {
 
 /**
  * With the daemon's answer to the query: the actions that match, then the daemon's projects, cards,
- * and chats in place of the store's own project and card rows, then the settings that match. The
+ * chats, past sessions, and notes in place of the store's own project and card rows, then the settings that match. The
  * daemon's rows are not filtered again: the daemon has matched them (a card's `api#41` is in its
  * key, which its row does not show).
  */
@@ -40,7 +40,15 @@ function withHits(all: PaletteCommand[], q: string, hits: PaletteHits): PaletteC
   );
   const actions = own.filter((x) => x.group === "Actions");
   const settings = own.filter((x) => x.group !== "Actions");
-  return [...actions, ...hits.projects, ...hits.cards, ...hits.chats, ...settings];
+  return [
+    ...actions,
+    ...hits.projects,
+    ...hits.cards,
+    ...hits.chats,
+    ...hits.sessions,
+    ...hits.notes,
+    ...settings,
+  ];
 }
 
 /**

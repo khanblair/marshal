@@ -3,6 +3,15 @@ import { M } from "~/mock";
 import { defaultNote, ensureNote, notePath, noteText, saveNote } from "./card-note";
 import { cardOf, resetStore } from "./test-helpers";
 
+// These tests cover the mock's own notes, so S14 reads as mock here.
+vi.mock("~/data/sections", async (original) => {
+  const real = await original<typeof import("~/data/sections")>();
+  return {
+    ...real,
+    isDaemon: (id: string, table?: never) => id !== "S14" && real.isDaemon(id as never, table),
+  };
+});
+
 vi.hoisted(() => {
   window.location.hash = "#nosim";
 });

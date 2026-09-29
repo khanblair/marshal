@@ -2,9 +2,11 @@ import {
   type CardHit,
   type ChatHit,
   MaxSearchQueryChars,
+  type NoteHit,
   type ProjectHit,
   SearchHitsPerKind,
   type SearchSnapshot,
+  type SessionHit,
 } from "@marshal/protocol";
 import { batch, createSignal, getOwner, onCleanup } from "solid-js";
 import type { ApiClient } from "~/data/api-client";
@@ -36,9 +38,13 @@ export const SEARCH_DEBOUNCE_MS = 150;
 const PROJECT_GROUP = "Projects";
 const CARD_GROUP = "Cards";
 const CHAT_GROUP = "Chats";
+const SESSION_GROUP = "Sessions";
+const NOTE_GROUP = "Notes";
 
 const PROJECT_ICON = "folder-git-2";
 const CHAT_ICON = "messages-square";
+const SESSION_ICON = "history";
+const NOTE_ICON = "file-text";
 
 /** The one sentence for a lookup that failed in a way the daemon gave no sentence for. */
 const LOOKUP_FAILED = "Marshal could not open that result. Try again.";
@@ -57,6 +63,8 @@ export interface PaletteHits {
   projects: Command[];
   cards: Command[];
   chats: Command[];
+  sessions: Command[];
+  notes: Command[];
 }
 
 /** One search session: made when the palette opens, and stopped when it closes. */
@@ -71,7 +79,7 @@ export interface PaletteSearch {
 
 type Hit =
   | { kind: "project"; hit: ProjectHit }
-  | { kind: "card"; hit: CardHit }
+  | { kind: "card"; hit: Pick<CardHit, "cardId" | "key" | "projectId"> }
   | { kind: "chat"; hit: ChatHit };
 
 /** The daemon's own wording for a thing it cannot find (`protocol.NotFound`). */
@@ -92,7 +100,7 @@ async function ensureProject(ctx: Ctx, id: string): Promise<boolean> {
 }
 
 /** Opens a card, reading it first when the store does not hold it yet. */
-async function showCard(ctx: Ctx, hit: CardHit): Promise<void> {
+async function showCard(ctx: Ctx, hit: Pick<CardHit, "cardId" | "key">): Promise<void> {
   const api = ctx.env.data?.api;
   if (!card(ctx, hit.key) && api) applyCard(ctx, await api.getCard(hit.cardId));
   if (!card(ctx, hit.key)) {
@@ -179,18 +187,46 @@ function chatRow(ctx: Ctx, hit: ChatHit): Command {
   };
 }
 
+/** A past session line: the card it happened on, and the stored summary, which opens that card. */
+function sessionRow(ctx: Ctx, hit: SessionHit): Command {
+  return {
+    group: SESSION_GROUP,
+    label: `${hit.key} ${hit.title}`,
+    icon: SESSION_ICON,
+    hint: hit.excerpt,
+    run: opening(ctx, { kind: "card", hit }),
+  };
+}
+
+/** A card note that matched: it opens the card it belongs to. */
+function noteRow(ctx: Ctx, hit: NoteHit): Command {
+  return {
+    group: NOTE_GROUP,
+    label: `${hit.key} ${hit.title}`,
+    icon: NOTE_ICON,
+    hint: hit.excerpt,
+    run: opening(ctx, { kind: "card", hit }),
+  };
+}
+
 /**
  * The palette's rows for one answer. Each kind is cut to `SearchHitsPerKind` here too, so a daemon
  * that sent more could not fill the palette. Chat rows are left out while the chats are the mock's
  * (section S17): the daemon's chat ids are not the mock's, so a row would open an empty pane.
  */
 export function hitsOf(ctx: Ctx, answer: SearchSnapshot): PaletteHits {
-  const chats = isDaemon("S17", sectionsOf(ctx.env)) ? answer.chats : [];
+  const table = sectionsOf(ctx.env);
+  const chats = isDaemon("S17", table) ? answer.chats : [];
+  const past = isDaemon("S24b", table);
   return {
     query: answer.query,
     projects: answer.projects.slice(0, SearchHitsPerKind).map((hit) => projectRow(ctx, hit)),
     cards: answer.cards.slice(0, SearchHitsPerKind).map((hit) => cardRow(ctx, hit)),
     chats: chats.slice(0, SearchHitsPerKind).map((hit) => chatRow(ctx, hit)),
+    sessions: past
+      ? answer.sessions.slice(0, SearchHitsPerKind).map((hit) => sessionRow(ctx, hit))
+      : [],
+    notes: past ? answer.notes.slice(0, SearchHitsPerKind).map((hit) => noteRow(ctx, hit)) : [],
   };
 }
 

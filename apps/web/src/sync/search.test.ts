@@ -323,6 +323,22 @@ describe("the rows of an answer", () => {
     expect(hits.chats).toHaveLength(SearchHitsPerKind);
   });
 
+  it("makes a Sessions row and a Notes row that each open their card", async () => {
+    const { ctx } = await synced();
+    const hits = hitsOf(ctx, answer());
+    expect(hits.sessions.map((r) => r.group)).toEqual(["Sessions"]);
+    expect(hits.notes.map((r) => r.group)).toEqual(["Notes"]);
+    hits.notes[0]?.run();
+    await vi.waitFor(() => expect(ctx.S.openId).not.toBeNull());
+  });
+
+  it("leaves past sessions and notes out while S24b is the mock's", async () => {
+    const { ctx } = await synced({}, { ...ON_DAEMON, S24b: "mock" });
+    const hits = hitsOf(ctx, answer());
+    expect(hits.sessions).toEqual([]);
+    expect(hits.notes).toEqual([]);
+  });
+
   it("leaves the chats out while they are the mock's, since the daemon's ids are not theirs", async () => {
     const { ctx } = await synced({}, { ...ON_DAEMON, S17: "mock" });
     const hits = hitsOf(ctx, answer());
