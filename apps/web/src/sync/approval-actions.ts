@@ -6,6 +6,7 @@ import { isDaemon } from "~/data/sections";
 import type { CardKey } from "~/mock/card-key";
 import { type Ctx, sectionsOf } from "~/mock/context";
 import { toast } from "~/mock/engine";
+import { platform } from "~/platform";
 import { card as cardOf } from "~/mock/selectors";
 import { takeMid } from "~/mock/ids";
 import type { ApprovalMsg, ApprovalState } from "~/mock/types";
@@ -61,9 +62,11 @@ async function decide(
   }
   try {
     await api.decideApproval(approvalId, { decision });
+    platform().haptic("success");
     return true;
   } catch (error) {
     toast(ctx, error instanceof ApiError ? error.message : "Could not answer that request.");
+    platform().haptic("error");
     return false;
   }
 }

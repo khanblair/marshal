@@ -6,6 +6,7 @@ import type { Ctx } from "~/mock/context";
 import type { Card } from "~/mock/types";
 import { cardId, type HistoryRow, historyRow, wireCard } from "~/testing/fake-cards";
 import { createFakeDaemon, type FakeDaemon } from "~/testing/fake-daemon";
+import * as platformModule from "~/platform";
 import { PROTOTYPE_PROJECTS } from "~/testing/projects";
 import { contextOf, createSyncedMarshal } from "~/testing/test-store";
 import {
@@ -123,6 +124,20 @@ describe("answering an approval on the daemon", () => {
     expect(await denyOnDaemon(ctx, "api#44")).toBe(true);
     expect(d.bodies(APPROVE)).toEqual([{ decision: "denied" }]);
     expect(storeCard(M, "api#44").state).toBe("working");
+  });
+
+  it("taps the phone for an answer that went through, and marks one that was refused", async () => {
+    const haptic = vi.fn();
+    vi.spyOn(platformModule, "platform").mockReturnValue({
+      ...platformModule.createPlatform("web"),
+      haptic,
+    });
+    const first = await setup();
+    await approveOnDaemon(first.ctx, "api#44");
+    expect(haptic).toHaveBeenLastCalledWith("success");
+    const second = await setup(undefined, [approvalRow({ state: "approved" })]);
+    await approveOnDaemon(second.ctx, "api#44");
+    expect(haptic).toHaveBeenLastCalledWith("error");
   });
 
   it("does nothing when the card is not waiting on one the daemon knows about", async () => {

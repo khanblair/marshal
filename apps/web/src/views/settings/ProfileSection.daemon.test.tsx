@@ -57,6 +57,54 @@ describe("the Profile section on the daemon", () => {
     expect(screen.getByText("ada@kolaborate.co")).toBeInTheDocument();
   });
 
+  it("asks before removing a device, then removes it through the daemon", async () => {
+    render(() => <SettingsView />);
+    fireEvent.click(screen.getAllByRole("button", { name: "Remove device" })[0] as HTMLElement);
+    expect(M.S.dialog).toMatchObject({
+      title: "Remove device",
+      message: "Pixel 8 will lose access to Marshal and must pair again to reconnect.",
+      destructive: true,
+    });
+    M.S.dialog?.run();
+    await waitFor(() => expect(toasts()).toContain("Device removed"));
+    expect(daemon.routes()).toContain("DELETE /v1/me/devices/01H1234567890ABCDEFGHJKMNPQ");
+  });
+
+  it("shows the code the daemon made after Pair a device", async () => {
+    render(() => <SettingsView />);
+    expect(screen.queryByText("7QX-2LD")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Pair a device" }));
+    expect(await screen.findByText("7QX-2LD")).toBeInTheDocument();
+    expect(screen.getByText("Enter this code on the device")).toBeInTheDocument();
+    expect(screen.getByText("7QX-2LD").tagName).toBe("CODE");
+  });
+
+  it("adds a QR code with the tailnet address when the node is online", async () => {
+    vi.spyOn(M, "tailnetStatus").mockResolvedValue({
+      enabled: true,
+      state: "online",
+      hostname: "marshal-laptop",
+      dnsName: "marshal-laptop.tail1.ts.net",
+      ips: [],
+      identity: "ada@kolaborate.co",
+      loginUrl: "",
+      funnel: false,
+      error: "",
+      serverTime: "2026-09-29T10:00:00.000Z",
+    });
+    render(() => <SettingsView />);
+    fireEvent.click(screen.getByRole("button", { name: "Pair a device" }));
+    expect(await screen.findByRole("img", { name: "Pairing QR code" })).toBeInTheDocument();
+    expect(screen.getByText(/choose Scan the QR code/)).toBeInTheDocument();
+  });
+
+  it("shows only the text code when the daemon is not on a tailnet", async () => {
+    render(() => <SettingsView />);
+    fireEvent.click(screen.getByRole("button", { name: "Pair a device" }));
+    await screen.findByText("7QX-2LD");
+    expect(screen.queryByRole("img", { name: "Pairing QR code" })).toBeNull();
+  });
+
   it("saves what was changed on the daemon, and then shows what the daemon answered", async () => {
     render(() => <SettingsView />);
     fireEvent.input(nameField(), { target: { value: "  Grace Hopper " } });

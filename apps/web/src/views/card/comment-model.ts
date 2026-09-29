@@ -79,7 +79,7 @@ const sizeLabel = (bytes: number): string =>
     : `${Math.max(1, Math.round(bytes / KILOBYTE))} KB`;
 
 /** Attachments for the files the user picked. Images and files get a preview address. */
-export function attachmentsFrom(files: FileList | null): Attachment[] {
+export function attachmentsFrom(files: ArrayLike<File> | null): Attachment[] {
   return Array.from(files ?? []).map((file) => ({
     kind: file.type.startsWith("image/") ? "image" : "file",
     name: file.name,

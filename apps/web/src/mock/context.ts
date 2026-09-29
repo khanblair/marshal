@@ -1,6 +1,7 @@
 import { createMutable } from "solid-js/store";
 import type { Data } from "~/data";
 import { createOptimistic, type Optimistic } from "~/data/optimistic";
+import { platform } from "~/platform";
 import { isDaemon, type SectionId, type SectionStatus, sectionStatus } from "~/data/sections";
 import { type KeyValueStore, readKey } from "~/data/storage";
 import type { Reservoir } from "~/sync/reservoir";
@@ -157,7 +158,10 @@ export function createContext(env: Env): Ctx {
     clock: createClock(() => env.data?.clock.offsetMs() ?? 0),
     env,
     hidden,
-    optimistic: createOptimistic((message) => toast(ctx, message)),
+    optimistic: createOptimistic((message) => {
+      toast(ctx, message);
+      platform().haptic("error");
+    }),
     sync: null,
     flags: { suppressClick: false, ciFailRunning: false, tickN: 0 },
   };

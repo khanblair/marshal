@@ -1,6 +1,7 @@
 import { Button, Icon, Input, Tag } from "@marshal/ui";
 import { Index, Show } from "solid-js";
 import type { CardKey } from "~/mock/card-key";
+import { platform } from "~/platform";
 import { createComposerActions } from "./comment-composer-actions";
 import type { Panel } from "./panel-state";
 
@@ -21,10 +22,8 @@ const attachmentIcon = (kind: string): string => {
 /** The new-comment box: text, attachments (files, images, links), and Post comment. */
 export function CommentComposer(props: CommentComposerProps) {
   let linkInput: HTMLInputElement | undefined;
-  const { state, empty, post, addLink, onFiles, toggleLink, onLinkKey } = createComposerActions(
-    props,
-    () => linkInput,
-  );
+  const { state, empty, post, addLink, onFiles, takePhoto, toggleLink, onLinkKey } =
+    createComposerActions(props, () => linkInput);
   return (
     <form
       onSubmit={(e) => {
@@ -94,6 +93,16 @@ export function CommentComposer(props: CommentComposerProps) {
           Add image
           <input type="file" accept="image/*" multiple onChange={onFiles} class={HIDDEN_INPUT} />
         </label>
+        <Show when={platform().kind === "mobile"}>
+          <button
+            type="button"
+            onClick={takePhoto}
+            class="inline-flex items-center gap-1.5 h-8 px-2 border-none rounded-sm bg-transparent text-secondary text-small hover:bg-surface-hover"
+          >
+            <Icon name="image" size={14} />
+            Take photo
+          </button>
+        </Show>
         <button
           type="button"
           onClick={toggleLink}

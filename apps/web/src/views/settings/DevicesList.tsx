@@ -1,6 +1,8 @@
 import { Button, Icon, ItemText } from "@marshal/ui";
-import { For, Show } from "solid-js";
+import { createResource, For, Show } from "solid-js";
 import { M, type Profile } from "~/mock";
+import { pairingPayload, tailnetHost } from "~/platform/pairing";
+import { PairingQr } from "./PairingQr";
 import type { ProfileDraft } from "./use-profile-draft";
 
 type Device = Profile["devices"][number];
@@ -83,6 +85,15 @@ export function DevicesList(props: { profile: ProfileDraft }) {
     void M.createPairingCode();
   };
   const code = () => M.pairingCode();
+  // The QR carries the address a phone reaches this daemon at, which only a node that is online
+  // has. Without one the text code still works for a device that already knows the address.
+  const [node] = createResource(async () => await M.tailnetStatus());
+  const qr = () => {
+    const status = node();
+    const live = code();
+    if (!live || status?.state !== "online" || !status.dnsName) return null;
+    return pairingPayload(tailnetHost(status.dnsName, window.location.port), live.code);
+  };
   return (
     <div class="flex flex-col border-t border-border">
       <Show when={M.S.profile.devices.filter((device) => !device.revoked).length === 0}>
@@ -100,6 +111,16 @@ export function DevicesList(props: { profile: ProfileDraft }) {
           </span>
         </Show>
       </div>
+      <Show when={props.profile.pairing() && qr()}>
+        {(payload) => (
+          <div class="flex flex-wrap items-center gap-3 pb-3">
+            <PairingQr text={payload()} label="Pairing QR code" />
+            <span class="text-small text-secondary max-w-60">
+              In the Marshal phone app, choose Scan the QR code.
+            </span>
+          </div>
+        )}
+      </Show>
     </div>
   );
 }

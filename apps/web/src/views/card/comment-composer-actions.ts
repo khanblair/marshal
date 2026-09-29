@@ -1,4 +1,5 @@
 import { M } from "~/mock";
+import { platform } from "~/platform";
 import type { CommentComposerProps } from "./CommentComposer";
 import { attachmentsFrom, linkAttachment } from "./comment-model";
 
@@ -25,6 +26,14 @@ export function createComposerActions(
     props.panel.set({ pending: [...state().pending, ...attachmentsFrom(e.currentTarget.files)] });
     e.currentTarget.value = "";
   };
+  const takePhoto = () => {
+    void platform()
+      .pickFiles({ accept: "image/*", camera: true })
+      .then((files) => {
+        if (files.length)
+          props.panel.set({ pending: [...state().pending, ...attachmentsFrom(files)] });
+      });
+  };
   const toggleLink = () => {
     props.panel.set({ linkOpen: !state().linkOpen });
     setTimeout(() => linkInput()?.focus(), LINK_FOCUS_DELAY_MS);
@@ -40,5 +49,5 @@ export function createComposerActions(
       props.panel.set({ linkOpen: false });
     }
   };
-  return { state, empty, post, addLink, onFiles, toggleLink, onLinkKey };
+  return { state, empty, post, addLink, onFiles, takePhoto, toggleLink, onLinkKey };
 }

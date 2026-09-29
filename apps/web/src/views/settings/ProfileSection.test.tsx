@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { M } from "~/mock";
-import { confirmDialog, lastToast, showSettings } from "./test-support";
+import { lastToast, showSettings } from "./test-support";
 
 vi.hoisted(() => {
   window.location.hash = "#nosim";
@@ -73,37 +73,10 @@ describe("Profile section", () => {
     expect(lastToast()).toBe("Choose an image to use as your avatar");
   });
 
-  it("lists paired devices, and asks before removing one", () => {
-    showSettings("profile");
-    expect(screen.getByText("Pixel 8")).toBeInTheDocument();
-    expect(screen.getByText("Last seen 40 min ago")).toBeInTheDocument();
-    expect(screen.getByText("Last seen 2 days ago")).toBeInTheDocument();
-    fireEvent.click(screen.getAllByRole("button", { name: "Remove device" })[0] as HTMLElement);
-    expect(M.S.dialog).toMatchObject({
-      title: "Remove device",
-      message: "Pixel 8 will lose access to Marshal and must pair again to reconnect.",
-      action: "Remove device",
-      destructive: true,
-    });
-    expect(M.S.profile.devices).toHaveLength(2);
-    confirmDialog();
-    expect(M.S.profile.devices.map((d) => d.name)).toEqual(["iPad Air"]);
-    expect(lastToast()).toBe("Device removed");
-    expect(screen.queryByText("Pixel 8")).toBeNull();
-  });
-
   it("says so when there are no paired devices", () => {
     showSettings("profile");
     M.S.profile.devices = [];
     expect(screen.getByText("No paired devices.")).toBeInTheDocument();
-  });
-
-  it("shows a pairing code after Pair a device", () => {
-    showSettings("profile");
-    expect(screen.queryByText("7QX-2LD")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Pair a device" }));
-    expect(screen.getByText("Enter this code on the device")).toBeInTheDocument();
-    expect(screen.getByText("7QX-2LD").tagName).toBe("CODE");
   });
 
   it("submitting the form does not save when nothing changed", () => {
