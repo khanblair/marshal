@@ -1,4 +1,4 @@
-import type { CISnapshot, CIState, CiRun as WireRun, ProjectCI } from "@marshal/protocol";
+import type { CISnapshot, CIState, ProjectCI, CiRun as WireRun } from "@marshal/protocol";
 import { toMillis } from "./time";
 
 /**

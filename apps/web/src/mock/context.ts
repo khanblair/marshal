@@ -1,9 +1,9 @@
 import { createMutable } from "solid-js/store";
 import type { Data } from "~/data";
 import { createOptimistic, type Optimistic } from "~/data/optimistic";
-import { platform } from "~/platform";
 import { isDaemon, type SectionId, type SectionStatus, sectionStatus } from "~/data/sections";
 import { type KeyValueStore, readKey } from "~/data/storage";
+import { platform } from "~/platform";
 import type { Reservoir } from "~/sync/reservoir";
 import type { SyncControl } from "~/sync/sync-control";
 import { type Clock, createClock } from "./clock";
@@ -11,9 +11,9 @@ import { toast } from "./engine";
 import { createIds, type IdCounters } from "./ids";
 import { buildSeed } from "./seed";
 import { createMsgFactory, type MsgFactory } from "./seed/messages";
+import type { Integration } from "./settings-types";
 import { initialState } from "./state";
 import type { State } from "./state-types";
-import type { Integration } from "./settings-types";
 import { ONBOARDED_KEY } from "./storage";
 
 /** Everything the store needs from its host. The browser values come from `index.ts`. */

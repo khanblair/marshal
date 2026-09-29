@@ -1,7 +1,7 @@
 import type {
-  Integration as WireIntegration,
   IntegrationList,
   IntegrationStatus,
+  Integration as WireIntegration,
 } from "@marshal/protocol";
 import { type ProviderTest, toProviderTest } from "./providers";
 

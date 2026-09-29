@@ -1,4 +1,4 @@
-import type { CalendarEvent as WireCalendarEvent, CalendarList } from "@marshal/protocol";
+import type { CalendarList, CalendarEvent as WireCalendarEvent } from "@marshal/protocol";
 
 const DAY_MS = 86_400_000;
 

@@ -9,7 +9,7 @@
 // targets before calling `tauri build`, one job per OS/arch, so this script only ever needs
 // the host triple in CI too.
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, chmodSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const repoRoot = fileURLToPath(new URL("../../..", import.meta.url));

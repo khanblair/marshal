@@ -1,4 +1,4 @@
-import type { Schedule as WireSchedule, ScheduleList } from "@marshal/protocol";
+import type { ScheduleList, Schedule as WireSchedule } from "@marshal/protocol";
 
 /**
  * The words the screen shows for a schedule that covers every project - a brief, usually - rather

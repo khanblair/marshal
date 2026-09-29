@@ -1,4 +1,4 @@
-import type { Note as WireNote, NoteAuthor } from "@marshal/protocol";
+import type { NoteAuthor, Note as WireNote } from "@marshal/protocol";
 import { toMillis } from "./time";
 
 /*

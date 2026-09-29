@@ -1,4 +1,4 @@
-import type { Notice as WireNotice, NoticeList } from "@marshal/protocol";
+import type { NoticeList, Notice as WireNotice } from "@marshal/protocol";
 import { toMillis } from "./time";
 
 /**

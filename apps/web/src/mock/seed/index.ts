@@ -1,6 +1,6 @@
+import type { CheckpointRow } from "~/data/mappers/checkpoints";
 import type { CardKey } from "../card-key";
 import type { IdCounters } from "../ids";
-import type { CheckpointRow } from "~/data/mappers/checkpoints";
 import type { CalEvent, Integration, Profile, Provider, Role, Schedule } from "../settings-types";
 import type { Activity, Card, Chat, Check, FeedItem, Msg, Notice, Person } from "../types";
 import { seedCalEvents, seedSchedules } from "./calendar";
