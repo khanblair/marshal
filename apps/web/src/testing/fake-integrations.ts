@@ -18,7 +18,13 @@
  * when its status is not `none`, which is what the daemon stores a config and a secret for - except
  * Obsidian, which has nothing to save and is never `none` in the first place.
  */
-import type { Integration, IntegrationStatus, TestCheck, TestResult } from "@marshal/protocol";
+import type {
+  DetectTelegramChatAnswer,
+  Integration,
+  IntegrationStatus,
+  TestCheck,
+  TestResult,
+} from "@marshal/protocol";
 import { errorAnswer, type FakeRequest, jsonAnswer } from "~/data/testing/fake-fetch";
 
 const STATUS = { ok: 200, badRequest: 400, notFound: 404, conflict: 409 };
@@ -29,6 +35,7 @@ const MS_PER_SECOND = 1000;
 const GITHUB = "github";
 const OBSIDIAN = "obsidian";
 const NTFY = "ntfy";
+const BAD_REQUEST = 400;
 const SAVE_PATH = /^\/v1\/integrations\/([^/]+)$/;
 const TEST_PATH = /^\/v1\/integrations\/([^/]+)\/test$/;
 const LIST_PATH = "/v1/integrations";
@@ -75,6 +82,10 @@ export interface IntegrationStore {
   testedAt: Record<string, number>;
   /** The last test's own result, by connection id. */
   lastTest: Record<string, TestResult>;
+  /** What finding a Telegram bot's chat answers. A found private chat by default. */
+  detectedChat: DetectTelegramChatAnswer;
+  /** When set, finding a chat is refused with this sentence, as the daemon refuses a token Telegram does not accept. */
+  detectRefusal?: string;
   /** Refuses a save with its own sentence, or answers undefined to store it. */
   refuseSave: (id: string, body: Record<string, unknown>) => string | undefined;
   /** The checks one connection's test answers with. */
@@ -88,6 +99,8 @@ export interface IntegrationStore {
 export interface FakeIntegrationOptions {
   /** The rows it starts with. Every known connection, none set up, by default. */
   integrations?: readonly Integration[];
+  /** What finding a Telegram bot's chat answers. A found private chat by default. */
+  detectedChat?: DetectTelegramChatAnswer;
   /** Refuses a save with its own sentence, as a test may need. */
   refuseSave?: (id: string, body: Record<string, unknown>) => string | undefined;
   /** The checks a test answers with. A passing test by default, GitHub's or Obsidian's own shape. */
@@ -118,6 +131,13 @@ export function createIntegrationStore(options: FakeIntegrationOptions = {}): In
     rows: structuredClone([...(options.integrations ?? knownRows())]),
     testedAt: {},
     lastTest: {},
+    detectedChat: options.detectedChat ?? {
+      found: true,
+      chatId: "777",
+      name: "Ada Okafor",
+      kind: "private",
+      message: "",
+    },
     refuseSave: options.refuseSave ?? defaultRefusal,
     checks: options.checks ?? defaultChecksFor,
     cooldownMs: options.cooldownMs ?? DEFAULT_COOLDOWN_MS,
@@ -132,6 +152,11 @@ export function answerIntegrationRoute(
 ): Response | null {
   const path = request.url.replace(/^https?:\/\/[^/]+/, "");
   if (path === LIST_PATH && request.method === "GET") return listAnswer(store);
+  if (path === "/v1/integrations/telegram/detect-chat" && request.method === "POST") {
+    return store.detectRefusal
+      ? errorAnswer(BAD_REQUEST, "invalid_argument", store.detectRefusal)
+      : jsonAnswer(store.detectedChat);
+  }
   const test = TEST_PATH.exec(path);
   if (test && request.method === "POST") {
     return testConnection(store, decodeURIComponent(test[1] ?? ""));

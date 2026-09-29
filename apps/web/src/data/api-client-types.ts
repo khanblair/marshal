@@ -1,6 +1,5 @@
 import type {
   ActivityItem,
-  FolderListing,
   AddCardCheckRequest,
   AddChecklistItemRequest,
   AgentCatalog,
@@ -30,10 +29,13 @@ import type {
   CreateRoleRequest,
   CreateSavedViewRequest,
   DecideApprovalRequest,
+  DetectTelegramChatAnswer,
+  DetectTelegramChatRequest,
   DeviceList,
   EditPlanRequest,
   FeedEntry,
   FileHunks,
+  FolderListing,
   Health,
   HomeSnapshot,
   IntegrationList,
@@ -424,6 +426,11 @@ export interface ApiClient {
   agents(options?: CallOptions): Promise<AgentCatalog>;
   /** The folders inside one folder of the daemon's computer, home when no path is given. For picking a repository. */
   folders(path?: string, options?: CallOptions): Promise<FolderListing>;
+  /** Finds the chat that most recently wrote to a Telegram bot, so its chat id need not be looked up. Sends nothing. */
+  detectTelegramChat(
+    body: DetectTelegramChatRequest,
+    options?: CallOptions,
+  ): Promise<DetectTelegramChatAnswer>;
   /** Looks at one agent program again, by its kind or tool id, and says what it found. It sends no prompt. */
   testAgent(id: string, options?: CallOptions): Promise<TestResult>;
   refreshAgents(options?: CallOptions): Promise<AgentCatalog>;

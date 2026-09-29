@@ -53,7 +53,7 @@ export function DiscordForm(props: { integration: Integration; edit: EditState }
     >
       <Field
         label="Bot token"
-        hint="From the Discord developer portal. Marshal keeps it in the OS keychain."
+        hint="From the Discord developer portal. Marshal keeps it in the OS keychain. To answer by typing (not just the buttons), also switch on the Message Content Intent for the bot there."
       >
         <Input type="password" name="token" autocomplete="off" invalid={!!error()} />
       </Field>

@@ -3,7 +3,12 @@ import { createSignal, Show } from "solid-js";
 import type { Integration } from "~/mock";
 import type { EditState } from "./edit-state";
 import { fieldValue } from "./form-field";
-import { connectTelegram, disconnectConnection, testConnection } from "./integration-actions";
+import {
+  connectTelegram,
+  detectTelegramChat,
+  disconnectConnection,
+  testConnection,
+} from "./integration-actions";
 
 /**
  * Telegram's whole setup (B9.3, section S29f): the bot's token and the chat notices go to. The
@@ -39,6 +44,36 @@ export function TelegramForm(props: { integration: Integration; edit: EditState 
       .finally(() => setBusy(false));
   };
 
+  /** The sentence under the chat field after Find my chat: what was found, or what to do next. */
+  const [found, setFound] = createSignal("");
+  const findChat = (form: HTMLFormElement): void => {
+    const token = fieldValue(form, "token").trim();
+    if (!token) {
+      props.edit.fail("Paste the bot's token first, then Marshal can look for your chat.");
+      return;
+    }
+    props.edit.clearError();
+    setBusy(true);
+    setFound("");
+    void detectTelegramChat(token)
+      .then((answer) => {
+        if ("error" in answer) {
+          props.edit.fail(answer.error);
+          return;
+        }
+        if (!answer.found) {
+          setFound(answer.message);
+          return;
+        }
+        const chat = form.elements.namedItem("chatId");
+        if (chat instanceof HTMLInputElement) chat.value = answer.chatId;
+        setFound(
+          `Found ${answer.name || "a chat"} (${answer.kind}). Save the connection to use it.`,
+        );
+      })
+      .finally(() => setBusy(false));
+  };
+
   const runTest = (): void => {
     setBusy(true);
     void testConnection(props.integration.id, name()).finally(() => setBusy(false));
@@ -58,9 +93,29 @@ export function TelegramForm(props: { integration: Integration; edit: EditState 
       >
         <Input type="password" name="token" autocomplete="off" invalid={!!error()} />
       </Field>
-      <Field label="Chat" hint="Your chat's numeric id, or a channel name such as @my_channel.">
-        <Input mono name="chatId" autocomplete="off" invalid={!!error()} />
+      <Field
+        label="Chat"
+        hint="Your chat's numeric id, or a channel name such as @my_channel. Or open your bot in Telegram, press Start, send it a message, and let Marshal find the chat."
+      >
+        <div class="flex gap-2">
+          <Input mono class="flex-1 min-w-0" name="chatId" autocomplete="off" invalid={!!error()} />
+          <Button
+            type="button"
+            disabled={busy()}
+            onClick={(event) => {
+              const form = event.currentTarget.closest("form");
+              if (form) findChat(form);
+            }}
+          >
+            Find my chat
+          </Button>
+        </div>
       </Field>
+      <Show when={found()}>
+        <span role="status" class="text-small leading-4.5 text-secondary">
+          {found()}
+        </span>
+      </Show>
       <Show when={error()}>
         <span class="text-small leading-4.5 text-status-danger-text">{error()}</span>
       </Show>

@@ -248,6 +248,8 @@ function routeMethods({ request, command, bytes }: Transport): Omit<ApiClient, "
     ciSnapshot: (o) => request("GET", "/v1/ci", o),
     agents: (o) => request("GET", "/v1/agents", o),
     refreshAgents: (o) => request("POST", "/v1/agents/refresh", slow(o)),
+    detectTelegramChat: (body, o) =>
+      request("POST", "/v1/integrations/telegram/detect-chat", { ...slow(o), body }),
     folders: (path, o) =>
       request("GET", `/v1/folders${path ? `?${new URLSearchParams({ path })}` : ""}`, o),
     testAgent: (aid, o) => request("POST", `/v1/agents/${id(aid)}/test`, slow(o)),

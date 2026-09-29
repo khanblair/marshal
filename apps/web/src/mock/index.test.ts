@@ -149,6 +149,7 @@ const API = [
   "scanAgents",
   "testAgent",
   "browseFolders",
+  "detectTelegramChat",
   "saveCardNote",
   "saveLimits",
   "savePlan",
@@ -298,6 +299,8 @@ describe("index.ts boot", () => {
       "testAgent",
       // Browsing the daemon's folders to pick a repository: the prototype had a typed path only.
       "browseFolders",
+      // Finding a Telegram bot's chat from its token: a daemon call the prototype never drew.
+      "detectTelegramChat",
       "chooseAvatar",
       "endTour",
       "setOnboardingStep",

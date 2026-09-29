@@ -70,6 +70,65 @@ describe("the connect-from-anywhere step on the daemon", () => {
     expect(await screen.findByText("Connected")).toBeInTheDocument();
   });
 
+  it("finds the Telegram chat from the token, fills it in, and saves nothing", async () => {
+    render(() => <ControlStep {...stepProps()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Connect Telegram" }));
+    fireEvent.input(screen.getByLabelText(/^Bot token/), { target: { value: "123:TESTTOKEN" } });
+    fireEvent.click(screen.getByRole("button", { name: "Find my chat" }));
+    await waitFor(() => expect(screen.getByLabelText(/^Chat/)).toHaveValue("777"));
+    expect(screen.getByRole("status")).toHaveTextContent("Found Ada Okafor (private)");
+    expect(daemon.bodies("POST /v1/integrations/telegram/detect-chat").at(-1)).toEqual({
+      token: "123:TESTTOKEN",
+    });
+    expect(daemon.routes()).not.toContain("PUT /v1/integrations/telegram");
+  });
+
+  it("says what to do when nobody has written to the Telegram bot yet", async () => {
+    daemon.integrations.detectedChat = {
+      found: false,
+      chatId: "",
+      name: "",
+      kind: "",
+      message: "Nobody has written to the bot yet. Open your bot in Telegram, press Start.",
+    };
+    render(() => <ControlStep {...stepProps()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Connect Telegram" }));
+    fireEvent.input(screen.getByLabelText(/^Bot token/), { target: { value: "123:TESTTOKEN" } });
+    fireEvent.click(screen.getByRole("button", { name: "Find my chat" }));
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Nobody has written to the bot yet",
+    );
+    expect(screen.getByLabelText(/^Chat/)).toHaveValue("");
+  });
+
+  it("shows the daemon's sentence beside the form when Telegram does not accept the token", async () => {
+    daemon.integrations.detectRefusal =
+      "Telegram did not accept that token. Copy it again from @BotFather.";
+    render(() => <ControlStep {...stepProps()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Connect Telegram" }));
+    fireEvent.input(screen.getByLabelText(/^Bot token/), { target: { value: "123:WRONG" } });
+    fireEvent.click(screen.getByRole("button", { name: "Find my chat" }));
+    expect(await screen.findByText(/Telegram did not accept that token/)).toBeInTheDocument();
+    daemon.integrations.detectRefusal = undefined;
+    // A second try clears the old sentence.
+    fireEvent.click(screen.getByRole("button", { name: "Find my chat" }));
+    await waitFor(() =>
+      expect(screen.queryByText(/Telegram did not accept that token/)).toBeNull(),
+    );
+  });
+
+  it("asks for the token before it looks for a chat", async () => {
+    render(() => <ControlStep {...stepProps()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Connect Telegram" }));
+    const asked = () =>
+      daemon.routes().filter((route) => route === "POST /v1/integrations/telegram/detect-chat")
+        .length;
+    const before = asked();
+    fireEvent.click(screen.getByRole("button", { name: "Find my chat" }));
+    expect(await screen.findByText(/Paste the bot's token first/)).toBeInTheDocument();
+    expect(asked()).toBe(before);
+  });
+
   it("says the phone is already paired, and offers no code, in the phone app", async () => {
     vi.spyOn(platformModule, "platform").mockReturnValue({
       ...platformModule.createPlatform("web"),

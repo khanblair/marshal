@@ -32,17 +32,18 @@ export interface Integration {
   lastTest?: IntegrationTest;
 }
 /**
- * A schedule row: the daemon's, mapped by `~/data/mappers/schedules.ts`. It is defined there, not
- * here, so the mapper never depends on the mock, and re-exported here because the screens import
- * their store types from `~/mock`.
- */
-export type { ScheduleRow as Schedule } from "~/data/mappers/schedules";
-/**
  * A calendar event: the daemon's, mapped by `~/data/mappers/calendar.ts`. It is defined there, not
  * here, so the mapper never depends on the mock, and re-exported here because the screens import
  * their store types from `~/mock`.
  */
 export type { CalEvent } from "~/data/mappers/calendar";
+/**
+ * A schedule row: the daemon's, mapped by `~/data/mappers/schedules.ts`. It is defined there, not
+ * here, so the mapper never depends on the mock, and re-exported here because the screens import
+ * their store types from `~/mock`.
+ */
+export type { ScheduleRow as Schedule } from "~/data/mappers/schedules";
+
 interface Device {
   id: string;
   name: string;

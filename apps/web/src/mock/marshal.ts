@@ -238,6 +238,7 @@ function appActions(ctx: Ctx) {
     connectGoogleCalendar: integrationWrites.connectGoogleCalendar,
     connectGmail: integrationWrites.connectGmail,
     connectTelegram: integrationWrites.connectTelegram,
+    detectTelegramChat: integrationWrites.detectTelegramChat,
     connectNtfy: integrationWrites.connectNtfy,
     connectDiscord: integrationWrites.connectDiscord,
     // The paired devices (S2b): the list is the daemon's once its section is switched, and the

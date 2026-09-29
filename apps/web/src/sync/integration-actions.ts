@@ -1,5 +1,7 @@
 import type {
   AuthorizeURL,
+  DetectTelegramChatAnswer,
+  DetectTelegramChatRequest,
   IntegrationList,
   SaveDiscordRequest,
   SaveGitHubRequest,
@@ -9,6 +11,7 @@ import type {
   SaveTelegramRequest,
   SaveTrelloRequest,
 } from "@marshal/protocol";
+import { ApiError } from "~/data/api-error";
 import type { Ctx } from "~/mock/context";
 import {
   applyIntegrationList,
@@ -30,6 +33,8 @@ import {
  * The words belong to the screen: "GitHub connected" is said there. A refusal is already shown by
  * `optimistic` in the daemon's own words, and the store then keeps what it had.
  */
+
+const DETECT_FAILED = "Marshal could not look for your chat. Try again.";
 
 /** Runs one connection write and applies the whole list it answers. False means the daemon refused it. */
 async function write(
@@ -80,6 +85,24 @@ export async function connectTelegram(c: Ctx, body: SaveTelegramRequest): Promis
   const api = c.env.data?.api;
   if (!api) return false;
   return write(c, `integration:${TELEGRAM_ID}`, () => api.saveIntegration(TELEGRAM_ID, body));
+}
+
+/**
+ * Finds the chat that most recently wrote to the bot, from its token alone, so the connection can be
+ * saved without looking up a numeric id. It saves nothing and sends nothing. A refusal comes back as
+ * the daemon's own sentence, for the form to show beside the field it is about.
+ */
+export async function detectTelegramChat(
+  c: Ctx,
+  body: DetectTelegramChatRequest,
+): Promise<DetectTelegramChatAnswer | { error: string }> {
+  const api = c.env.data?.api;
+  if (!api) return { error: "Marshal is not connected to its daemon." };
+  try {
+    return await api.detectTelegramChat(body);
+  } catch (error) {
+    return { error: error instanceof ApiError ? error.message : DETECT_FAILED };
+  }
 }
 
 /**
