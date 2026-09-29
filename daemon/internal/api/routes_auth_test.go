@@ -105,7 +105,7 @@ func TestATokenIsNeverLogged(t *testing.T) {
 // A route is registered only when the service it needs is there. One that is not registered is
 // an address that does not exist, and no token can change that.
 func TestARouteIsRegisteredOnlyWhenItsServiceIsThere(t *testing.T) {
-	projectRoutes := []string{
+	projectRoutes := []string{"GET /v1/folders",
 		"GET /v1/projects", "POST /v1/projects", "GET /v1/projects/{id}", "PATCH /v1/projects/{id}",
 		"DELETE /v1/projects/{id}", "GET /v1/projects/{id}/board", "POST /v1/projects/{id}/cards", "GET /v1/cards/{id}",
 	}
@@ -160,7 +160,7 @@ func TestARouteIsRegisteredOnlyWhenItsServiceIsThere(t *testing.T) {
 	}
 	searchRoutes := []string{"GET /v1/search"}
 	startRoute := []string{"POST /v1/cards/{id}/start"}
-	agentRoutes := []string{"GET /v1/agents", "POST /v1/agents/refresh"}
+	agentRoutes := []string{"GET /v1/agents", "POST /v1/agents/refresh", "POST /v1/agents/{id}/test"}
 	accountRoutes := []string{
 		"GET /v1/me", "PATCH /v1/me", "POST /v1/me/avatar", "DELETE /v1/me/avatar", "GET /v1/users",
 		"GET /v1/users/{id}/avatar", "GET /v1/me/progress", "PATCH /v1/me/progress",

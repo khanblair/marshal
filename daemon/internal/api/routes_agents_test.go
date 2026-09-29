@@ -145,3 +145,12 @@ func TestACatalogThatCannotAnswer(t *testing.T) {
 		})
 	}
 }
+
+func TestTestingAnAgentAnswersAResultAndAnUnknownOneIsNotFound(t *testing.T) {
+	st := newStack(t)
+	got := decode[protocol.TestResult](t, st.do(http.MethodPost, "/v1/agents/claude/test", nil).want(t, http.StatusOK))
+	if got.ConnectionID != "claude" || len(got.Checks) == 0 {
+		t.Fatalf("result = %+v", got)
+	}
+	st.do(http.MethodPost, "/v1/agents/nope/test", nil).apiError(t, http.StatusNotFound, protocol.ErrorCodeNotFound)
+}
