@@ -53,6 +53,10 @@ export const MOCK_HISTORY: Readonly<Record<SectionId, SectionStatus>> = {
   S8b: "mock",
   S8c: "mock",
   S10: "mock",
+  S12: "mock",
+  S14: "mock",
+  S15: "mock",
+  S16: "mock",
   S17: "mock",
 };
 

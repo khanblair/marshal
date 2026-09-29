@@ -1,5 +1,7 @@
 import type {
   ActivityItem,
+  AddCardCheckRequest,
+  AddChecklistItemRequest,
   AgentCatalog,
   AlertSettings,
   AuthorizeURL,
@@ -7,16 +9,21 @@ import type {
   BypassRequest,
   CalendarList,
   Card,
+  CardCheckList,
   CardDiff,
+  CardMembers,
   CardView,
   Chat,
   ChatListSnapshot,
   ChatMessage,
   ChatMessageDetail,
+  ChecklistList,
   CheckpointList,
   CISnapshot,
+  CommentList,
   CreateCardRequest,
   CreateChatRequest,
+  CreateChecklistRequest,
   CreateLabelRequest,
   CreateProjectRequest,
   CreateRoleRequest,
@@ -38,10 +45,11 @@ import type {
   NoticeActionRequest,
   NoticeActionResult,
   NoticeList,
+  Page,
   PairDeviceRequest,
   PairDeviceResponse,
   PairingCode,
-  Page,
+  PostCommentRequest,
   Preferences,
   PreviewShotRequest,
   PreviewShotResult,
@@ -56,16 +64,16 @@ import type {
   Role,
   RoleList,
   RoleSpec,
-  SavedView,
-  SavedViewListSnapshot,
   SaveAlertSettingsRequest,
   SaveDiscordRequest,
+  SavedView,
+  SavedViewListSnapshot,
   SaveGitHubRequest,
   SaveGmailRequest,
-  SaveNtfyRequest,
   SaveGoogleCalendarRequest,
   SaveLessonRequest,
   SaveNoteRequest,
+  SaveNtfyRequest,
   SaveProviderRequest,
   SaveScheduleRequest,
   SaveTelegramRequest,
@@ -83,8 +91,10 @@ import type {
   TailnetPeerList,
   TailnetStatus,
   TestResult,
+  TickChecklistItemRequest,
   UpdateCardRequest,
   UpdateChatRequest,
+  UpdateChecklistRequest,
   UpdateLabelRequest,
   UpdatePreferencesRequest,
   UpdateProfileRequest,
@@ -221,6 +231,69 @@ export interface ApiClient {
   note(cardId: string, options?: CallOptions): Promise<Note>;
   /** Replaces a card's note with the body, and answers it as a read would. */
   saveNote(cardId: string, body: SaveNoteRequest, options?: CallOptions): Promise<Note>;
+  /**
+   * A card's acceptance checks (section S12, B10.2). A card that has none yet is given its
+   * defaults. Every checks call answers the whole list.
+   */
+  cardChecks(cardId: string, options?: CallOptions): Promise<CardCheckList>;
+  /** Adds a command check to a card. */
+  addCardCheck(
+    cardId: string,
+    body: AddCardCheckRequest,
+    options?: CallOptions,
+  ): Promise<CardCheckList>;
+  /** Removes a check. */
+  removeCardCheck(cardId: string, checkId: string, options?: CallOptions): Promise<CardCheckList>;
+  /** Runs the card's command checks in its worktree and answers what each found. Slow. */
+  runCardChecks(cardId: string, options?: CallOptions): Promise<CardCheckList>;
+  /** A card's checklists with their items (section S15, B10.5). Every checklist call answers the whole list. */
+  checklists(cardId: string, options?: CallOptions): Promise<ChecklistList>;
+  createChecklist(
+    cardId: string,
+    body: CreateChecklistRequest,
+    options?: CallOptions,
+  ): Promise<ChecklistList>;
+  updateChecklist(
+    cardId: string,
+    listId: string,
+    body: UpdateChecklistRequest,
+    options?: CallOptions,
+  ): Promise<ChecklistList>;
+  deleteChecklist(cardId: string, listId: string, options?: CallOptions): Promise<ChecklistList>;
+  addChecklistItem(
+    cardId: string,
+    listId: string,
+    body: AddChecklistItemRequest,
+    options?: CallOptions,
+  ): Promise<ChecklistList>;
+  /** Ticks or reopens one line. */
+  tickChecklistItem(
+    cardId: string,
+    listId: string,
+    itemId: string,
+    body: TickChecklistItemRequest,
+    options?: CallOptions,
+  ): Promise<ChecklistList>;
+  removeChecklistItem(
+    cardId: string,
+    listId: string,
+    itemId: string,
+    options?: CallOptions,
+  ): Promise<ChecklistList>;
+  /** A card's comments, oldest first (section S16, B10.6). Every comment call answers the whole list. */
+  comments(cardId: string, options?: CallOptions): Promise<CommentList>;
+  postComment(
+    cardId: string,
+    body: PostCommentRequest,
+    options?: CallOptions,
+  ): Promise<CommentList>;
+  deleteComment(cardId: string, commentId: string, options?: CallOptions): Promise<CommentList>;
+  /** The bytes of a file kept with a comment. */
+  attachmentFile(cardId: string, attachmentId: string, options?: CallOptions): Promise<Blob>;
+  /** The people on a card, by user id. */
+  cardMembers(cardId: string, options?: CallOptions): Promise<CardMembers>;
+  addCardMember(cardId: string, userId: string, options?: CallOptions): Promise<CardMembers>;
+  removeCardMember(cardId: string, userId: string, options?: CallOptions): Promise<CardMembers>;
   /**
    * A project's lessons, newest first (section 7.13, B7.6): what an agent has learned worth
    * remembering next time, for the lessons screen.

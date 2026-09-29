@@ -145,6 +145,7 @@ const API = [
   "retryChat",
   "rolesOnDaemon",
   "runChecks",
+  "openAttachment",
   "saveCardNote",
   "saveLimits",
   "savePlan",
@@ -287,6 +288,8 @@ describe("index.ts boot", () => {
       "saveSleepSettings",
       "alerts",
       "saveAlertChannels",
+      // Opening a file the daemon keeps with a comment (S16): the prototype has no kept files.
+      "openAttachment",
       "chooseAvatar",
       "endTour",
       "setOnboardingStep",

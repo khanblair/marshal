@@ -8,6 +8,8 @@ interface CommentFileView {
   isLink: boolean;
   /** Set when the attachment has nothing to open, so a click only shows a toast. */
   placeholder: boolean;
+  /** Set on a file the daemon keeps: opening it fetches the file with the token. */
+  open: (() => void) | undefined;
 }
 
 export interface CommentView {
@@ -39,7 +41,8 @@ const fileView = (file: Attachment): CommentFileView => ({
   meta: file.size ?? "",
   href: file.url || file.src || "#",
   isLink: file.kind === "link",
-  placeholder: !file.url && !file.src,
+  placeholder: !file.url && !file.src && !file.ref,
+  open: file.ref ? () => void M.openAttachment(file) : undefined,
 });
 
 function commentView(card: Card, comment: Comment): CommentView {

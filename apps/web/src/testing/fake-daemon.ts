@@ -8,6 +8,7 @@
  */
 import type {
   AgentCatalog,
+  AlertSettings,
   Card,
   Chat,
   Checkpoint,
@@ -25,7 +26,6 @@ import type {
   Project,
   ProjectCI,
   Provider,
-  AlertSettings,
   Role,
   SavedView,
   Schedule,
@@ -42,7 +42,8 @@ import { type FakeSockets, fakeSockets } from "~/data/testing/fake-web-socket";
 import { golden } from "~/data/testing/golden";
 import { type MemoryStorage, memoryStorage } from "~/data/testing/memory-storage";
 import { TOKEN_KEY } from "~/data/token";
-import { answerAlertsRoute, type AlertsStore, createAlertsStore } from "./fake-alerts";
+import { type AlertsStore, answerAlertsRoute, createAlertsStore } from "./fake-alerts";
+import { answerCardPanelRoute, type CardPanelStore, createCardPanelStore } from "./fake-card-panel";
 import { answerCardRoute, type CardStore, type FakeCardDiff, type HistoryRow } from "./fake-cards";
 import { answerChatRoute, type ChatMessageRow, type ChatStore } from "./fake-chats";
 import { answerCIRoute, type CIStore, createCIStore } from "./fake-ci";
@@ -205,6 +206,8 @@ export interface FakeDaemon {
   schedules: ScheduleStore;
   /** The alert settings it holds now (section S26c). */
   alerts: AlertsStore;
+  /** Every card's checks, checklists, comments, and members it holds now (sections S12, S15, S16). */
+  cardPanel: CardPanelStore;
   /** Every project's CI health it holds now (section S21). A test seeds it and reads it back. */
   ci: CIStore;
   /** Every card's preview it holds now (section S13), by the daemon's own card id. */
@@ -391,6 +394,7 @@ interface Router {
   sleep: SleepStore;
   schedules: ScheduleStore;
   alerts: AlertsStore;
+  cardPanel: CardPanelStore;
   ci: CIStore;
   previews: PreviewStore;
 }
@@ -478,6 +482,30 @@ function answerPairRoute(router: Router, request: FakeRequest): Response {
   return jsonAnswer({ token: router.token(), device, serverTime: router.now() });
 }
 
+/** The alert settings and a card's panel, which are separate stores answered one after the other. */
+function answerAlertsOrPanel(router: Router, request: FakeRequest): Response | undefined {
+  return (
+    answerAlertsRoute(router.alerts, request) ?? answerCardPanelRoute(router.cardPanel, request)
+  );
+}
+
+/** The routes of the settings screens and a card's panel, tried in turn until one answers. */
+function answerSettingsRoutes(
+  router: Router,
+  request: FakeRequest,
+  projectExists: (pid: string) => boolean,
+): Response | undefined {
+  return (
+    answerProviderRoute(router.providers, request) ??
+    answerIntegrationRoute(router.integrations, request) ??
+    answerLimitRoute(router.limits, request) ??
+    answerRoleRoute(router.roles, request, projectExists) ??
+    answerNoticeRoute(router.notices, request) ??
+    answerSleepRoute(router.sleep, request) ??
+    answerAlertsOrPanel(router, request)
+  );
+}
+
 /** Answers one request the way the real daemon's router does, including who may ask. */
 function answer(router: Router, request: FakeRequest): Response {
   const key = keyOf(request);
@@ -508,20 +536,8 @@ function answer(router: Router, request: FakeRequest): Response {
   if (key === "GET /v1/agents" || key === "POST /v1/agents/refresh") {
     return jsonAnswer({ ...router.catalog, serverTime: router.now() });
   }
-  const providers = answerProviderRoute(router.providers, request);
-  if (providers) return providers;
-  const integrations = answerIntegrationRoute(router.integrations, request);
-  if (integrations) return integrations;
-  const limits = answerLimitRoute(router.limits, request);
-  if (limits) return limits;
-  const roles = answerRoleRoute(router.roles, request, projectExists);
-  if (roles) return roles;
-  const notices = answerNoticeRoute(router.notices, request);
-  if (notices) return notices;
-  const sleep = answerSleepRoute(router.sleep, request);
-  if (sleep) return sleep;
-  const alerts = answerAlertsRoute(router.alerts, request);
-  if (alerts) return alerts;
+  const settings = answerSettingsRoutes(router, request, projectExists);
+  if (settings) return settings;
   const schedule = answerScheduleRoute(router.schedules, request);
   if (schedule) return schedule;
   const calendar = answerCalendarRoute(router.schedules, request);
@@ -693,6 +709,7 @@ interface Slices {
   sleep: SleepStore;
   schedules: ScheduleStore;
   alerts: AlertsStore;
+  cardPanel: CardPanelStore;
   ci: CIStore;
   previews: PreviewStore;
 }
@@ -745,6 +762,7 @@ function createSlices(
     sleep: createSleepStore({ settings: options.sleep }),
     schedules: createScheduleStore({ schedules: options.schedules, now }),
     alerts: createAlertsStore({ settings: options.alerts }),
+    cardPanel: createCardPanelStore({ publish: emit, now }),
     ci: createCIStore({ projects: options.ci, now }),
     previews: createPreviewStore({
       previews: options.previews,
@@ -879,6 +897,7 @@ export function createFakeDaemon(options: FakeDaemonOptions = {}): FakeDaemon {
     sleep: slices.sleep,
     schedules: slices.schedules,
     alerts: slices.alerts,
+    cardPanel: slices.cardPanel,
     ci: slices.ci,
     previews: slices.previews,
     ...switches(state),

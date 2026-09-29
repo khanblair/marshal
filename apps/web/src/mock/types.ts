@@ -70,6 +70,10 @@ export interface Checklist {
   title: string;
   hideDone: boolean;
   items: ChecklistItem[];
+  /** The daemon's flag: a card with an open line here cannot be ready to merge. */
+  required?: boolean;
+  /** The daemon's flag: only a person may tick a line here, never the agent. */
+  peopleOnly?: boolean;
 }
 
 export interface Attachment {
@@ -78,6 +82,8 @@ export interface Attachment {
   size?: string;
   url?: string;
   src?: string;
+  /** Set on a file the daemon keeps: the card's daemon id and the attachment's id, to fetch it. */
+  ref?: { cardId: string; id: string };
 }
 
 export interface Comment {

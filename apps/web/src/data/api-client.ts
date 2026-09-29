@@ -1,4 +1,3 @@
-import { type ApiError, clientError, readWireError, wireError } from "./api-error";
 import type {
   ActivityOptions,
   ApiClient,
@@ -9,6 +8,7 @@ import type {
   PageOptions,
   RequestOptions,
 } from "./api-client-types";
+import { type ApiError, clientError, readWireError, wireError } from "./api-error";
 import { isRecord } from "./guards";
 import { guardRequest } from "./request-guard";
 
@@ -222,6 +222,8 @@ function routeMethods({ request, command, bytes }: Transport): Omit<ApiClient, "
     createCard: (pid, body, o) => request("POST", `/v1/projects/${id(pid)}/cards`, { ...o, body }),
     // Everything a person does while looking at one card, restore points included: `cardMethods`.
     ...cardMethods({ request, command }),
+    ...panelMethods({ request, bytes }),
+    ...settingsMethods({ request, command }),
     // A project's lessons (task 7.13, B7.6): listed for the lessons screen, saved without a slug the
     // first time and with one to edit an existing lesson, removed by slug.
     listLessons: (pid, o) => request("GET", `/v1/projects/${id(pid)}/lessons`, o),
@@ -311,32 +313,6 @@ function routeMethods({ request, command, bytes }: Transport): Omit<ApiClient, "
     deleteSchedule: (sid, o) => command("DELETE", `/v1/schedules/${id(sid)}`, o),
     scheduleRuns: (sid, o) => request("GET", `/v1/schedules/${id(sid)}/runs`, o),
     getCalendar: (start, end, o) => request("GET", `/v1/calendar?start=${start}&end=${end}`, o),
-    listLimits: (o) => request("GET", "/v1/limits", o),
-    setLimit: (scope, kind, body, o) =>
-      request("PUT", `/v1/limits/${id(scope)}/${id(kind)}`, { ...o, body }),
-    deleteLimit: (scope, kind, o) => request("DELETE", `/v1/limits/${id(scope)}/${id(kind)}`, o),
-    listRoles: (project, o) => request("GET", `/v1/roles${roleQuery(project)}`, o),
-    createRole: (body, project, o) =>
-      request("POST", `/v1/roles${roleQuery(project)}`, { ...o, body }),
-    getRole: (name, project, o) => request("GET", `/v1/roles/${id(name)}${roleQuery(project)}`, o),
-    updateRole: (name, body, project, o) =>
-      request("PATCH", `/v1/roles/${id(name)}${roleQuery(project)}`, { ...o, body }),
-    // A delete answers the whole list, so it is a `request` and not a `command`.
-    deleteRole: (name, project, o) =>
-      request("DELETE", `/v1/roles/${id(name)}${roleQuery(project)}`, o),
-    resetRole: (name, project, o) =>
-      request("POST", `/v1/roles/${id(name)}/reset${roleQuery(project)}`, o),
-    setRoleOverride: (name, project, spec, o) =>
-      request("PUT", `/v1/roles/${id(name)}/override${roleQuery(project)}`, { ...o, body: spec }),
-    listNotices: (o) => request("GET", "/v1/notices", o),
-    noticeAction: (notice, body, o) =>
-      request("POST", `/v1/notices/${id(notice)}/actions`, { ...o, body }),
-    // Taking a notice off the panel answers no body, so it is a `command`.
-    dismissNotice: (notice, o) => command("DELETE", `/v1/notices/${id(notice)}`, o),
-    sleepSettings: (o) => request("GET", "/v1/settings/sleep", o),
-    saveSleepSettings: (body, o) => request("PUT", "/v1/settings/sleep", { ...o, body }),
-    alertSettings: (o) => request("GET", "/v1/settings/alerts", o),
-    saveAlertSettings: (body, o) => request("PUT", "/v1/settings/alerts", { ...o, body }),
   };
 }
 
@@ -377,6 +353,26 @@ type CardRoute =
   | "setCardView"
   | "note"
   | "saveNote";
+
+type PanelRoute =
+  | "cardChecks"
+  | "addCardCheck"
+  | "removeCardCheck"
+  | "runCardChecks"
+  | "checklists"
+  | "createChecklist"
+  | "updateChecklist"
+  | "deleteChecklist"
+  | "addChecklistItem"
+  | "tickChecklistItem"
+  | "removeChecklistItem"
+  | "comments"
+  | "postComment"
+  | "deleteComment"
+  | "attachmentFile"
+  | "cardMembers"
+  | "addCardMember"
+  | "removeCardMember";
 
 /**
  * The routes that act on one card, gathered so the group can grow without crowding `routeMethods`.
@@ -451,4 +447,100 @@ function cardMethods({
 export function createApiClient(options: ApiClientOptions): ApiClient {
   const transport = createTransport(options);
   return { request: transport.request, ...routeMethods(transport) };
+}
+
+/**
+ * The routes of what a card's panel holds beyond the card (B10.2, B10.5, B10.6): checks,
+ * checklists, comments, and members. Each call answers the whole list, so a screen redraws from one
+ * answer.
+ */
+function panelMethods({
+  request,
+  bytes,
+}: Pick<Transport, "request" | "bytes">): Pick<ApiClient, PanelRoute> {
+  const id = encodeURIComponent;
+  return {
+    cardChecks: (cid, o) => request("GET", `/v1/cards/${id(cid)}/checks`, o),
+    addCardCheck: (cid, body, o) => request("POST", `/v1/cards/${id(cid)}/checks`, { ...o, body }),
+    removeCardCheck: (cid, kid, o) =>
+      request("DELETE", `/v1/cards/${id(cid)}/checks/${id(kid)}`, o),
+    runCardChecks: (cid, o) => request("POST", `/v1/cards/${id(cid)}/checks/run`, slow(o)),
+    checklists: (cid, o) => request("GET", `/v1/cards/${id(cid)}/checklists`, o),
+    createChecklist: (cid, body, o) =>
+      request("POST", `/v1/cards/${id(cid)}/checklists`, { ...o, body }),
+    updateChecklist: (cid, lid, body, o) =>
+      request("PATCH", `/v1/cards/${id(cid)}/checklists/${id(lid)}`, { ...o, body }),
+    deleteChecklist: (cid, lid, o) =>
+      request("DELETE", `/v1/cards/${id(cid)}/checklists/${id(lid)}`, o),
+    addChecklistItem: (cid, lid, body, o) =>
+      request("POST", `/v1/cards/${id(cid)}/checklists/${id(lid)}/items`, { ...o, body }),
+    tickChecklistItem: (cid, lid, iid, body, o) =>
+      request("PUT", `/v1/cards/${id(cid)}/checklists/${id(lid)}/items/${id(iid)}`, { ...o, body }),
+    removeChecklistItem: (cid, lid, iid, o) =>
+      request("DELETE", `/v1/cards/${id(cid)}/checklists/${id(lid)}/items/${id(iid)}`, o),
+    comments: (cid, o) => request("GET", `/v1/cards/${id(cid)}/comments`, o),
+    postComment: (cid, body, o) => request("POST", `/v1/cards/${id(cid)}/comments`, { ...o, body }),
+    deleteComment: (cid, kid, o) =>
+      request("DELETE", `/v1/cards/${id(cid)}/comments/${id(kid)}`, o),
+    attachmentFile: (cid, aid, o) => bytes("GET", `/v1/cards/${id(cid)}/attachments/${id(aid)}`, o),
+    cardMembers: (cid, o) => request("GET", `/v1/cards/${id(cid)}/members`, o),
+    addCardMember: (cid, uid, o) => request("PUT", `/v1/cards/${id(cid)}/members/${id(uid)}`, o),
+    removeCardMember: (cid, uid, o) =>
+      request("DELETE", `/v1/cards/${id(cid)}/members/${id(uid)}`, o),
+  };
+}
+
+type SettingsRoute =
+  | "listLimits"
+  | "setLimit"
+  | "deleteLimit"
+  | "listRoles"
+  | "createRole"
+  | "getRole"
+  | "updateRole"
+  | "deleteRole"
+  | "resetRole"
+  | "setRoleOverride"
+  | "listNotices"
+  | "noticeAction"
+  | "dismissNotice"
+  | "sleepSettings"
+  | "saveSleepSettings"
+  | "alertSettings"
+  | "saveAlertSettings";
+
+/** The routes of the limits, the roles, the notices, and the sleep and alert settings. */
+function settingsMethods({
+  request,
+  command,
+}: Pick<Transport, "request" | "command">): Pick<ApiClient, SettingsRoute> {
+  const id = encodeURIComponent;
+  return {
+    listLimits: (o) => request("GET", "/v1/limits", o),
+    setLimit: (scope, kind, body, o) =>
+      request("PUT", `/v1/limits/${id(scope)}/${id(kind)}`, { ...o, body }),
+    deleteLimit: (scope, kind, o) => request("DELETE", `/v1/limits/${id(scope)}/${id(kind)}`, o),
+    listRoles: (project, o) => request("GET", `/v1/roles${roleQuery(project)}`, o),
+    createRole: (body, project, o) =>
+      request("POST", `/v1/roles${roleQuery(project)}`, { ...o, body }),
+    getRole: (name, project, o) => request("GET", `/v1/roles/${id(name)}${roleQuery(project)}`, o),
+    updateRole: (name, body, project, o) =>
+      request("PATCH", `/v1/roles/${id(name)}${roleQuery(project)}`, { ...o, body }),
+    // A delete answers the whole list, so it is a `request` and not a `command`.
+    deleteRole: (name, project, o) =>
+      request("DELETE", `/v1/roles/${id(name)}${roleQuery(project)}`, o),
+    resetRole: (name, project, o) =>
+      request("POST", `/v1/roles/${id(name)}/reset${roleQuery(project)}`, o),
+    setRoleOverride: (name, project, spec, o) =>
+      request("PUT", `/v1/roles/${id(name)}/override${roleQuery(project)}`, { ...o, body: spec }),
+    listNotices: (o) => request("GET", "/v1/notices", o),
+    noticeAction: (notice, body, o) =>
+      request("POST", `/v1/notices/${id(notice)}/actions`, { ...o, body }),
+    // Taking a notice off the panel answers no body, so it is a `command`.
+    dismissNotice: (notice, o) => command("DELETE", `/v1/notices/${id(notice)}`, o),
+    sleepSettings: (o) => request("GET", "/v1/settings/sleep", o),
+    saveSleepSettings: (body, o) => request("PUT", "/v1/settings/sleep", { ...o, body }),
+    alertSettings: (o) => request("GET", "/v1/settings/alerts", o),
+    saveAlertSettings: (body, o) => request("PUT", "/v1/settings/alerts", { ...o, body }),
+  };
 }

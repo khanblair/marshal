@@ -73,6 +73,12 @@ export function makeTwin(hash = "#nosim"): Twin {
     sections: {
       ...sectionStatus,
       S5a: "mock",
+      // A card's note, checks, checklists, comments, and members (S12, S14, S15, S16) are the daemon's,
+      // and the twin runs no daemon: it compares the mock's own with the prototype's.
+      S12: "mock",
+      S14: "mock",
+      S15: "mock",
+      S16: "mock",
       // Bypass permissions is the daemon's since its cutover (S7b), and the twin runs no daemon, so
       // it is pinned to the mock like the other sections this suite exercises. The daemon path has
       // its own tests, with a fake daemon (sync/card-actions.test.ts).

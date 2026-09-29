@@ -45,7 +45,10 @@ function Files(props: { files: CommentView["files"] }) {
             target="_blank"
             rel="noopener"
             onClick={(e) => {
-              if (file().placeholder) {
+              if (file().open) {
+                e.preventDefault();
+                file().open?.();
+              } else if (file().placeholder) {
                 e.preventDefault();
                 M.toast(`Opening ${file().name}`);
               }
