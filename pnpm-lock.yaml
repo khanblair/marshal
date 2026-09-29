@@ -27,6 +27,12 @@ importers:
         specifier: 2.12.0
         version: 2.12.0
 
+  apps/mobile:
+    devDependencies:
+      '@tauri-apps/cli':
+        specifier: 2.12.0
+        version: 2.12.0
+
   apps/web:
     dependencies:
       '@marshal/protocol':
@@ -38,9 +44,21 @@ importers:
       '@marshal/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@tauri-apps/plugin-barcode-scanner':
+        specifier: 2.5.0
+        version: 2.5.0
+      '@tauri-apps/plugin-deep-link':
+        specifier: 2.5.0
+        version: 2.5.0
       '@tauri-apps/plugin-dialog':
         specifier: 2.4.2
         version: 2.4.2
+      '@tauri-apps/plugin-haptics':
+        specifier: 2.4.0
+        version: 2.4.0
+      qrcode-generator:
+        specifier: 2.0.4
+        version: 2.0.4
       solid-js:
         specifier: 1.9.15
         version: 1.9.15
@@ -910,8 +928,17 @@ packages:
     engines: {node: '>= 10'}
     hasBin: true
 
+  '@tauri-apps/plugin-barcode-scanner@2.5.0':
+    resolution: {integrity: sha512-aabj7xQ8tOtE7OXZQgfcE/CaEvCKnzO20R/H2VMTm8IwGGahnrvK3+B6Wgozs4fcKYOrRgIhxjdq6qLXyztTJQ==}
+
+  '@tauri-apps/plugin-deep-link@2.5.0':
+    resolution: {integrity: sha512-Heu/hQSeWIQ6K/XML3Rj7An99eofHHaFoc6njMMIa+XIznvgiDtGgv6OIBWQ0HwHwmHf1QK/ysA/2dL3lEKMeA==}
+
   '@tauri-apps/plugin-dialog@2.4.2':
     resolution: {integrity: sha512-lNIn5CZuw8WZOn8zHzmFmDSzg5zfohWoa3mdULP0YFh/VogVdMVWZPcWSHlydsiJhRQYaTNSYKN7RmZKE2lCYQ==}
+
+  '@tauri-apps/plugin-haptics@2.4.0':
+    resolution: {integrity: sha512-U9ntVqfNDIqtzGyG/db6MM8/OavdwUMhr0A6bxC0vR37blDMzDXzY8QzZ8AVKedowjfGoJrN42PDHEDSoSFCZA==}
 
   '@testing-library/dom@10.4.2':
     resolution: {integrity: sha512-yzr2S9HyAIdhz2/6qHgbs665Q7PKVcDF05vsOlHPxG1mo36gKVesdYVeDLnXgfjJ03CrKRk08knc6+E/9m8v2Q==}
@@ -1626,6 +1653,9 @@ packages:
   punycode@2.3.1:
     resolution: {integrity: sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg==}
     engines: {node: '>=6'}
+
+  qrcode-generator@2.0.4:
+    resolution: {integrity: sha512-mZSiP6RnbHl4xL2Ap5HfkjLnmxfKcPWpWe/c+5XxCuetEenqmNFf1FH/ftXPCtFG5/TDobjsjz6sSNL0Sr8Z9g==}
 
   react-is@17.0.2:
     resolution: {integrity: sha512-w2GsyukL62IJnlaff/nRegPQR94C/XXamvMWmSHRJ4y7Ts/4ocGRmTHvOs8PSE6pB3dWOrD/nueuU5sduBsQ4w==}
@@ -2461,7 +2491,19 @@ snapshots:
       '@tauri-apps/cli-win32-ia32-msvc': 2.12.0
       '@tauri-apps/cli-win32-x64-msvc': 2.12.0
 
+  '@tauri-apps/plugin-barcode-scanner@2.5.0':
+    dependencies:
+      '@tauri-apps/api': 2.12.0
+
+  '@tauri-apps/plugin-deep-link@2.5.0':
+    dependencies:
+      '@tauri-apps/api': 2.12.0
+
   '@tauri-apps/plugin-dialog@2.4.2':
+    dependencies:
+      '@tauri-apps/api': 2.12.0
+
+  '@tauri-apps/plugin-haptics@2.4.0':
     dependencies:
       '@tauri-apps/api': 2.12.0
 
@@ -3088,6 +3130,8 @@ snapshots:
       react-is: 17.0.2
 
   punycode@2.3.1: {}
+
+  qrcode-generator@2.0.4: {}
 
   react-is@17.0.2: {}
 

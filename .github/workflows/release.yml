@@ -17,6 +17,16 @@
 #   APPLE_ID                     The Apple ID used for notarization
 #   APPLE_PASSWORD                An app-specific password for that Apple ID (not its real one)
 #   APPLE_TEAM_ID                 The Apple Developer team ID
+#
+# The Android job (apps/mobile) builds the phone app the same way, on a Linux runner, and attaches a
+# signed .apk (direct install) and .aab (Google Play) to the same draft release. The phone app does
+# not embed the web app or the daemon - it opens the page the daemon serves - so this job needs
+# neither. It signs when these repository secrets exist, and leaves the build unsigned when they do
+# not (an unsigned .apk cannot be installed, so the job says so instead of publishing one):
+#   ANDROID_KEYSTORE_BASE64      Base64 of the upload keystore (.jks)
+#   ANDROID_KEYSTORE_PASSWORD    The keystore's password
+#   ANDROID_KEY_ALIAS            The key's alias inside it
+#   ANDROID_KEY_PASSWORD         The key's password
 name: release
 
 on:
@@ -111,3 +121,99 @@ jobs:
           draft: true
           files: |
             apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg
+
+  android:
+    name: Android (apk, aab)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve the release tag
+        id: tag
+        run: echo "name=${{ github.event.inputs.tag || github.ref_name }}" >> "$GITHUB_OUTPUT"
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      # Gradle needs JDK 17, and the Rust side needs the Android NDK and the four Android targets.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: android-actions/setup-android@v3
+      - name: Install the NDK
+        run: |
+          # The platform and build tools the project needs are fetched by Gradle itself, since the
+          # licences are already accepted; only the NDK has to be there before the Rust build.
+          sdkmanager --install "ndk;27.2.12479018"
+          echo "NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/mobile/src-tauri
+
+      - name: Set the app's version from the release tag
+        # Same rule as the desktop job: the tag is the real version, without its leading "v".
+        run: |
+          version="${{ steps.tag.outputs.name }}"
+          version="${version#v}"
+          node -e "
+            const fs = require('node:fs');
+            const path = 'apps/mobile/src-tauri/tauri.conf.json';
+            const conf = JSON.parse(fs.readFileSync(path, 'utf8'));
+            conf.version = '$version';
+            fs.writeFileSync(path, JSON.stringify(conf, null, 2) + '\n');
+          "
+
+      - name: Make the Android project and fit it to Marshal
+        run: node apps/mobile/scripts/patch-android.mjs --init
+
+      - name: Set up signing
+        id: signing
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE" ]; then
+            echo "The Android signing secrets are not set, so this build is unsigned and will not be published."
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          android="apps/mobile/src-tauri/gen/android"
+          echo "$KEYSTORE" | base64 --decode > "$RUNNER_TEMP/marshal.jks"
+          {
+            echo "storeFile=$RUNNER_TEMP/marshal.jks"
+            echo "storePassword=$STORE_PASSWORD"
+            echo "keyAlias=$KEY_ALIAS"
+            echo "keyPassword=$KEY_PASSWORD"
+          } > "$android/keystore.properties"
+          echo "signed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Build the apk and aab
+        run: pnpm --filter mobile exec tauri android build --apk --aab
+
+      - name: Publish to the draft release
+        if: steps.signing.outputs.signed == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.name }}
+          name: "Marshal ${{ steps.tag.outputs.name }}"
+          draft: true
+          files: |
+            apps/mobile/src-tauri/gen/android/app/build/outputs/apk/universal/release/*.apk
+            apps/mobile/src-tauri/gen/android/app/build/outputs/bundle/universalRelease/*.aab
+
+      - name: Keep the unsigned build as a run artifact
+        if: steps.signing.outputs.signed != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-unsigned
+          path: apps/mobile/src-tauri/gen/android/app/build/outputs/**/*
