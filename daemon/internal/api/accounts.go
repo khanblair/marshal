@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/khanblair/marshal/daemon/internal/devices"
 	"github.com/khanblair/marshal/daemon/internal/platform"
 	"github.com/khanblair/marshal/daemon/internal/protocol"
 	"github.com/khanblair/marshal/daemon/internal/store"
@@ -69,19 +70,19 @@ func ensureDevAccess(ctx context.Context, st *store.Store, owner db.User, cfg Ac
 	if err != nil {
 		return nil, fmt.Errorf("prepare the dev token: %w", err)
 	}
-	devices, err := st.Queries().ListDevices(ctx, owner.ID)
+	rows, err := st.Queries().ListDevices(ctx, owner.ID)
 	if err != nil {
 		return nil, fmt.Errorf("list devices: %w", err)
 	}
-	deviceID := activeDeviceOfKind(devices, protocol.DeviceKindDev)
+	deviceID := activeDeviceOfKind(rows, protocol.DeviceKindDev)
 	if deviceID == "" {
 		// The stored hash is of a value that is thrown away, so no token can match it.
 		unusable, err := platform.NewToken()
 		if err != nil {
 			return nil, err
 		}
-		device := newDevice{UserID: owner.ID, Name: devDeviceName, Kind: protocol.DeviceKindDev, Token: unusable}
-		if deviceID, err = createDevice(ctx, st, cfg.Now(), device); err != nil {
+		device := devices.New{UserID: owner.ID, Name: devDeviceName, Kind: protocol.DeviceKindDev, Token: unusable}
+		if deviceID, err = devices.Create(ctx, st, cfg.Now(), device); err != nil {
 			return nil, err
 		}
 	}
@@ -97,11 +98,11 @@ func ensureDevAccess(ctx context.Context, st *store.Store, owner db.User, cfg Ac
 // cannot come back on a restart.
 func ensureOwnerToken(ctx context.Context, st *store.Store, owner db.User, cfg AccountsConfig) error {
 	path := filepath.Join(cfg.DataDir, platform.OwnerTokenFile)
-	devices, err := st.Queries().ListDevices(ctx, owner.ID)
+	rows, err := st.Queries().ListDevices(ctx, owner.ID)
 	if err != nil {
 		return fmt.Errorf("list devices: %w", err)
 	}
-	if hasDeviceOfKind(devices, protocol.DeviceKindCLI) {
+	if hasDeviceOfKind(rows, protocol.DeviceKindCLI) {
 		if _, statErr := os.Stat(path); errors.Is(statErr, os.ErrNotExist) {
 			cfg.Log.Warn("the owner token file is missing and no new token is made", "file", path)
 		}
@@ -111,8 +112,8 @@ func ensureOwnerToken(ctx context.Context, st *store.Store, owner db.User, cfg A
 	if err != nil {
 		return err
 	}
-	device := newDevice{UserID: owner.ID, Name: cliDeviceName, Kind: protocol.DeviceKindCLI, Token: token}
-	if _, err := createDevice(ctx, st, cfg.Now(), device); err != nil {
+	device := devices.New{UserID: owner.ID, Name: cliDeviceName, Kind: protocol.DeviceKindCLI, Token: token}
+	if _, err := devices.Create(ctx, st, cfg.Now(), device); err != nil {
 		if created {
 			// The file is ours and no device matches it, so leave nothing behind for the next start.
 			err = errors.Join(err, os.Remove(path))
@@ -143,34 +144,9 @@ func ownerTokenFile(path string) (token string, created bool, err error) {
 	return token, true, nil
 }
 
-// newDevice is what createDevice needs beyond the store and the clock, bundled so the function
-// stays inside the parameter limit.
-type newDevice struct {
-	UserID, Name string
-	Kind         protocol.DeviceKind
-	Token        string
-}
-
-func createDevice(ctx context.Context, st *store.Store, now time.Time, d newDevice) (string, error) {
-	id, err := protocol.NewID(now, rand.Reader)
-	if err != nil {
-		return "", fmt.Errorf("make a device id: %w", err)
-	}
-	err = st.Write(ctx, func(q *db.Queries) error {
-		return q.CreateDevice(ctx, db.CreateDeviceParams{
-			ID: id, UserID: d.UserID, Name: d.Name, Kind: string(d.Kind),
-			TokenHash: store.HashToken(d.Token), PairedAt: store.Millis(now),
-		})
-	})
-	if err != nil {
-		return "", fmt.Errorf("save the %s device: %w", d.Kind, err)
-	}
-	return id, nil
-}
-
-func hasDeviceOfKind(devices []db.ListDevicesRow, kind protocol.DeviceKind) bool {
-	for _, device := range devices {
-		if device.Kind == string(kind) {
+func hasDeviceOfKind(rows []db.ListDevicesRow, kind protocol.DeviceKind) bool {
+	for _, row := range rows {
+		if row.Kind == string(kind) {
 			return true
 		}
 	}
@@ -178,10 +154,10 @@ func hasDeviceOfKind(devices []db.ListDevicesRow, kind protocol.DeviceKind) bool
 }
 
 // activeDeviceOfKind returns the id of the first device of that kind that is not revoked, or "".
-func activeDeviceOfKind(devices []db.ListDevicesRow, kind protocol.DeviceKind) string {
-	for _, device := range devices {
-		if device.Kind == string(kind) && device.RevokedAt == nil {
-			return device.ID
+func activeDeviceOfKind(rows []db.ListDevicesRow, kind protocol.DeviceKind) string {
+	for _, row := range rows {
+		if row.Kind == string(kind) && row.RevokedAt == nil {
+			return row.ID
 		}
 	}
 	return ""

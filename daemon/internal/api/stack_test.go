@@ -19,6 +19,7 @@ import (
 	"github.com/khanblair/marshal/daemon/internal/api"
 	"github.com/khanblair/marshal/daemon/internal/audit"
 	"github.com/khanblair/marshal/daemon/internal/config"
+	"github.com/khanblair/marshal/daemon/internal/devices"
 	"github.com/khanblair/marshal/daemon/internal/events"
 	"github.com/khanblair/marshal/daemon/internal/gitx"
 	"github.com/khanblair/marshal/daemon/internal/history"
@@ -29,6 +30,7 @@ import (
 	"github.com/khanblair/marshal/daemon/internal/preview"
 	"github.com/khanblair/marshal/daemon/internal/projects"
 	"github.com/khanblair/marshal/daemon/internal/protocol"
+	"github.com/khanblair/marshal/daemon/internal/schedules"
 	"github.com/khanblair/marshal/daemon/internal/security"
 	"github.com/khanblair/marshal/daemon/internal/session"
 	"github.com/khanblair/marshal/daemon/internal/store"
@@ -123,6 +125,23 @@ type stackConfig struct {
 	// cmd/marshald always builds it. It is here because every service the server can be given has a
 	// stack without it, so a route that needs one is proven to follow it.
 	noPreview bool
+	// noSchedules leaves the schedules service out, so the routes that list the scheduled jobs and
+	// briefs and add, edit, and delete one are not registered. This is not a case the daemon ships
+	// in: cmd/marshald always builds the service. It is here because every service the server can be
+	// given has a stack without it, so a route that needs one is proven to follow it.
+	noSchedules bool
+	// noDevices leaves the paired-devices service out, so the list, code, and revoke routes are not
+	// registered and no device can be paired at all. This is not a case the daemon ships in:
+	// cmd/marshald always builds the service. It is here for the same reason as every other
+	// no-service option: a route that needs one is proven to follow it.
+	noDevices bool
+	// tailnet, when it is set, is the node the server is given, so a test can drive the tailnet
+	// listener, the tailnet origin rule, and the Funnel handler with no Tailscale anywhere. Nil,
+	// which is the default, is a daemon reachable on this machine only.
+	tailnet api.TailnetNode
+	// funnel asks the server to expose /hooks/* to the public internet through Funnel. It does
+	// nothing without a node above it, exactly as in a real daemon.
+	funnel bool
 	// noMemory leaves the memory module out, so the routes that read and write a card's note are not
 	// registered and there is no search either (the search answers the session and note kinds through
 	// the same module). This is not a case the daemon ships in: the module needs only the store, the
@@ -141,6 +160,9 @@ type stackConfig struct {
 	// integrationsTester, when it is set, replaces the real GitHub connection test, so an API test
 	// that presses Test never dials GitHub.
 	integrationsTester func(ctx context.Context, info integrations.Info) (protocol.TestResult, error)
+	// trelloBaseURL, when it is set, points the Trello connection at a fake server, so an API test
+	// that saves a Trello connection and presses Test never dials Trello.
+	trelloBaseURL string
 	// providerFailure is what every provider call answers with, standing in for a provider that
 	// refused the key or could not be reached. Nil is a provider that works.
 	providerFailure error
@@ -189,6 +211,20 @@ func withLocalCIRunner(r localci.Runner) stackOption {
 }
 func withoutPreview() stackOption { return func(c *stackConfig) { c.noPreview = true } }
 
+// withoutSchedules leaves the schedules service out.
+func withoutSchedules() stackOption { return func(c *stackConfig) { c.noSchedules = true } }
+
+// withoutDevices leaves the paired-devices service out.
+func withoutDevices() stackOption { return func(c *stackConfig) { c.noDevices = true } }
+
+// withTailnet hands the server a node on a tailnet.
+func withTailnet(node api.TailnetNode) stackOption {
+	return func(c *stackConfig) { c.tailnet = node }
+}
+
+// withFunnel asks for /hooks/* to be exposed publicly, which needs withTailnet to mean anything.
+func withFunnel() stackOption { return func(c *stackConfig) { c.funnel = true } }
+
 // withoutMemory leaves the memory module out.
 func withoutMemory() stackOption { return func(c *stackConfig) { c.noMemory = true } }
 func withPreviewOptions(o preview.Options) stackOption {
@@ -206,6 +242,9 @@ func withWebhooks(secret string) stackOption {
 }
 func withIntegrationsTester(fn func(ctx context.Context, info integrations.Info) (protocol.TestResult, error)) stackOption {
 	return func(c *stackConfig) { c.integrationsTester = fn }
+}
+func withTrelloBaseURL(url string) stackOption {
+	return func(c *stackConfig) { c.trelloBaseURL = url }
 }
 
 // stack is a daemon in a test: a real store, bus, Git, projects service, session manager over the
@@ -245,11 +284,20 @@ type stack struct {
 	// prove a secret the daemon stores never comes back out.
 	keychain     security.Keychain
 	integrations *integrations.Service
+	// schedules is the scheduler the stack's own routes run through, so a test can save a schedule
+	// and read it back the way the daemon does. It is nil when the stack was built without it.
+	schedules *schedules.Service
+	// devices is the paired-devices service, so a test can pair a device with a code it issued
+	// itself. It is nil when the stack was built without it.
+	devices *devices.Service
 	// audit is the one audit recorder the stack's modules write rows through, built the way
 	// cmd/marshald builds the daemon's, so a test can prove a row was written by reading it back
 	// through GET /v1/audit.
-	audit      *audit.Recorder
-	closeMgr   func()
+	audit    *audit.Recorder
+	closeMgr func()
+	// server is the API server the stack serves with, so a test can reach the handlers that are
+	// not on a listener - the Funnel handler, for one.
+	server     *api.Server
 	base       string // http://127.0.0.1:<port>
 	stopServer func()
 	client     *http.Client

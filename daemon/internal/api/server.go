@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/khanblair/marshal/daemon/internal/accounts"
 	"github.com/khanblair/marshal/daemon/internal/agents/catalog"
@@ -24,6 +25,7 @@ import (
 	"github.com/khanblair/marshal/daemon/internal/config"
 	"github.com/khanblair/marshal/daemon/internal/connectiontest"
 	"github.com/khanblair/marshal/daemon/internal/dashboard"
+	"github.com/khanblair/marshal/daemon/internal/devices"
 	"github.com/khanblair/marshal/daemon/internal/diff"
 	"github.com/khanblair/marshal/daemon/internal/events"
 	"github.com/khanblair/marshal/daemon/internal/integrations"
@@ -40,6 +42,7 @@ import (
 	"github.com/khanblair/marshal/daemon/internal/quality"
 	"github.com/khanblair/marshal/daemon/internal/review"
 	"github.com/khanblair/marshal/daemon/internal/roles"
+	"github.com/khanblair/marshal/daemon/internal/schedules"
 	"github.com/khanblair/marshal/daemon/internal/search"
 	"github.com/khanblair/marshal/daemon/internal/session"
 	"github.com/khanblair/marshal/daemon/internal/settings"
@@ -47,7 +50,9 @@ import (
 )
 
 const (
-	// loopback is the only address the daemon listens on until a tailnet address is added.
+	// loopback is the address the daemon always listens on: this machine, and only this machine.
+	// The tailnet listener (Deps.Tailnet) is a second, additive one; nothing ever listens on every
+	// interface (docs/architecture.md section 13).
 	loopback          = "127.0.0.1"
 	readHeaderTimeout = 5 * time.Second
 	shutdownTimeout   = 5 * time.Second
@@ -170,6 +175,11 @@ type Deps struct {
 	// one. It is a service of its own because a preview is a dev server on the person's machine, not
 	// a look at a project.
 	Preview *preview.Service
+	// Schedules owns the scheduled jobs and briefs and the cron that runs them (B8.1, build-plan
+	// 8.1). When it is set, GET /v1/schedules and the routes that add, edit, and delete one are
+	// registered. It is a service of its own and not part of Projects because a schedule outlives
+	// any one project: a brief spans every project, and one cron runs the whole daemon's work.
+	Schedules *schedules.Service
 	// MCP is the internal MCP server endpoint, served over the daemon's own listener to the agents
 	// of live cards (docs/architecture.md section 11.4). It carries its own per-card authentication,
 	// so it is mounted as a stream route and not behind the owner-token check. Nil when the daemon
@@ -179,6 +189,21 @@ type Deps struct {
 	// route above. Without it, an address nothing else matches answers not_found, as it always
 	// did before this field existed.
 	WebUI fs.FS
+	// Devices owns the paired clients: the short-lived code that pairs a new device, the device
+	// rows, and revoking one (B9.2). When it is set, the list, code, and revoke routes are
+	// registered, and POST /v1/devices/pair - the one route that mints a token with none of its
+	// own - is registered beside health, with no token check. Nil keeps every device address
+	// closed and pairing impossible.
+	Devices *devices.Service
+	// Tailnet is this daemon's own node on the person's tailnet (B9.1). Nil, which is the
+	// default, is a daemon reachable on this machine only: no tailnet listener is opened and no
+	// path is opened to the public internet. Set, it is a second listener beside loopback, never
+	// instead of it (docs/architecture.md section 13).
+	Tailnet TailnetNode
+	// Funnel asks Tailscale to expose this daemon to the public internet. Only /hooks/* is served
+	// on it, and every request there is still signature-verified the way Phase 8 built it. It does
+	// nothing without a Tailnet: there is no node to expose.
+	Funnel bool
 	// Limits are the sizes and times. A zero field takes its default.
 	Limits Limits
 }
@@ -223,7 +248,15 @@ type Server struct {
 	ci            *ci.Service
 	localCI       *localci.Service
 	preview       *preview.Service
+	schedules     *schedules.Service
 	webUI         fs.FS
+	// devices owns pairing, the device rows, and revoking one (B9.2). Nil means no device address
+	// exists at all.
+	devices *devices.Service
+	// tailnet is the node on the person's tailnet (B9.1). Nil is a daemon on this machine only.
+	tailnet TailnetNode
+	// funnel is whether /hooks/* was asked to be exposed to the public internet.
+	funnel bool
 	// mcp is the daemon's internal MCP server endpoint (docs/architecture.md section 11.4): one
 	// server per live card, reached only by the card's own agent. It lives outside the domain routes
 	// because it authenticates itself with a per-card secret rather than the daemon's owner token.
@@ -250,7 +283,11 @@ func New(settings config.Settings, log *slog.Logger, now func() time.Time, deps 
 		ci:              deps.CI,
 		localCI:         deps.LocalCI,
 		preview:         deps.Preview,
+		schedules:       deps.Schedules,
 		webUI:           deps.WebUI,
+		devices:         deps.Devices,
+		tailnet:         deps.Tailnet,
+		funnel:          deps.Funnel && deps.Tailnet != nil,
 		mcp:             deps.MCP,
 	}
 	if deps.Store == nil {
@@ -280,10 +317,24 @@ func (s *Server) Handler() http.Handler {
 func (s *Server) handler(extra ...func(*router)) http.Handler {
 	routes := newRouter(s)
 	routes.public("GET /v1/health", s.health)
+	// Pairing is the one address that mints a token with no token of its own: a device being
+	// paired has none yet, which is the whole point. What authorizes it is the short-lived,
+	// single-use code read off a device that is already signed in (internal/devices), and the
+	// Funnel handler refuses it along with everything outside /hooks/.
+	if s.devices != nil {
+		routes.public("POST /v1/devices/pair", s.pairDevice)
+	}
 	// The webhook route is registered outside the token check on purpose: GitHub has no token, and
 	// its deliveries are authorized by a signature over their raw body instead (B6.1).
 	if s.webhooks != nil {
 		routes.signedWebhook("POST /hooks/github", s.githubWebhook)
+	}
+	// Trello's deliveries are authorized the same way, against the secret and callback URL of the
+	// stored Trello connection (B8.2). The routes service is the receiver here rather than a
+	// separate object: there is nothing for a verified Trello delivery to reach yet, so the whole
+	// of checking one is reading the two halves out of the keychain and the row.
+	if s.integrations != nil {
+		routes.signedWebhook("POST /hooks/trello", s.trelloWebhook)
 	}
 	if s.auth != nil {
 		routes.protected("GET /v1/auth/whoami", s.whoami)
@@ -326,20 +377,86 @@ func (s *Server) Listen() (net.Listener, error) {
 }
 
 // Run listens and serves until the context is cancelled, then finishes open requests and returns.
+//
+// With no tailnet node it serves on loopback, which is the daemon of every phase before this one.
+// With one it also serves on the tailnet: the loopback listener is opened first and left alone,
+// the node is joined in the background, and only then does a second listener open on the tailnet
+// address. Nothing ever replaces the loopback bind, and nothing ever listens on every interface
+// (docs/architecture.md section 13). A tailnet that cannot be joined is logged and the daemon
+// keeps serving on this machine, because a phone being unreachable is not a reason for the
+// desktop app to be unreachable too.
 func (s *Server) Run(ctx context.Context) error {
 	listener, err := s.Listen()
 	if err != nil {
 		return err
 	}
-	return s.Serve(ctx, listener)
+	if s.tailnet == nil {
+		return s.Serve(ctx, listener)
+	}
+	group, gctx := errgroup.WithContext(ctx)
+	group.Go(func() error { return s.Serve(gctx, listener) })
+	group.Go(func() error { return s.serveTailnet(gctx) })
+	return group.Wait()
+}
+
+// serveTailnet joins the tailnet and serves on it, alongside the loopback listener. Every failure
+// that is about the tailnet is logged and answered with nil: the daemon is already serving on this
+// machine, and a tailnet nobody has signed in to is a feature that is off, not a daemon that is
+// down.
+func (s *Server) serveTailnet(ctx context.Context) error {
+	go s.tailnet.Watch(ctx)
+	if _, err := s.tailnet.Up(ctx); err != nil {
+		if ctx.Err() != nil {
+			return nil
+		}
+		s.log.Error("Marshal is reachable on this machine only", "error", err)
+		return nil
+	}
+	group, gctx := errgroup.WithContext(ctx)
+	listener, err := s.tailnet.Listen("tcp", s.tailnetAddr())
+	if err != nil {
+		s.log.Error("could not listen on the tailnet", "error", err)
+		return nil
+	}
+	group.Go(func() error { return s.Serve(gctx, listener) })
+	if s.funnel {
+		if err := s.openFunnel(gctx, group); err != nil {
+			s.log.Error("could not open Funnel", "error", err)
+		}
+	}
+	if err := group.Wait(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// openFunnel opens the one public listener the daemon ever has, and serves only the webhook
+// routes on it. The rest of the daemon - the UI, every /v1 route, and the pairing route - is
+// reached on the tailnet, never from the public internet (docs/architecture.md section 13).
+func (s *Server) openFunnel(ctx context.Context, group *errgroup.Group) error {
+	listener, err := s.tailnet.ListenFunnel("tcp", funnelAddr)
+	if err != nil {
+		return err
+	}
+	s.log.Info("Funnel is open for webhooks only", "address", funnelAddr)
+	group.Go(func() error { return s.ServeOn(ctx, listener, s.FunnelHandler()) })
+	return nil
 }
 
 // Serve serves on a listener that the caller opened. When the context ends it stops accepting,
 // closes every open event stream with "going away", waits for requests in progress, and returns,
 // all within the shutdown window.
 func (s *Server) Serve(ctx context.Context, listener net.Listener) error {
+	return s.ServeOn(ctx, listener, s.Handler())
+}
+
+// ServeOn serves a specific handler on a listener the caller opened, with the same shutdown
+// behaviour as Serve. It exists so the two listeners this daemon can have - loopback and the
+// tailnet, plus Funnel's - share one shutdown path, and so the public one serves a handler that
+// refuses every address outside /hooks/.
+func (s *Server) ServeOn(ctx context.Context, listener net.Listener, handler http.Handler) error {
 	srv := &http.Server{
-		Handler:           s.Handler(),
+		Handler:           handler,
 		ReadHeaderTimeout: readHeaderTimeout,
 		ReadTimeout:       s.limits.ReadTimeout,
 		WriteTimeout:      s.limits.WriteTimeout,

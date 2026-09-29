@@ -17,6 +17,7 @@ import (
 	"github.com/khanblair/marshal/daemon/internal/ci"
 	"github.com/khanblair/marshal/daemon/internal/connectiontest"
 	"github.com/khanblair/marshal/daemon/internal/dashboard"
+	"github.com/khanblair/marshal/daemon/internal/devices"
 	"github.com/khanblair/marshal/daemon/internal/diff"
 	"github.com/khanblair/marshal/daemon/internal/github"
 	"github.com/khanblair/marshal/daemon/internal/history"
@@ -30,6 +31,7 @@ import (
 	"github.com/khanblair/marshal/daemon/internal/quality"
 	"github.com/khanblair/marshal/daemon/internal/review"
 	"github.com/khanblair/marshal/daemon/internal/roles"
+	"github.com/khanblair/marshal/daemon/internal/schedules"
 	"github.com/khanblair/marshal/daemon/internal/search"
 	"github.com/khanblair/marshal/daemon/internal/session"
 	"github.com/khanblair/marshal/daemon/internal/settings"
@@ -40,7 +42,8 @@ import (
 func (st *stack) startModules() {
 	t := st.t
 	t.Helper()
-	deps := api.Deps{Store: st.store, Bus: st.bus, Dev: st.dev, Limits: st.cfg.limits}
+	deps := api.Deps{Store: st.store, Bus: st.bus, Dev: st.dev, Limits: st.cfg.limits,
+		Tailnet: st.cfg.tailnet, Funnel: st.cfg.funnel}
 	if !st.cfg.noIntegrations {
 		// The connections Marshal is set up with apart from model providers, built the way
 		// cmd/marshald builds it. Its receiver is the stack's webhook route, and its sink is the
@@ -50,12 +53,21 @@ func (st *stack) startModules() {
 		if st.webhookSink == nil {
 			st.webhookSink = &webhookRecorder{}
 		}
-		opts := integrations.Options{Logger: st.log, Now: st.now, Tester: st.cfg.integrationsTester}
+		opts := integrations.Options{
+			Logger: st.log, Now: st.now, Tester: st.cfg.integrationsTester,
+			TrelloBaseURL: st.cfg.trelloBaseURL,
+		}
 		svc, err := integrations.New(st.store, st.keychain, opts)
 		if err != nil {
 			t.Fatalf("make the integrations service: %v", err)
 		}
 		svc.SetMonitor(st.webhookSink)
+		// A believed Trello delivery is applied to the stack's own board, the way cmd/marshald
+		// attaches it, so the Trello route test proves the import end to end rather than logging an
+		// ignored delivery.
+		if !st.cfg.noProjects {
+			svc.SetTrelloCards(stackTrelloCards{proj: st.proj})
+		}
 		st.integrations = svc
 		deps.Integrations = svc
 		deps.Webhooks = svc.Receiver()
@@ -101,6 +113,20 @@ func (st *stack) startModules() {
 		}
 		deps.Memory = mem
 		st.mem = mem
+	}
+	if !st.cfg.noSchedules {
+		// The scheduler (B8.1), built the way cmd/marshald builds it. Its clock is the stack's own,
+		// so a schedule a test saves carries the time the stack was fixed at. It is never started
+		// here: a test drives the routes, not a cron firing at the wall clock's pace.
+		st.schedules = schedules.NewService(st.store, st.log, schedules.WithClock(st.now))
+		deps.Schedules = st.schedules
+	}
+	if !st.cfg.noDevices {
+		// The paired-devices service (B9.1, B9.2), built the way cmd/marshald builds it: over the
+		// store, on the stack's own clock, so a test can let a code expire without waiting it out.
+		st.devices = devices.NewService(st.store,
+			devices.WithLogger(st.log), devices.WithClock(st.now))
+		deps.Devices = st.devices
 	}
 	if !st.cfg.noDiff && !st.cfg.noProjects {
 		// The diff module reads a card's worktree through the projects module, so a stack without
@@ -372,7 +398,8 @@ func (st *stack) startModules() {
 		// can drive the move to review through a card whose changes have a blocking smell.
 		st.proj.SetReviewGate(qualitySvc)
 	}
-	server := api.New(st.settings, st.log, st.now, deps)
+	st.server = api.New(st.settings, st.log, st.now, deps)
+	server := st.server
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("listen: %v", err)

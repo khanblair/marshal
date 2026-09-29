@@ -12,13 +12,27 @@ import (
 // originPatterns lists the origins besides the request's own host that may open a stream. A dev
 // daemon accepts a page from the local dev server on any port. A normal daemon accepts the
 // desktop app's web view, whose origin is tauri://localhost on macOS and Linux and
-// http://tauri.localhost on Windows. A request with no Origin header is not from a browser page
-// and passes the check: a page cannot leave the header out.
+// http://tauri.localhost on Windows.
+//
+// A daemon with a tailnet node also accepts the origins that are its own node's names: its MagicDNS
+// name and its tailnet addresses. That is the case a phone opens - the page loaded from one of
+// those names, and the stream may be opened to another of them - and it adds no host that is not
+// this daemon's own node, so a page from anywhere else is still refused.
+//
+// The rule a page served over the tailnet usually hits is not one of these at all: it is the
+// request's own host in originAllowed, which passes any page the daemon itself served. These
+// patterns are the exceptions to that, for the pages served somewhere else.
+//
+// A request with no Origin header is not from a browser page and passes the check: a page cannot
+// leave the header out.
 func (s *Server) originPatterns() []string {
+	var patterns []string
 	if s.settings.Dev() {
-		return []string{"localhost:*", "127.0.0.1:*"}
+		patterns = []string{"localhost:*", "127.0.0.1:*"}
+	} else {
+		patterns = []string{"tauri.localhost", "tauri://localhost"}
 	}
-	return []string{"tauri.localhost", "tauri://localhost"}
+	return append(patterns, s.tailnetOrigins()...)
 }
 
 // originAllowed applies the same rule as the WebSocket library does when it accepts a connection:

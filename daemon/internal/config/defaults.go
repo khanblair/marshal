@@ -31,4 +31,10 @@ const (
 	envAgent    = "MARSHAL_AGENT"
 	envLogLevel = "MARSHAL_LOG_LEVEL"
 	envFixture  = "MARSHAL_FIXTURE"
+	// envTailnet, envTailnetHostname, and envFunnel are Phase 9's remote access (B9.1, B9.2):
+	// joining the tailnet from inside the daemon, the node's name on it, and exposing /hooks/*
+	// publicly. They are off unless one of them says otherwise.
+	envTailnet         = "MARSHAL_TAILNET"
+	envTailnetHostname = "MARSHAL_TAILNET_HOSTNAME"
+	envFunnel          = "MARSHAL_FUNNEL"
 )

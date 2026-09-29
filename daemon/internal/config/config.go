@@ -23,6 +23,18 @@ type Settings struct {
 	Agent       AgentMode
 	Fixture     string
 	ShowVersion bool
+	// Tailnet joins the tailnet from inside the daemon, so the daemon is reachable on this
+	// machine and on the person's own devices, with no separate Tailscale install (B9.1). It is
+	// off unless it is asked for: a daemon nobody asked to join a tailnet listens on loopback
+	// only, exactly as it did before this field existed (docs/architecture.md section 13).
+	Tailnet bool
+	// TailnetHostname is the node's name on the tailnet. Empty lets the node use the program's
+	// own name.
+	TailnetHostname string
+	// Funnel exposes /hooks/* to the public internet through Tailscale Funnel. Only the webhook
+	// routes are served on it, and each is still signature-verified the way Phase 8 built it. It
+	// means nothing without Tailnet: there would be no node to expose.
+	Funnel bool
 }
 
 // Dev reports whether this is a dev daemon.
@@ -39,6 +51,9 @@ type rawFlags struct {
 	agent    string
 	logLevel string
 	fixture  string
+	tailnet  bool
+	hostname string
+	funnel   bool
 }
 
 func parseFlags(args []string, usage io.Writer) (rawFlags, error) {
@@ -52,6 +67,9 @@ func parseFlags(args []string, usage io.Writer) (rawFlags, error) {
 	fs.StringVar(&raw.agent, "agent", "", "agents to start: stub or real (default stub in dev mode, real otherwise)")
 	fs.StringVar(&raw.logLevel, "log-level", "", "debug, info, warn, or error")
 	fs.StringVar(&raw.fixture, "fixture", "", "dev mode only: load a fixture on start (the only one is prototype: the three projects the prototype shows)")
+	fs.BoolVar(&raw.tailnet, "tailnet", false, "join the tailnet from inside the daemon, so phones reach this daemon without a separate Tailscale install (also MARSHAL_TAILNET)")
+	fs.StringVar(&raw.hostname, "tailnet-hostname", "", "this node's name on the tailnet (default: the program's own name; also MARSHAL_TAILNET_HOSTNAME)")
+	fs.BoolVar(&raw.funnel, "funnel", false, "expose /hooks/* publicly through Tailscale Funnel, every request still signature-verified (also MARSHAL_FUNNEL)")
 	if err := fs.Parse(args); err != nil {
 		return rawFlags{}, err
 	}
@@ -81,7 +99,24 @@ func Load(args []string, env platform.Env, usage io.Writer) (Settings, error) {
 		return Settings{}, err
 	}
 	s.Fixture = firstNonEmpty(raw.fixture, env.Getenv(envFixture))
+	// The two switches are on when either the flag or the environment setting says so. There is
+	// no "off": a daemon only ever joins a tailnet when someone asked it to, and the way to stop
+	// asking is to remove both.
+	s.Tailnet = raw.tailnet || resolveBool(env.Getenv(envTailnet))
+	s.Funnel = raw.funnel || resolveBool(env.Getenv(envFunnel))
+	s.TailnetHostname = firstNonEmpty(raw.hostname, env.Getenv(envTailnetHostname))
 	return s, nil
+}
+
+// resolveBool reads an environment setting that is a switch: "1", "yes", "true", or "on" is on,
+// and anything else - including an empty setting, which means it was never set - is off.
+func resolveBool(value string) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "1", "yes", "true", "on":
+		return true
+	default:
+		return false
+	}
 }
 
 func firstNonEmpty(values ...string) string {
