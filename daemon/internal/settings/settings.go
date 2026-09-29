@@ -29,6 +29,10 @@ import (
 // the fields are read and written together by one screen and one form.
 const sleepKey = "sleep"
 
+// alertsKey is the settings row the alert routes live under: a map from an alert's event name to the
+// channel ids it goes to, holding only the alerts a person has changed.
+const alertsKey = "alerts"
+
 // The default sleep settings are protocol.DefaultSleepSettings, beside the wire type, so this
 // service and the session manager cannot answer a fresh install with two different sets of numbers.
 
@@ -96,6 +100,46 @@ func (s *Service) SetSleep(ctx context.Context, in protocol.SleepSettings) (prot
 		return protocol.SleepSettings{}, fmt.Errorf("save the sleep settings: %w", err)
 	}
 	return in, nil
+}
+
+// AlertRoutes reads the alert routes a person has saved, by event name. An install that has never
+// saved any answers with none, and the router's own defaults stand.
+func (s *Service) AlertRoutes(ctx context.Context) (map[string][]string, error) {
+	if err := s.ready(); err != nil {
+		return nil, err
+	}
+	raw, err := s.store.Queries().GetSetting(ctx, alertsKey)
+	switch {
+	case err == nil:
+		var routes map[string][]string
+		if err := json.Unmarshal([]byte(raw), &routes); err != nil {
+			return nil, fmt.Errorf("read the alert routes: %w", err)
+		}
+		return routes, nil
+	case store.IsNotFound(err):
+		return map[string][]string{}, nil
+	default:
+		return nil, fmt.Errorf("read the alert routes: %w", err)
+	}
+}
+
+// SetAlertRoutes stores the alert routes, replacing what was saved. The caller checks them: this
+// only keeps them.
+func (s *Service) SetAlertRoutes(ctx context.Context, routes map[string][]string) error {
+	if err := s.ready(); err != nil {
+		return err
+	}
+	encoded, err := json.Marshal(routes)
+	if err != nil {
+		return fmt.Errorf("encode the alert routes: %w", err)
+	}
+	err = s.store.Write(ctx, func(q *db.Queries) error {
+		return q.SetSetting(ctx, db.SetSettingParams{Key: alertsKey, ValueJSON: string(encoded)})
+	})
+	if err != nil {
+		return fmt.Errorf("save the alert routes: %w", err)
+	}
+	return nil
 }
 
 // ready reports whether the service can reach its store, so a daemon wired without one fails loudly

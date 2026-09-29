@@ -104,8 +104,9 @@ func TestOnlyTheNoticesThatAreNewAreSent(t *testing.T) {
 	if !wanted {
 		t.Fatal("a genuinely new notice was not routed")
 	}
-	if !strings.Contains(notice.Body, "Card 5 failed CI") {
-		t.Errorf("the grouped notice does not name the new one:\n%s", notice.Body)
+	// One new notice reads as itself: its text is the title, and only its own sub-line is the body.
+	if !strings.Contains(notice.Title, "Card 5 failed CI") || strings.Contains(notice.Title+notice.Body, "Card 3") {
+		t.Errorf("the notice does not name only the new one:\n%s\n%s", notice.Title, notice.Body)
 	}
 }
 
@@ -145,4 +146,97 @@ func TestAPublishedApprovalReachesAChatUnderFiveSeconds(t *testing.T) {
 		}
 	}
 	t.Fatal("no published approval ever reached a chat")
+}
+
+func card(state protocol.CardState, reason *protocol.NeedsReason) protocol.Card {
+	return protocol.Card{ID: "crd_9", Title: "Fix login", State: state, NeedsReason: reason}
+}
+
+func TestACardThatFinishedIsToldOnce(t *testing.T) {
+	svc := newService(t, newRecorder(), notify.Options{})
+	moved := protocol.CardMovedEventData{Card: card(protocol.CardStateDone, nil), From: protocol.CardStateReview}
+	notice, wanted := svc.EventOf(events.Event{Data: moved})
+	if !wanted || notice.Type != notify.EventCardDone || notice.Title != "Finished: Fix login" || notice.CardID != "crd_9" {
+		t.Fatalf("a finished card reads %+v (wanted %v)", notice, wanted)
+	}
+	moved.From = protocol.CardStateDone
+	if _, wanted := svc.EventOf(events.Event{Data: moved}); wanted {
+		t.Error("a card that was already done was told again")
+	}
+}
+
+func TestACardThatNeedsThePersonSaysWhyExceptForAPermission(t *testing.T) {
+	svc := newService(t, newRecorder(), notify.Options{})
+	needs := func(kind protocol.NeedsReasonKind, text string) protocol.CardMovedEventData {
+		return protocol.CardMovedEventData{
+			Card: card(protocol.CardStateNeeds, &protocol.NeedsReason{Kind: kind, Text: text}),
+			From: protocol.CardStateWorking,
+		}
+	}
+	stuck, wanted := svc.EventOf(events.Event{Data: needs(protocol.NeedsReasonKindStuck, "It cannot find the config.")})
+	if !wanted || stuck.Type != notify.EventAgentStuck || stuck.Title != "Fix login needs you" || stuck.Body != "It cannot find the config." {
+		t.Errorf("a stuck card reads %+v (wanted %v)", stuck, wanted)
+	}
+	red, _ := svc.EventOf(events.Event{Data: needs(protocol.NeedsReasonKindCIFailed, "3 tests failed.")})
+	if red.Type != notify.EventCIFailed || red.Title != "CI failed: Fix login" {
+		t.Errorf("a card with red CI reads %+v", red)
+	}
+	if _, wanted := svc.EventOf(events.Event{Data: needs(protocol.NeedsReasonKindApprovalNeeded, "")}); wanted {
+		t.Error("a card waiting on a permission was told twice: the approval is its own notice")
+	}
+	already := needs(protocol.NeedsReasonKindStuck, "")
+	already.From = protocol.CardStateNeeds
+	if _, wanted := svc.EventOf(events.Event{Data: already}); wanted {
+		t.Error("a card that was already waiting was told again")
+	}
+}
+
+func TestAProjectsBranchTurningRedIsToldOnceUntilItRecovers(t *testing.T) {
+	svc := newService(t, newRecorder(), notify.Options{})
+	ci := func(status protocol.CIState) events.Event {
+		return events.Event{Data: protocol.CIEventData{Project: &protocol.ProjectCI{ProjectID: "api", Status: status}}}
+	}
+	notice, wanted := svc.EventOf(ci(protocol.CIStateFailed))
+	if !wanted || notice.Type != notify.EventCIFailed || notice.Title != "CI failed on api" {
+		t.Fatalf("a red branch reads %+v (wanted %v)", notice, wanted)
+	}
+	if _, wanted := svc.EventOf(ci(protocol.CIStateFailed)); wanted {
+		t.Error("a branch that stayed red was told again")
+	}
+	if _, wanted := svc.EventOf(ci(protocol.CIStatePassed)); wanted {
+		t.Error("a branch turning green was told as if it were news")
+	}
+	if _, wanted := svc.EventOf(ci(protocol.CIStateFailed)); !wanted {
+		t.Error("a branch that went red again after recovering was not told")
+	}
+}
+
+func TestANoticeLinksToTheCardWhereEachChannelCanOpenIt(t *testing.T) {
+	rec := newRecorder()
+	svc := newService(t, rec, notify.Options{
+		LinkBase: func() string { return "http://laptop.tail1.ts.net:47800/" },
+		Routes: []notify.Route{{Event: notify.EventAgentStuck, Channels: []notify.Channel{
+			notify.ChannelTelegram, notify.ChannelNtfy,
+		}}},
+	})
+	svc.Notify(context.Background(), notify.Event{Type: notify.EventAgentStuck, Title: "Fix login needs you", CardID: "crd_9"})
+	svc.Flush(context.Background())
+	chat := rec.forChannel(notify.ChannelTelegram)
+	app := rec.forChannel(notify.ChannelNtfy)
+	if len(chat) != 1 || chat[0].notice.URL != "http://laptop.tail1.ts.net:47800/?open=card%2Fcrd_9" {
+		t.Errorf("the chat link is %+v, want the daemon's page opened at the card", chat)
+	}
+	if len(app) != 1 || app[0].notice.URL != "marshal://card/crd_9" {
+		t.Errorf("the ntfy link is %+v, want the phone app's own link", app)
+	}
+}
+
+func TestANoticeHasNoLinkWhenTheDaemonKnowsNoAddress(t *testing.T) {
+	rec := newRecorder()
+	svc := newService(t, rec, notify.Options{})
+	svc.Notify(context.Background(), notify.Event{Type: notify.EventCardDone, Title: "Finished: x", CardID: "crd_9"})
+	svc.Flush(context.Background())
+	if got := rec.forChannel(notify.ChannelTelegram); len(got) != 1 || got[0].notice.URL != "" {
+		t.Errorf("the notice is %+v, want no link", got)
+	}
 }

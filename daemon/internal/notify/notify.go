@@ -17,11 +17,13 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	neturl "net/url"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/khanblair/marshal/daemon/internal/chatbot"
+	"github.com/khanblair/marshal/daemon/internal/protocol"
 )
 
 // Channel names one place a notice can go. It is the same word as the connection's own id and the
@@ -33,6 +35,8 @@ const (
 	ChannelTelegram Channel = "telegram"
 	// ChannelDiscord is the person's Discord channel.
 	ChannelDiscord Channel = "discord"
+	// ChannelNtfy is the person's ntfy topic. It only receives: there is nothing to answer from it.
+	ChannelNtfy Channel = "ntfy"
 )
 
 // EventTypes are the kinds of thing notices are sent for, named the way the daemon's own events are
@@ -41,11 +45,16 @@ const (
 	// EventApproval is a decision waiting on the person. It is sent at once: a person who has to
 	// answer should not also have to wait for a grouping window.
 	EventApproval = "approval.requested"
-	// EventCIFailed is a card's CI turning red.
+	// EventCIFailed is CI turning red, on a card's branch or on a project's default branch.
 	EventCIFailed = "ci.failed"
 	// EventCardMerged is a card landing on the default branch.
 	EventCardMerged = "card.merged"
-	// EventNeedsYou is a card wanting the person's attention for any other reason.
+	// EventCardDone is a card finishing: it reached the done column.
+	EventCardDone = "card.done"
+	// EventAgentStuck is a card whose agent cannot go on without the person: stuck, out of budget,
+	// asking a question, or holding a plan to review. A permission request is EventApproval instead.
+	EventAgentStuck = "agent.stuck"
+	// EventNeedsYou is a standing notice: something the app lists for the person.
 	EventNeedsYou = "card.needs-you"
 )
 
@@ -67,15 +76,42 @@ type Event struct {
 	URL string
 	// Actions are what the person can do from the chat. An event with actions is sent at once.
 	Actions []chatbot.Action
+	// CardID is the daemon's id of the card the event is about. Each channel turns it into the link
+	// that channel can open (see linkFor); an event about no card carries none.
+	CardID string
 }
 
 // actionable reports whether an event is asking for an answer, which is sent at once rather than
 // grouped.
 func (e Event) actionable() bool { return len(e.Actions) > 0 }
 
-// notice turns an event into the notice a chat shows.
-func (e Event) notice() chatbot.Notice {
-	return chatbot.Notice{Title: e.Title, Body: e.Body, URL: e.URL, Actions: e.Actions}
+// noticeFor turns an event into the notice one channel shows, with the link that channel can open.
+func (s *Service) noticeFor(e Event, channel Channel) chatbot.Notice {
+	url := e.URL
+	if url == "" {
+		url = s.linkFor(channel, e.CardID)
+	}
+	return chatbot.Notice{Title: e.Title, Body: e.Body, URL: url, Actions: e.Actions}
+}
+
+// linkFor is where a notice about a card leads. The ntfy app opens the phone app through its own
+// scheme; a chat cannot link a custom scheme, so it gets the daemon's page with the card asked for.
+// Without a known address a chat gets no link at all, which is better than one that cannot open.
+func (s *Service) linkFor(channel Channel, cardID string) string {
+	if cardID == "" {
+		return ""
+	}
+	if channel == ChannelNtfy {
+		return "marshal://card/" + cardID
+	}
+	if s.link == nil {
+		return ""
+	}
+	base := strings.TrimRight(s.link(), "/")
+	if base == "" {
+		return ""
+	}
+	return base + "/?open=" + neturl.QueryEscape("card/"+cardID)
 }
 
 // Sender sends one notice to one channel. The daemon's own is backed by a chat bot; a test's is a
@@ -100,6 +136,9 @@ type Options struct {
 	Window time.Duration
 	// Routes overrides the routing table. Empty uses DefaultRoutes.
 	Routes []Route
+	// LinkBase answers the address a phone opens Marshal at, such as http://name.tail1.ts.net:47800,
+	// or "" while the daemon does not know one. Nil means it never does, so notices carry no link.
+	LinkBase func() string
 }
 
 // Route says which channels one kind of event goes to.
@@ -118,6 +157,8 @@ func DefaultRoutes() []Route {
 		{Event: EventApproval, Channels: []Channel{ChannelTelegram, ChannelDiscord}},
 		{Event: EventCIFailed, Channels: []Channel{ChannelTelegram}},
 		{Event: EventCardMerged, Channels: []Channel{ChannelTelegram}},
+		{Event: EventCardDone, Channels: []Channel{ChannelTelegram}},
+		{Event: EventAgentStuck, Channels: []Channel{ChannelTelegram, ChannelDiscord}},
 		{Event: EventNeedsYou, Channels: []Channel{ChannelTelegram, ChannelDiscord}},
 	}
 }
@@ -128,6 +169,7 @@ type Service struct {
 	sender Sender
 	log    *slog.Logger
 	window time.Duration
+	link   func() string
 	mu     sync.Mutex
 	routes map[string][]Channel
 	// defaultChannels are where an event type with no route of its own goes.
@@ -137,6 +179,9 @@ type Service struct {
 	// sent is the ids of standing notices this router has already delivered, so the whole-list
 	// payload of notice.created sends only what is new (bus.go).
 	sent map[string]struct{}
+	// ciStatus is the last default-branch state seen per project, so a red branch is told once and
+	// not on every run that leaves it red.
+	ciStatus map[string]protocol.CIState
 }
 
 // New builds a router over a sender. The sender is required: a router with nowhere to send is not a
@@ -158,10 +203,11 @@ func New(sender Sender, opts Options) (*Service, error) {
 		routes = DefaultRoutes()
 	}
 	s := &Service{
-		sender: sender, log: log, window: window,
-		routes:  make(map[string][]Channel, len(routes)),
-		pending: make(map[Channel][]chatbot.Notice),
-		sent:    make(map[string]struct{}),
+		sender: sender, log: log, window: window, link: opts.LinkBase,
+		routes:   make(map[string][]Channel, len(routes)),
+		pending:  make(map[Channel][]chatbot.Notice),
+		sent:     make(map[string]struct{}),
+		ciStatus: make(map[string]protocol.CIState),
 	}
 	for _, route := range routes {
 		s.routes[route.Event] = append([]Channel(nil), route.Channels...)
@@ -207,12 +253,14 @@ func (s *Service) Notify(ctx context.Context, event Event) {
 		return
 	}
 	if event.actionable() {
-		s.send(ctx, channels, event.notice())
+		for _, channel := range channels {
+			s.send(ctx, []Channel{channel}, s.noticeFor(event, channel))
+		}
 		return
 	}
 	s.mu.Lock()
 	for _, channel := range channels {
-		s.pending[channel] = append(s.pending[channel], event.notice())
+		s.pending[channel] = append(s.pending[channel], s.noticeFor(event, channel))
 	}
 	s.mu.Unlock()
 }

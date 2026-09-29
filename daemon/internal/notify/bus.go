@@ -13,17 +13,11 @@ import (
 // knows an event payload's shape, so a payload that changes is one type switch away rather than
 // something every notifier has to care about.
 //
-// Only two kinds of event reach a phone today:
-//
-//   - `approval.requested` is actionable, so it is sent at once with the answers the agent offered
-//     as its actions. A person who is away should not find out their approval waited on a grouping
-//     window (B9.4's five seconds is the ceiling, not the target).
-//   - `notice.created` carries the whole standing list, so only the notices that are new since the
-//     last one are sent; a person is not re-buzzed about a notice they were already told about, and
-//     the ones that arrive together are grouped by the router itself.
-//
-// Every other event type is deliberately ignored rather than sent with a made-up title: a notice
-// that says "something happened" is worse than no notice.
+// What reaches a phone: an approval request (sent at once, with the agent's own answers as
+// actions), a card that finished, a card that needs the person for any reason but a permission, CI
+// turning red, and each new standing notice (`notice.created` carries the whole list, so only what
+// is new is sent). Every other event is deliberately ignored rather than sent with a made-up title:
+// a notice that says "something happened" is worse than no notice.
 
 // Follow runs the router against the daemon's bus until ctx ends: it flushes grouped notices on the
 // window while it consumes events, so one call is all the daemon has to make.
@@ -60,9 +54,56 @@ func (s *Service) eventOf(ev events.Event) (Event, bool) {
 		return approvalNotice(data), true
 	case protocol.NoticeListEventData:
 		return s.newNotice(data)
+	case protocol.CardMovedEventData:
+		return cardMoved(data)
+	case protocol.CIEventData:
+		return s.branchTurnedRed(data)
 	default:
 		return Event{}, false
 	}
+}
+
+// cardMoved turns a card's move into a notice when the move is one a person wants to hear about: a
+// card that finished, or one that now waits on the person for a reason an approval does not cover.
+// A card that was already in the state it moved to, or that waits on a permission (its own
+// actionable notice), says nothing.
+func cardMoved(data protocol.CardMovedEventData) (Event, bool) {
+	card := data.Card
+	switch {
+	case card.State == protocol.CardStateDone && data.From != protocol.CardStateDone:
+		return Event{Type: EventCardDone, Title: "Finished: " + card.Title, CardID: card.ID}, true
+	case card.State == protocol.CardStateNeeds && data.From != protocol.CardStateNeeds && card.NeedsReason != nil:
+		return needsYou(card), card.NeedsReason.Kind != protocol.NeedsReasonKindApprovalNeeded
+	default:
+		return Event{}, false
+	}
+}
+
+// needsYou reads why a card waits: a red CI is its own kind of notice, and every other reason is the
+// agent needing the person, with the reason's own sentence underneath.
+func needsYou(card protocol.Card) Event {
+	reason := card.NeedsReason
+	if reason.Kind == protocol.NeedsReasonKindCIFailed {
+		return Event{Type: EventCIFailed, Title: "CI failed: " + card.Title, Body: reason.Text, CardID: card.ID}
+	}
+	return Event{Type: EventAgentStuck, Title: card.Title + " needs you", Body: reason.Text, CardID: card.ID}
+}
+
+// branchTurnedRed tells the person when a project's default branch goes red, once: a branch that
+// stays red through the next run is not news again, and it is told again only after it recovered.
+func (s *Service) branchTurnedRed(data protocol.CIEventData) (Event, bool) {
+	project := data.Project
+	if project == nil {
+		return Event{}, false
+	}
+	s.mu.Lock()
+	before := s.ciStatus[project.ProjectID]
+	s.ciStatus[project.ProjectID] = project.Status
+	s.mu.Unlock()
+	if project.Status != protocol.CIStateFailed || before == protocol.CIStateFailed {
+		return Event{}, false
+	}
+	return Event{Type: EventCIFailed, Title: "CI failed on " + project.ProjectID}, true
 }
 
 // approvalNotice is one waiting permission request, offered as the answers the agent gave. Each
