@@ -37,3 +37,25 @@ type SaveNtfyRequest struct {
 	// Token is an access token for a server that needs one. Empty is fine for an open topic.
 	Token string `json:"token"`
 }
+
+// DetectTelegramChatRequest is the body of POST /v1/integrations/telegram/detect-chat: the bot's
+// token, before it is saved.
+type DetectTelegramChatRequest struct {
+	// Token is the bot's token from BotFather.
+	Token string `json:"token"`
+}
+
+// DetectTelegramChatAnswer is what the detection found. Found is false, with a Message, when nobody
+// has written to the bot yet.
+type DetectTelegramChatAnswer struct {
+	// Found says a chat was found.
+	Found bool `json:"found"`
+	// ChatID is the chat's numeric id, to save the connection with. Empty when not found.
+	ChatID string `json:"chatId"`
+	// Name is what a person calls the chat, such as a group's title or a person's name.
+	Name string `json:"name"`
+	// Kind is "private", "group", "supergroup", or "channel".
+	Kind string `json:"kind"`
+	// Message is one plain sentence for the person when nothing was found.
+	Message string `json:"message"`
+}

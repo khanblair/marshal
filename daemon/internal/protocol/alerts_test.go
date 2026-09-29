@@ -37,3 +37,10 @@ func TestSaveNtfyRequestGolden(t *testing.T) {
 		Server: "https://ntfy.example.com", Topic: "marshal-7f3a9c", Token: "",
 	})
 }
+
+func TestDetectTelegramChatGoldens(t *testing.T) {
+	testutil.Golden(t, "detect-telegram-chat-request", protocol.DetectTelegramChatRequest{Token: "123456:ABC-DEF"})
+	testutil.Golden(t, "detect-telegram-chat-answer", protocol.DetectTelegramChatAnswer{
+		Found: true, ChatID: "777", Name: "Ada Okafor", Kind: "private", Message: "",
+	})
+}

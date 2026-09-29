@@ -265,3 +265,22 @@ func (s *Service) testChat(ctx context.Context, info Info) (protocol.TestResult,
 	defer func() { _ = bot.Close() }()
 	return bot.Test(ctx)
 }
+
+// DetectTelegramChat finds the chat that most recently wrote to a bot, so a person does not have to
+// look up a numeric chat id. It needs only the token, before anything is saved, and it sends nothing.
+func (s *Service) DetectTelegramChat(ctx context.Context, req protocol.DetectTelegramChatRequest) (protocol.DetectTelegramChatAnswer, error) {
+	chat, err := chatbot.DetectTelegramChat(ctx, nil, s.telegramBase, req.Token)
+	switch {
+	case err == nil:
+		return protocol.DetectTelegramChatAnswer{Found: true, ChatID: chat.ID, Name: chat.Name, Kind: chat.Kind}, nil
+	case errors.Is(err, chatbot.ErrNoTelegramChat):
+		return protocol.DetectTelegramChatAnswer{
+			Message: "Nobody has written to the bot yet. Open your bot in Telegram, press Start, send it any message, then try again.",
+		}, nil
+	case errors.Is(err, chatbot.ErrTelegramTokenRefused):
+		return protocol.DetectTelegramChatAnswer{}, protocol.InvalidArgument("Telegram did not accept that token. Copy it again from @BotFather.")
+	case errors.Is(err, chatbot.ErrTelegramBusy):
+		return protocol.DetectTelegramChatAnswer{}, protocol.Conflict("Something is already reading this bot's messages, so Marshal cannot look. Type the chat id yourself, or disconnect Telegram first.")
+	}
+	return protocol.DetectTelegramChatAnswer{}, protocol.Unavailable("Marshal could not reach Telegram. Check the connection and try again.")
+}

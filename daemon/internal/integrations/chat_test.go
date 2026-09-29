@@ -207,3 +207,28 @@ func TestNtfySavesWithATopicAloneAndTestsAgainstAFakeServer(t *testing.T) {
 		}
 	}
 }
+
+func TestDetectingTheTelegramChatAnswersItsIdOrHowToGetOne(t *testing.T) {
+	answer := `{"ok":true,"result":[]}`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(answer))
+	}))
+	t.Cleanup(srv.Close)
+	f := newFixture(t, func(o *integrations.Options) { o.TelegramBaseURL = srv.URL })
+	ctx := context.Background()
+
+	none, err := f.svc.DetectTelegramChat(ctx, protocol.DetectTelegramChatRequest{Token: "123:TESTTOKEN"})
+	if err != nil || none.Found || none.Message == "" {
+		t.Fatalf("with nobody written: %+v, %v", none, err)
+	}
+	answer = `{"ok":true,"result":[{"update_id":5,"message":{"chat":{"id":777,"type":"private","first_name":"Ada"}}}]}`
+	found, err := f.svc.DetectTelegramChat(ctx, protocol.DetectTelegramChatRequest{Token: "123:TESTTOKEN"})
+	if err != nil || !found.Found || found.ChatID != "777" || found.Name != "Ada" {
+		t.Fatalf("with a message: %+v, %v", found, err)
+	}
+	// Nothing was saved by looking.
+	if _, _, saved := f.row(integrations.TelegramID); saved {
+		t.Error("detecting a chat wrote a connection")
+	}
+}

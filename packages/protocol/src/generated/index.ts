@@ -1105,6 +1105,30 @@ export interface SaveNtfyRequest {
   /** Token is an access token for a server that needs one. Empty is fine for an open topic. */
   token: string;
 }
+/**
+ * DetectTelegramChatRequest is the body of POST /v1/integrations/telegram/detect-chat: the bot's
+ * token, before it is saved.
+ */
+export interface DetectTelegramChatRequest {
+  /** Token is the bot's token from BotFather. */
+  token: string;
+}
+/**
+ * DetectTelegramChatAnswer is what the detection found. Found is false, with a Message, when nobody
+ * has written to the bot yet.
+ */
+export interface DetectTelegramChatAnswer {
+  /** Found says a chat was found. */
+  found: boolean;
+  /** ChatID is the chat's numeric id, to save the connection with. Empty when not found. */
+  chatId: string;
+  /** Name is what a person calls the chat, such as a group's title or a person's name. */
+  name: string;
+  /** Kind is "private", "group", "supergroup", or "channel". */
+  kind: string;
+  /** Message is one plain sentence for the person when nothing was found. */
+  message: string;
+}
 
 //////////
 // source: checkpoint.go
