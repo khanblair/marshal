@@ -70,11 +70,11 @@ A section is one part of the screens that can switch from mock data to the daemo
 | S9 Terminal | Terminal view and the chat and terminal switch | 2: 2.7 | Daemon |
 | S10 Card activity | Activity tab | 2: 2.8 | Daemon |
 | S11 Card diff | Diff tab | 2: 2.9 | Daemon |
-| S12 Card checks | Checks tab | 10: 10.4 | Mock |
+| S12 Card checks | Checks tab | 10: 10.4 | Daemon |
 | S13 Card preview | Preview tab | 6: 6.6, 6.7 | Daemon |
-| S14 Card notes | Notes tab | 7: 7.6, 7.7 | Mock |
-| S15 Checklists | Checklists on a card | 10: 10.10, 10.11 | Mock |
-| S16 Comments and members | Comments tab, members row | 10: 10.12, 10.13 | Mock |
+| S14 Card notes | Notes tab | 7: 7.6, 7.7 | Daemon |
+| S15 Checklists | Checklists on a card | 10: 10.10, 10.11 | Daemon |
+| S16 Comments and members | Comments tab, members row | 10: 10.12, 10.13 | Daemon |
 | S17 Project chats | Chats view | 2: 2.11 | Daemon |
 | S18 Home: needs you and awake | Needs you list, working and merged tiles, awake agents | 2: 2.3 | Daemon |
 | S19a Home: cards finished | Cards finished per day chart | 2: 2.3 | Daemon |
@@ -84,7 +84,7 @@ A section is one part of the screens that can switch from mock data to the daemo
 | S22 Home: coming up | Events, jobs, briefs, due cards | 8: 8.1, 8.5 | Daemon |
 | S23 Notices | Bell and every notice kind, including sleep reminders | 5: 5.10 | Daemon |
 | S24a Palette and search | Command palette and top bar search over projects, cards, and chats | 2: 2.12 | Daemon |
-| S24b Session and note search | Search over past sessions and notes | 7: 7.10 | Mock |
+| S24b Session and note search | Search over past sessions and notes | 7: 7.10 | Daemon |
 | S25 Calendar | Calendar view | 8: 8.5, 12.3 | Daemon |
 | S26a Settings: sleep | Idle time, warning time, reminder channel, restore mode | 5: 5.10 | Daemon |
 | S26b Settings: limits | Cost and awake limits | 4: 4.8 | Daemon |
