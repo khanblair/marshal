@@ -33,7 +33,7 @@ func (n *Node) Peers(ctx context.Context, port int) []protocol.TailnetPeer {
 	if n == nil {
 		return nil
 	}
-	client, err := n.srv.LocalClient()
+	client, err := n.server().LocalClient()
 	if err != nil {
 		return nil
 	}

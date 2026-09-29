@@ -16,6 +16,7 @@ import (
 	"net/netip"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"tailscale.com/ipn"
@@ -61,8 +62,9 @@ type Node struct {
 	log      *slog.Logger
 	hostname string
 
-	mu     sync.Mutex
-	status protocol.TailnetStatus
+	started atomic.Bool
+	mu      sync.Mutex
+	status  protocol.TailnetStatus
 }
 
 // New makes a node. Nothing is joined until Up is called, so a daemon starts and serves on
@@ -108,7 +110,7 @@ func (n *Node) refresh(ctx context.Context) {
 	if ctx.Err() != nil {
 		return
 	}
-	client, err := n.srv.LocalClient()
+	client, err := n.server().LocalClient()
 	if err != nil {
 		n.fail(fmt.Errorf("reach the tailnet node: %w", err))
 		return
@@ -125,7 +127,7 @@ func (n *Node) refresh(ctx context.Context) {
 // tailnet listener possible. On a node nobody has signed in yet it does not return until the
 // person has opened the sign-in address: Watch is what tells them the address.
 func (n *Node) Up(ctx context.Context) (protocol.TailnetStatus, error) {
-	status, err := n.srv.Up(ctx)
+	status, err := n.server().Up(ctx)
 	if err != nil {
 		// A cancelled context is the daemon shutting down, not a tailnet that failed.
 		if ctx.Err() == nil {
@@ -149,7 +151,7 @@ func (n *Node) Status() protocol.TailnetStatus {
 // node's own tailnet address, so this never opens anything on this machine's interfaces and never
 // on all of them.
 func (n *Node) Listen(network, addr string) (net.Listener, error) {
-	listener, err := n.srv.Listen(network, addr)
+	listener, err := n.server().Listen(network, addr)
 	if err != nil {
 		return nil, fmt.Errorf("listen on the tailnet at %s: %w", addr, err)
 	}
@@ -160,16 +162,23 @@ func (n *Node) Listen(network, addr string) (net.Listener, error) {
 // answers on 443, 8443, and 10000, and only for the node's own name, so the caller passes one of
 // those ports and the daemon decides which paths are served on it.
 func (n *Node) ListenFunnel(network, addr string) (net.Listener, error) {
-	listener, err := n.srv.ListenFunnel(network, addr)
+	listener, err := n.server().ListenFunnel(network, addr)
 	if err != nil {
 		return nil, fmt.Errorf("open Funnel at %s: %w", addr, err)
 	}
 	return listener, nil
 }
 
-// Close ends the node and its listeners.
+// server hands out the tsnet server and records that it may now be running, since tsnet starts
+// itself on first use and cannot be closed cleanly before that.
+func (n *Node) server() *tsnet.Server {
+	n.started.Store(true)
+	return n.srv
+}
+
+// Close ends the node and its listeners. A node nothing ever used has nothing to close.
 func (n *Node) Close() error {
-	if n.srv == nil {
+	if !n.started.Load() {
 		return nil
 	}
 	return n.srv.Close()
