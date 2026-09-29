@@ -40,3 +40,15 @@ func (s *Store) EnsureOwner(ctx context.Context, create db.CreateUserParams) (db
 	})
 	return owner, err
 }
+
+// SetTailnetIdentity records the Tailscale account the daemon's own node joined as, so the
+// profile's Tailscale identity is read from the node rather than typed in (B9.1). It writes one
+// column and nothing else: a node signing in is not a profile edit, so updated_at is left alone.
+func (s *Store) SetTailnetIdentity(ctx context.Context, userID, identity string) error {
+	return s.Write(ctx, func(q *db.Queries) error {
+		_, err := q.SetUserTailnetIdentity(ctx, db.SetUserTailnetIdentityParams{
+			TailnetIdentity: identity, ID: userID,
+		})
+		return err
+	})
+}

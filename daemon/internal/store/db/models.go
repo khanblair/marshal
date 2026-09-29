@@ -24,6 +24,16 @@ type Approval struct {
 	DecidedBy   string
 }
 
+type Attachment struct {
+	ID        string
+	CommentID string
+	FileName  string
+	MimeType  string
+	SizeBytes int64
+	Path      string
+	CreatedAt int64
+}
+
 type AuditLog struct {
 	ID         string
 	SessionID  string
@@ -76,6 +86,19 @@ type Card struct {
 	DoingNow          string
 	Paused            int64
 	ForkedFrom        string
+	TemplateID        string
+	ParentID          *string
+}
+
+type CardCheck struct {
+	ID        string
+	CardID    string
+	Kind      string
+	SpecJSON  string
+	Status    string
+	RunRef    string
+	CreatedAt int64
+	UpdatedAt int64
 }
 
 type CardLabel struct {
@@ -86,6 +109,12 @@ type CardLabel struct {
 type CardLink struct {
 	CardID      string
 	DependsOnID string
+}
+
+type CardMember struct {
+	CardID  string
+	UserID  string
+	AddedAt int64
 }
 
 type Chat struct {
@@ -102,6 +131,32 @@ type Chat struct {
 	LastActiveAt   int64
 	CreatedAt      int64
 	UpdatedAt      int64
+}
+
+type Checklist struct {
+	ID          string
+	CardID      string
+	Name        string
+	Position    int64
+	Required    int64
+	PeopleOnly  int64
+	HideChecked int64
+	CreatedAt   int64
+	UpdatedAt   int64
+}
+
+type ChecklistItem struct {
+	ID           string
+	ChecklistID  string
+	Text         string
+	Position     int64
+	Done         int64
+	DoneByKind   string
+	DoneByID     string
+	EvidenceJSON string
+	DoneAt       *int64
+	CreatedAt    int64
+	UpdatedAt    int64
 }
 
 type Checkpoint struct {
@@ -126,6 +181,18 @@ type CiRun struct {
 	FixSentAt int64
 }
 
+type Comment struct {
+	ID           string
+	CardID       string
+	AuthorKind   string
+	AuthorID     string
+	Body         string
+	MentionsJSON string
+	AgentReadAt  *int64
+	CreatedAt    int64
+	EditedAt     *int64
+}
+
 type DailyStat struct {
 	Day           int64
 	ProjectID     string
@@ -144,6 +211,12 @@ type Device struct {
 	PairedAt   int64
 	LastSeenAt *int64
 	RevokedAt  *int64
+}
+
+type ExternalLink struct {
+	CardID     string
+	Kind       string
+	ExternalID string
 }
 
 type FileClaim struct {
@@ -257,6 +330,33 @@ type SavedView struct {
 	UpdatedAt   int64
 }
 
+type Schedule struct {
+	ID           string
+	ProjectID    string
+	Name         string
+	Kind         string
+	Icon         string
+	TriggerType  string
+	WhenText     string
+	CronExpr     string
+	TimeStr      string
+	DaysJSON     string
+	Action       string
+	Enabled      int64
+	MissedPolicy string
+	CreatedAt    int64
+	UpdatedAt    int64
+	LastRunAt    int64
+}
+
+type ScheduleRun struct {
+	ID         string
+	ScheduleID string
+	RunAt      int64
+	Status     string
+	Details    string
+}
+
 type Session struct {
 	ID             string
 	CardID         string
@@ -329,6 +429,14 @@ type SmellFinding struct {
 type SmellProfile struct {
 	ProjectID string
 	SpecJSON  string
+}
+
+type Template struct {
+	ID        string
+	Name      string
+	SpecJSON  string
+	CreatedAt int64
+	UpdatedAt int64
 }
 
 type Usage struct {

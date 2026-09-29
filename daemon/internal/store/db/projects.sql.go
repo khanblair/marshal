@@ -298,7 +298,7 @@ func (q *Queries) GetBoardByProject(ctx context.Context, projectID string) (Boar
 }
 
 const getCard = `-- name: GetCard :one
-SELECT id, project_id, number, board_id, title, body, state, role_id, agent_kind, model, thinking, permission_mode, branch, worktree_path, pinned, created_by, created_at, updated_at, role, package, planned_start, planned_end, due, actual_start, actual_end, pull_request_number, pull_request_url, ci_state, context_used, needs_reason_kind, needs_reason_text, needs_since, doing_now, paused, forked_from FROM cards WHERE id = ?
+SELECT id, project_id, number, board_id, title, body, state, role_id, agent_kind, model, thinking, permission_mode, branch, worktree_path, pinned, created_by, created_at, updated_at, role, package, planned_start, planned_end, due, actual_start, actual_end, pull_request_number, pull_request_url, ci_state, context_used, needs_reason_kind, needs_reason_text, needs_since, doing_now, paused, forked_from, template_id, parent_id FROM cards WHERE id = ?
 `
 
 func (q *Queries) GetCard(ctx context.Context, id string) (Card, error) {
@@ -340,12 +340,14 @@ func (q *Queries) GetCard(ctx context.Context, id string) (Card, error) {
 		&i.DoingNow,
 		&i.Paused,
 		&i.ForkedFrom,
+		&i.TemplateID,
+		&i.ParentID,
 	)
 	return i, err
 }
 
 const getCardByKey = `-- name: GetCardByKey :one
-SELECT id, project_id, number, board_id, title, body, state, role_id, agent_kind, model, thinking, permission_mode, branch, worktree_path, pinned, created_by, created_at, updated_at, role, package, planned_start, planned_end, due, actual_start, actual_end, pull_request_number, pull_request_url, ci_state, context_used, needs_reason_kind, needs_reason_text, needs_since, doing_now, paused, forked_from FROM cards WHERE project_id = ? AND number = ?
+SELECT id, project_id, number, board_id, title, body, state, role_id, agent_kind, model, thinking, permission_mode, branch, worktree_path, pinned, created_by, created_at, updated_at, role, package, planned_start, planned_end, due, actual_start, actual_end, pull_request_number, pull_request_url, ci_state, context_used, needs_reason_kind, needs_reason_text, needs_since, doing_now, paused, forked_from, template_id, parent_id FROM cards WHERE project_id = ? AND number = ?
 `
 
 type GetCardByKeyParams struct {
@@ -392,6 +394,8 @@ func (q *Queries) GetCardByKey(ctx context.Context, arg GetCardByKeyParams) (Car
 		&i.DoingNow,
 		&i.Paused,
 		&i.ForkedFrom,
+		&i.TemplateID,
+		&i.ParentID,
 	)
 	return i, err
 }
@@ -550,7 +554,7 @@ func (q *Queries) ListCardLabelsByProject(ctx context.Context, projectID string)
 }
 
 const listCardsByProject = `-- name: ListCardsByProject :many
-SELECT id, project_id, number, board_id, title, body, state, role_id, agent_kind, model, thinking, permission_mode, branch, worktree_path, pinned, created_by, created_at, updated_at, role, package, planned_start, planned_end, due, actual_start, actual_end, pull_request_number, pull_request_url, ci_state, context_used, needs_reason_kind, needs_reason_text, needs_since, doing_now, paused, forked_from FROM cards WHERE project_id = ? ORDER BY number
+SELECT id, project_id, number, board_id, title, body, state, role_id, agent_kind, model, thinking, permission_mode, branch, worktree_path, pinned, created_by, created_at, updated_at, role, package, planned_start, planned_end, due, actual_start, actual_end, pull_request_number, pull_request_url, ci_state, context_used, needs_reason_kind, needs_reason_text, needs_since, doing_now, paused, forked_from, template_id, parent_id FROM cards WHERE project_id = ? ORDER BY number
 `
 
 func (q *Queries) ListCardsByProject(ctx context.Context, projectID string) ([]Card, error) {
@@ -598,6 +602,8 @@ func (q *Queries) ListCardsByProject(ctx context.Context, projectID string) ([]C
 			&i.DoingNow,
 			&i.Paused,
 			&i.ForkedFrom,
+			&i.TemplateID,
+			&i.ParentID,
 		); err != nil {
 			return nil, err
 		}
@@ -613,7 +619,7 @@ func (q *Queries) ListCardsByProject(ctx context.Context, projectID string) ([]C
 }
 
 const listCardsNeedingYou = `-- name: ListCardsNeedingYou :many
-SELECT cards.id, cards.project_id, cards.number, cards.board_id, cards.title, cards.body, cards.state, cards.role_id, cards.agent_kind, cards.model, cards.thinking, cards.permission_mode, cards.branch, cards.worktree_path, cards.pinned, cards.created_by, cards.created_at, cards.updated_at, cards.role, cards.package, cards.planned_start, cards.planned_end, cards.due, cards.actual_start, cards.actual_end, cards.pull_request_number, cards.pull_request_url, cards.ci_state, cards.context_used, cards.needs_reason_kind, cards.needs_reason_text, cards.needs_since, cards.doing_now, cards.paused, cards.forked_from, projects.name AS project_name
+SELECT cards.id, cards.project_id, cards.number, cards.board_id, cards.title, cards.body, cards.state, cards.role_id, cards.agent_kind, cards.model, cards.thinking, cards.permission_mode, cards.branch, cards.worktree_path, cards.pinned, cards.created_by, cards.created_at, cards.updated_at, cards.role, cards.package, cards.planned_start, cards.planned_end, cards.due, cards.actual_start, cards.actual_end, cards.pull_request_number, cards.pull_request_url, cards.ci_state, cards.context_used, cards.needs_reason_kind, cards.needs_reason_text, cards.needs_since, cards.doing_now, cards.paused, cards.forked_from, cards.template_id, cards.parent_id, projects.name AS project_name
 FROM cards
 JOIN projects ON projects.id = cards.project_id
 WHERE cards.state = 'needs'
@@ -656,6 +662,8 @@ type ListCardsNeedingYouRow struct {
 	DoingNow          string
 	Paused            int64
 	ForkedFrom        string
+	TemplateID        string
+	ParentID          *string
 	ProjectName       string
 }
 
@@ -705,6 +713,8 @@ func (q *Queries) ListCardsNeedingYou(ctx context.Context) ([]ListCardsNeedingYo
 			&i.DoingNow,
 			&i.Paused,
 			&i.ForkedFrom,
+			&i.TemplateID,
+			&i.ParentID,
 			&i.ProjectName,
 		); err != nil {
 			return nil, err

@@ -185,6 +185,25 @@ func (q *Queries) RevokeDevice(ctx context.Context, arg RevokeDeviceParams) (int
 	return result.RowsAffected()
 }
 
+const setUserTailnetIdentity = `-- name: SetUserTailnetIdentity :execrows
+UPDATE users SET tailnet_identity = ?1 WHERE id = ?2
+`
+
+type SetUserTailnetIdentityParams struct {
+	TailnetIdentity string
+	ID              string
+}
+
+// What the Tailscale account this machine's node joined as is, so the profile's Tailscale identity
+// comes from the node itself rather than being typed in (B9.1, Phase 9).
+func (q *Queries) SetUserTailnetIdentity(ctx context.Context, arg SetUserTailnetIdentityParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, setUserTailnetIdentity, arg.TailnetIdentity, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const touchDevice = `-- name: TouchDevice :exec
 UPDATE devices SET last_seen_at = CAST(?1 AS INTEGER)
 WHERE id = ?2 AND revoked_at IS NULL
