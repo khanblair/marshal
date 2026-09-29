@@ -21,6 +21,9 @@ const CARD_MAPS = ["chat", "act", "checks", "notes", "preview"] as const;
  * default branch, the dev command, and the bypass lock. A project in the port always has them.
  */
 const DAEMON_PROJECT_FIELDS = ["branch", "dev", "lockBypass"] as const;
+/** A schedule's own project id, which round-trips a save to the daemon; the prototype has no such
+ * field, since it never saves a schedule anywhere. */
+const DAEMON_SCHEDULE_FIELDS = ["projectId"] as const;
 /** Fake pull request number of a card moved to review by hand: this plus the card number. */
 const FAKE_PR_BASE = 300;
 
@@ -41,9 +44,20 @@ const isObject = (value: unknown): value is Json =>
 const isProject = (value: Json): boolean =>
   ["id", "name", "lang", "path"].every((key) => typeof value[key] === "string");
 
+const isSchedule = (value: Json): boolean =>
+  typeof value.trigger === "string" &&
+  typeof value.missed === "string" &&
+  Array.isArray(value.days);
+
 function projectFields(project: Json): Json {
   const rest = { ...project };
   for (const key of DAEMON_PROJECT_FIELDS) delete rest[key];
+  return rest;
+}
+
+function scheduleFields(schedule: Json): Json {
+  const rest = { ...schedule };
+  for (const key of DAEMON_SCHEDULE_FIELDS) delete rest[key];
   return rest;
 }
 
@@ -143,6 +157,7 @@ export function createProtoShape(port: Pick<Marshal, "S">, proto: ProtoM): Proto
     let source = value;
     if (isCard(value)) source = cardFields(value);
     else if (isProject(value)) source = projectFields(value);
+    else if (isSchedule(value)) source = scheduleFields(value);
     const out: Json = {};
     for (const [key, item] of Object.entries(source)) {
       if (key === "card" && typeof item === "string" && idOf(item) !== undefined) continue;

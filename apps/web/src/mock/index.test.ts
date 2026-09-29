@@ -35,6 +35,7 @@ const API = [
   "approve",
   "approvePlan",
   "archiveChat",
+  "authorizeGoogleCalendar",
   "awake",
   "card",
   "cardLabelOf",
@@ -52,12 +53,23 @@ const API = [
   "colOf",
   "commands",
   "confirm",
+  "connectDiscord",
   "connectGitHub",
+  "connectGmail",
+  "connectGoogleCalendar",
+  "connectTelegram",
+  "connectTrello",
   "connectionOnDaemon",
+  "createPairingCode",
+  "pairingCode",
+  "removeDevice",
+  "tailnetStatus",
+  "tailnetPeers",
   "costTone",
   "costs",
   "createCard",
   "createRole",
+  "createSchedule",
   "deco",
   "decoMsgs",
   "deleteCard",
@@ -65,6 +77,7 @@ const API = [
   "deleteChecklist",
   "deleteComment",
   "deleteRole",
+  "deleteSchedule",
   "deny",
   "diffFor",
   "disconnectIntegration",
@@ -121,6 +134,7 @@ const API = [
   "saveProfile",
   "saveProviderKey",
   "saveRole",
+  "saveSchedule",
   "setOnboardingStep",
   "requestBypass",
   "resetFirstLaunch",
@@ -134,6 +148,7 @@ const API = [
   "savePlan",
   "saveSleepSettings",
   "saveView",
+  "scheduleRuns",
   "send",
   "set",
   "setMode",
@@ -304,11 +319,33 @@ describe("index.ts boot", () => {
       // prototype has no member for any of it. The prototype's own connection rows are a drawing,
       // and what a person could press there turned a state in the mock.
       "connectGitHub",
+      "connectTelegram",
+      "connectDiscord",
       "disconnectIntegration",
       "testIntegration",
+      // The paired devices (S2b, B9.1 and B9.2) are the daemon's own: it holds the token hash and
+      // decides what a pairing code is worth, so the prototype's hardcoded code has no member in
+      // either half. What a press makes, and what a revoke does, are reads and writes to it alone.
+      "createPairingCode",
+      "pairingCode",
+      "removeDevice",
+      "tailnetStatus",
+      "tailnetPeers",
       // The query beside them says whether the daemon owns a connection's row, the way `rolesOnDaemon`
       // and the rest do, so a row of a later phase still reads as the mock's own.
       "connectionOnDaemon",
+      // Trello, Google Calendar, and Gmail (B8.2-B8.4) are all the daemon's own: two-way card sync,
+      // an OAuth client and consent, and a poller reading a label, none of which the prototype has.
+      "connectTrello",
+      "connectGoogleCalendar",
+      "authorizeGoogleCalendar",
+      "connectGmail",
+      // Schedules (S30, B8.1): the daemon's own scheduler, so the prototype's array in the store has
+      // no member for adding, editing, removing, or reading one's run history.
+      "createSchedule",
+      "saveSchedule",
+      "deleteSchedule",
+      "scheduleRuns",
     ];
     const proto = loadPrototype("#nosim").keys.filter((k) => !dropped.includes(k));
     expect([...proto, ...added].sort()).toEqual([...API].sort());

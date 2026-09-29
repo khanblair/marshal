@@ -27,6 +27,7 @@ import type {
   Provider,
   Role,
   SavedView,
+  Schedule,
   SleepSettings,
   TerminalInput,
   TerminalResize,
@@ -61,6 +62,12 @@ import { createPreviewStore, type PreviewStore } from "./fake-previews";
 import { answerProviderRoute, createProviderStore, type ProviderStore } from "./fake-providers";
 import { answerRoleRoute, createRolesStore, type RolesStore } from "./fake-roles";
 import { answerSavedViewRoute } from "./fake-saved-views";
+import {
+  answerCalendarRoute,
+  answerScheduleRoute,
+  createScheduleStore,
+  type ScheduleStore,
+} from "./fake-schedules";
 import { answerSearchRoute } from "./fake-search";
 import { answerSleepRoute, createSleepStore, type SleepStore } from "./fake-sleep";
 import { createTerminalRouter, type TerminalRouter } from "./fake-terminal";
@@ -132,6 +139,8 @@ export interface FakeDaemonOptions {
   notices?: readonly Notice[];
   /** The sleep settings it starts with (section S26a). The golden `sleep-settings` by default. */
   sleep?: SleepSettings;
+  /** The schedules it starts with (section S30). The golden `schedule-list` by default. */
+  schedules?: readonly Schedule[];
   /** The projects that have CI data (section S21). None by default, so each reads as not connected. */
   ci?: readonly ProjectCI[];
   /** A card's preview it starts with (section S13), one per card. None by default: all stopped. */
@@ -188,6 +197,8 @@ export interface FakeDaemon {
   notices: NoticesStore;
   /** The sleep settings it holds now (section S26a). */
   sleep: SleepStore;
+  /** The schedules it holds now (section S30). */
+  schedules: ScheduleStore;
   /** Every project's CI health it holds now (section S21). A test seeds it and reads it back. */
   ci: CIStore;
   /** Every card's preview it holds now (section S13), by the daemon's own card id. */
@@ -372,8 +383,67 @@ interface Router {
   roles: RolesStore;
   notices: NoticesStore;
   sleep: SleepStore;
+  schedules: ScheduleStore;
   ci: CIStore;
   previews: PreviewStore;
+}
+
+/**
+ * The paired devices (B9.1, B9.2, section S2b) and the tailnet status (B9.1): the four routes the
+ * profile draws. The fake daemon answers with one phone, so a component test has a real list to
+ * read; a revoke marks the row rather than dropping it, because the screen says a device was
+ * removed instead of watching it vanish, and the status answers "off", which is what a daemon that
+ * was never started with `--tailnet` truthfully is.
+ */
+const FAKE_DEVICES = [
+  {
+    id: "01H1234567890ABCDEFGHJKMNPQ",
+    name: "Pixel 8",
+    kind: "mobile",
+    pairedAt: "2026-09-20T10:00:00.000Z",
+    lastSeenAt: "2026-09-28T09:00:00.000Z",
+    revoked: false,
+  },
+  {
+    id: "01H1234567890ABCDEFGHJKMNPR",
+    name: "iPad Air",
+    kind: "mobile",
+    pairedAt: "2026-09-22T12:00:00.000Z",
+    lastSeenAt: null,
+    revoked: false,
+  },
+];
+
+function answerDeviceRoute(router: Router, request: FakeRequest): Response | null {
+  const key = keyOf(request);
+  if (key === "GET /v1/me/devices") {
+    return jsonAnswer({ devices: FAKE_DEVICES, serverTime: router.now() });
+  }
+  if (key === "POST /v1/me/devices/pairing-code") {
+    return jsonAnswer({
+      code: "7QX-2LD",
+      expiresAt: "2026-09-28T10:00:00.000Z",
+      serverTime: router.now(),
+    });
+  }
+  if (request.method === "DELETE" && pathOf(request.url).startsWith("/v1/me/devices/")) {
+    return new Response(null, { status: 204 });
+  }
+  if (key === "GET /v1/tailnet") {
+    return jsonAnswer({
+      enabled: false,
+      state: "off",
+      hostname: "",
+      dnsName: "",
+      ips: [],
+      identity: "",
+      loginUrl: "",
+      funnel: false,
+      error: "",
+      serverTime: router.now(),
+    });
+  }
+  return null;
 }
 
 /** Answers one request the way the real daemon's router does, including who may ask. */
@@ -417,6 +487,10 @@ function answer(router: Router, request: FakeRequest): Response {
   if (notices) return notices;
   const sleep = answerSleepRoute(router.sleep, request);
   if (sleep) return sleep;
+  const schedule = answerScheduleRoute(router.schedules, request);
+  if (schedule) return schedule;
+  const calendar = answerCalendarRoute(router.schedules, request);
+  if (calendar) return calendar;
   // Every project's CI health in one answer (section S21), which is what the boards' and Home's
   // lists read: the route is the top-level `/v1/ci` and belongs to no project.
   const ci = answerCIRoute(router.ci, request);
@@ -433,6 +507,8 @@ function answer(router: Router, request: FakeRequest): Response {
     router.projects.some((p) => p.id === pid),
   );
   if (chat) return chat;
+  const device = answerDeviceRoute(router, request);
+  if (device) return device;
   const person = answerMeRoute(router.me, request, projectExists);
   if (person) return person;
   const views = answerSavedViewRoute(router.me, request, projectExists);
@@ -580,6 +656,7 @@ interface Slices {
   roles: RolesStore;
   notices: NoticesStore;
   sleep: SleepStore;
+  schedules: ScheduleStore;
   ci: CIStore;
   previews: PreviewStore;
 }
@@ -630,6 +707,7 @@ function createSlices(
     roles: createRolesStore({ roles: options.roles, now }),
     notices: createNoticesStore({ notices: options.notices, publish: emit, now }),
     sleep: createSleepStore({ settings: options.sleep }),
+    schedules: createScheduleStore({ schedules: options.schedules, now }),
     ci: createCIStore({ projects: options.ci, now }),
     previews: createPreviewStore({
       previews: options.previews,
@@ -762,6 +840,7 @@ export function createFakeDaemon(options: FakeDaemonOptions = {}): FakeDaemon {
     roles: slices.roles,
     notices: slices.notices,
     sleep: slices.sleep,
+    schedules: slices.schedules,
     ci: slices.ci,
     previews: slices.previews,
     ...switches(state),
