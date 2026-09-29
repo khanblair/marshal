@@ -4,6 +4,7 @@ import type {
   SaveGitHubRequest,
   SaveGmailRequest,
   SaveGoogleCalendarRequest,
+  SaveNtfyRequest,
   SaveTelegramRequest,
   SaveTrelloRequest,
 } from "@marshal/protocol";
@@ -90,5 +91,13 @@ export function disconnectConnection(id: string, name: string): void {
         if (done) M.toast(`${name} disconnected`);
       });
     },
+  });
+}
+
+/** Stores the ntfy connection and says so. The daemon publishes a test message as part of the same call. */
+export function connectNtfy(body: SaveNtfyRequest): Promise<boolean> {
+  return M.connectNtfy(body).then((saved) => {
+    if (saved) M.toast("ntfy connected");
+    return saved;
   });
 }

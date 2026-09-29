@@ -134,6 +134,7 @@ describe("the connections with a daemon", () => {
       "gmail",
       "telegram",
       "discord",
+      "ntfy",
       "obsidian",
     ]);
     // Every connection the daemon knows reads as not connected before anything is set up.

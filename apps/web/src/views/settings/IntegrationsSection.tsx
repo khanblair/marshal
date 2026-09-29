@@ -14,6 +14,7 @@ import {
   GCAL_ID,
   GMAIL_ID,
   OBSIDIAN_ID,
+  NTFY_ID,
   TELEGRAM_ID,
   TRELLO_ID,
 } from "~/sync/integrations";
@@ -24,6 +25,7 @@ import { GitHubAppForm } from "./GitHubAppForm";
 import { GmailForm } from "./GmailForm";
 import { GoogleCalendarForm } from "./GoogleCalendarForm";
 import { ObsidianPanel } from "./ObsidianPanel";
+import { NtfyForm } from "./NtfyForm";
 import { TelegramForm } from "./TelegramForm";
 import { TestChecks } from "./TestChecks";
 import { TrelloForm } from "./TrelloForm";
@@ -138,6 +140,9 @@ function IntegrationCard(props: { integration: Integration; edit: EditState }) {
           </Match>
           <Match when={props.integration.id === DISCORD_ID}>
             <DiscordForm integration={props.integration} edit={props.edit} />
+          </Match>
+          <Match when={props.integration.id === NTFY_ID}>
+            <NtfyForm integration={props.integration} edit={props.edit} />
           </Match>
         </Switch>
       </Show>

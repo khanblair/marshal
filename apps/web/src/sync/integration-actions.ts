@@ -5,6 +5,7 @@ import type {
   SaveGitHubRequest,
   SaveGmailRequest,
   SaveGoogleCalendarRequest,
+  SaveNtfyRequest,
   SaveTelegramRequest,
   SaveTrelloRequest,
 } from "@marshal/protocol";
@@ -15,6 +16,7 @@ import {
   GCAL_ID,
   GITHUB_ID,
   GMAIL_ID,
+  NTFY_ID,
   TELEGRAM_ID,
   TRELLO_ID,
 } from "./integrations";
@@ -163,4 +165,15 @@ export async function testIntegration(c: Ctx, id: string): Promise<boolean> {
     // The test ran; only the re-read failed, so the row keeps the state it had.
   }
   return ok;
+}
+
+/**
+ * Stores the ntfy connection: the topic notices are published to, and optionally the server and an
+ * access token. The daemon writes the token to the keychain, publishes a test message, and answers
+ * the whole list.
+ */
+export async function connectNtfy(c: Ctx, body: SaveNtfyRequest): Promise<boolean> {
+  const api = c.env.data?.api;
+  if (!api) return false;
+  return write(c, `integration:${NTFY_ID}`, () => api.saveIntegration(NTFY_ID, body));
 }

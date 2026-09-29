@@ -30,6 +30,7 @@ const CONNECTION_SECTIONS: Readonly<Record<string, SectionId>> = {
   gmail: "S29e",
   telegram: "S29f",
   discord: "S29g",
+  ntfy: "S29h",
 };
 
 /** The GitHub App connection's own id, the one its row, its keychain entry, and its test are filed under. */
@@ -56,6 +57,9 @@ export const TELEGRAM_ID = "telegram";
 
 /** The Discord connection's own id (section S29g). */
 export const DISCORD_ID = "discord";
+
+/** The ntfy connection's own id (section S29h). */
+export const NTFY_ID = "ntfy";
 
 export const integrationsSyncer: Syncer<IntegrationState[]> = {
   section: "S29a",

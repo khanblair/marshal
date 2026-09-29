@@ -1,6 +1,7 @@
 import { Match, Switch } from "solid-js";
 import { M } from "~/mock";
 import type { EditState } from "./edit-state";
+import { AlertsSection } from "./AlertsSection";
 import { GeneralSection } from "./GeneralSection";
 import { HelpSection } from "./HelpSection";
 import { IntegrationsSection } from "./IntegrationsSection";
@@ -57,6 +58,9 @@ export function SectionContent(props: { drafts: SettingsDrafts }) {
       </Match>
       <Match when={is("integrations")}>
         <IntegrationsSection />
+      </Match>
+      <Match when={is("alerts")}>
+        <AlertsSection />
       </Match>
       <Match when={is("shortcuts")}>
         <ShortcutsSection />

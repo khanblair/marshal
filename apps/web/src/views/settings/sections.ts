@@ -9,6 +9,7 @@ export type SectionKey =
   | "limits"
   | "schedules"
   | "integrations"
+  | "alerts"
   | "shortcuts"
   | "help";
 
@@ -28,6 +29,7 @@ export const SECTIONS: readonly SectionSpec[] = [
   { key: "limits", label: "Cost and awake limits", icon: "gauge" },
   { key: "schedules", label: "Schedules", icon: "clock" },
   { key: "integrations", label: "Integrations", icon: "plug" },
+  { key: "alerts", label: "Alerts", icon: "bell" },
   { key: "shortcuts", label: "Keyboard shortcuts", icon: "keyboard" },
   { key: "help", label: "Help", icon: "life-buoy" },
 ];
