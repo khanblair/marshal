@@ -119,6 +119,13 @@ type MemoryRemover interface {
 	RemoveProjectMemory(ctx context.Context, projectID string) error
 }
 
+// ChecklistGate is the rule a card meets before it moves to Ready to merge: every required checklist
+// has to be done (B10.5). The card panel implements it.
+type ChecklistGate interface {
+	// OpenRequiredItems says how many lines of the card's required checklists are still open.
+	OpenRequiredItems(ctx context.Context, cardID string) (int, error)
+}
+
 // AwakeCounter says how many cards of a project have a running agent. The session manager
 // implements it, and the number becomes the "awake" badge. Until it exists the badge is 0.
 type AwakeCounter interface {
@@ -202,6 +209,7 @@ type Service struct {
 	// than passed to New.
 	gateMu sync.RWMutex
 	gate   ReviewGate
+	lists  ChecklistGate
 }
 
 // Option changes how New builds a Service.
@@ -293,6 +301,21 @@ func (s *Service) SetReviewGate(g ReviewGate) {
 	s.gateMu.Lock()
 	s.gate = g
 	s.gateMu.Unlock()
+}
+
+// SetChecklistGate gives the service the card panel's rule for a card about to move to Ready to
+// merge. It is set once at start-up, like the review gate; the default is no gate.
+func (s *Service) SetChecklistGate(g ChecklistGate) {
+	s.gateMu.Lock()
+	s.lists = g
+	s.gateMu.Unlock()
+}
+
+// checklistGate answers the checklist gate, or nil when none was set.
+func (s *Service) checklistGate() ChecklistGate {
+	s.gateMu.RLock()
+	defer s.gateMu.RUnlock()
+	return s.lists
 }
 
 // reviewGate answers the gate, or nil when none was set.

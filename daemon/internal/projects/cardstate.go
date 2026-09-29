@@ -40,6 +40,19 @@ func (s *Service) SetState(ctx context.Context, id string, state protocol.CardSt
 			}
 		}
 	}
+	if state == protocol.CardStateReady {
+		card, err := s.Card(ctx, id)
+		if err != nil {
+			return protocol.Card{}, err
+		}
+		if card.State != protocol.CardStateReady {
+			if refusal := s.checkChecklists(ctx, id); refusal != nil {
+				s.log.Info("kept a card out of ready", "project_id", card.ProjectID, "card_id", id,
+					"from", card.State, "reason", refusal.Details["reason"])
+				return protocol.Card{}, refusal
+			}
+		}
+	}
 	var before, after db.Card
 	err := s.store.Write(ctx, func(q *db.Queries) error {
 		row, err := q.GetCard(ctx, id)

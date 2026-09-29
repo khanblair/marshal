@@ -84,6 +84,8 @@ type Deps struct {
 	Git      Git
 	// Tests runs the merge's tests. Nil means a clean merge is enough.
 	Tests Tester
+	// Checklists holds a card back while a required checklist is open (B10.5). Nil means none is.
+	Checklists ChecklistGate
 	// DataDir is where the queue's temporary worktrees go: <DataDir>/merge/<project>/<card>.
 	DataDir string
 	// Log is where problems are written. Nil discards.
@@ -97,6 +99,7 @@ type Service struct {
 	projects Projects
 	git      Git
 	tests    Tester
+	lists    ChecklistGate
 	dataDir  string
 	log      *slog.Logger
 	locks    keyedlock.Locks
@@ -116,8 +119,14 @@ func New(deps Deps) (*Service, error) {
 	}
 	return &Service{
 		cards: deps.Cards, projects: deps.Projects, git: deps.Git,
-		tests: deps.Tests, dataDir: filepath.Clean(deps.DataDir), log: log,
+		tests: deps.Tests, lists: deps.Checklists, dataDir: filepath.Clean(deps.DataDir), log: log,
 	}, nil
+}
+
+// ChecklistGate says whether a card's required checklists are done. The card panel implements it.
+type ChecklistGate interface {
+	// OpenRequiredItems says how many lines of the card's required checklists are still open.
+	OpenRequiredItems(ctx context.Context, cardID string) (int, error)
 }
 
 // Result says what the queue did.
@@ -144,6 +153,16 @@ func (s *Service) Merge(ctx context.Context, cardID string) (Result, error) {
 	if card.State != protocol.CardStateReady {
 		return Result{}, protocol.Refused("Only a card in Ready to merge goes to the merge queue.").
 			With("cardId", cardID).With("reason", "merge_not_ready")
+	}
+	if s.lists != nil {
+		open, err := s.lists.OpenRequiredItems(ctx, cardID)
+		if err != nil {
+			return Result{}, err
+		}
+		if open > 0 {
+			return Result{}, protocol.Refused("A required checklist on this card still has open items. Finish it before the merge.").
+				With("cardId", cardID).With("reason", "merge_checklist_open")
+		}
 	}
 	project, err := s.projects.Get(ctx, card.ProjectID)
 	if err != nil {

@@ -47,6 +47,8 @@ func refusalMessage(reason protocol.MoveRefusalReason) string {
 		return "The Integrator is merging this card. Wait for the merge to finish."
 	case protocol.MoveRefusalReasonQualityBlocking:
 		return "This card's changes have code smells to fix first. The agent has been told."
+	case protocol.MoveRefusalReasonChecklistOpen:
+		return "A required checklist on this card still has open items, so it can't be ready to merge."
 	}
 	return ""
 }
@@ -136,6 +138,13 @@ func (s *Service) MoveCard(ctx context.Context, id string, in protocol.MoveCardR
 	// The last rule of section 6.1 runs here rather than in checkMove because it asks another
 	// module: a card whose changes have a blocking code smell stays where it is and the finding goes
 	// back to its agent (section 17.1).
+	if in.State == protocol.CardStateReady {
+		if refusal := s.checkChecklists(ctx, id); refusal != nil {
+			s.log.Info("refused a manual move", "project_id", card.ProjectID, "card_id", id,
+				"from", card.State, "to", in.State, "reason", refusal.Details["reason"])
+			return protocol.Card{}, refusal
+		}
+	}
 	if in.State == protocol.CardStateReview {
 		if refusal := s.checkQuality(ctx, id); refusal != nil {
 			s.log.Info("refused a manual move", "project_id", card.ProjectID, "card_id", id,
@@ -197,4 +206,22 @@ func updateCardRow(ctx context.Context, q *db.Queries, row db.Card) error {
 		return fmt.Errorf("update card %s: %w", row.ID, err)
 	}
 	return nil
+}
+
+// checkChecklists refuses a move to Ready to merge while a required checklist has an open line. A
+// gate that could not be read never keeps a person's card back: that is logged and the move goes on.
+func (s *Service) checkChecklists(ctx context.Context, cardID string) *protocol.Error {
+	gate := s.checklistGate()
+	if gate == nil {
+		return nil
+	}
+	open, err := gate.OpenRequiredItems(ctx, cardID)
+	if err != nil {
+		s.log.Warn("could not read a card's required checklists", "card_id", cardID, "error", err)
+		return nil
+	}
+	if open == 0 {
+		return nil
+	}
+	return refusedMove(protocol.MoveRefusalReasonChecklistOpen).With("open", fmt.Sprint(open))
 }

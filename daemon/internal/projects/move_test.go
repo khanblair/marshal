@@ -166,3 +166,35 @@ func TestMoveCardFromReviewToWorkingSetsDoingNow(t *testing.T) {
 		t.Errorf("doing now = %q, want the review line", moved.DoingNow)
 	}
 }
+
+// fakeChecklistGate says how many lines of required checklists are open.
+type fakeChecklistGate struct{ open int }
+
+func (f fakeChecklistGate) OpenRequiredItems(context.Context, string) (int, error) {
+	return f.open, nil
+}
+
+// A required checklist with an open line keeps a card out of Ready to merge, by hand and by the
+// daemon's own move, and a finished one lets it through.
+func TestAnOpenRequiredChecklistKeepsACardOutOfReady(t *testing.T) {
+	e := newEnv(t)
+	project := e.folder(t, "small-repo")
+	card := e.card(t, project.ID, "Gate me")
+	e.svc.SetChecklistGate(fakeChecklistGate{open: 2})
+
+	_, err := e.svc.MoveCard(context.Background(), card.ID, protocol.MoveCardRequest{State: protocol.CardStateReady})
+	perr := wantCode(t, err, protocol.ErrorCodeRefused)
+	// The rules of section 6.1 come first, so a card outside review is refused for that reason.
+	if perr.Details["reason"] != string(protocol.MoveRefusalReasonNeedsReview) {
+		t.Fatalf("reason = %q", perr.Details["reason"])
+	}
+	_, err = e.svc.SetState(context.Background(), card.ID, protocol.CardStateReady)
+	perr = wantCode(t, err, protocol.ErrorCodeRefused)
+	if perr.Details["reason"] != string(protocol.MoveRefusalReasonChecklistOpen) || perr.Details["open"] != "2" {
+		t.Fatalf("the daemon's own move was refused with %+v", perr.Details)
+	}
+	e.svc.SetChecklistGate(fakeChecklistGate{open: 0})
+	if _, err := e.svc.SetState(context.Background(), card.ID, protocol.CardStateReady); err != nil {
+		t.Fatalf("a finished checklist still refused: %v", err)
+	}
+}
