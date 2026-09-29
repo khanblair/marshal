@@ -2,46 +2,54 @@
 
 One evolving file. Update it after every slice, and at the end of every run on this phase, even a stopped one. Never replace it with a fresh file — append and revise in place.
 
-Date of this run: **2026-09-28**. Builder: an autonomous agent. A second engineer (the "controller") verifies.
+Dates of the runs: **2026-09-28** (slices 1 to 5) and **2026-09-29** (slices 6 to 9). Builder: an autonomous agent. A second engineer (the "controller") verifies.
 
 ## 1. Summary
 
-Phase 9's milestone is "anywhere": the daemon joins the tailnet, phones pair by scanning a code, Telegram and Discord notify and take actions, and notifications reach a phone in under five seconds.
+Phase 9's milestone is "anywhere": the daemon joins the tailnet, phones pair by scanning a code, Telegram, Discord, and ntfy notify and take actions, and notifications reach a phone in under five seconds. On 2026-09-29 the owner scoped "remote" to mean controlling a daemon from a **phone or browser** (not a second machine), including an **Android app** (docs/mobile.md).
 
-**What is built and green (code + scoped tests run by the builder):**
+**Built and green (code + scoped tests run by the builder):**
 
-- **Slice 1 — tsnet node and origin policy.** `tailscale.com/tsnet` v1.102.5 pinned, wrapped by `internal/tailnet` (the only package that imports it). The daemon opens a **second, additive** listener beside the loopback one (`Server.serveTailnet`), off unless asked for; it never binds all interfaces. The origin rule accepts this node's own MagicDNS name and tailnet addresses and no other host. Binary-size measured (+15.13 MiB stripped with tsnet) and recorded in `docs/library-docs.md`.
-- **Slice 2 — pairing.** `internal/devices` owns the five-minute, single-use pairing code, `POST /v1/devices/pair` (the one route that mints a token with no token of its own), `GET /v1/me/devices`, and `DELETE /v1/me/devices/{id}`. The node's Tailscale identity is written onto the owner's row.
-- **Slice 3 — Funnel.** `Server.FunnelHandler` serves only `/hooks/*` (checked on the raw and cleaned path), and every request there is still signature-verified the way Phase 8 built it. Opening Funnel is `--funnel`/`MARSHAL_FUNNEL`; it has **never been enabled for real**.
-- **Slice 4 — Telegram and Discord (this run).** `internal/chatbot` wraps `github.com/go-telegram/bot` and `github.com/bwmarrin/discordgo`: a notice (title, body, link, actions), a connection test, and a receive loop. `internal/integrations` owns both connections (token in the keychain, chat/channel in the row), both now read `Wired`, and `PUT /v1/integrations/{id}` saves them. The Settings forms (`TelegramForm.tsx`, `DiscordForm.tsx`) are wired to the daemon, and **S29f and S29g are switched to `daemon`**. Every bot test uses an in-process fake server; no real bot token exists anywhere in the tree.
-- **Slice 5 — notification routing and the status screens (this run).** `internal/notify` owns per-event-type channels, groups everything that is not asking for an answer into one message per channel, and sends actionable notices at once. It is now **wired to the daemon's event bus** (`buildNotifications` in `cmd/marshald`), routing `approval.requested` immediately and new notices from `notice.created`; a test measures the under-five-seconds rule. The **pairing-code display** and the **tailnet + Funnel status** (build-plan 9.9) are built: `sync/devices.ts` is the S2b syncer, `DevicesList.tsx` asks the daemon for a real code and revokes through it, and `ProfileSection.tsx`'s *Tailnet identity* reads `GET /v1/tailnet`. **S2b is switched to `daemon`.**
+- **Slices 1 to 5 (2026-09-28):** the tsnet node and origin policy, device pairing, Funnel for `/hooks/*` only, Telegram and Discord, notification routing on the event bus, and the pairing and tailnet screens. See section 2.
+- **Slice 6 - phone sign-in and the platform adapter.** The "unauthorized" screen takes a pairing code (or scans it in the phone app) and calls `POST /v1/devices/pair`; the daemon's page opened with `?pair=<code>` pairs by itself and takes the code out of the address. `src/platform/` is the one place native features are reached (files, folder chooser, QR scan, haptics, `marshal://` links).
+- **Slice 7 - the Android app (`apps/mobile`).** A Tauri v2 project that opens the page the daemon serves over the tailnet. Its first screen takes an address or a scanned QR code; the desktop's "Pair a device" shows the QR code. Deep links, shared text, camera attachments, and haptics are in; an offline bar names the machine and the age of the data, and a change is refused before it is sent. The release workflow has an Android job (signed `.apk` and `.aab`, once the four signing secrets exist).
+- **Slice 8 - alerts.** The router now tells a person when a card finishes, when a card needs them for any reason but a permission, and when CI turns red; each notice links to the card. Where each alert goes is a setting (S26c) with an Alerts screen. ntfy is a third channel (S29h).
+- **Slice 9 - chat cards and the last onboarding step.** A chat can add a card (`new <project> <title>`). Onboarding's "connect from anywhere" screen (S31b) makes a real pairing code and QR code and saves the real connections.
 
-**What is not built:** slice 5's **remote machines** (a second daemon on the tailnet), and **S31b** (the onboarding pairing step) — it is **not switched**. The receive half of the chat bots (turning an `approve` from a chat into `POST /v1/approvals/{id}`) is not built, so a chat sends notices but cannot answer them yet.
+**Not built (left for later, by the owner's ruling on 2026-09-29):** several machines and the machine switcher (mobile.md 9.13), app lock and "confirm risky actions" (9.15), iOS (9.20), the push relay, Tailscale inside the app, sharing an image or file into Marshal, a per-button disabled state offline, and drawing `GET /v1/tailnet/peers` anywhere. Voice notes are still answered with "please type".
 
-Phases 10, 11, 12, and 13 were **not started** in this run (the owner asked for 9–13; see section 5).
+Phases 10, 11, 12, and 13 were **not started**.
 
 ## 2. Slice results
 
 | Slice | Status | What it built | Tests added | Evidence |
 |---|---|---|---|---|
-| 1. tsnet node and origin policy | Done | `internal/tailnet`; additive listener in `server.go`; tailnet origins in `stream_origin.go`; `--tailnet` settings | `internal/tailnet/tailnet_test.go` | `go build ./...`/`go vet ./...` clean; package tests pass |
-| 2. Device pairing | Done (backend) | `internal/devices`; `routes_devices.go`; `protocol/device.go`, `protocol/tailnet.go`; `tailnet_identity` written to the owner | `internal/devices/devices_test.go`, `api/routes_devices_test.go` | scoped api + devices tests pass |
-| 3. Funnel and serving | Done (backend) | `FunnelHandler` + `hooksOnly`; `openFunnel`; private addresses proved refused, hook routes still signature-verified | `api/tailnet_test.go` | scoped api tests pass |
-| 4. Telegram and Discord | Done (backend + forms) | `internal/chatbot` (bots, tests, parser, receive loop); integrations wiring; routes; `TelegramForm.tsx`/`DiscordForm.tsx`; S29f/S29g switched | `internal/chatbot/*_test.go`, `internal/integrations/chat_test.go` | chatbot + integrations chat tests pass; fake servers only |
-| 5. Routing, remote machines, status screens | Partial | `internal/notify` + `bus.go` on the daemon's bus; `sync/devices.ts` (S2b) with pairing, revoke, and `GET /v1/tailnet`; `ProfileSection` tailnet status. **Remote machines not built.** | `internal/notify/notify_test.go`, `bus_test.go` | notify tests pass; <5s measured |
+| 1. tsnet node and origin policy | Done | `internal/tailnet`; additive listener in `server.go`; tailnet origins in `stream_origin.go`; `--tailnet` settings. A node nothing ever used now closes without panicking. | `internal/tailnet/tailnet_test.go`, `cmd/marshald/tailnet_test.go` | scoped tests pass |
+| 2. Device pairing | Done | `internal/devices`; `routes_devices.go`; `protocol/device.go`, `protocol/tailnet.go` | `internal/devices/devices_test.go`, `api/routes_devices_test.go` | scoped tests pass |
+| 3. Funnel and serving | Done (backend) | `FunnelHandler` + `hooksOnly`; `openFunnel` | `api/tailnet_test.go` | scoped tests pass |
+| 4. Telegram, Discord, ntfy | Done | `internal/chatbot` (bots, ntfy publisher, parser); connections in `internal/integrations`; forms; S29f, S29g, S29h | `chatbot/*_test.go`, `integrations/chat_test.go` | fake servers only |
+| 5. Routing and status screens | Done | `internal/notify`, `bus.go`, links, the alert settings (`alerts.go`, `GET/PUT /v1/settings/alerts`); `sync/devices.ts`; `sync/alerts.ts`; the Alerts screen | `notify/*_test.go`, `api/routes_alerts_test.go`, `AlertsSection.daemon.test.tsx` | notify and api scoped tests pass |
+| 6. Phone sign-in, platform adapter | Done | `POST /v1/devices/pair` from the web app; `platform/` adapter; pairing QR; `?pair=` | `platform/*.test.ts`, `SignIn.test.tsx`, `AppRoot.test.tsx`, `sync/index.test.ts` | scoped web tests pass |
+| 7. Android app | Built, not run | `apps/mobile` (crate, config, capabilities, first screen, scripts); deep links, share, camera, haptics, offline bar; release job | `splash/address.test.mjs`, `scripts/patch-android.test.mjs`, `deep-links.test.ts`, `api-client.test.ts` | `cargo check` passes for the host and for `aarch64-linux-android`; nothing was built into an app or run |
+| 8. Alerts | Done | card done, needs you, CI red; per-channel links; alert settings | see slice 5 | scoped tests pass |
+| 9. Chat cards, onboarding | Done | `chatcmd` `new`; `ControlStepLive`; S31b switched | `chatcmd_test.go`, `ControlStepLive.daemon.test.tsx` | scoped tests pass |
+| Remote machines | Reframed | see section 6 | | |
 
 ## 3. Cutover evidence
 
-Gate item 8 (`pnpm check` and budgets) is not run by the builder (the full gate runs on GitHub CI): write "not run by the builder; see CI" there. The rest is from scoped runs. **This phase's register is not fully cut over** — only S29f and S29g moved.
+Gate item 8 (`pnpm check` and budgets) is not run by the builder: "not run by the builder; see CI".
 
-| Section | 1. Inventory rows built | 2. Daemon tests + goldens | 3. Mapper tests from goldens | 4. Loading/empty/error/offline | 5. End-to-end specs | 6. Mock removed, knip clean | 7. Registers and docs | 8. `pnpm check` + budgets | Switched |
+| Section | Built | Daemon tests + goldens | Mapper tests from goldens | Loading/empty/error/offline | End-to-end specs | Mock removed | Registers and docs | `pnpm check` | Switched |
 |---|---|---|---|---|---|---|---|---|---|
-| S2b Devices and Tailscale identity | Yes | Yes | No | No | No | Partial | Yes | not run by the builder; see CI | **Yes** (devices + status; onboarding step still open) |
-| S29f Integration: Telegram | Yes | Yes | N/A (list rows, not a golden) | Inherited from the integrations screen | No | No | Yes | not run by the builder; see CI | **Yes** |
-| S29g Integration: Discord | Yes | Yes | N/A | Inherited from the integrations screen | No | No | Yes | not run by the builder; see CI | **Yes** |
-| S31b Onboarding: connect from anywhere | No | No | No | No | No | No | No | not run by the builder; see CI | **No** |
+| S2b Devices and Tailscale identity | Yes | Yes | No | Partial | No | Partial | Yes | see CI | **Yes** |
+| S26c Settings: alerts | Yes | Yes (golden `alert-settings`) | Screen test against the fake daemon | Not connected sentence | No | N/A (new) | Yes | see CI | **Yes** |
+| S29f Telegram, S29g Discord | Yes | Yes | N/A | Inherited | No | No | Yes | see CI | **Yes** |
+| S29h Integration: ntfy | Yes | Yes | N/A | Inherited | No | N/A (new) | Yes | see CI | **Yes** |
+| S31b Onboarding: connect from anywhere | Yes | Yes | No | Falls back to the design's own step while the daemon is not online | No | Partial | Yes | see CI | **Yes** |
 
 ## 4. What I changed
+
+**2026-09-29 run, in short:** new `apps/mobile`; `apps/web/src/platform/`; `sync/deep-links.ts`, `sync/alerts.ts`; `AlertsSection.tsx`, `NtfyForm.tsx`, `PairingQr.tsx`, `ControlStepLive.tsx`; `daemon/internal/chatbot/ntfy.go`, `notify/alerts.go`, `api/routes_alerts.go`, `protocol/alerts.go`; changes to `notify` (more events, links), `chatcmd` (cards), `tailnet` (safe close), the sign-in screen, the offline bar, the API client (pair, offline guard, alert settings), the fake daemon, and the release workflow. The lists below are the 2026-09-28 run.
 
 New files:
 
@@ -85,19 +93,15 @@ Counts: **16 new files, 17 modified** (this run). Earlier runs of this phase add
 
 ## 5. Verification results
 
-**Verification was run by mistake and then stopped.** The owner's standing rule for this run is that tests, builds, and checks are **not** run until all of the requested phases are done. The builder ran `pnpm gen`, `go build ./...`, `go vet ./...`, `gofmt`, and a scoped `go test` on the touched packages **before that rule was re-confirmed**, and then stopped. Recorded here for honesty, not as a claim of a completed gate:
+**2026-09-29 run.** The owner asked for the tests, error checks, and validations of Phases 8 and 9 to be run, and the builder ran, one at a time: `go build`, `go vet`, `gofmt`, `golangci-lint` (0 issues), `go test -race -count=1 ./...` in `daemon/`, `pnpm typecheck`, `pnpm format:check`, and the web and protocol vitest suites. After that, slices 6 to 9 were checked with scoped runs only: `tsc --noEmit` for `apps/web` and `packages/ui`, vitest on the touched folders (`src/platform`, `src/sync`, `src/mock`, `src/data`, `src/app`, `src/views/settings`, `src/views/card`, `src/onboarding`, the UI `SignIn` and `OfflineBanner` tests), `node --test` for `apps/mobile`, and Go tests and lint for `notify`, `chatbot`, `chatcmd`, `integrations`, `settings`, `tailnet`, `protocol`, and the alert and route tests in `api`. `cargo check` passed for `apps/mobile` on the host and for `aarch64-linux-android`. `pnpm gen` was run for the wire types.
 
-- `gofmt -l` clean on the touched packages (after one formatting fix to `internal/notify/notify.go`).
-- `go build ./...` and `go vet ./...` clean in `daemon/`.
-- `go test ./internal/chatbot/... ./internal/notify/... ./internal/protocol/...` pass.
-- `go test ./internal/integrations/...`: the Telegram/Discord tests pass; three tests fail — `TestAnUnknownConnectionIsNotFound`, `TestTrelloDeliveryMovesALinkedCardToDone`, `TestTrelloDeliveryIgnoresAMoveToAnOrdinaryList`. These are **Phase 8's in-progress work** (Trello sync and Google Calendar), not Phase 9, and were not touched.
-- **Not run:** `node scripts/check.mjs`, `pnpm test:e2e`, the whole web suite, `pnpm build`, `pnpm budgets`, `pnpm smells`, `go test -race ./...`, `internal/api` as a whole package. "not run (the owner has not asked)."
+**Not run (the owner has not asked):** the full `go test -race ./...` and full web suite after slices 6 to 9, `node scripts/check.mjs`, `pnpm test:e2e`, `pnpm build`, `pnpm budgets`, `pnpm smells`, `knip`, any Android build, emulator, or real phone. Before slices 6 to 9 the full runs showed only failures that were then fixed; the remaining known failure is `CalendarView.test.tsx` (a timeout in a file this phase did not change).
 
-**Code review graph (rule 1b/1c): not available in this harness.** `command -v code-review-graph` finds nothing and there is no MCP server wired here, so `code-review-graph update` / `detect-changes` were not run. This is a declared deviation, not a fix.
+**Code review graph:** not run in this pass.
 
-**The security rule of `docs/architecture.md` section 13** — the daemon never listens on all interfaces — is tested in `internal/api` (the additive tailnet listener is off without `--tailnet`, and the loopback bind is unchanged). The Funnel handler's "only `/hooks/*`, still signature-verified" behaviour is tested in `api/tailnet_test.go`.
+**The security rule of `docs/architecture.md` section 13** is unchanged and still tested: the tailnet listener is off without `--tailnet`, and Funnel serves only `/hooks/*`.
 
-**Milestone check ("anywhere"):** not met end to end. The daemon can bind the tailnet and serve `/hooks/*` through Funnel, and pairing is real, but a phone has never reached it (no owner Tailscale sign-in), and the status screens do not exist.
+**Milestone check ("anywhere"):** not met end to end. Everything up to a phone reaching the daemon is built and tested in process; no phone has reached one, and no app has been installed.
 
 ## 6. Rulings
 
@@ -110,12 +114,12 @@ Counts: **16 new files, 17 modified** (this run). Earlier runs of this phase add
 
 ## 7. Found, not fixed, and later phases
 
-- **The notification router is now on the event bus**, but only two event types are mapped: `approval.requested` and `notice.created`. CI failures and other events reach a phone only once they become a standing notice. The routing settings screen (changing which channel an event type goes to) is unbuilt; the table is read-only defaults.
-- **A chat cannot answer yet.** The bots receive and the parser reads an `approve <id>`, but nothing dispatches that to `POST /v1/approvals/{id}`, so "approve from Telegram" (B9.3's done-when) is not met. This is the largest remaining gap.
-- **Remote machines (B9.5) are not started.** No second daemon on the tailnet, no project runnable on one from the laptop UI.
-- **Voice notes** are received and passed on as voice (with no text), but nothing transcribes them; the daemon is expected to answer asking for text.
-- **`internal/search`** (needed by Phase 10) may still not exist.
-- **Phase 8's Trello/GCal tests fail** (see section 5); that is the Phase 8 owner's to finish.
+- **`status` in a chat** is listed in the help text and answered with the help text; nothing summarises what is happening yet.
+- **Voice notes** are received and passed on as voice (with no text), but nothing transcribes them; the daemon asks for text.
+- **`GET /v1/tailnet/peers`** is built and tested and nothing draws it.
+- **`internal/search`** was needed by Phase 10 and now exists.
+- **Known red test outside this phase:** `CalendarView.test.tsx` times out in one run; the file was not changed by this phase.
+- The 2026-09-28 gaps "the router is on the bus for two event types", "a chat cannot answer", and "Phase 8's Trello tests fail" are closed: see slices 5, 8, and 9.
 
 ## 8. Needs the controller
 
@@ -130,11 +134,36 @@ Every check that needs a browser, a real account, or a real device is here. The 
 
 ## 9. Design-doc rows I added or propose
 
-The pairing-code display, the tailnet status, and the Funnel status (build-plan task 9.9) are **proposed, not built**. They are new sections beside the paired-devices list, and the pairing step in onboarding (S31b). They need the owner's sign-off on design before they are drawn, because no equivalent components exist to build from. The two chat-connection forms reuse the existing connection-row components and need no new design.
+The pairing-code display, the tailnet status, and the Funnel status (build-plan task 9.9) are built from the existing profile components. Three things are **new screen surface drawn by the builder from existing settings rows, and want the owner's eye**: the **Alerts** section in Settings (one checkbox per alert and channel, `AlertsSection.tsx`), the **pairing form on the sign-in screen** (a code field, a device name, and a scan button, in `packages/ui`'s `SignIn`), and the **phone app's first screen** (`apps/mobile/splash`). The two chat-connection forms and the ntfy form reuse the existing connection-row components.
 
 ## 10. Confirmation of the hard rules
 
 - **Funnel was never turned on for real.** No automated test and no builder command enabled Funnel against the public internet. Every Funnel test drives a fake node in process.
 - **No real Telegram or Discord bot token was ever used.** Every bot test points the bot at an in-process fake server and uses a made-up token; the Discord tests rewrite the real discord.com address to the fake server. No real Tailscale account was signed in to.
 - **No real Trello token or Google OAuth client** was used (Phase 8's rule, unchanged).
-- No mutating git command was run. No browser was opened. No generated file was edited by hand (`pnpm gen` regenerated them). The only deviation recorded is the code-review graph being unavailable (section 5).
+- (2026-09-28 run) No mutating git command was run. No browser was opened. No generated file was edited by hand (`pnpm gen` regenerated them). The only deviation recorded is the code-review graph being unavailable (section 5).
+- (2026-09-29 run) No real ntfy topic, Telegram or Discord token, or Tailscale account was used: every test points at an in-process fake. No Android app was built or run, no emulator or phone was used, and no browser was opened.
+
+## 11. Rulings added on 2026-09-29
+
+- **The phone app opens the daemon's page; it does not bundle the web app.** The daemon serves the UI on the tailnet, so the app and the daemon are one version and there is no cross-origin setup. The first screen only learns the address (typed, or from the QR code). The capability that lets the daemon's page use the camera and haptics is limited to `*.ts.net` and `100.*` on port 47800.
+- **Cleartext http is allowed in the Android build** because the daemon is reached at a plain-http tailnet address; the tailnet tunnel already encrypts it.
+- **The device token stays in the webview's private storage** for now; Android Keystore storage belongs with app lock, which is later work.
+- **Offline, a change is refused before it is sent** (`offline` client error), never queued; the bar names the machine and how old the data is.
+- **A notice links to the card:** `marshal://card/<id>` for ntfy, and `<tailnet address>/?open=card/<id>` for a chat, because a chat cannot link a custom scheme. With no online node there is no link.
+- **Chat cards:** the first word is the project (id, name, or the start of one); with one project the whole message is the title.
+- **ntfy needs only a topic.** An open topic on a public server has no token; the topic itself is the secret, and the form says so.
+- **The mock seed has an ntfy row and the prototype comparison leaves it out**, because the design prototype never drew one.
+
+## 12. Later work (the owner's notes, 2026-09-29)
+
+Not built, and not blocked: several machines with a machine switcher (mobile.md 9.13); app lock and "confirm risky actions" with Keystore-backed token storage (9.15); iOS (9.20); the optional push relay; Tailscale inside the app; sharing images and files into Marshal (only text is taken today); per-button disabled state offline; showing `GET /v1/tailnet/peers`; `status` in a chat (the help text lists it and nothing answers it yet); transcribing voice notes; haptics on merge (there is no merge action in the web client yet); a minimum Android version other than 10 (29); the "This device was removed" sentence after a revoke (the daemon's standard "token no longer valid" sentence shows today).
+
+## 13. Needs the controller (added 2026-09-29)
+
+1. **Build and install the app:** `pnpm setup:mobile`, then `pnpm dev:android` on a phone or emulator, or run the release workflow with the four `ANDROID_*` secrets. Confirm the first screen reaches the daemon at `http://<tailnet name>:47800`, and that the page then gets the camera and haptics.
+2. **Pair a real phone from the desktop's QR code**, then remove it from Settings > Profile and confirm it is refused at once.
+3. **Share text from Chrome to Marshal** and confirm the New card dialog opens filled in.
+4. **Tap an ntfy notice** and confirm it opens the card in the app.
+5. **Create an ntfy topic, save it in Settings > Integrations, press Test connection**, then change an alert in Settings > Alerts and confirm it follows at once.
+6. **Send `new <project> <title>` in Telegram and Discord** and confirm a card appears in the backlog.

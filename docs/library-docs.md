@@ -215,6 +215,17 @@ Recorded in the progress tracker's decisions log.
 
 When the desktop app is closed, the daemon sends OS notifications itself through a small platform helper, so notices still arrive.
 
+### 3.4a Phone app (Tauri mobile)
+
+| Library | Version | Used for |
+|---|---|---|
+| `@tauri-apps/plugin-barcode-scanner` and `tauri-plugin-barcode-scanner` | 2.5.0 and 2 | Reading the pairing QR code with the camera |
+| `@tauri-apps/plugin-haptics` and `tauri-plugin-haptics` | 2.4.0 and 2 | A light tap on approve and a marker on errors |
+| `@tauri-apps/plugin-deep-link` and `tauri-plugin-deep-link` | 2.5.0 and 2 | `marshal://` links and "Share to Marshal" |
+| `qrcode-generator` (web app) | 2.0.4 | Drawing the pairing QR code on the desktop |
+
+The web app loads each plugin on first use (`src/platform/`), so a browser build never needs them. The camera and haptics crates are phone-only dependencies of `apps/mobile`, so a desktop `cargo check` does not build them.
+
 ### 3.5 Fonts
 
 | Font | Used for | License |

@@ -279,3 +279,19 @@ These tasks belong to Phase 9 (Remote) in `build-plan.md`.
 | Should the app build Tailscale in later, so users don't need the Tailscale app? | After v1 |
 | Do we offer the optional push relay, and who runs it? | After v1 |
 | Minimum Android version to support? Suggested: Android 10 and newer. | Task 9.11 |
+
+---
+
+## 13. Status (2026-09-29)
+
+Built: 9.10 (the platform adapter, `apps/web/src/platform/`), 9.11 (the Android project, `apps/mobile`), 9.12 (pairing by QR scan or code), 9.14 (the offline bar names the machine and how old the data is, and a change is refused before it is sent, never queued), 9.16 (deep links, shared text, camera attachments, haptics on approve and on errors), 9.17 (ntfy alerts with `marshal://` links), 9.18 (the phone says it is paired, and offers the alert apps), and 9.19 (the Android job in `.github/workflows/release.yml`).
+
+How it differs from the plan above:
+
+- **The app opens the page the daemon serves.** It does not bundle the web app. That keeps the app and the daemon on one version, and needs no cross-origin setup. The first screen (`apps/mobile/splash`) only learns the computer's address.
+- **The device token lives in the webview's private storage**, not the Android Keystore. It is app-private on Android; Keystore-backed storage belongs with app lock.
+- **Buttons are not individually disabled offline.** A change is refused before it is sent, with the reason, and the bar says why.
+- **Shared text only.** Sharing an image or a file from another app is not built.
+- **Plain http on the tailnet.** The build allows cleartext traffic because the daemon is reached at a tailnet address; the tunnel is already encrypted.
+
+Left for later: 9.13 (several machines and the switcher), 9.15 (app lock, confirm risky actions), 9.20 (iOS), the push relay, and Tailscale inside the app.
