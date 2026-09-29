@@ -26,3 +26,8 @@ WHERE id = sqlc.arg(id) AND revoked_at IS NULL;
 -- name: RevokeDevice :execrows
 UPDATE devices SET revoked_at = CAST(sqlc.arg(revoked_at) AS INTEGER)
 WHERE id = sqlc.arg(id) AND revoked_at IS NULL;
+
+-- name: SetUserTailnetIdentity :execrows
+-- What the Tailscale account this machine's node joined as is, so the profile's Tailscale identity
+-- comes from the node itself rather than being typed in (B9.1, Phase 9).
+UPDATE users SET tailnet_identity = sqlc.arg(tailnet_identity) WHERE id = sqlc.arg(id);
