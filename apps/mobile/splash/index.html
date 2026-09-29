@@ -1,0 +1,59 @@
+<!doctype html>
+<!--
+  The first screen of the phone app. It knows nothing of Marshal but the address of the computer it
+  should open: the page the daemon serves is the real app, and this hands the window to it once an
+  address is known (docs/mobile.md section 2). Scanning the QR code shown in Settings > Profile >
+  Pair a device fills in the address and the pairing code together.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Marshal</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body {
+        margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+        font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #0b0b12; color: #e6e6ef;
+        padding: 24px; box-sizing: border-box;
+      }
+      main { width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: 14px; }
+      h1 { margin: 0; font-size: 20px; }
+      p { margin: 0; font-size: 14px; line-height: 1.45; opacity: 0.75; }
+      label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; }
+      input {
+        font: inherit; padding: 10px 12px; min-height: 44px; border-radius: 6px; box-sizing: border-box;
+        border: 1px solid rgba(230, 230, 239, 0.3); background: transparent; color: inherit;
+      }
+      button {
+        font: inherit; font-weight: 600; min-height: 44px; border-radius: 6px; border: 0; cursor: pointer;
+        background: #7c7cf0; color: #0b0b12;
+      }
+      button.plain { background: transparent; color: inherit; border: 1px solid rgba(230, 230, 239, 0.3); }
+      [role="alert"] { color: #ff8a8a; font-size: 13px; }
+      [hidden] { display: none !important; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Marshal</h1>
+      <p id="status">Control your agents from your phone. They keep running on your computer.</p>
+      <form id="form" hidden>
+        <label>
+          Your computer's address
+          <input id="address" inputmode="url" autocapitalize="off" autocomplete="off" spellcheck="false"
+            placeholder="marshal-laptop.tail1234.ts.net" />
+        </label>
+        <p id="error" role="alert" hidden></p>
+        <button type="submit" id="connect">Connect</button>
+        <button type="button" class="plain" id="scan">Scan the QR code</button>
+        <p>Both phone and computer need Tailscale turned on. On the computer, open Settings, then Profile, then Pair a device.</p>
+      </form>
+      <div id="retry" hidden>
+        <button type="button" id="again">Try again</button>
+        <button type="button" class="plain" id="change">Use a different address</button>
+      </div>
+    </main>
+    <script type="module" src="./splash.js"></script>
+  </body>
+</html>
