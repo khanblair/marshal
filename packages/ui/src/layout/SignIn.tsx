@@ -21,6 +21,17 @@ export interface SignInProps extends Omit<JSX.HTMLAttributes<HTMLDivElement>, "o
   busy?: boolean;
   /** A plain sentence from the caller, shown under the field when the token was refused. */
   error?: string;
+  /**
+   * Called with the code and the name to give this device when the person pairs instead. Without it
+   * the screen only takes a token, as it always did.
+   */
+  onPair?: (code: string, name: string) => void;
+  /** Reads the code with the camera. Given only where the device can, it adds a Scan button. */
+  onScan?: () => void;
+  /** A plain sentence from the caller, shown under the code field when pairing was refused. */
+  pairError?: string;
+  /** The name the device field starts with, such as "Phone browser". */
+  deviceName?: string;
   /** Phone layout. */
   phone?: boolean;
 }
@@ -33,7 +44,16 @@ const ICON_PX = 20;
  * reaches `onSubmit`. It is a form, so Enter submits, except while the button is disabled.
  */
 export function SignIn(props: SignInProps) {
-  const [local, others] = splitProps(props, ["onSubmit", "busy", "error", "phone"]);
+  const [local, others] = splitProps(props, [
+    "onSubmit",
+    "busy",
+    "error",
+    "phone",
+    "onPair",
+    "onScan",
+    "pairError",
+    "deviceName",
+  ]);
   const [token, setToken] = createSignal("");
   const titleId = createUniqueId();
   const errorId = createUniqueId();
@@ -45,7 +65,15 @@ export function SignIn(props: SignInProps) {
     onCleanup(() => clearTimeout(timer));
   });
 
+  const [code, setCode] = createSignal("");
+  const [name, setName] = createSignal(props.deviceName ?? "");
+  const pairErrorId = createUniqueId();
   const canSubmit = () => token().trim() !== "" && !local.busy;
+  const canPair = () => code().trim() !== "" && name().trim() !== "" && !local.busy;
+  const pair: JSX.EventHandler<HTMLFormElement, SubmitEvent> = (event) => {
+    event.preventDefault();
+    if (canPair()) local.onPair?.(code().trim(), name().trim());
+  };
   const submit: JSX.EventHandler<HTMLFormElement, SubmitEvent> = (event) => {
     event.preventDefault();
     // The disabled button already blocks this, but a script or a held key must not get past it.
@@ -104,6 +132,60 @@ export function SignIn(props: SignInProps) {
           Sign in
         </Button>
       </form>
+      <Show when={local.onPair}>
+        <div class="w-full flex flex-col gap-3.5 text-left border-t border-border pt-3.5">
+          <h2 class="m-0 text-body font-semibold">Or pair this device with a code</h2>
+          <p class="m-0 text-secondary">
+            On the computer where Marshal runs, open Settings, then Profile, then Pair a device.
+          </p>
+          <form
+            aria-label="Pair with a code"
+            aria-busy={local.busy ? "true" : undefined}
+            onSubmit={pair}
+            class="w-full flex flex-col gap-3.5"
+          >
+            <div class="flex flex-col gap-1.5">
+              <Field label="Pairing code">
+                <Input
+                  autocomplete="off"
+                  autocapitalize="characters"
+                  spellcheck={false}
+                  mono
+                  readOnly={local.busy}
+                  invalid={Boolean(local.pairError)}
+                  aria-describedby={local.pairError ? pairErrorId : undefined}
+                  onInput={(event) => setCode(event.currentTarget.value)}
+                />
+              </Field>
+              <Show when={local.pairError}>
+                {(message) => (
+                  <p id={pairErrorId} role="alert" class="m-0 text-small text-status-danger-text">
+                    {message()}
+                  </p>
+                )}
+              </Show>
+            </div>
+            <Field label="Device name">
+              <Input
+                autocomplete="off"
+                value={name()}
+                readOnly={local.busy}
+                onInput={(event) => setName(event.currentTarget.value)}
+              />
+            </Field>
+            <Button type="submit" size={36} disabled={!canPair()} class="w-full">
+              Pair this device
+            </Button>
+            <Show when={local.onScan}>
+              {(scan) => (
+                <Button size={36} disabled={local.busy} class="w-full" onClick={() => scan()()}>
+                  Scan the QR code
+                </Button>
+              )}
+            </Show>
+          </form>
+        </div>
+      </Show>
     </ScreenFrame>
   );
 }

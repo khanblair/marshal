@@ -161,4 +161,43 @@ describe("SignIn", () => {
     expect(root).toHaveClass("bg-canvas");
     expect(root).toHaveAttribute("data-testid", "sign-in");
   });
+
+  describe("pairing with a code", () => {
+    it("shows no pairing form unless the caller can pair", () => {
+      render(() => <SignIn onSubmit={() => {}} />);
+      expect(screen.queryByLabelText("Pairing code")).toBeNull();
+    });
+
+    it("sends the trimmed code and the device name, and keeps the pair button off until both are there", () => {
+      const onPair = vi.fn();
+      render(() => <SignIn onSubmit={() => {}} onPair={onPair} deviceName="Phone browser" />);
+      const button = screen.getByRole("button", { name: "Pair this device" });
+      expect(button).toBeDisabled();
+      fireEvent.input(screen.getByLabelText("Pairing code"), { target: { value: " 7QX-2LD " } });
+      expect(button).toBeEnabled();
+      expect(screen.getByLabelText("Device name")).toHaveValue("Phone browser");
+      fireEvent.click(button);
+      expect(onPair).toHaveBeenCalledWith("7QX-2LD", "Phone browser");
+    });
+
+    it("adds a Scan button only when the caller can scan, and calls it", () => {
+      const { unmount } = render(() => <SignIn onSubmit={() => {}} onPair={() => {}} />);
+      expect(screen.queryByRole("button", { name: "Scan the QR code" })).toBeNull();
+      unmount();
+      const onScan = vi.fn();
+      render(() => <SignIn onSubmit={() => {}} onPair={() => {}} onScan={onScan} />);
+      fireEvent.click(screen.getByRole("button", { name: "Scan the QR code" }));
+      expect(onScan).toHaveBeenCalledOnce();
+    });
+
+    it("says why a code was refused, and is busy while a check runs", () => {
+      const { unmount } = render(() => (
+        <SignIn onSubmit={() => {}} onPair={() => {}} pairError="That code did not work." />
+      ));
+      expect(screen.getByRole("alert")).toHaveTextContent("That code did not work.");
+      unmount();
+      render(() => <SignIn onSubmit={() => {}} onPair={() => {}} busy />);
+      expect(screen.getByRole("button", { name: "Pair this device" })).toBeDisabled();
+    });
+  });
 });

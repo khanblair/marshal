@@ -49,4 +49,16 @@ describe("OfflineBanner", () => {
     expect(banner).toHaveClass("border-b", "flex-none");
     expect(banner).toHaveAttribute("data-testid", "offline");
   });
+
+  it("names the machine and how old the data is when it is given them", () => {
+    render(() => <OfflineBanner machine="Office PC" updatedAgo="5 min ago" />);
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Can't reach Office PC. Last updated 5 min ago. Marshal reconnects on its own. Changes can't be made until then.",
+    );
+  });
+
+  it("leaves out the age when there is none yet", () => {
+    render(() => <OfflineBanner machine="Office PC" />);
+    expect(screen.getByRole("status")).not.toHaveTextContent("Last updated");
+  });
 });
