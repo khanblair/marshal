@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"log/slog"
+	"path/filepath"
 	"time"
 
 	"github.com/khanblair/marshal/daemon/internal/accounts"
@@ -13,6 +14,7 @@ import (
 	"github.com/khanblair/marshal/daemon/internal/auditlog"
 	"github.com/khanblair/marshal/daemon/internal/briefs"
 	"github.com/khanblair/marshal/daemon/internal/cardhistory"
+	"github.com/khanblair/marshal/daemon/internal/cardpanel"
 	"github.com/khanblair/marshal/daemon/internal/chats"
 	"github.com/khanblair/marshal/daemon/internal/ci"
 	"github.com/khanblair/marshal/daemon/internal/codemap"
@@ -113,6 +115,9 @@ type daemonModules struct {
 	// built - it needs only the projects service, to find the card's worktree - and it needs no
 	// GitHub connection at all: the whole point is to catch a failure before the push.
 	localCI *localci.Service
+	// cardPanel serves a card's checks, checklists, comments, attachments, and members (B10.2,
+	// B10.5, B10.6). It is always built; it needs the store, the projects service, and the sessions.
+	cardPanel *cardpanel.Service
 	// preview runs one dev server per card and takes the before and after screenshots of it (B6.6,
 	// build-plan 6.6 and 6.7, architecture.md section 11.2). It is always built: a preview needs the
 	// projects service for the card's worktree and the project's dev command, and the daemon's data
@@ -357,6 +362,7 @@ type lateDaemonModules struct {
 	gmailPoller    *integrations.GmailPoller
 	ciSvc          *ci.Service
 	localCISvc     *localci.Service
+	panelSvc       *cardpanel.Service
 	previewSvc     *preview.Service
 	codeMap        *codemap.Map
 	mcpHost        *mcpserver.Host
@@ -378,11 +384,23 @@ func buildLateModules(st *store.Store, bus *events.Bus, settings config.Settings
 	if err != nil {
 		return lateDaemonModules{}, err
 	}
+	// The card panel (B10.2, B10.5, B10.6): a card's checks, checklists, comments, and members. A
+	// check runs through the same runner local CI uses; a comment that asks the agent goes to the
+	// session manager, which wakes a sleeping card first. Attached files live under the data folder.
+	panelSvc, err := cardpanel.New(cardpanel.Deps{
+		Store: st, Bus: bus, Worktrees: core.proj, Agent: core.sessions,
+		AttachmentsDir: filepath.Join(settings.DataDir, "attachments"), Log: log,
+	})
+	if err != nil {
+		return lateDaemonModules{}, fmt.Errorf("start the card panel: %w", err)
+	}
+	core.proj.SetChecklistGate(panelSvc)
 	// The merge queue (B5.5, build-plan 5.8). Its tests are nil for now: a clean merge with no
 	// test runner moves the target forward, and Phase 6's local CI supplies the runner that makes
 	// the queue wait for a real test run.
 	mergeQueue, err := integrator.New(integrator.Deps{
 		Cards: core.proj, Projects: core.proj, Git: core.git, DataDir: settings.DataDir, Log: log,
+		Checklists: panelSvc,
 	})
 	if err != nil {
 		return lateDaemonModules{}, fmt.Errorf("start the merge queue: %w", err)
@@ -493,7 +511,7 @@ func buildLateModules(st *store.Store, bus *events.Bus, settings config.Settings
 	// session ends (internal/session's Attacher).
 	mcpHost := mcpserver.NewHost(mcpserver.WithHostLogger(log))
 	attacher, err := mcpattach.New(mcpattach.Deps{
-		Host: mcpHost, Cards: core.proj, Notes: cm.mem, Claims: cm.mem, Agents: core.sessions,
+		Host: mcpHost, Cards: core.proj, Notes: cm.mem, Claims: cm.mem, Agents: core.sessions, Panel: panelSvc,
 		Codebase: codeMap, Roles: cm.roleSvc, Harness: core.sessions.HarnessConfigFor,
 		Command: daemonExecutable(log), Address: loopbackAddress(settings.Port),
 		Logger: log, Now: time.Now,
@@ -519,7 +537,7 @@ func buildLateModules(st *store.Store, bus *events.Bus, settings config.Settings
 	return lateDaemonModules{
 		pullReq: pullReq, reviewSvc: reviewSvc, mergeQueue: mergeQueue, qualitySvc: qualitySvc,
 		integrationSvc: integrationSvc, trelloOutbound: trelloOutbound, gmailPoller: gmailPoller,
-		ciSvc: ciSvc, localCISvc: localCISvc, previewSvc: previewSvc,
+		ciSvc: ciSvc, localCISvc: localCISvc, panelSvc: panelSvc, previewSvc: previewSvc,
 		codeMap: codeMap, mcpHost: mcpHost, schedSvc: schedSvc,
 	}, nil
 }
@@ -569,7 +587,7 @@ func buildModules(ctx context.Context, st *store.Store, bus *events.Bus, setting
 		review: late.reviewSvc, integrator: late.mergeQueue, sleepSettings: core.sleepSettingsSvc,
 		quality: late.qualitySvc, integrations: late.integrationSvc, trelloOutbound: late.trelloOutbound,
 		gmailPoller: late.gmailPoller,
-		ci:          late.ciSvc, localCI: late.localCISvc,
+		ci:          late.ciSvc, localCI: late.localCISvc, cardPanel: late.panelSvc,
 		preview: late.previewSvc, memory: cm.mem, mcpHost: late.mcpHost, codemap: late.codeMap,
 		schedules: late.schedSvc,
 	}, nil

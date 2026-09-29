@@ -12,6 +12,7 @@ import (
 	"github.com/khanblair/marshal/daemon/internal/platform"
 	"github.com/khanblair/marshal/daemon/internal/protocol"
 	"github.com/khanblair/marshal/daemon/internal/store"
+	"github.com/khanblair/marshal/daemon/internal/store/db"
 )
 
 // openTestStore opens a store of its own in a temporary folder, closed when the test ends.
@@ -22,6 +23,13 @@ func openTestStore(t *testing.T) *store.Store {
 		t.Fatalf("open the store: %v", err)
 	}
 	t.Cleanup(func() { _ = st.Close() })
+	// The identity is written onto the owner's row, so a store that is to hold one has an owner.
+	now := time.Now().UnixMilli()
+	if _, err := st.EnsureOwner(context.Background(), db.CreateUserParams{
+		ID: "01M3USER00000000000000000A", Name: "Owner", CreatedAt: now, UpdatedAt: now,
+	}); err != nil {
+		t.Fatalf("make the owner: %v", err)
+	}
 	return st
 }
 

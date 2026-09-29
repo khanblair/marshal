@@ -3,8 +3,12 @@ package mcpserver
 import (
 	"context"
 	"errors"
+	"fmt"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+
+	"github.com/khanblair/marshal/daemon/internal/protocol"
 )
 
 // The tools whose part of Marshal is not built yet: the five that speak for checklists, comments, and
@@ -98,7 +102,18 @@ func (s *Server) listChecklists(ctx context.Context, _ *mcp.CallToolRequest, _ l
 	if err := s.allow("list_checklists", kindRead); err != nil {
 		return nil, listChecklistsOut{}, err
 	}
-	return nil, listChecklistsOut{Checklists: []checklistOut{}}, notBuilt(noChecklists)
+	if s.deps.Panel == nil {
+		return nil, listChecklistsOut{Checklists: []checklistOut{}}, notBuilt(noChecklists)
+	}
+	lists, err := s.deps.Panel.Checklists(ctx, s.identity.CardID)
+	if err != nil {
+		return nil, listChecklistsOut{}, fmt.Errorf("read the checklists: %w", err)
+	}
+	out := listChecklistsOut{Checklists: make([]checklistOut, 0, len(lists.Checklists))}
+	for _, l := range lists.Checklists {
+		out.Checklists = append(out.Checklists, checklistOf(l))
+	}
+	return nil, out, nil
 }
 
 // tickChecklistItemInput is tick_checklist_item's arguments.
@@ -119,11 +134,25 @@ type tickChecklistItemOut struct {
 }
 
 // tick_checklist_item ticks or unticks one item on this card's checklist.
-func (s *Server) tickChecklistItem(ctx context.Context, _ *mcp.CallToolRequest, _ tickChecklistItemInput) (*mcp.CallToolResult, tickChecklistItemOut, error) {
+func (s *Server) tickChecklistItem(ctx context.Context, _ *mcp.CallToolRequest, in tickChecklistItemInput) (*mcp.CallToolResult, tickChecklistItemOut, error) {
 	if err := s.allow("tick_checklist_item", kindWrite); err != nil {
 		return nil, tickChecklistItemOut{}, err
 	}
-	return nil, tickChecklistItemOut{}, notBuilt(noTick)
+	if s.deps.Panel == nil {
+		return nil, tickChecklistItemOut{}, notBuilt(noTick)
+	}
+	lists, err := s.deps.Panel.AgentTick(ctx, s.identity.CardID, in.ItemID, in.Done, in.Evidence)
+	if err != nil {
+		return nil, tickChecklistItemOut{}, err
+	}
+	for _, l := range lists.Checklists {
+		for _, it := range checklistOf(l).Items {
+			if it.ID == in.ItemID {
+				return nil, tickChecklistItemOut{Item: it}, nil
+			}
+		}
+	}
+	return nil, tickChecklistItemOut{}, errors.New("that checklist item is gone")
 }
 
 // readCommentsInput is read_comments' arguments: there are none.
@@ -153,7 +182,18 @@ func (s *Server) readComments(ctx context.Context, _ *mcp.CallToolRequest, _ rea
 	if err := s.allow("read_comments", kindRead); err != nil {
 		return nil, readCommentsOut{}, err
 	}
-	return nil, readCommentsOut{Comments: []commentOut{}}, notBuilt(noComments)
+	if s.deps.Panel == nil {
+		return nil, readCommentsOut{Comments: []commentOut{}}, notBuilt(noComments)
+	}
+	unread, err := s.deps.Panel.UnreadComments(ctx, s.identity.CardID)
+	if err != nil {
+		return nil, readCommentsOut{}, fmt.Errorf("read the comments: %w", err)
+	}
+	out := readCommentsOut{Comments: make([]commentOut, 0, len(unread))}
+	for _, c := range unread {
+		out.Comments = append(out.Comments, commentOf(c))
+	}
+	return nil, out, nil
 }
 
 // postCommentInput is post_comment's arguments.
@@ -163,11 +203,18 @@ type postCommentInput struct {
 }
 
 // post_comment posts a comment on this card as its agent.
-func (s *Server) postComment(ctx context.Context, _ *mcp.CallToolRequest, _ postCommentInput) (*mcp.CallToolResult, commentOut, error) {
+func (s *Server) postComment(ctx context.Context, _ *mcp.CallToolRequest, in postCommentInput) (*mcp.CallToolResult, commentOut, error) {
 	if err := s.allow("post_comment", kindWrite); err != nil {
 		return nil, commentOut{}, err
 	}
-	return nil, commentOut{}, notBuilt(noCommentPosted)
+	if s.deps.Panel == nil {
+		return nil, commentOut{}, notBuilt(noCommentPosted)
+	}
+	posted, err := s.deps.Panel.PostAsAgent(ctx, s.identity.CardID, in.Body)
+	if err != nil {
+		return nil, commentOut{}, err
+	}
+	return nil, commentOf(posted), nil
 }
 
 // readAttachmentInput is read_attachment's arguments.
@@ -186,13 +233,37 @@ type readAttachmentOut struct {
 }
 
 // read_attachment reads a file attached to this card.
-func (s *Server) readAttachment(ctx context.Context, _ *mcp.CallToolRequest, _ readAttachmentInput) (*mcp.CallToolResult, readAttachmentOut, error) {
+func (s *Server) readAttachment(ctx context.Context, _ *mcp.CallToolRequest, in readAttachmentInput) (*mcp.CallToolResult, readAttachmentOut, error) {
 	if err := s.allow("read_attachment", kindRead); err != nil {
 		return nil, readAttachmentOut{}, err
 	}
-	return nil, readAttachmentOut{}, notBuilt(noAttachment)
+	if s.deps.Panel == nil {
+		return nil, readAttachmentOut{}, notBuilt(noAttachment)
+	}
+	text, err := s.deps.Panel.ReadAttachment(ctx, s.identity.CardID, in.Path)
+	if err != nil {
+		return nil, readAttachmentOut{}, err
+	}
+	return nil, readAttachmentOut{Path: in.Path, Content: text}, nil
 }
 
 // notBuilt is the answer a tool gives while the part of Marshal it speaks for does not exist. It is a
 // plain error, so the SDK hands it back as a tool error the model reads.
 func notBuilt(sentence string) error { return errors.New(sentence) }
+
+// checklistOf maps one wire checklist to the tool's answer.
+func checklistOf(l protocol.Checklist) checklistOut {
+	out := checklistOut{ID: l.ID, Title: l.Name, PersonOnly: l.PeopleOnly, Items: make([]checklistItemOut, 0, len(l.Items))}
+	for _, it := range l.Items {
+		out.Items = append(out.Items, checklistItemOut{ID: it.ID, Text: it.Text, Done: it.Done, DoneBy: it.DoneByKind})
+	}
+	return out
+}
+
+// commentOf maps one wire comment to the tool's answer.
+func commentOf(c protocol.Comment) commentOut {
+	return commentOut{
+		ID: c.ID, Author: string(c.AuthorKind), Body: c.Body,
+		CreatedAt: c.CreatedAt.Time().UTC().Format(time.RFC3339),
+	}
+}

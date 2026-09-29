@@ -229,6 +229,11 @@ func serve(ctx context.Context, settings config.Settings, env platform.Env, log 
 	// The fixture loads before the restore below starts, and before Run serves anything, so the
 	// restore and the first requests never see a half-made fixture.
 	startCardWork(ctx, settings, mods, log)
+	// A nil node must stay a nil interface: a typed nil would look like a node the server can call.
+	var tailnetNode api.TailnetNode
+	if node != nil {
+		tailnetNode = node
+	}
 	return api.New(settings, log, time.Now, api.Deps{
 		Store: st, Bus: bus, Dev: dev, Projects: mods.proj, Sessions: mods.sessions,
 		Catalog: mods.catalog, Dashboard: mods.dashboard, History: mods.history,
@@ -238,10 +243,10 @@ func serve(ctx context.Context, settings config.Settings, env platform.Env, log 
 		PullRequests: mods.pullRequests, Review: mods.review, Integrator: mods.integrator,
 		SleepSettings: mods.sleepSettings, Alerts: alerts, Quality: mods.quality,
 		Integrations: mods.integrations, Webhooks: mods.integrations.Receiver(),
-		CI: mods.ci, LocalCI: mods.localCI, Preview: mods.preview,
+		CI: mods.ci, LocalCI: mods.localCI, CardPanel: mods.cardPanel, Preview: mods.preview,
 		Schedules: mods.schedules,
 		Devices:   pairedDevices,
-		Tailnet:   node,
+		Tailnet:   tailnetNode,
 		Funnel:    settings.Funnel,
 		MCP:       mods.mcpHost,
 		WebUI:     webUIFS(),

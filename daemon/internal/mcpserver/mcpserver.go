@@ -112,6 +112,17 @@ type Claims interface {
 	ProjectClaims(ctx context.Context, projectID string) ([]memory.Claim, error)
 }
 
+// Panel is what the checklist, comment, and attachment tools need from the card panel
+// (internal/cardpanel), which this package never imports. Nil leaves those tools answering that
+// the card's panel is not available.
+type Panel interface {
+	Checklists(ctx context.Context, cardID string) (protocol.ChecklistList, error)
+	AgentTick(ctx context.Context, cardID, itemID string, done bool, evidence string) (protocol.ChecklistList, error)
+	UnreadComments(ctx context.Context, cardID string) ([]protocol.Comment, error)
+	PostAsAgent(ctx context.Context, cardID, body string) (protocol.Comment, error)
+	ReadAttachment(ctx context.Context, cardID, name string) (string, error)
+}
+
 // Agents is what ask_agent needs: the session manager's one way to put a question to another card's
 // agent. It is deliberately one method, so this package never imports internal/session.
 type Agents interface {
@@ -142,6 +153,8 @@ type Deps struct {
 	Claims Claims
 	// Agents puts a question to another card's agent.
 	Agents Agents
+	// Panel is the card's checklists, comments, and attachments. It may be nil.
+	Panel Panel
 	// Codebase is the codebase map. The daemon gives every session the real map
 	// (build-plan task 7.9); a server built without one refuses search_codebase with a sentence
 	// saying so.

@@ -55,6 +55,8 @@ type Deps struct {
 	Notes  mcpserver.Notes
 	Claims mcpserver.Claims
 	Agents mcpserver.Agents
+	// Panel is the card panel behind the checklist, comment, and attachment tools. It may be nil.
+	Panel mcpserver.Panel
 	// Codebase is the codebase map, nil until internal/codemap exists (slice 4). The tool that needs
 	// it refuses until then.
 	Codebase mcpserver.Codebase
@@ -142,7 +144,7 @@ func (a *Attacher) serverDeps(card protocol.Card) mcpserver.Deps {
 	cardID := card.ID
 	return mcpserver.Deps{
 		Cards: a.deps.Cards, Notes: a.deps.Notes, Claims: a.deps.Claims,
-		Agents: a.deps.Agents, Codebase: a.deps.Codebase,
+		Agents: a.deps.Agents, Panel: a.deps.Panel, Codebase: a.deps.Codebase,
 		Harness: func() (harness.Config, bool) { return a.deps.Harness(cardID) },
 		Now:     a.deps.Now, Logger: a.deps.Logger,
 	}
