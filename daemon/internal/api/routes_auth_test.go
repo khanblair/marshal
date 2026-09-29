@@ -176,7 +176,7 @@ func TestARouteIsRegisteredOnlyWhenItsServiceIsThere(t *testing.T) {
 	connectionTestRoutes := []string{"POST /v1/providers/{id}/test"}
 	// The connection routes list, save, and remove the connections Marshal is set up with: they
 	// follow the connections service the GitHub app is reached through.
-	integrationRoutes := []string{
+	integrationRoutes := []string{"POST /v1/integrations/telegram/detect-chat",
 		"GET /v1/integrations", "PUT /v1/integrations/{id}", "DELETE /v1/integrations/{id}",
 		"GET /v1/integrations/gcal/authorize", "GET /v1/integrations/gcal/callback",
 	}

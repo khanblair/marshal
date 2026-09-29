@@ -52,6 +52,9 @@ type fakeBot struct {
 	start chatbot.Handler
 }
 
+// Accepts is true for chat "1", the one the fake bot stands for.
+func (f *fakeBot) Accepts(in chatbot.Incoming) bool { return in.ChatID == "1" }
+
 func (f *fakeBot) Kind() chatbot.Kind { return chatbot.KindTelegram }
 func (f *fakeBot) Notify(_ context.Context, notice chatbot.Notice) error {
 	f.mu.Lock()
@@ -303,5 +306,30 @@ func TestAChatWithNoCardsSetUpSaysSoInsteadOfStayingSilent(t *testing.T) {
 	reply, _ := hear(t, &fakeApprover{}, "new web Fix it")
 	if reply != "Adding a card from a chat is not set up on this computer." {
 		t.Errorf("the reply is %q", reply)
+	}
+}
+
+// A message from a chat the connection is not for is not acted on and gets no answer at all.
+func TestAMessageFromAnotherChatIsIgnoredWithoutAReply(t *testing.T) {
+	approver := &fakeApprover{}
+	svc, err := chatcmd.New(approver, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bot := &fakeBot{}
+	if err := svc.Run(context.Background(), bot); err != nil {
+		t.Fatal(err)
+	}
+	for _, text := range []string{"approve 01H1234567890ABCDEFGHJKMNPQ", "new api Do a thing", "status", "hello"} {
+		bot.start(context.Background(), chatbot.Incoming{ChatID: "999", Text: text})
+	}
+	bot.start(context.Background(), chatbot.Incoming{ChatID: "999", Voice: true})
+	if len(approver.all()) != 0 {
+		t.Fatalf("a stranger answered an approval: %+v", approver.all())
+	}
+	bot.mu.Lock()
+	defer bot.mu.Unlock()
+	if len(bot.sent) != 0 {
+		t.Fatalf("a stranger got replies: %v", bot.sent)
 	}
 }

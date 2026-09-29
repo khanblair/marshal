@@ -319,6 +319,7 @@ func ciPreviewAndIntegrationRoutes() []routeSpec {
 		{"POST /v1/cards/{id}/preview/shots", needsProjects | needsPreview, (*Server).takePreviewShot},
 		{"GET /v1/cards/{id}/preview/shots/{file}", needsProjects | needsPreview, (*Server).getPreviewShot},
 		{"GET /v1/integrations", needsIntegrations, (*Server).listIntegrations},
+		{"POST /v1/integrations/telegram/detect-chat", needsIntegrations, (*Server).detectTelegramChat},
 		{"PUT /v1/integrations/{id}", needsIntegrations, (*Server).saveIntegration},
 		{"DELETE /v1/integrations/{id}", needsIntegrations, (*Server).removeIntegration},
 		{"POST /v1/integrations/{id}/test", needsIntegrations | needsConnectionTests, (*Server).testIntegration},

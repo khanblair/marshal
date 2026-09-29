@@ -88,6 +88,14 @@ func (s *Service) Run(ctx context.Context, bot chatbot.Bot) error {
 // something, because a message Marshal did not understand should be told so rather than left in
 // silence.
 func (s *Service) handle(ctx context.Context, bot chatbot.Bot, in chatbot.Incoming) {
+	// A bot can be found and written to by anyone, so only the chat it was set up with may ask for
+	// anything. A message from anywhere else gets no answer at all: even a refusal tells a stranger
+	// that Marshal is behind the bot.
+	if !bot.Accepts(in) {
+		s.log.Warn("ignored a chat message from a chat this connection is not for",
+			"service", bot.Kind(), "chat", in.ChatID)
+		return
+	}
 	if in.Voice {
 		// A voice note is passed on with no text on purpose: Marshal does not transcribe, so a
 		// person is asked to type rather than having their words guessed at (hard rule 3).

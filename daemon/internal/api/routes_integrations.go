@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"slices"
 
 	"github.com/khanblair/marshal/daemon/internal/connectiontest"
 	"github.com/khanblair/marshal/daemon/internal/integrations"
@@ -39,7 +40,38 @@ func (s *Server) saveIntegration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.integrationsTestAfterConnect(r.Context(), id)
+	if id == integrations.NtfyID {
+		s.routeAlertsToNtfy(r.Context())
+	}
 	s.writeIntegrations(w, r)
+}
+
+// routeAlertsToNtfy turns ntfy on for every alert the first time it is connected. The default
+// routes name only the two chat services, so a connected ntfy topic would otherwise never receive
+// anything until it was chosen alert by alert in Settings. When any alert already goes to ntfy the
+// person has chosen, and their choice is left as it is. A failure is logged and does not fail the
+// save: the connection itself is stored.
+func (s *Server) routeAlertsToNtfy(ctx context.Context) {
+	if s.alerts == nil {
+		return
+	}
+	settings, err := s.alerts.Get(ctx)
+	if err != nil {
+		s.log.Warn("could not read the alert routes after ntfy was connected", "error", err)
+		return
+	}
+	var request protocol.SaveAlertSettingsRequest
+	for _, route := range settings.Routes {
+		if slices.Contains(route.Channels, "ntfy") {
+			return
+		}
+		request.Routes = append(request.Routes, protocol.AlertRouteChoice{
+			Event: route.Event, Channels: append(slices.Clone(route.Channels), "ntfy"),
+		})
+	}
+	if _, err := s.alerts.Save(ctx, request); err != nil {
+		s.log.Warn("could not route alerts to ntfy after it was connected", "error", err)
+	}
 }
 
 // saveOneIntegration reads the body of one connection's save and stores it. Each connection has its
@@ -197,4 +229,20 @@ func (s *Server) writeIntegrations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.writeJSON(w, http.StatusOK, protocol.NewIntegrationList(list, s.now()))
+}
+
+// detectTelegramChat is POST /v1/integrations/telegram/detect-chat: it finds the chat that most
+// recently wrote to the bot whose token is given, so the connection can be saved with its chat id.
+func (s *Server) detectTelegramChat(w http.ResponseWriter, r *http.Request) {
+	var req protocol.DetectTelegramChatRequest
+	if err := s.decodeJSON(r, &req); err != nil {
+		s.writeError(w, err)
+		return
+	}
+	answer, err := s.integrations.DetectTelegramChat(r.Context(), req)
+	if err != nil {
+		s.writeError(w, translate(err))
+		return
+	}
+	s.writeJSON(w, http.StatusOK, answer)
 }
