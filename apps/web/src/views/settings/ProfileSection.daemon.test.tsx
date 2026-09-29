@@ -154,7 +154,7 @@ describe("the Profile section on the daemon", () => {
     expect(saveButton()).toBeEnabled();
   });
 
-  it("offers a time zone that is not one of the six, so it can be shown", async () => {
+  it("offers every time zone the browser knows, and shows the one the daemon has", async () => {
     render(() => <SettingsView />);
     daemon.me.profile.timeZone = "Asia/Tokyo";
     daemon.emit("me", "me.updated", {
@@ -163,15 +163,10 @@ describe("the Profile section on the daemon", () => {
       progress: daemon.me.progress,
     });
     await waitFor(() => expect(zoneField()).toHaveValue("Asia/Tokyo"));
-    expect(Array.from(zoneField().options).map((option) => option.value)).toEqual([
-      "Asia/Tokyo",
-      "Europe/London",
-      "Europe/Lisbon",
-      "Africa/Lagos",
-      "America/New_York",
-      "America/Los_Angeles",
-      "Asia/Singapore",
-    ]);
+    const offered = Array.from(zoneField().options).map((option) => option.value);
+    expect(offered.length).toBeGreaterThan(100);
+    expect(offered).toContain("Africa/Nairobi");
+    expect(offered).toContain("Asia/Tokyo");
   });
 
   it("says no time zone is set when the daemon has none, rather than showing the first", async () => {

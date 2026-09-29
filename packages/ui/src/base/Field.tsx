@@ -8,6 +8,8 @@ export interface FieldProps extends Omit<JSX.LabelHTMLAttributes<HTMLLabelElemen
   hint?: JSX.Element;
   /** Error text under the control, in red. */
   error?: JSX.Element;
+  /** Marks the field as required with a red star after the label. */
+  required?: boolean;
   /** Small secondary label with a 4 px gap, as the card session settings. */
   compact?: boolean;
 }
@@ -22,6 +24,7 @@ export function Field(props: FieldProps) {
     "hint",
     "error",
     "compact",
+    "required",
     "class",
     "children",
   ]);
@@ -35,6 +38,11 @@ export function Field(props: FieldProps) {
         class={local.compact ? "text-caption leading-4 text-secondary font-medium" : "font-medium"}
       >
         {local.label}
+        <Show when={local.required}>
+          <span aria-hidden="true" class="ml-0.5 text-status-danger-text">
+            *
+          </span>
+        </Show>
       </span>
       {local.children}
       <Show

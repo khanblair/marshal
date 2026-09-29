@@ -1,26 +1,18 @@
 import { Avatar, Button, Field, Input, Select, SettingsSection } from "@marshal/ui";
 import { createResource, Show } from "solid-js";
+import { zoneChoices } from "~/data/time-zones";
 import { M } from "~/mock";
 import { GRID_MIN_220 } from "./auto-fit-grid";
 import { DevicesList } from "./DevicesList";
 import type { ProfileDraft } from "./use-profile-draft";
 
-const TIME_ZONES = [
-  "Europe/London",
-  "Europe/Lisbon",
-  "Africa/Lagos",
-  "America/New_York",
-  "America/Los_Angeles",
-  "Asia/Singapore",
-];
-
 /**
- * The zones to offer: the six the screen has, and the one the person already has when it is not
- * among them (the daemon takes any zone) or when they have none yet, which a new daemon starts with.
+ * The zones to offer: every one the browser knows, and the one the person already has when it is
+ * not among them (the daemon takes any zone), with "Not set" first for a new daemon, which has none.
  */
 function zoneOptions(current: string): readonly (string | { value: string; label: string })[] {
-  if (current === "") return [{ value: "", label: "Not set" }, ...TIME_ZONES];
-  return TIME_ZONES.includes(current) ? TIME_ZONES : [current, ...TIME_ZONES];
+  const zones = zoneChoices(current);
+  return current === "" ? [{ value: "", label: "Not set" }, ...zones] : zones;
 }
 
 const SUBHEADING = "mt-2 mb-0 text-subtitle leading-5.5 font-semibold";

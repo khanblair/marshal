@@ -33,6 +33,7 @@ const AGENT_SIZES: Record<AvatarSize, string> = {
 };
 
 const AGENT_ICON_PX: Record<AvatarSize, number> = { 22: 12, 28: 14, 64: 20 };
+const PERSON_ICON_PX: Record<AvatarSize, number> = { 22: 12, 28: 14, 64: 28 };
 const DEFAULT_SIZE: AvatarSize = 22;
 
 function frameClass(agent: boolean, ring: boolean, bordered: boolean): string | false {
@@ -45,7 +46,7 @@ function frameClass(agent: boolean, ring: boolean, bordered: boolean): string | 
 
 /**
  * A person or the agent. People are circles with initials on the selected
- * fill; the agent is a rounded square with a bot icon on the sunken fill.
+ * fill, or a user icon when there are none; the agent is a rounded square with a bot icon on the sunken fill.
  * Header and comment avatars that use 12 px initials add `text-caption!`.
  */
 export function Avatar(props: AvatarProps) {
@@ -78,6 +79,9 @@ export function Avatar(props: AvatarProps) {
         </Match>
         <Match when={local.src}>
           {(src) => <img alt="" src={src()} class="size-full rounded-full object-cover" />}
+        </Match>
+        <Match when={!local.initials}>
+          <Icon name="user-round" size={PERSON_ICON_PX[size()]} class="text-secondary" />
         </Match>
       </Switch>
     </span>

@@ -50,3 +50,16 @@ describe("Field", () => {
     );
   });
 });
+
+describe("Field required", () => {
+  it("draws a red star after the label, hidden from screen readers", () => {
+    const { container } = render(() => (
+      <Field label="Name" required>
+        <input />
+      </Field>
+    ));
+    const star = container.querySelector("[aria-hidden='true']");
+    expect(star?.textContent).toBe("*");
+    expect(star?.className).toContain("text-status-danger-text");
+  });
+});
