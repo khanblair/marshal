@@ -99,6 +99,16 @@ type CalendarList struct {
 
 // NewCalendarList makes an answer stamped with the daemon's time.
 func NewCalendarList(schedules []Schedule, dueCards []Card, events []CalendarEvent, googleConnected bool, now time.Time) CalendarList {
+	// The lists are never null on the wire: a daemon with no Google Calendar connected has no events.
+	if schedules == nil {
+		schedules = []Schedule{}
+	}
+	if dueCards == nil {
+		dueCards = []Card{}
+	}
+	if events == nil {
+		events = []CalendarEvent{}
+	}
 	return CalendarList{
 		Schedules: schedules, DueCards: dueCards, Events: events,
 		GoogleConnected: googleConnected, ServerTime: NewTimestamp(now),

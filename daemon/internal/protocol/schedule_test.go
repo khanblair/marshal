@@ -1,6 +1,7 @@
 package protocol_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -77,5 +78,16 @@ func TestAScheduleListCopiesItsSchedules(t *testing.T) {
 	own[0].Name = "changed after the fact"
 	if list.Schedules[0].Name != "Morning brief" {
 		t.Errorf("the list answered %q, want the name it was built from", list.Schedules[0].Name)
+	}
+}
+
+// A calendar with nothing connected sends empty lists, never null, so a client can read them.
+func TestACalendarListWithNothingInItHasNoNullLists(t *testing.T) {
+	body, err := json.Marshal(protocol.NewCalendarList(nil, nil, nil, false, time.Now()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(body, []byte("null")) {
+		t.Fatalf("the answer holds a null: %s", body)
 	}
 }
