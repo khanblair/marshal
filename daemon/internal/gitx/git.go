@@ -17,12 +17,13 @@ import (
 // cancelled clone can hang while a helper process still holds the pipe open.
 const killWaitDelay = 5 * time.Second
 
-// subcommandWorktree and subcommandPush are the two Git subcommand names this package checks and
-// matches often enough - in Containment's own rules as well as in the commands it builds - that
-// they are worth spelling once.
+// subcommandWorktree, subcommandPush, and subcommandMerge are the Git subcommand names this package
+// checks and matches often enough - in Containment's own rules as well as in the commands it builds -
+// that they are worth spelling once.
 const (
 	subcommandWorktree = "worktree"
 	subcommandPush     = "push"
+	subcommandMerge    = "merge"
 )
 
 // Git runs Git commands.
@@ -69,9 +70,15 @@ func (e *Error) Unwrap() error { return e.Err }
 
 // Run runs `git <args>` in a folder and returns what it printed, without the trailing newline.
 func (g *Git) Run(ctx context.Context, dir string, args ...string) (string, error) {
+	return g.runEnv(ctx, dir, nil, args...)
+}
+
+// runEnv is Run with more environment settings (as KEY=value) for this one command, such as the
+// GIT_INDEX_FILE that points Git at a temporary index instead of the folder's own.
+func (g *Git) runEnv(ctx context.Context, dir string, extra []string, args ...string) (string, error) {
 	cmd := exec.CommandContext(ctx, g.bin, args...)
 	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), g.env...)
+	cmd.Env = append(append(os.Environ(), g.env...), extra...)
 	cmd.WaitDelay = killWaitDelay
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr

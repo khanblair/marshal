@@ -79,6 +79,9 @@ type Config struct {
 	// Containment is the card's worktree rule, or nil for a session with no worktree (a chat). It is
 	// the one rule that is kept in every mode, bypass included.
 	Containment *gitx.Containment
+	// ProtectRefs refuses a Git command that moves or deletes a branch, a tag, or a worktree
+	// (RefMovingBreach). It is kept in every mode, bypass included, like Containment.
+	ProtectRefs bool
 }
 
 // Decide answers one request. The rules are applied from the ones that depend on nothing to the ones
@@ -144,8 +147,14 @@ func (c Config) byMode(action security.Action) Outcome {
 	return Outcome{Decision: DecisionAsk, Rule: RuleMode}
 }
 
-// breach asks the card's worktree rule about a request, when the session has one.
+// breach asks the card's worktree rule about a request, when the session has one, and the ref guard
+// when the session asks for it.
 func (c Config) breach(req Request) (string, bool) {
+	if c.ProtectRefs {
+		if rule, _, breach := RefMovingBreach(req.Command); breach {
+			return rule, true
+		}
+	}
 	if c.Containment == nil {
 		return "", false
 	}
