@@ -46,6 +46,8 @@ function save(store: AlertsStore, request: FakeRequest): Response {
     const route = store.settings.routes.find((one) => one.event === choice.event);
     if (route) route.channels = [...new Set(choice.channels ?? [])];
   }
+  const quiet = bodyOf(request).quietDuringEvents;
+  if (typeof quiet === "boolean") store.settings.quietDuringEvents = quiet;
   return jsonAnswer(store.settings);
 }
 

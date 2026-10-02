@@ -247,9 +247,11 @@ function projectRefusal(
 ) {
   if (
     change.lastView !== undefined &&
-    !["chat", "agents", "board", "list", "timeline", "calendar"].includes(change.lastView)
+    !["chat", "agents", "board", "list", "timeline", "calendar", "integration"].includes(
+      change.lastView,
+    )
   ) {
-    return "That is not a view Marshal knows. Use chat, agents, board, list, timeline, or calendar.";
+    return "That is not a view Marshal knows. Use chat, agents, board, list, timeline, calendar, or integration.";
   }
   if (change.query !== undefined && [...change.query].length > MAX_QUERY_CHARS) {
     return "A search can have at most 200 characters.";

@@ -56,6 +56,19 @@ export function wireChat(fields: Partial<WireChat> & { id: string; projectId: st
   return { ...base, ...fields, id: fields.id, projectId: fields.projectId };
 }
 
+/** The pinned Integrator chat a project has: a system chat, which the daemon never lets go. */
+export function wireSystemChat(projectId: string, id = "01M3CHAT0000000000000SYS01"): WireChat {
+  return wireChat({
+    id,
+    projectId,
+    title: "Integrator",
+    system: "integrator",
+    target: { kind: "role", id: "Integrator" },
+    permissionMode: "auto-edits",
+    model: "claude-opus-4-1",
+  });
+}
+
 /** Where the ids of chats the fake daemon makes start, so they cannot collide with a fixture's. */
 const MADE_CHAT_BASE = 800_000;
 
@@ -152,10 +165,30 @@ function createChat(
   return jsonAnswer(chat, STATUS.created);
 }
 
+/**
+ * The daemon's refusal of a change a system chat does not allow, in its own sentence
+ * (`chats.refuseSystem`): the Integrator chat is pinned to its project.
+ */
+function refuseSystem(chat: WireChat, verb: string): Response | undefined {
+  if (!chat.system) return undefined;
+  return jsonAnswer(
+    {
+      error: {
+        code: "refused",
+        message: `The ${chat.title} chat is pinned to this project, so it can't be ${verb}.`,
+        details: { chatId: chat.id, system: chat.system },
+      },
+    },
+    STATUS.refused,
+  );
+}
+
 /** Renames a chat and announces it. */
 function updateChat({ publish }: ChatStore, chat: WireChat, request: FakeRequest): Response {
   const body = bodyOf(request) as UpdateChatRequest;
   if (body.title !== undefined) {
+    const refused = refuseSystem(chat, "renamed");
+    if (refused) return refused;
     const title = typeof body.title === "string" ? body.title.trim() : "";
     if (!title) {
       return errorAnswer(
@@ -172,6 +205,8 @@ function updateChat({ publish }: ChatStore, chat: WireChat, request: FakeRequest
 
 /** Archives or restores a chat and announces it. One event type serves both directions. */
 function setArchived({ publish, now }: ChatStore, chat: WireChat, archived: boolean): Response {
+  const refused = archived ? refuseSystem(chat, "archived") : undefined;
+  if (refused) return refused;
   chat.archivedAt = archived ? now() : null;
   publish(topic(chat.projectId), "chat.archived", { chat });
   return jsonAnswer(chat);
@@ -179,6 +214,8 @@ function setArchived({ publish, now }: ChatStore, chat: WireChat, archived: bool
 
 /** Deletes a chat and announces it. */
 function removeChat({ chats, messages, publish }: ChatStore, chat: WireChat): Response {
+  const refused = refuseSystem(chat, "deleted");
+  if (refused) return refused;
   chats.splice(chats.indexOf(chat), 1);
   messages.splice(0, messages.length, ...messages.filter((row) => row.chatId !== chat.id));
   publish(topic(chat.projectId), "chat.deleted", { chatId: chat.id, projectId: chat.projectId });

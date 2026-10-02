@@ -53,8 +53,8 @@ const REASON_KINDS: Readonly<Record<string, NeedsReasonKind>> = {
 /**
  * The card fields the daemon sends no column for. The mirror writes its own empty values for them,
  * and the prototype's own are put back over the top (its costs, dependencies, members, checklists,
- * comments, merge percent, and its bypass flag). Asleep and waking are not among them: the wire card
- * carries a session, and the mirror draws both flags from it.
+ * comments, merge percent, its bypass flag, and why a card waits). Asleep and waking are not among
+ * them: the wire card carries a session, and the mirror draws both flags from it.
  */
 const PROTOTYPE_ONLY = [
   "cost",
@@ -64,6 +64,7 @@ const PROTOTYPE_ONLY = [
   "comments",
   "mergePct",
   "bypass",
+  "reasonKind",
 ] as const;
 
 /** Midnight of the day a moment falls on, which is where `dayOf` counts a card's day numbers from. */

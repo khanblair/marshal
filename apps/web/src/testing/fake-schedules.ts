@@ -9,7 +9,13 @@
  * The list is seeded from the golden `schedule-list` the Go tests wrote, so a screen test reads the
  * shape the real daemon sends.
  */
-import type { Schedule, ScheduleList, ScheduleRun } from "@marshal/protocol";
+import type {
+  CalendarEvent,
+  GoogleCalendarChoice,
+  Schedule,
+  ScheduleList,
+  ScheduleRun,
+} from "@marshal/protocol";
 import { errorAnswer, type FakeRequest, jsonAnswer } from "~/data/testing/fake-fetch";
 import { golden } from "~/data/testing/golden";
 
@@ -30,6 +36,21 @@ export interface ScheduleStore {
   seq: number;
   /** Its clock, as the ISO string `serverTime` is written from. */
   now: () => string;
+  /** What Google Calendar answers in `GET /v1/calendar`. Not connected, with no events, by default. */
+  google: {
+    events: CalendarEvent[];
+    connected: boolean;
+    error: string;
+    stale: boolean;
+    /** The calendars the owner has in Google, for the tick list. */
+    calendars: GoogleCalendarChoice[];
+    /** The owner has chosen calendars, so the ticks are theirs and no longer Google's. */
+    chosen: boolean;
+    /** A refusal sentence the calendar list answers with instead, as when Google is not connected. */
+    refuse: string;
+    /** Whether the build has Marshal's own Google client, and whether the person saved their own. */
+    client: { bundled: boolean; own: boolean };
+  };
 }
 
 export interface FakeScheduleOptions {
@@ -46,6 +67,16 @@ export function createScheduleStore(options: FakeScheduleOptions = {}): Schedule
     ]),
     seq: 0,
     now: options.now ?? (() => new Date().toISOString()),
+    google: {
+      events: [],
+      connected: false,
+      error: "",
+      stale: false,
+      calendars: [],
+      chosen: false,
+      refuse: "",
+      client: { bundled: false, own: false },
+    },
   };
 }
 
@@ -168,19 +199,59 @@ export function answerScheduleRoute(store: ScheduleStore, request: FakeRequest):
   return null;
 }
 
-/** Answers GET /v1/calendar, or null when the request is not one. */
+const UNPROCESSABLE = 422;
+const GOOGLE_CALENDARS_PATH = "/v1/integrations/gcal/calendars";
+const GMAIL_AUTHORIZE_PATH = "/v1/integrations/gmail/authorize";
+const GCAL_AUTHORIZE_PATH = "/v1/integrations/gcal/authorize";
+const GOOGLE_CLIENT_PATH = "/v1/integrations/gcal/client";
+
+/** The owner's Google calendars, as the tick list reads them. */
+function calendarChoices(store: ScheduleStore): Response {
+  const google = store.google;
+  if (google.refuse) return refuse(UNPROCESSABLE, "refused", google.refuse);
+  return jsonAnswer({ calendars: google.calendars, chosen: google.chosen });
+}
+
+/** Chooses which calendars are read, and answers the list as it now stands. */
+function chooseCalendars(store: ScheduleStore, request: FakeRequest): Response {
+  const body = bodyOf(request);
+  const ids = Array.isArray(body.ids) ? body.ids.filter((id) => typeof id === "string") : [];
+  store.google.calendars = store.google.calendars.map((calendar) => ({
+    ...calendar,
+    selected: ids.includes(calendar.id),
+  }));
+  store.google.chosen = true;
+  return calendarChoices(store);
+}
+
+/**
+ * Answers GET /v1/calendar, the Google calendar tick list, and Gmail's consent URL, or null when
+ * the request is none of them.
+ */
 export function answerCalendarRoute(store: ScheduleStore, request: FakeRequest): Response | null {
-  if (
-    request.method !== "GET" ||
-    new URL(request.url, "http://fake-daemon").pathname !== CALENDAR_PATH
-  ) {
+  const path = new URL(request.url, "http://fake-daemon").pathname;
+  if (path === GOOGLE_CALENDARS_PATH) {
+    if (request.method === "GET") return calendarChoices(store);
+    if (request.method === "PUT") return chooseCalendars(store, request);
     return null;
   }
+  if (path === GMAIL_AUTHORIZE_PATH && request.method === "GET") {
+    return jsonAnswer({ url: "https://accounts.google.com/o/oauth2/auth?fake=gmail" });
+  }
+  if (path === GCAL_AUTHORIZE_PATH && request.method === "GET") {
+    return jsonAnswer({ url: "https://accounts.google.com/o/oauth2/auth?fake=calendar" });
+  }
+  if (path === GOOGLE_CLIENT_PATH && request.method === "GET") {
+    return jsonAnswer(store.google.client);
+  }
+  if (request.method !== "GET" || path !== CALENDAR_PATH) return null;
   return jsonAnswer({
     schedules: store.rows,
     dueCards: [],
-    events: [],
-    googleConnected: false,
+    events: store.google.events,
+    googleConnected: store.google.connected,
+    googleError: store.google.error,
+    googleStale: store.google.stale,
     serverTime: store.now(),
   });
 }

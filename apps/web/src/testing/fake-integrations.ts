@@ -1,9 +1,13 @@
 /**
  * The connection routes of the fake daemon (docs/backend-checklist.md B6.1, B6.7, B7.4; sections
  * S29a and S29b). Every route answers the way the daemon's own handler does: the list carries every
- * connection Marshal knows, whether or not it is set up; a save stores the App's settings, tests the
- * connection as part of the same call, and answers the whole list; a test asked for inside the
- * cooldown is refused with how long to wait; and nothing secret ever comes back.
+ * connection Marshal knows, whether or not it is set up; a save stores the settings (GitHub's is a
+ * pasted token), tests the connection as part of the same call, and answers the whole list; a test
+ * asked for inside the cooldown is refused with how long to wait; and nothing secret ever comes back.
+ *
+ * GitHub's sign-in (`/v1/integrations/github/connect`) is a small machine: a start answers a
+ * pending code, and each read answers the next entry of `github.script`, or the flow as it stands,
+ * or the stored connection. A test moves a sign-in on by queueing the answers it wants to read.
  *
  * The connections of phases that have not reached this file yet are listed and read as not
  * connected, exactly as the daemon's own `known()` does, so a cutover does not renumber anything.
@@ -20,6 +24,8 @@
  */
 import type {
   DetectTelegramChatAnswer,
+  GitHubConnect,
+  GitHubInstallation,
   Integration,
   IntegrationStatus,
   TestCheck,
@@ -27,7 +33,7 @@ import type {
 } from "@marshal/protocol";
 import { errorAnswer, type FakeRequest, jsonAnswer } from "~/data/testing/fake-fetch";
 
-const STATUS = { ok: 200, badRequest: 400, notFound: 404, conflict: 409 };
+const STATUS = { ok: 200, badRequest: 400, notFound: 404, conflict: 409, unavailable: 503 };
 
 /** The daemon's cooldown between two tests of one connection (connectiontest.DefaultCooldown). */
 const DEFAULT_COOLDOWN_MS = 5000;
@@ -37,6 +43,12 @@ const OBSIDIAN = "obsidian";
 const NTFY = "ntfy";
 const BAD_REQUEST = 400;
 const SAVE_PATH = /^\/v1\/integrations\/([^/]+)$/;
+const CONNECT_PATH = "/v1/integrations/github/connect";
+const TOKEN_PATH = "/v1/integrations/github/token";
+const TOKEN_TEST_PATH = "/v1/integrations/github/token/test";
+const VERIFICATION_URI = "https://github.com/login/device";
+const INSTALL_URL = "https://github.com/apps/marshal-kanban/installations/new";
+const CODE_LIFETIME_MS = 900_000;
 const TEST_PATH = /^\/v1\/integrations\/([^/]+)\/test$/;
 const LIST_PATH = "/v1/integrations";
 /**
@@ -71,8 +83,28 @@ const KNOWN: readonly { id: string; kind: string }[] = [
   { id: "obsidian", kind: "obsidian" },
 ];
 
+/** GitHub's sign-in and the connection it makes, as the fake daemon holds them. */
+interface GitHubFake {
+  /** The sign-in under way, or the one that just ended, or null when there is none. */
+  flow: GitHubConnect | null;
+  /** What the next reads answer, one entry each, before they answer the flow or the stored connection. */
+  script: GitHubConnect[];
+  /** How the stored connection was made. */
+  mode: "oauth" | "token";
+  /** The GitHub user the stored connection is for. */
+  login: string;
+  /** The accounts the App is installed on, for a connection made by signing in. */
+  installations: GitHubInstallation[];
+  /** The code a started sign-in is given. */
+  userCode: string;
+  /** When set, starting a sign-in is refused with this sentence, as when GitHub cannot be reached. */
+  startRefusal?: string;
+}
+
 /** The connections and what is stored for them, as the fake daemon holds them. */
 export interface IntegrationStore {
+  /** GitHub's sign-in, and how its connection was made. */
+  github: GitHubFake;
   /**
    * The connections it knows, in the daemon's order. A row whose status is not `none` has a config
    * and a secret stored, and its sentence is what it shows until a test replaces it.
@@ -101,8 +133,12 @@ export interface FakeIntegrationOptions {
   integrations?: readonly Integration[];
   /** What finding a Telegram bot's chat answers. A found private chat by default. */
   detectedChat?: DetectTelegramChatAnswer;
-  /** Refuses a save with its own sentence, as a test may need. */
+  /** Refuses a save with its own sentence, as a test may need. GitHub's is a token save. */
   refuseSave?: (id: string, body: Record<string, unknown>) => string | undefined;
+  /** The GitHub user a connection is for. "ada" by default. */
+  githubLogin?: string;
+  /** The accounts the App is installed on once a sign-in connects. Ada's, all repositories, by default. */
+  githubInstallations?: readonly GitHubInstallation[];
   /** The checks a test answers with. A passing test by default, GitHub's or Obsidian's own shape. */
   checks?: (row: Integration) => TestCheck[];
   /** How long a connection waits between tests, in ms. The daemon's 5s by default. */
@@ -128,6 +164,18 @@ function knownRows(): Integration[] {
 
 export function createIntegrationStore(options: FakeIntegrationOptions = {}): IntegrationStore {
   return {
+    github: {
+      flow: null,
+      script: [],
+      mode: "oauth",
+      login: options.githubLogin ?? "ada",
+      installations: structuredClone([
+        ...(options.githubInstallations ?? [
+          { account: "ada", kind: "user", allRepositories: true },
+        ]),
+      ]),
+      userCode: "WDJB-MJHT",
+    },
     rows: structuredClone([...(options.integrations ?? knownRows())]),
     testedAt: {},
     lastTest: {},
@@ -157,6 +205,8 @@ export function answerIntegrationRoute(
       ? errorAnswer(BAD_REQUEST, "invalid_argument", store.detectRefusal)
       : jsonAnswer(store.detectedChat);
   }
+  const github = answerGitHubRoute(store, path, request);
+  if (github) return github;
   const test = TEST_PATH.exec(path);
   if (test && request.method === "POST") {
     return testConnection(store, decodeURIComponent(test[1] ?? ""));
@@ -236,13 +286,12 @@ function detailFor(row: Integration, last: TestResult | undefined): string {
 }
 
 function saveConnection(store: IntegrationStore, id: string, request: FakeRequest): Response {
-  // Only the GitHub App and ntfy have a save shape here, and an id with none is refused rather than
-  // silently accepted, exactly as the daemon's `saveIntegration` refuses it.
-  if (id !== GITHUB && id !== NTFY) return notFound();
+  // Only ntfy has a generic save shape here (GitHub's is the token route), and an id with none is
+  // refused rather than silently accepted, exactly as the daemon's `saveIntegration` refuses it.
+  if (id !== NTFY) return notFound();
   const row = find(store, id);
   if (!row) return notFound();
-  const body = bodyOf(request);
-  const refusal = id === NTFY ? ntfyRefusal(body) : store.refuseSave(id, body);
+  const refusal = ntfyRefusal(bodyOf(request));
   if (refusal) return errorAnswer(STATUS.badRequest, "invalid_argument", refusal);
   row.st = "connected";
   // The daemon tests a connection that has just changed, and does so without the cooldown
@@ -256,6 +305,7 @@ function removeConnection(store: IntegrationStore, id: string): Response {
   if (!row) return notFound();
   delete store.testedAt[id];
   delete store.lastTest[id];
+  if (id === GITHUB) store.github.flow = null;
   row.st = "none";
   row.detail = "";
   return listAnswer(store);
@@ -354,23 +404,116 @@ function ntfyChecks(): TestCheck[] {
   ];
 }
 
-/** The App's four values must all be there: the key alone, or the secret alone, is no connection. */
+/** A token must be there: an empty one is what GitHub refuses first. */
 function defaultRefusal(_id: string, body: Record<string, unknown>): string | undefined {
-  const appId = Number(body.appId ?? 0);
-  const installationId = Number(body.installationId ?? 0);
-  const privateKey = typeof body.privateKey === "string" ? body.privateKey.trim() : "";
-  const webhookSecret = typeof body.webhookSecret === "string" ? body.webhookSecret.trim() : "";
-  if (
-    !Number.isInteger(appId) ||
-    appId <= 0 ||
-    !Number.isInteger(installationId) ||
-    installationId <= 0
-  ) {
-    return "The App id and the installation id are both numbers.";
+  const token = typeof body.token === "string" ? body.token.trim() : "";
+  return token === "" ? "GitHub did not accept that token." : undefined;
+}
+
+/** GitHub's sign-in and token routes. Null when the request is not one of them. */
+function answerGitHubRoute(
+  store: IntegrationStore,
+  path: string,
+  request: FakeRequest,
+): Response | null {
+  if (path === CONNECT_PATH) {
+    if (request.method === "POST") return startConnect(store);
+    if (request.method === "GET") return readConnect(store);
+    if (request.method === "DELETE") return cancelConnect(store);
   }
-  if (!privateKey.includes("PRIVATE KEY")) {
-    return "That does not look like a private key. Paste the file GitHub generated, whole.";
+  if (path === TOKEN_PATH && request.method === "PUT") return saveToken(store, request);
+  if (path === TOKEN_TEST_PATH && request.method === "POST") return testToken(store, request);
+  return null;
+}
+
+/** What GitHub answers while nothing is under way: the stored connection, or nothing. */
+function storedConnection(store: IntegrationStore): GitHubConnect {
+  const row = find(store, GITHUB);
+  const { github } = store;
+  if (!row || row.st === "none") return { state: "idle", installations: [] };
+  const oauth = github.mode === "oauth";
+  return {
+    state: "connected",
+    mode: github.mode,
+    login: github.login,
+    ...(oauth ? { installUrl: INSTALL_URL } : {}),
+    installations: oauth ? github.installations : [],
+  };
+}
+
+function startConnect(store: IntegrationStore): Response {
+  if (store.github.startRefusal) {
+    return errorAnswer(STATUS.unavailable, "unavailable", store.github.startRefusal);
   }
-  if (webhookSecret === "") return "The webhook secret is missing.";
-  return undefined;
+  const flow: GitHubConnect = {
+    state: "pending",
+    userCode: store.github.userCode,
+    verificationUri: VERIFICATION_URI,
+    expiresAt: new Date(store.nowMs() + CODE_LIFETIME_MS).toISOString(),
+    installations: [],
+  };
+  store.github.flow = flow;
+  return jsonAnswer(flow);
+}
+
+/** A sign-in that reaches "connected" is stored and tested, as the daemon does the moment it does. */
+function adopt(store: IntegrationStore, answer: GitHubConnect): void {
+  const { github } = store;
+  const row = find(store, GITHUB);
+  if (answer.state !== "connected" || !row) {
+    github.flow = answer;
+    return;
+  }
+  github.flow = null;
+  github.mode = "oauth";
+  github.login = answer.login ?? github.login;
+  github.installations = structuredClone(answer.installations);
+  row.st = "connected";
+  runTest(store, row, store.nowMs());
+}
+
+function readConnect(store: IntegrationStore): Response {
+  const next = store.github.script.shift();
+  if (next) adopt(store, next);
+  return jsonAnswer(next ?? store.github.flow ?? storedConnection(store));
+}
+
+function cancelConnect(store: IntegrationStore): Response {
+  if (store.github.flow?.state === "pending") store.github.flow = null;
+  return jsonAnswer(store.github.flow ?? storedConnection(store));
+}
+
+function saveToken(store: IntegrationStore, request: FakeRequest): Response {
+  const row = find(store, GITHUB);
+  if (!row) return notFound();
+  const refusal = store.refuseSave(GITHUB, bodyOf(request));
+  if (refusal) return errorAnswer(STATUS.badRequest, "invalid_argument", refusal);
+  store.github.flow = null;
+  store.github.mode = "token";
+  row.st = "connected";
+  runTest(store, row, store.nowMs());
+  return listAnswer(store);
+}
+
+/** The stateless test: what GitHub says to a token, with nothing saved and no cooldown. */
+function testToken(store: IntegrationStore, request: FakeRequest): Response {
+  const row = find(store, GITHUB);
+  if (!row) return notFound();
+  const refusal = store.refuseSave(GITHUB, bodyOf(request));
+  const checks: TestCheck[] = refusal
+    ? [
+        {
+          name: "Token",
+          state: "failed",
+          message: refusal,
+          fix: "Make a new token on GitHub and paste it here.",
+        },
+      ]
+    : store.checks(row);
+  return jsonAnswer({
+    connectionId: GITHUB,
+    checks,
+    ok: !checks.some((check) => check.state === "failed"),
+    ranAt: new Date(store.nowMs()).toISOString(),
+  });
 }

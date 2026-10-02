@@ -15,6 +15,7 @@ import type {
   FeedEntry,
   Health,
   Integration,
+  IntegrationState,
   Label,
   Limit,
   Note,
@@ -60,6 +61,7 @@ import {
   pendingProgress,
   wireProfile,
 } from "./fake-me";
+import { answerMergeFlowRoute, createMergeFlowStore, type MergeFlowStore } from "./fake-merge-flow";
 import { answerNoticeRoute, createNoticesStore, type NoticesStore } from "./fake-notices";
 import { createPreviewStore, type PreviewStore } from "./fake-previews";
 import { answerProviderRoute, createProviderStore, type ProviderStore } from "./fake-providers";
@@ -132,7 +134,7 @@ export interface FakeDaemonOptions {
   integrations?: readonly Integration[];
   /** The checks a connection's test answers with. A passing GitHub test by default. */
   integrationChecks?: (row: Integration) => TestCheck[];
-  /** Refuses a connection's settings with its own sentence, the way the App's own check does. */
+  /** Refuses a pasted GitHub token with its own sentence, the way GitHub's own check does. */
   integrationSaveRefused?: (id: string, body: Record<string, unknown>) => string | undefined;
   /** The cost and awake ceilings it starts with (sections S19b and S26b). The golden list by default. */
   limits?: readonly Limit[];
@@ -150,6 +152,8 @@ export interface FakeDaemonOptions {
   ci?: readonly ProjectCI[];
   /** A card's preview it starts with (section S13), one per card. None by default: all stopped. */
   previews?: readonly Preview[];
+  /** The Integrator state it starts with, one per project (the Integration view). None: all idle. */
+  mergeFlows?: readonly IntegrationState[];
   /** Whether Marshal can find a browser to shoot with. True by default, so a screenshot is taken. */
   previewBrowser?: boolean;
   /** True to run in dev mode, which is what the first-launch reset route needs. False by default. */
@@ -212,6 +216,8 @@ export interface FakeDaemon {
   ci: CIStore;
   /** Every card's preview it holds now (section S13), by the daemon's own card id. */
   previews: PreviewStore;
+  /** Every project's merge queue and delivered cards it holds now, and the folders opened. */
+  mergeFlow: MergeFlowStore;
   /** Makes every call fail like a daemon that is not running, until `start`. */
   stop(): void;
   start(): void;
@@ -363,6 +369,10 @@ function updateProject(
   }
   if (typeof body.devCommand === "string") project.devCommand = body.devCommand;
   if (typeof body.defaultBranch === "string") project.defaultBranch = body.defaultBranch;
+  // An empty string clears the choice, so the default branch stands in for it again.
+  if (typeof body.integrationBranch === "string") {
+    project.integrationBranch = body.integrationBranch.trim() || project.defaultBranch;
+  }
   if (typeof body.bypassLocked === "boolean") project.bypassLocked = body.bypassLocked;
   publish("home", "project.updated", { project });
   return jsonAnswer(project);
@@ -397,6 +407,7 @@ interface Router {
   cardPanel: CardPanelStore;
   ci: CIStore;
   previews: PreviewStore;
+  mergeFlow: MergeFlowStore;
 }
 
 /**
@@ -612,6 +623,9 @@ function answer(router: Router, request: FakeRequest): Response {
   // lists read: the route is the top-level `/v1/ci` and belongs to no project.
   const ci = answerCIRoute(router.ci, request);
   if (ci) return ci;
+  // A project's merge queue and a card's retry, undo, and worktree (the Integration view).
+  const mergeFlow = answerMergeFlowRoute(router.mergeFlow, request);
+  if (mergeFlow) return mergeFlow;
   const cards = answerCardRoute(
     router.cards,
     request,
@@ -778,6 +792,7 @@ interface Slices {
   cardPanel: CardPanelStore;
   ci: CIStore;
   previews: PreviewStore;
+  mergeFlow: MergeFlowStore;
 }
 
 /**
@@ -790,6 +805,7 @@ interface Slices {
 function createSlices(
   options: FakeDaemonOptions,
   projects: readonly Project[],
+  cards: Card[],
   emit: Publish,
   now: () => string,
 ): Slices {
@@ -834,6 +850,13 @@ function createSlices(
       previews: options.previews,
       commandOf,
       hasBrowser: options.previewBrowser ?? true,
+      publish: emit,
+      now,
+    }),
+    mergeFlow: createMergeFlowStore({
+      states: options.mergeFlows,
+      cards: () => cards,
+      hasProject: (projectId) => projects.some((project) => project.id === projectId),
       publish: emit,
       now,
     }),
@@ -903,7 +926,7 @@ export function createFakeDaemon(options: FakeDaemonOptions = {}): FakeDaemon {
   const emit = publisher(sockets, state, now);
   const terminals = createTerminalRouter({ publish: emit, seqNow: () => state.seq });
   termRef.current = terminals;
-  const slices = createSlices(options, projects, emit, now);
+  const slices = createSlices(options, projects, cards, emit, now);
   const router: Router = {
     token: () => state.token,
     now,
@@ -966,6 +989,7 @@ export function createFakeDaemon(options: FakeDaemonOptions = {}): FakeDaemon {
     cardPanel: slices.cardPanel,
     ci: slices.ci,
     previews: slices.previews,
+    mergeFlow: slices.mergeFlow,
     ...switches(state),
     refuseNext: meddle.refuseNext,
     holdNext: meddle.holdNext,
