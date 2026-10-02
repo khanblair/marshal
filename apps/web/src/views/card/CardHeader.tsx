@@ -5,6 +5,7 @@ import { CardActions } from "./CardActions";
 import { CardMeta } from "./CardMeta";
 import { CardTabs } from "./CardTabs";
 import { MembersRow } from "./MembersRow";
+import { MergeRow } from "./MergeRow";
 import type { Panel } from "./panel-state";
 import { SessionSettings } from "./SessionSettings";
 import { TitleField } from "./TitleField";
@@ -44,7 +45,7 @@ function TopRow(props: Omit<CardHeaderProps, "diffCount">) {
         <span class="inline-flex" style={{ color: props.c.iconColor }}>
           <Icon name={props.c.icon} size={12} />
         </span>
-        {props.c.stateLabel}
+        {props.c.mergeText ?? props.c.stateLabel}
       </Badge>
       <IconLabel icon={sessionIcon(props.card)} size={12} class="text-caption text-secondary">
         {props.c.awakeLabel}
@@ -68,7 +69,7 @@ function TopRow(props: Omit<CardHeaderProps, "diffCount">) {
   );
 }
 
-/** The card's title, meta line, members, actions, settings, and tabs. */
+/** The card's title, meta line, merge row, members, actions, settings, and tabs. */
 export function CardHeader(props: CardHeaderProps) {
   return (
     <div class="flex-none pt-3 px-4 pb-0 flex flex-col gap-2.5 border-b border-border">
@@ -89,6 +90,7 @@ export function CardHeader(props: CardHeaderProps) {
         <TitleField cardId={props.card.id} title={props.c.title} panel={props.panel} />
       </Show>
       <CardMeta card={props.card} c={props.c} />
+      <MergeRow card={props.card} c={props.c} />
       <MembersRow card={props.card} panel={props.panel} />
       <CardActions card={props.card} panel={props.panel} />
       <SessionSettings card={props.card} panel={props.panel} />

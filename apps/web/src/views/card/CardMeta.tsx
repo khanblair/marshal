@@ -1,6 +1,7 @@
 import { CiStatus, IconLabel, ProgressBar } from "@marshal/ui";
 import { Show } from "solid-js";
-import type { Card, CardView } from "~/mock";
+import { type Card, type CardView, M } from "~/mock";
+import { shortBranch } from "./merge-model";
 
 export interface CardMetaProps {
   card: Card;
@@ -38,14 +39,30 @@ function ContextMeter(props: { ctx: number }) {
   );
 }
 
+/** Where the card's work goes: its branch, then the branch it merges into when the project has one. */
+function BranchLine(props: CardMetaProps) {
+  const into = () => shortBranch(M.proj(props.card.p)?.integrationBranch);
+  return (
+    <IconLabel
+      icon="git-branch"
+      class="min-w-0"
+      title={into() ? `Finished work merges into ${into()}` : undefined}
+    >
+      <span class="font-mono text-caption">{shortBranch(props.c.branch)}</span>
+      <Show when={into()}>
+        <span aria-hidden="true">→</span>
+        <span class="font-mono text-caption">{into()}</span>
+      </Show>
+    </IconLabel>
+  );
+}
+
 /** Branch, package, pull request, CI, cost, and context, in one wrapping line. */
 export function CardMeta(props: CardMetaProps) {
   return (
     <div class="flex flex-wrap items-center gap-x-3.5 gap-y-1.5 text-small leading-4.5 text-secondary">
       <Show when={props.c.hasBranch}>
-        <IconLabel icon="git-branch" class="min-w-0">
-          <span class="font-mono text-caption">{props.c.branch}</span>
-        </IconLabel>
+        <BranchLine card={props.card} c={props.c} />
       </Show>
       <Show when={props.c.hasPkg}>
         <IconLabel icon="package">
