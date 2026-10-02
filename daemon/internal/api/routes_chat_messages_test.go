@@ -162,7 +162,7 @@ func TestAChatsMessagesPageByCursor(t *testing.T) {
 		t.Fatalf("read the chat's session: %v", err)
 	}
 	err = st.hist.AppendChat(context.Background(), chat.ID, session.ID, []history.Record{
-		{Kind: history.KindUser, Summary: "one"}, {Kind: history.KindAgent, Summary: "two"}, {Kind: history.KindAgent, Summary: "three"},
+		{Kind: history.KindUser, Summary: "one"}, {Kind: history.KindAgent, Summary: "two"}, {Kind: history.KindUser, Summary: "three"},
 	})
 	if err != nil {
 		t.Fatalf("store the chat's history: %v", err)

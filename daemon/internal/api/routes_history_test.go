@@ -89,7 +89,7 @@ func TestCardMessagesPageByCursor(t *testing.T) {
 	addHistory(t, st, card.ID,
 		history.Record{Kind: history.KindUser, Summary: "one"},
 		history.Record{Kind: history.KindAgent, Summary: "two"},
-		history.Record{Kind: history.KindAgent, Summary: "three"},
+		history.Record{Kind: history.KindUser, Summary: "three"},
 	)
 	path := "/v1/cards/" + card.ID + "/messages"
 

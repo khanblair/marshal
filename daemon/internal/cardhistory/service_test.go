@@ -95,11 +95,16 @@ func (e *env) append(t *testing.T, records ...history.Record) {
 	}
 }
 
-// chatRecords is a run of stored events of the kinds a card's history holds.
+// chatRecords is a run of stored events of the kinds a card's history holds. They alternate between
+// a person and the agent, so each one reads as a message of its own.
 func chatRecords(count int) []history.Record {
 	records := make([]history.Record, 0, count)
 	for i := range count {
-		records = append(records, history.Record{Kind: history.KindAgent, Summary: fmt.Sprintf("chunk %d", i)})
+		kind := history.KindAgent
+		if i%2 == 0 {
+			kind = history.KindUser
+		}
+		records = append(records, history.Record{Kind: kind, Summary: fmt.Sprintf("message %d", i)})
 	}
 	return records
 }
@@ -151,7 +156,7 @@ func TestMessagesPagesNewestFirst(t *testing.T) {
 	e.append(t,
 		history.Record{Kind: history.KindUser, Summary: "please"},
 		history.Record{Kind: history.KindAgent, Summary: "one"},
-		history.Record{Kind: history.KindAgent, Summary: "two"},
+		history.Record{Kind: history.KindUser, Summary: "two"},
 		history.Record{Kind: history.KindToolCall, Summary: "Edited conn.go", State: history.StateOK,
 			Detail: toolDetail("c1", "edit", "", "done")},
 	)
@@ -170,7 +175,7 @@ func TestMessagesPagesNewestFirst(t *testing.T) {
 	if first.Items[0].Tool == nil || first.Items[0].Tool.Title != "Edited conn.go" {
 		t.Errorf("the newest message has no tool call: %+v", first.Items[0])
 	}
-	if first.Items[1].Text != "two" || first.Items[1].Kind != protocol.ChatMessageKindAgent {
+	if first.Items[1].Text != "two" || first.Items[1].Kind != protocol.ChatMessageKindUser {
 		t.Errorf("the second message = %+v", first.Items[1])
 	}
 	if first.Cursor != 3 {
@@ -484,5 +489,90 @@ func TestMessagesDrawOnlyTheNewestPlan(t *testing.T) {
 	if len(page.Items) != 2 {
 		t.Errorf("the page holds %d messages, want one plan and the agent's answer: %+v",
 			len(page.Items), page.Items)
+	}
+}
+
+// streamed is one reply stored the way the agent sends it: a piece at a time.
+func streamed(pieces ...string) []history.Record {
+	records := make([]history.Record, 0, len(pieces))
+	for _, piece := range pieces {
+		records = append(records, history.Record{Kind: history.KindAgent, Summary: piece})
+	}
+	return records
+}
+
+func TestMessagesJoinTheStreamedPiecesOfOneReply(t *testing.T) {
+	e := newEnv(t)
+	e.append(t, history.Record{Kind: history.KindUser, Summary: "summarize"})
+	e.append(t, streamed("Liquidex is", " a Python ag", "ent.")...)
+	e.append(t, history.Record{Kind: history.KindToolCall, Summary: "Read README", State: history.StateOK,
+		Detail: toolDetail("c1", "read", "", "")})
+	e.append(t, streamed("Done", ".")...)
+
+	page, err := e.service.Messages(context.Background(), e.cardID, 0, 50)
+	if err != nil {
+		t.Fatalf("Messages: %v", err)
+	}
+	var texts []string
+	for _, item := range page.Items {
+		texts = append(texts, item.Text)
+	}
+	want := []string{"Done.", "", "Liquidex is a Python agent.", "summarize"}
+	if len(texts) != len(want) {
+		t.Fatalf("messages = %q, want %q", texts, want)
+	}
+	for i := range want {
+		if texts[i] != want[i] {
+			t.Errorf("message %d = %q, want %q", i, texts[i], want[i])
+		}
+	}
+	// The reply keeps the identity of its first piece, and a read of its parts finds one message.
+	if page.Items[2].Seq != 2 || page.Items[2].Kind != protocol.ChatMessageKindAgent {
+		t.Errorf("the joined reply = %+v, want the first piece's sequence 2 and the agent kind", page.Items[2])
+	}
+}
+
+func TestMessagesNeverSplitAReplyAcrossPages(t *testing.T) {
+	e := newEnv(t)
+	e.append(t, history.Record{Kind: history.KindUser, Summary: "go"})
+	pieces := make([]string, 300)
+	for i := range pieces {
+		pieces[i] = "x"
+	}
+	e.append(t, streamed(pieces...)...)
+	e.append(t, history.Record{Kind: history.KindUser, Summary: "again"})
+	ctx := context.Background()
+
+	first, err := e.service.Messages(ctx, e.cardID, 0, 2)
+	if err != nil {
+		t.Fatalf("Messages: %v", err)
+	}
+	if len(first.Items) != 2 || len(first.Items[1].Text) != 300 || !first.More {
+		t.Fatalf("first page = %d items, the reply is %d characters, More %v; want 2, 300, and More",
+			len(first.Items), len(first.Items[1].Text), first.More)
+	}
+	last, err := e.service.Messages(ctx, e.cardID, first.Cursor, 2)
+	if err != nil {
+		t.Fatalf("Messages: %v", err)
+	}
+	if len(last.Items) != 1 || last.Items[0].Text != "go" || last.More {
+		t.Errorf("last page = %+v, want the first message alone", last.Items)
+	}
+}
+
+func TestMessagesKeepThoughtsApartFromTheReply(t *testing.T) {
+	e := newEnv(t)
+	e.append(t,
+		history.Record{Kind: history.KindThought, Summary: "Let me "},
+		history.Record{Kind: history.KindThought, Summary: "look."},
+		history.Record{Kind: history.KindAgent, Summary: "Here "},
+		history.Record{Kind: history.KindAgent, Summary: "it is."},
+	)
+	page, err := e.service.Messages(context.Background(), e.cardID, 0, 50)
+	if err != nil {
+		t.Fatalf("Messages: %v", err)
+	}
+	if len(page.Items) != 2 || page.Items[0].Text != "Here it is." || page.Items[1].Text != "Let me look." {
+		t.Errorf("messages = %+v, want the reply and the thought as two messages", page.Items)
 	}
 }

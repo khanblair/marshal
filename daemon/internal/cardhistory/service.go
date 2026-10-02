@@ -31,6 +31,9 @@ const (
 	// maxStoreChunk is the most stored events one read asks the history store for. Asking for more
 	// than the store's own cap would only be cut there.
 	maxStoreChunk = 200
+	// minChunk is the fewest stored events one read asks for while a page fills, so the last few
+	// places of a page do not turn into reads of one event each.
+	minChunk = 50
 	// scanBudgetFactor is how many stored events one page may read to fill itself. An activity
 	// page skips the chat messages in between, and a page filtered by one activity kind skips
 	// nearly everything, so one read of `limit` rows is not enough: a page reads at most this many
@@ -113,7 +116,7 @@ func (s *Service) Messages(ctx context.Context, cardID string, cursor int64, lim
 	if err := s.cardExists(ctx, cardID); err != nil {
 		return Page[protocol.ChatMessage]{}, err
 	}
-	return fill(ctx, s.cardPager(cardID), cursor, pageSize(limit), newestPlanOnly(messageOf))
+	return fillMessages(ctx, s.cardPager(cardID), cursor, pageSize(limit), newestPlanOnly(messageOf))
 }
 
 // ChatMessages is Messages for a project chat: the chat's own history, newest first, paged the same
@@ -122,7 +125,7 @@ func (s *Service) ChatMessages(ctx context.Context, chatID string, cursor int64,
 	if err := s.chatExists(ctx, chatID); err != nil {
 		return Page[protocol.ChatMessage]{}, err
 	}
-	return fill(ctx, s.chatPager(chatID), cursor, pageSize(limit), newestPlanOnly(messageOf))
+	return fillMessages(ctx, s.chatPager(chatID), cursor, pageSize(limit), newestPlanOnly(messageOf))
 }
 
 // messageOf maps one stored event to a chat message. Every event is one.
