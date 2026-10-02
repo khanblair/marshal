@@ -5,6 +5,7 @@ import { DAY_MS } from "~/mock/constants";
 import {
   agentKindOf,
   hasLiveSession,
+  mergePhaseText,
   mirroredCard,
   permissionModeOf,
   sleepFlags,
@@ -85,6 +86,42 @@ describe("a card from the daemon", () => {
       NOW,
     );
     expect(working).toMatchObject({ branch: "marshal/api-41", pkg: "left-pad@2" });
+  });
+
+  it("carries the worktree and the merge, and shows none of them as absent", () => {
+    const plain = toStoredCard(wireCard(), NOW);
+    expect(plain.worktree).toBeUndefined();
+    expect(plain.mergePhase).toBeUndefined();
+    expect(plain.mergeNote).toBeUndefined();
+    expect(plain.reasonKind).toBeUndefined();
+    const merging = toStoredCard(
+      wireCard({
+        worktree: "/data/worktrees/api/01HZ",
+        mergePhase: "resolving",
+        mergeNote: "Resolving 2 conflicts",
+        needsReason: { kind: "conflict", text: "The merge has a conflict." },
+      }),
+      NOW,
+    );
+    expect(merging).toMatchObject({
+      worktree: "/data/worktrees/api/01HZ",
+      mergePhase: "resolving",
+      mergeNote: "Resolving 2 conflicts",
+      reasonKind: "conflict",
+    });
+  });
+
+  it("writes the merge fields even when empty, so a finished merge clears what the store holds", () => {
+    const merged = mirroredCard(
+      wireCard({ mergePhase: "testing", mergeNote: "Running tests" }),
+      NOW,
+    );
+    const done = mirroredCard(wireCard(), NOW);
+    expect(merged).toMatchObject({ mergePhase: "testing", mergeNote: "Running tests" });
+    expect(Object.keys(done)).toEqual(
+      expect.arrayContaining(["worktree", "mergePhase", "mergeNote", "reasonKind"]),
+    );
+    expect(done.mergePhase).toBeUndefined();
   });
 
   it("has no thinking setting when the daemon sends none, and shows the two flags it does send", () => {
@@ -263,5 +300,20 @@ describe("the words the screens use, back to what the daemon wants", () => {
     );
     expect(card.agent).toBe("future-cli");
     expect(card.perm).toBe("future");
+  });
+});
+
+describe("mergePhaseText", () => {
+  it("says each phase in plain words", () => {
+    expect(mergePhaseText("queued")).toBe("Waiting for the Integrator");
+    expect(mergePhaseText("resolving")).toBe("Resolving conflicts");
+    expect(mergePhaseText("testing")).toBe("Testing the merge");
+    expect(mergePhaseText("landing")).toBe("Landing in your folder");
+  });
+
+  it("says nothing for no phase, or for one a newer daemon added", () => {
+    expect(mergePhaseText(undefined)).toBe("");
+    expect(mergePhaseText(null)).toBe("");
+    expect(mergePhaseText("sailing" as never)).toBe("");
   });
 });

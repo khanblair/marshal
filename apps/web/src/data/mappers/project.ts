@@ -16,6 +16,8 @@ export interface DaemonProject {
   path: string;
   /** The branch new work starts from. */
   branch: string;
+  /** The branch finished cards merge into, and new cards start from. Never empty. */
+  integrationBranch: string;
   /** The command that starts the dev server. It may be empty. */
   dev: string;
   lockBypass: boolean;
@@ -36,6 +38,8 @@ export function toDaemonProject(project: Project): DaemonProject {
     lang: project.language,
     path: project.path,
     branch: project.defaultBranch,
+    // The daemon sends the effective branch; the fallback is the same rule for an older answer.
+    integrationBranch: project.integrationBranch || project.defaultBranch,
     dev: project.devCommand,
     lockBypass: project.bypassLocked,
     packages: project.isMonorepo ? [...project.packages] : undefined,

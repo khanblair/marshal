@@ -15,6 +15,7 @@ describe("toDaemonProject", () => {
       lang: "TypeScript",
       path: "/home/ada/code/web-dashboard",
       branch: "main",
+      integrationBranch: "main",
       dev: "pnpm dev",
       lockBypass: true,
       packages: undefined,
@@ -22,6 +23,17 @@ describe("toDaemonProject", () => {
       needs: 2,
       awake: 1,
     });
+  });
+
+  it("carries the integration branch, and falls back to the default branch without one", () => {
+    expect(toDaemonProject({ ...project, integrationBranch: "development" })).toMatchObject({
+      branch: "main",
+      integrationBranch: "development",
+    });
+    expect(toDaemonProject({ ...project, integrationBranch: "" }).integrationBranch).toBe("main");
+    expect(toDaemonProject({ ...project, integrationBranch: undefined }).integrationBranch).toBe(
+      "main",
+    );
   });
 
   it("keeps the packages of a monorepo, and only of a monorepo", () => {

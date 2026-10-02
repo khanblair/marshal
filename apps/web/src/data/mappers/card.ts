@@ -3,6 +3,8 @@ import {
   type CardState,
   type CardViewMode,
   type CIState,
+  type MergePhase,
+  type NeedsReasonKind,
   type PermissionMode,
   type SessionState,
   SessionStateAsleep,
@@ -90,6 +92,29 @@ const THINK_MODES: Record<string, ThinkingMode> = {
   "Extra high": "extra-high",
 };
 
+/** The merge phases in plain words, for the board and a card's header. */
+const MERGE_PHASE_TEXT: Record<MergePhase, string> = {
+  queued: "Waiting for the Integrator",
+  resolving: "Resolving conflicts",
+  testing: "Testing the merge",
+  landing: "Landing in your folder",
+  stopped: "Merge stopped",
+};
+
+/**
+ * The card's merge phase, unless it is stale: a card the owner moved out of Needs you by hand keeps
+ * the daemon's "stopped" phase, which must not read as a stopped merge on a card that is working.
+ */
+function liveMergePhase(card: { mergePhase?: MergePhase; state: string }): MergePhase | undefined {
+  if (!card.mergePhase) return undefined;
+  return card.mergePhase === "stopped" && card.state !== "needs" ? undefined : card.mergePhase;
+}
+
+/** What a merge phase says, or an empty string for no phase (or one a newer daemon added). */
+export function mergePhaseText(phase: MergePhase | null | undefined): string {
+  return phase ? (MERGE_PHASE_TEXT[phase] ?? "") : "";
+}
+
 /**
  * The day number a moment falls on, counted from the start of the day the daemon is on. The
  * prototype's Timeline and calendar draw day numbers, not dates, and a card's dates come from the
@@ -169,9 +194,17 @@ export interface DaemonCard {
   /** True while the card's permission mode is bypass, which is what the banner and the shield draw. */
   bypass: boolean;
   branch: string | null;
+  /** The card's worktree folder on the daemon's machine, or undefined until the card starts. */
+  worktree?: string;
+  /** Where the card is in the merge queue, or undefined when it is not being merged. */
+  mergePhase?: MergePhase;
+  /** One plain sentence about the merge in progress, or undefined when there is none. */
+  mergeNote?: string;
   ci: CIState | null;
   doing: string;
   reason: string;
+  /** Why the card waits on a person, or undefined when it does not. */
+  reasonKind?: NeedsReasonKind;
   /** The id of the approval the card is waiting on. See `Card.approvalId` (mock/types.ts). */
   approvalId?: string;
   pinned: boolean;
@@ -210,9 +243,14 @@ export function toStoredCard(card: WireCard, now: number): DaemonCard {
     perm: PERM_NAMES[card.permissionMode] ?? card.permissionMode,
     bypass: card.permissionMode === "bypass",
     branch: card.branch === "" ? null : card.branch,
+    // Written even when empty, so a card that finished merging clears what the mirror holds.
+    worktree: card.worktree || undefined,
+    mergePhase: liveMergePhase(card),
+    mergeNote: liveMergePhase(card) ? card.mergeNote || undefined : undefined,
     ci: card.ci ?? null,
     doing: card.doingNow,
     reason: card.needsReason?.text ?? "",
+    reasonKind: card.needsReason?.kind,
     approvalId: card.needsReason?.approvalId,
     pinned: card.pinned,
     paused: card.paused,

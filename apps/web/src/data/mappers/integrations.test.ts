@@ -1,7 +1,7 @@
-import type { IntegrationList, TestResult } from "@marshal/protocol";
+import type { GitHubConnect, IntegrationList, TestResult } from "@marshal/protocol";
 import { describe, expect, it } from "vitest";
 import { golden } from "~/data/testing/golden";
-import { toIntegrationStates } from "./integrations";
+import { toGitHubConnection, toIntegrationStates } from "./integrations";
 import { toProviderTest } from "./providers";
 
 // Section S29a: the GitHub row in Settings. The mapper is tested from the golden the daemon's own
@@ -59,5 +59,118 @@ describe("the integration mapper", () => {
       "Vault writable",
     ]);
     expect(test.checks.every((check) => check.state === "passed")).toBe(true);
+  });
+});
+
+// GitHub's sign-in (section S29a). There is no golden for it yet, so the wire answers are built here
+// the way the daemon writes them: a field that does not apply to a state is left out.
+
+const EXPIRES = "2026-10-02T18:30:00.000Z";
+
+/** An answer built from loose fields, so a state the types do not name stays writable if they are narrowed. */
+const loose = (fields: object): GitHubConnect =>
+  ({ installations: [], ...fields }) as unknown as GitHubConnect;
+
+describe("the GitHub connection mapper", () => {
+  it("keeps what a pending sign-in carries and turns its expiry into milliseconds", () => {
+    const wire: GitHubConnect = {
+      state: "pending",
+      userCode: "WDJB-MJHT",
+      verificationUri: "https://github.com/login/device",
+      expiresAt: EXPIRES,
+      installations: [],
+    };
+    expect(toGitHubConnection(wire)).toStrictEqual({
+      state: "pending",
+      userCode: "WDJB-MJHT",
+      verificationUri: "https://github.com/login/device",
+      expiresAt: Date.parse(EXPIRES),
+      installations: [],
+    });
+  });
+
+  it("leaves out every field the daemon left out, so a screen asks for what its state has", () => {
+    const connection = toGitHubConnection({ state: "idle", installations: [] });
+    expect(connection).toStrictEqual({ state: "idle", installations: [] });
+    expect(Object.keys(connection)).toEqual(["state", "installations"]);
+  });
+
+  it("maps a sign-in that is waiting for the App to be installed", () => {
+    expect(
+      toGitHubConnection({
+        state: "needs_install",
+        login: "ada",
+        installUrl: "https://github.com/apps/marshal-kanban/installations/new",
+        installations: [],
+      }),
+    ).toStrictEqual({
+      state: "needs_install",
+      login: "ada",
+      installUrl: "https://github.com/apps/marshal-kanban/installations/new",
+      installations: [],
+    });
+  });
+
+  it("maps a connected sign-in with its installations, narrowing each kind", () => {
+    const connection = toGitHubConnection({
+      state: "connected",
+      mode: "oauth",
+      login: "ada",
+      installUrl: "https://github.com/apps/marshal-kanban/installations/new",
+      installations: [
+        { account: "ada", kind: "user", allRepositories: true },
+        { account: "acme", kind: "organization", allRepositories: false },
+        { account: "odd", kind: "enterprise", allRepositories: false },
+      ],
+    });
+    expect(connection.mode).toBe("oauth");
+    expect(connection.installations).toEqual([
+      { account: "ada", kind: "user", allRepositories: true },
+      { account: "acme", kind: "organization", allRepositories: false },
+      // A kind this app does not draw differently reads as a user, the plainer of the two.
+      { account: "odd", kind: "user", allRepositories: false },
+    ]);
+  });
+
+  it("maps a connection made by a token, which has no installations", () => {
+    expect(
+      toGitHubConnection({ state: "connected", mode: "token", login: "ada", installations: [] }),
+    ).toStrictEqual({ state: "connected", mode: "token", login: "ada", installations: [] });
+  });
+
+  it("keeps the daemon's sentence for a sign-in that ended without connecting", () => {
+    for (const state of ["denied", "expired", "failed"]) {
+      const connection = toGitHubConnection(loose({ state, message: "GitHub said no." }));
+      expect(connection).toMatchObject({ state, message: "GitHub said no." });
+    }
+  });
+
+  it("reads a state or a mode it does not know without guessing", () => {
+    const unknown = toGitHubConnection(loose({ state: "mystery", mode: "magic" }));
+    // A failure with a sentence of its own, never one of the states the screen draws a panel for.
+    expect(unknown.state).toBe("failed");
+    expect(unknown.message).toBe("Marshal got an answer from GitHub it does not know how to show.");
+    expect(unknown.mode).toBeUndefined();
+    // When the daemon wrote a sentence, that is the one that is kept.
+    expect(toGitHubConnection(loose({ state: "mystery", message: "Try later." })).message).toBe(
+      "Try later.",
+    );
+  });
+
+  it("copies the installations, so one answer can be kept and reused", () => {
+    const wire: GitHubConnect = {
+      state: "connected",
+      mode: "oauth",
+      installations: [{ account: "ada", kind: "user", allRepositories: true }],
+    };
+    const connection = toGitHubConnection(wire);
+    wire.installations[0]!.account = "changed";
+    expect(connection.installations[0]?.account).toBe("ada");
+  });
+
+  it("refuses a timestamp it cannot read, as every other mapper does", () => {
+    expect(() =>
+      toGitHubConnection({ state: "pending", expiresAt: "soon", installations: [] }),
+    ).toThrow(RangeError);
   });
 });
