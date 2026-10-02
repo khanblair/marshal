@@ -3,12 +3,13 @@ import { createSignal, Show } from "solid-js";
 import { type Integration, M } from "~/mock";
 import type { EditState } from "./edit-state";
 import { fieldValue } from "./form-field";
+import { openGoogleConsent } from "./google-consent";
 import { connectGmail, disconnectConnection, testConnection } from "./integration-actions";
 
 /**
  * Gmail's connection (B8.3): which label to watch, and which Marshal project a labeled email
- * becomes a card in. There is no client to save here - Google Calendar's own OAuth client and
- * consent, once granted (the row above this one), cover Gmail too.
+ * becomes a card in. There is no client to save here - it uses the OAuth client saved on the Google
+ * Calendar row - but Gmail asks Google for its own access, so Calendar never needs Gmail's scope.
  */
 export function GmailForm(props: { integration: Integration; edit: EditState }) {
   const error = () => props.edit.errorFor(props.integration.id);
@@ -35,6 +36,16 @@ export function GmailForm(props: { integration: Integration; edit: EditState }) 
       .finally(() => setBusy(false));
   };
 
+  const openConsent = (): void => {
+    setBusy(true);
+    void openGoogleConsent(() => M.authorizeGmail())
+      .then((opened) => {
+        if (!opened)
+          props.edit.fail("Marshal has no Google sign-in yet. Connect Google Calendar first.");
+      })
+      .finally(() => setBusy(false));
+  };
+
   const runTest = (): void => {
     setBusy(true);
     void testConnection(props.integration.id, name()).finally(() => setBusy(false));
@@ -49,7 +60,8 @@ export function GmailForm(props: { integration: Integration; edit: EditState }) 
       }}
     >
       <span class="text-small leading-4.5 text-secondary">
-        Uses Google Calendar's own sign-in above. Connect that first if it is not connected yet.
+        Gmail asks Google for its own access, separate from Calendar's. It signs in the same way
+        Google Calendar does: Marshal's own Google client, or the one you saved on that row.
       </span>
       <Field label="Label" hint='The Gmail label to watch, for example "marshal".'>
         <Input name="label" autocomplete="off" invalid={!!error()} />
@@ -66,6 +78,9 @@ export function GmailForm(props: { integration: Integration; edit: EditState }) 
       <div class="flex flex-wrap gap-2">
         <Button variant="primary" type="submit" disabled={busy()}>
           {busy() ? "Saving…" : "Save connection"}
+        </Button>
+        <Button disabled={busy()} onClick={openConsent}>
+          {connected() ? "Reconnect Gmail" : "Grant access"}
         </Button>
         <Show when={connected()}>
           <Button disabled={busy()} onClick={runTest}>
