@@ -208,7 +208,11 @@ function scheduleQuery(project: string | undefined): string {
 }
 
 /** The typed method of each route. Path segments are escaped, and a call with no body sends none. */
-function routeMethods({ request, command, bytes }: Transport): Omit<ApiClient, "request"> {
+function routeMethods({
+  request,
+  command,
+  bytes,
+}: Transport): Omit<ApiClient, "request" | MergeFlowRoute> {
   const id = encodeURIComponent;
   return {
     health: (o) => request("GET", "/v1/health", o),
@@ -309,6 +313,15 @@ function routeMethods({ request, command, bytes }: Transport): Omit<ApiClient, "
       request("PUT", `/v1/integrations/${id(iid)}`, { ...slow(o), body }),
     removeIntegration: (iid, o) => request("DELETE", `/v1/integrations/${id(iid)}`, o),
     testIntegration: (iid, o) => request("POST", `/v1/integrations/${id(iid)}/test`, slow(o)),
+    // GitHub's sign-in (section S29a): start, read, and cancel one flow, and save or test a pasted
+    // token. A token's save and test reach GitHub, so they are given the slow limit.
+    startGitHubConnect: (o) => request("POST", "/v1/integrations/github/connect", o),
+    readGitHubConnect: (o) => request("GET", "/v1/integrations/github/connect", o),
+    cancelGitHubConnect: (o) => request("DELETE", "/v1/integrations/github/connect", o),
+    saveGitHubToken: (body, o) =>
+      request("PUT", "/v1/integrations/github/token", { ...slow(o), body }),
+    testGitHubToken: (body, o) =>
+      request("POST", "/v1/integrations/github/token/test", { ...slow(o), body }),
     authorizeGoogleCalendar: (o) => request("GET", "/v1/integrations/gcal/authorize", o),
     // Schedules and the calendar (B8.1, B8.4, N21): the Schedules screen's own list, add, edit, and
     // delete, and the one call the calendar view and Home's coming-up list read.
@@ -318,6 +331,34 @@ function routeMethods({ request, command, bytes }: Transport): Omit<ApiClient, "
     deleteSchedule: (sid, o) => command("DELETE", `/v1/schedules/${id(sid)}`, o),
     scheduleRuns: (sid, o) => request("GET", `/v1/schedules/${id(sid)}/runs`, o),
     getCalendar: (start, end, o) => request("GET", `/v1/calendar?start=${start}&end=${end}`, o),
+  };
+}
+
+type MergeFlowRoute =
+  | "integrationState"
+  | "pauseIntegration"
+  | "resumeIntegration"
+  | "retryCardMerge"
+  | "undoCardMerge"
+  | "openCardWorktree";
+
+/**
+ * The routes of the Integration view. A retry runs a merge or a delivery again and an undo moves a
+ * branch back, so both take the slow limit; opening a folder answers no body.
+ */
+function mergeFlowMethods({
+  request,
+  command,
+}: Pick<Transport, "request" | "command">): Pick<ApiClient, MergeFlowRoute> {
+  const id = encodeURIComponent;
+  return {
+    integrationState: (pid, o) => request("GET", `/v1/projects/${id(pid)}/integration`, o),
+    pauseIntegration: (pid, o) => request("POST", `/v1/projects/${id(pid)}/integration/pause`, o),
+    resumeIntegration: (pid, o) => request("POST", `/v1/projects/${id(pid)}/integration/resume`, o),
+    retryCardMerge: (cid, o) => request("POST", `/v1/cards/${id(cid)}/merge/retry`, slow(o)),
+    undoCardMerge: (cid, o) => request("POST", `/v1/cards/${id(cid)}/merge/undo`, slow(o)),
+    openCardWorktree: (cid, body, o) =>
+      command("POST", `/v1/cards/${id(cid)}/worktree/open`, { ...o, body }),
   };
 }
 
@@ -430,7 +471,8 @@ function cardMethods({
     fileHunks: (cid, path, o) =>
       request("GET", `/v1/cards/${id(cid)}/diff/${path.split("/").map(id).join("/")}`, o),
     startCard: (cid, o) => request("POST", `/v1/cards/${id(cid)}/start`, slow(o)),
-    sendMessage: (cid, body, o) => command("POST", `/v1/cards/${id(cid)}/messages`, { ...slow(o), body }),
+    sendMessage: (cid, body, o) =>
+      command("POST", `/v1/cards/${id(cid)}/messages`, { ...slow(o), body }),
     stopCard: (cid, o) => command("POST", `/v1/cards/${id(cid)}/stop`, o),
     resumeCard: (cid, o) => command("POST", `/v1/cards/${id(cid)}/resume`, slow(o)),
     pauseCard: (cid, o) => request("POST", `/v1/cards/${id(cid)}/pause`, o),
@@ -451,7 +493,7 @@ function cardMethods({
  */
 export function createApiClient(options: ApiClientOptions): ApiClient {
   const transport = createTransport(options);
-  return { request: transport.request, ...routeMethods(transport) };
+  return { request: transport.request, ...routeMethods(transport), ...mergeFlowMethods(transport) };
 }
 
 /**
@@ -512,7 +554,11 @@ type SettingsRoute =
   | "sleepSettings"
   | "saveSleepSettings"
   | "alertSettings"
-  | "saveAlertSettings";
+  | "saveAlertSettings"
+  | "authorizeGmail"
+  | "googleClient"
+  | "googleCalendars"
+  | "setGoogleCalendars";
 
 /** The routes of the limits, the roles, the notices, and the sleep and alert settings. */
 function settingsMethods({
@@ -547,5 +593,11 @@ function settingsMethods({
     saveSleepSettings: (body, o) => request("PUT", "/v1/settings/sleep", { ...o, body }),
     alertSettings: (o) => request("GET", "/v1/settings/alerts", o),
     saveAlertSettings: (body, o) => request("PUT", "/v1/settings/alerts", { ...o, body }),
+    // Gmail's own consent, and the choice of which Google calendars Marshal reads (S29d, S29e).
+    authorizeGmail: (o) => request("GET", "/v1/integrations/gmail/authorize", o),
+    googleClient: (o) => request("GET", "/v1/integrations/gcal/client", o),
+    googleCalendars: (o) => request("GET", "/v1/integrations/gcal/calendars", o),
+    setGoogleCalendars: (body, o) =>
+      request("PUT", "/v1/integrations/gcal/calendars", { ...slow(o), body }),
   };
 }

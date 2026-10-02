@@ -36,9 +36,13 @@ import type {
   FeedEntry,
   FileHunks,
   FolderListing,
+  GitHubConnect,
+  GoogleCalendarChoices,
+  GoogleClientInfo,
   Health,
   HomeSnapshot,
   IntegrationList,
+  IntegrationState,
   Label,
   LabelSnapshot,
   Lesson,
@@ -48,6 +52,7 @@ import type {
   NoticeActionRequest,
   NoticeActionResult,
   NoticeList,
+  OpenWorktreeRequest,
   Page,
   PairDeviceRequest,
   PairDeviceResponse,
@@ -71,7 +76,7 @@ import type {
   SaveDiscordRequest,
   SavedView,
   SavedViewListSnapshot,
-  SaveGitHubRequest,
+  SaveGitHubTokenRequest,
   SaveGmailRequest,
   SaveGoogleCalendarRequest,
   SaveLessonRequest,
@@ -86,6 +91,7 @@ import type {
   ScheduleRunList,
   SearchSnapshot,
   SendMessageRequest,
+  SetGoogleCalendarsRequest,
   SetLimitRequest,
   SetViewRequest,
   SimulateCIFailureRequest,
@@ -338,6 +344,24 @@ export interface ApiClient {
    * no run for is left out on purpose, which is what Home draws as "GitHub is not connected".
    */
   ciSnapshot(options?: CallOptions): Promise<CISnapshot>;
+  /**
+   * What a project's Integrator is doing: the cards waiting or being merged, what it delivered, and
+   * the branch they land on (the Integration view). A daemon with no merge queue answers not_found.
+   */
+  integrationState(projectId: string, options?: CallOptions): Promise<IntegrationState>;
+  /** Stops the Integrator taking cards off the queue. The answer is the state after the change. */
+  pauseIntegration(projectId: string, options?: CallOptions): Promise<IntegrationState>;
+  /** Lets the Integrator take cards off the queue again. The answer is the state after the change. */
+  resumeIntegration(projectId: string, options?: CallOptions): Promise<IntegrationState>;
+  /** Runs a card's merge or delivery again after a stop that needed the owner. Answers the card. */
+  retryCardMerge(cardId: string, options?: CallOptions): Promise<Card>;
+  /** Puts the integration branch back to where it was before the card's merge. Answers the card. */
+  undoCardMerge(cardId: string, options?: CallOptions): Promise<Card>;
+  /**
+   * Shows the card's worktree in the file manager or the editor of the machine the daemon runs on.
+   * The daemon answers only a request that comes from that machine.
+   */
+  openCardWorktree(cardId: string, body: OpenWorktreeRequest, options?: CallOptions): Promise<void>;
   /** A card's chat, newest first, one page at a time. */
   messages(cardId: string, page?: PageOptions, options?: CallOptions): Promise<Page<ChatMessage>>;
   /** A card's activity, newest first, one page at a time, optionally one kind of it. */
@@ -561,16 +585,14 @@ export interface ApiClient {
    */
   listIntegrations(options?: CallOptions): Promise<IntegrationList>;
   /**
-   * Stores a connection's settings: the GitHub App's whole setup, Trello's key and token and
-   * board, the Google Calendar OAuth client, or a chat bot's token and chat - whichever shape the
-   * connection's own id takes. A secret goes to the OS keychain and never comes back. The daemon
-   * tests the connection as part of this call, so the answered row already carries the last test's
-   * result.
+   * Stores a connection's settings: Trello's key and token and board, the Google Calendar OAuth
+   * client, or a chat bot's token and chat - whichever shape the connection's own id takes. A secret
+   * goes to the OS keychain and never comes back. The daemon tests the connection as part of this
+   * call, so the answered row already carries the last test's result.
    */
   saveIntegration(
     id: string,
     body:
-      | SaveGitHubRequest
       | SaveTrelloRequest
       | SaveGoogleCalendarRequest
       | SaveGmailRequest
@@ -587,8 +609,36 @@ export interface ApiClient {
    * the daemon's cooldown, is an error.
    */
   testIntegration(id: string, options?: CallOptions): Promise<TestResult>;
+  /** Starts a GitHub sign-in, replacing any pending one. The answer is "pending", with the code to type. */
+  startGitHubConnect(options?: CallOptions): Promise<GitHubConnect>;
+  /**
+   * Advances and reads the GitHub sign-in. With no sign-in under way it answers the stored
+   * connection: "connected" or "idle".
+   */
+  readGitHubConnect(options?: CallOptions): Promise<GitHubConnect>;
+  /** Cancels a pending GitHub sign-in. */
+  cancelGitHubConnect(options?: CallOptions): Promise<GitHubConnect>;
+  /**
+   * Stores a GitHub personal access token in the OS keychain, replacing whatever was connected. The
+   * daemon tests it as part of this call, and refuses one GitHub does not accept in a plain
+   * sentence. The answer is the whole connection list.
+   */
+  saveGitHubToken(body: SaveGitHubTokenRequest, options?: CallOptions): Promise<IntegrationList>;
+  /** Tests a GitHub personal access token without saving anything. */
+  testGitHubToken(body: SaveGitHubTokenRequest, options?: CallOptions): Promise<TestResult>;
   /** The consent URL for Google Calendar's OAuth flow, opened in the owner's own browser. */
   authorizeGoogleCalendar(options?: CallOptions): Promise<AuthorizeURL>;
+  /** Whether this build has Marshal's own Google client, and whether the person saved their own. */
+  googleClient(options?: CallOptions): Promise<GoogleClientInfo>;
+  /** Gmail's own consent URL: Gmail asks for its scope separately from Calendar's. */
+  authorizeGmail(options?: CallOptions): Promise<AuthorizeURL>;
+  /** Every calendar the owner has in Google, with whether Marshal reads it. */
+  googleCalendars(options?: CallOptions): Promise<GoogleCalendarChoices>;
+  /** Chooses which of the owner's Google calendars Marshal reads. */
+  setGoogleCalendars(
+    body: SetGoogleCalendarsRequest,
+    options?: CallOptions,
+  ): Promise<GoogleCalendarChoices>;
   /** Every scheduled brief and job, or one project's when a project id is given. */
   listSchedules(project?: string, options?: CallOptions): Promise<ScheduleList>;
   /** Creates a schedule. The daemon makes its id. */
