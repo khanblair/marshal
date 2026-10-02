@@ -53,6 +53,20 @@ export function AlertsSection() {
                 </fieldset>
               )}
             </Index>
+            <label class="flex items-start gap-2.5 py-3 px-4">
+              <Checkbox
+                align="start"
+                checked={settings().quietDuringEvents}
+                onChange={(event) => void M.saveQuietDuringEvents(event.currentTarget.checked)}
+              />
+              <span class="flex flex-col gap-0.5">
+                <span class="font-semibold">Stay quiet during calendar events</span>
+                <span class="text-small text-secondary">
+                  While a Google Calendar event is on, alerts wait and arrive together when it ends.
+                  Approvals always come through at once.
+                </span>
+              </span>
+            </label>
           </SettingsPanel>
         )}
       </Show>

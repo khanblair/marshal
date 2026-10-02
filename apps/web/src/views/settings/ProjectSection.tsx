@@ -6,7 +6,7 @@ import type { ProjectDraft } from "./use-project-draft";
 const kindText = (lang: string | undefined, packages: readonly string[] | undefined): string =>
   lang === "Monorepo" ? `Monorepo with ${(packages ?? []).length} packages` : `${lang} project`;
 
-/** Project settings: name, branch, dev command, repository facts, bypass lock, and remove. */
+/** Project settings: name, branches, dev command, repository facts, bypass lock, and remove. */
 export function ProjectSection(props: { project: ProjectDraft }) {
   const fields = () => props.project.fields();
   return (
@@ -38,6 +38,17 @@ export function ProjectSection(props: { project: ProjectDraft }) {
             mono
             value={fields().branch}
             onInput={(e) => props.project.edit("branch", e.currentTarget.value)}
+          />
+        </Field>
+        <Field
+          label="Integration branch"
+          hint="Finished cards merge into this branch, and new cards start from it."
+        >
+          <Input
+            mono
+            value={fields().integrationBranch}
+            placeholder={fields().branch}
+            onInput={(e) => props.project.edit("integrationBranch", e.currentTarget.value)}
           />
         </Field>
         <Field label="Dev command" hint="Runs in a card's worktree for the live preview.">

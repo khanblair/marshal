@@ -5,6 +5,7 @@ import { sameJson } from "./json";
 export interface ProjectFields {
   name: string;
   branch: string;
+  integrationBranch: string;
   dev: string;
   lockBypass: boolean;
 }
@@ -32,6 +33,8 @@ export function createProjectDraft() {
       name: p?.name ?? "",
       // Exactly what the daemon has: a project that has no dev command shows none.
       branch: p?.branch ?? "",
+      // The daemon always sends one; a project it did not make shows the default branch.
+      integrationBranch: p?.integrationBranch ?? p?.branch ?? "",
       dev: p?.dev ?? "",
       lockBypass: !!p?.lockBypass,
     };

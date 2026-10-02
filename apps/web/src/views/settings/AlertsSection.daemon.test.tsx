@@ -62,4 +62,16 @@ describe("the Alerts section on the daemon", () => {
     await waitFor(() => expect(toasts()).toContain("Choose Telegram, Discord, or ntfy."));
     expect(within(stuck).getByLabelText("Telegram")).toBeChecked();
   });
+
+  it("turns on staying quiet during calendar events, draws it at once, and keeps it", async () => {
+    render(() => <SettingsView />);
+    const box = screen.getByLabelText(/Stay quiet during calendar events/);
+    expect(box).not.toBeChecked();
+    fireEvent.click(box);
+    expect(box).toBeChecked();
+    await waitFor(() => expect(toasts()).toContain("Saved"));
+    expect(daemon.bodies(PUT).at(-1)).toEqual({ routes: [], quietDuringEvents: true });
+    expect(daemon.alerts.settings.quietDuringEvents).toBe(true);
+    expect(screen.getByText(/Approvals always come through at once/)).toBeInTheDocument();
+  });
 });

@@ -20,6 +20,8 @@ afterEach(() => {
 const nameField = () => screen.getByLabelText<HTMLInputElement>("Name");
 const saveButton = () => screen.getByRole("button", { name: "Save project" });
 const projectPicker = () => screen.getByRole("combobox", { name: "Project" });
+const integrationField = () =>
+  screen.getByLabelText<HTMLInputElement>("Integration branch", { exact: false });
 
 describe("Project settings section", () => {
   it("shows the project of the open route, with the design's defaults", () => {
@@ -29,6 +31,11 @@ describe("Project settings section", () => {
     expect(nameField()).toHaveValue("api-gateway");
     expect(screen.getByLabelText("Default branch")).toHaveValue("main");
     expect(screen.getByLabelText("Default branch")).toHaveClass("font-mono");
+    expect(integrationField()).toHaveValue("main");
+    expect(integrationField()).toHaveClass("font-mono");
+    expect(
+      screen.getByText("Finished cards merge into this branch, and new cards start from it."),
+    ).toBeInTheDocument();
     expect(screen.getByLabelText("Dev command", { exact: false })).toHaveValue("");
     expect(screen.getByLabelText("Dev command", { exact: false })).toHaveAttribute(
       "placeholder",
@@ -78,6 +85,7 @@ describe("Project settings section", () => {
   const editEverything = () => {
     fireEvent.input(nameField(), { target: { value: " gateway " } });
     fireEvent.input(screen.getByLabelText("Default branch"), { target: { value: "develop" } });
+    fireEvent.input(integrationField(), { target: { value: "development" } });
     fireEvent.input(screen.getByLabelText("Dev command", { exact: false }), {
       target: { value: "go run ." },
     });
@@ -93,6 +101,7 @@ describe("Project settings section", () => {
     expect(save).toHaveBeenCalledWith("api", {
       name: "gateway",
       branch: "develop",
+      integrationBranch: "development",
       dev: "go run .",
       lockBypass: true,
     });
@@ -110,6 +119,15 @@ describe("Project settings section", () => {
     expect(nameField()).toHaveValue(" gateway ");
     expect(saveButton()).toBeEnabled();
     expect(M.proj("api")?.name).toBe("api-gateway");
+  });
+
+  it("shows the project's own integration branch, and offers the default branch when it is cleared", () => {
+    showSettings("project");
+    Object.assign(M.proj("api") ?? {}, { integrationBranch: "development" });
+    expect(integrationField()).toHaveValue("development");
+    fireEvent.input(integrationField(), { target: { value: "" } });
+    expect(integrationField()).toHaveAttribute("placeholder", "main");
+    expect(saveButton()).toBeEnabled();
   });
 
   it("keeps the old name and the edits when the new name is empty", () => {

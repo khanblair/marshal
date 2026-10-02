@@ -12,7 +12,8 @@ const MISSED_RUNS = ["Run once on wake", "Skip"];
 const WHEN_PATTERN = /^(every|on|when)\b/i;
 const WHEN_ERROR =
   'Marshal can\'t read this time. Start with "Every", "On", or "When", for example "Every weekday at 9:00".';
-const WHEN_HINT = 'For example "Every weekday at 9:00" or "Every 30 minutes".';
+const WHEN_HINT =
+  'For example "Every weekday at 9:00" or "Every 30 minutes". For an Event trigger: "When 30 minutes before my first calendar event", or "When a calendar event named "Morning brief" starts".';
 
 function saveSchedule(schedule: Schedule, form: HTMLFormElement, edit: EditState): void {
   const when = fieldValue(form, "when").trim();
