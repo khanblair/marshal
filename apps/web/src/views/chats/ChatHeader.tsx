@@ -1,14 +1,15 @@
-import { Button, IconButton } from "@marshal/ui";
+import { Button, Icon, IconButton } from "@marshal/ui";
 import { For, Show } from "solid-js";
 import type { Chat } from "~/mock";
 import { M } from "~/mock";
-import { targetBits } from "./chat-model";
+import { editsOwnerFolder, OWNER_FOLDER_WARNING, targetBits } from "./chat-model";
 
 export interface ChatHeaderProps {
   chat: Chat;
 }
 
 const BACK_ICON_PX = 20;
+const WARNING_ICON_PX = 12;
 
 /** The open chat's title and target facts, a Back button on a phone, and Restore when archived. */
 export function ChatHeader(props: ChatHeaderProps) {
@@ -30,6 +31,15 @@ export function ChatHeader(props: ChatHeaderProps) {
         <span class="flex flex-wrap gap-x-3 gap-y-0 text-caption leading-4 text-secondary">
           <For each={targetBits(props.chat)}>{(bit) => <span>{bit}</span>}</For>
         </span>
+        <Show when={editsOwnerFolder(props.chat)}>
+          <span
+            role="note"
+            class="flex items-center gap-1 text-caption leading-4 text-status-needs-you-text"
+          >
+            <Icon name="triangle-alert" size={WARNING_ICON_PX} />
+            {OWNER_FOLDER_WARNING}
+          </span>
+        </Show>
       </div>
       <Show when={props.chat.archived}>
         <Button

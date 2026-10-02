@@ -1,9 +1,9 @@
-import { cx, IconLabel } from "@marshal/ui";
+import { Badge, cx, IconLabel } from "@marshal/ui";
 import { Show } from "solid-js";
 import type { Chat } from "~/mock";
 import { M } from "~/mock";
 import { ChatRowActions } from "./ChatRowActions";
-import { targetIcon, targetLabel } from "./chat-model";
+import { isSystemChat, targetIcon, targetLabel } from "./chat-model";
 import { RenameInput } from "./RenameInput";
 import type { ChatListState } from "./use-chat-list-state";
 
@@ -40,7 +40,14 @@ export function ChatRow(props: ChatRowProps) {
               aria-current={current() ? "page" : undefined}
               class={ROW_OPEN_CLASS}
             >
-              <span class="truncate font-semibold">{props.chat.title}</span>
+              <span class="flex min-w-0 items-center gap-1.5">
+                <span class="truncate font-semibold">{props.chat.title}</span>
+                <Show when={isSystemChat(props.chat)}>
+                  <Badge tone="ready" icon="git-merge" size={18} class="flex-none">
+                    Integrator
+                  </Badge>
+                </Show>
+              </span>
               <span class="flex flex-wrap gap-x-2.5 gap-y-0 text-caption leading-4 text-secondary">
                 <IconLabel icon={targetIcon(props.chat.target)} size={TARGET_ICON_PX}>
                   {targetLabel(props.chat.target)}
@@ -48,7 +55,10 @@ export function ChatRow(props: ChatRowProps) {
                 <span title={M.full(props.chat.last)}>{M.rel(props.chat.last)}</span>
               </span>
             </button>
-            <ChatRowActions chat={props.chat} list={props.list} />
+            {/* A system chat is pinned: it has no rename, archive, or delete, so no menu. */}
+            <Show when={!isSystemChat(props.chat)}>
+              <ChatRowActions chat={props.chat} list={props.list} />
+            </Show>
           </>
         }
       >

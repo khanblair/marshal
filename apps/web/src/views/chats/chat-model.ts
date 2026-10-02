@@ -43,8 +43,29 @@ export function targetIcon(target: string): string {
   return target === ORCHESTRATOR ? "route" : "user-cog";
 }
 
+/** The pinned Integrator chat, and any other chat Marshal keeps for the project itself. */
+export const isSystemChat = (chat: Chat): boolean => !!chat.system;
+
+/** What the header says of a chat that runs in the owner's folder with edit rights. */
+export const OWNER_FOLDER_WARNING = "This chat edits your folder directly.";
+
+/** The permission modes in which an agent changes files or runs commands without asking first. */
+const EDIT_MODES: readonly string[] = ["auto-edits", "full-auto", "bypass"];
+
+/**
+ * Whether a chat's agent changes the owner's own folder without asking. The Integrator works in its
+ * own workspace and the Orchestrator is plan-only whatever mode it was made with, so neither does;
+ * any other chat runs in the owner's folder, and only a mode that asks first or reads only holds it
+ * back. A chat whose mode is not known (one the mock made) says nothing.
+ */
+export function editsOwnerFolder(chat: Chat): boolean {
+  if (isSystemChat(chat) || chat.target === ORCHESTRATOR) return false;
+  return chat.mode !== undefined && EDIT_MODES.includes(chat.mode);
+}
+
 /** The small facts under the chat title. */
 export function targetBits(chat: Chat): string[] {
+  if (isSystemChat(chat)) return ["Integrator role", "Works in its own workspace"];
   const card = targetCard(chat.target);
   if (card) return [card.agent, card.model, card.asleep ? "Asleep" : "Awake"];
   if (chat.target === ORCHESTRATOR) return [ORCHESTRATOR, "claude-opus-4-1", "High thinking"];
@@ -74,7 +95,7 @@ export function matchesQuery(chat: Chat, query: string): boolean {
 export function noChatsText(query: string): string {
   return query
     ? `No chats match "${query}".`
-    : "No chats yet. Start one to plan work with the Orchestrator.";
+    : "No chats yet. Start one to plan work with the Orchestrator, or open the Integrator chat to see merges.";
 }
 
 interface TargetOption {

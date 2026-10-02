@@ -124,7 +124,9 @@ describe("opening a chat", () => {
     M.S.chats.web = [];
     render(() => <ChatsView />);
     expect(
-      screen.getByText("No chats yet. Start one to plan work with the Orchestrator."),
+      screen.getByText(
+        "No chats yet. Start one to plan work with the Orchestrator, or open the Integrator chat to see merges.",
+      ),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^Archived/ })).toHaveTextContent("Archived0");
   });

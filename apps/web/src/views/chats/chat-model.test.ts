@@ -3,9 +3,12 @@ import type { Chat } from "~/mock";
 import { M } from "~/mock";
 import {
   composerPlaceholder,
+  editsOwnerFolder,
+  isSystemChat,
   matchesQuery,
   newChatTargets,
   noChatsText,
+  OWNER_FOLDER_WARNING,
   signatureChatId,
   targetBits,
   targetIcon,
@@ -93,11 +96,71 @@ describe("matchesQuery", () => {
 describe("noChatsText", () => {
   it("quotes the query as typed, or invites a first chat", () => {
     expect(noChatsText("Zzz")).toBe('No chats match "Zzz".');
-    expect(noChatsText("")).toBe("No chats yet. Start one to plan work with the Orchestrator.");
+    expect(noChatsText("")).toBe(
+      "No chats yet. Start one to plan work with the Orchestrator, or open the Integrator chat to see merges.",
+    );
+  });
+});
+
+describe("a chat that edits the owner's folder", () => {
+  const worker = (mode?: string, extra: Partial<Chat> = {}) =>
+    chat({ target: "Worker", ...(mode === undefined ? {} : { mode }), ...extra });
+
+  it("is one that runs there with a mode that changes files or runs commands without asking", () => {
+    for (const mode of ["auto-edits", "full-auto", "bypass"]) {
+      expect(editsOwnerFolder(worker(mode)), mode).toBe(true);
+    }
+    for (const mode of ["ask", "plan"]) {
+      expect(editsOwnerFolder(worker(mode)), mode).toBe(false);
+    }
+  });
+
+  it("says nothing for a chat whose mode is not known, as the mock makes them", () => {
+    expect(editsOwnerFolder(worker())).toBe(false);
+  });
+
+  it("is never the Orchestrator, which is plan-only whatever mode it was made with", () => {
+    expect(editsOwnerFolder(chat({ target: "Orchestrator", mode: "auto-edits" }))).toBe(false);
+    expect(editsOwnerFolder(chat({ target: "Orchestrator", mode: "bypass" }))).toBe(false);
+  });
+
+  it("is never the Integrator chat, which works in its own workspace", () => {
+    expect(
+      editsOwnerFolder(chat({ target: "Integrator", system: "integrator", mode: "auto-edits" })),
+    ).toBe(false);
+  });
+
+  it("warns in the owner's words", () => {
+    expect(OWNER_FOLDER_WARNING).toBe("This chat edits your folder directly.");
+  });
+});
+
+describe("the Integrator chat", () => {
+  const integrator = chat({ target: "Integrator", system: "integrator", title: "Integrator" });
+
+  it("is a system chat, and a chat a person made is not", () => {
+    expect(isSystemChat(integrator)).toBe(true);
+    expect(isSystemChat(chat({ target: "Integrator" }))).toBe(false);
+  });
+
+  it("says where it works instead of what a role chat says", () => {
+    expect(targetBits(integrator)).toEqual(["Integrator role", "Works in its own workspace"]);
+    expect(targetBits(chat({ target: "Integrator" }))).toEqual([
+      "Integrator role",
+      "Uses the role template",
+    ]);
   });
 });
 
 describe("newChatTargets", () => {
+  it("offers the Orchestrator, every role a person can talk to, and a card's agent", () => {
+    const values = newChatTargets("api").map((target) => target.value);
+    for (const wanted of ["Orchestrator", "Worker", "Tester", "Reviewer", "Integrator"]) {
+      expect(values, wanted).toContain(wanted);
+    }
+    expect(values.some((value) => value.includes("#"))).toBe(true);
+  });
+
   it("lists the Orchestrator, the roles, then awake cards", () => {
     const targets = newChatTargets("api");
     expect(targets[0]).toEqual({ value: "Orchestrator", label: "Orchestrator" });

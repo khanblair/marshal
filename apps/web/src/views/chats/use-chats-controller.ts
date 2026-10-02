@@ -1,7 +1,7 @@
 import { createMemo, createRenderEffect, createSignal } from "solid-js";
 import type { Chat } from "~/mock";
 import { M } from "~/mock";
-import { threadSignature } from "./chat-model";
+import { isSystemChat, threadSignature } from "./chat-model";
 import { type ChatListState, useChatListState } from "./use-chat-list-state";
 import { type ChatScroll, useChatScroll } from "./use-chat-scroll";
 
@@ -32,7 +32,10 @@ export function useChatsController(): ChatsController {
   const pid = () => M.S.route.pid ?? "";
   createRenderEffect(() => {
     if (M.S.chatOpen[pid()] !== undefined) return;
-    const first = M.chatsOf(pid()).find((chat) => !chat.archived);
+    // The pinned Integrator chat is first in the list, but a person's own chat is what they most
+    // likely came for; the Integrator chat opens when it is the only one.
+    const live = M.chatsOf(pid()).filter((chat) => !chat.archived);
+    const first = live.find((chat) => !isSystemChat(chat)) ?? live[0];
     M.openChat(pid(), M.mobile ? null : (first?.id ?? null));
   });
   const chat = createMemo(() => M.chatById(pid(), M.S.chatOpen[pid()]));
