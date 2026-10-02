@@ -14,18 +14,38 @@ import (
 	"strings"
 	"time"
 
+	"github.com/khanblair/marshal/daemon/internal/integrations/googlecal"
 	"github.com/khanblair/marshal/daemon/internal/projects"
 	"github.com/khanblair/marshal/daemon/internal/protocol"
 )
 
+// EventSource reads Google Calendar's events. The daemon's is the integrations service. A brief
+// uses it for the calendar part of its text, and leaves that part out when Google is not connected.
+type EventSource interface {
+	GoogleEvents(ctx context.Context, start, end time.Time) ([]googlecal.Event, protocol.GoogleReading)
+}
+
 // Service composes a brief.
 type Service struct {
 	projects *projects.Service
+	events   EventSource
+	now      func() time.Time
 }
 
 // New builds the service. projects is required.
 func New(projects *projects.Service) *Service {
-	return &Service{projects: projects}
+	return &Service{projects: projects, now: time.Now}
+}
+
+// SetEvents gives briefs Google Calendar's events, for their calendar section. Until it is called,
+// a brief has no calendar section. The daemon calls it once, while it starts.
+func (s *Service) SetEvents(events EventSource) { s.events = events }
+
+// SetClock sets what a brief takes "today" and "tomorrow" from. Nil is ignored.
+func (s *Service) SetClock(now func() time.Time) {
+	if now != nil {
+		s.now = now
+	}
 }
 
 // Handle is a schedules.ActionHandler for a brief: compose it and return it as the run's own
@@ -36,6 +56,9 @@ func (s *Service) Handle(ctx context.Context, sched protocol.Schedule, since tim
 	content, err := s.Compose(ctx, since)
 	if err != nil {
 		return "", err
+	}
+	if calendar := s.calendarSection(ctx, sched); calendar != "" {
+		content = calendar + "\n\n" + content
 	}
 	return fmt.Sprintf("# %s\n\n%s", sched.Name, content), nil
 }

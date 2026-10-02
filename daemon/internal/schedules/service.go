@@ -64,6 +64,10 @@ type Service struct {
 	entropy  io.Reader
 	handlers map[string]ActionHandler
 	entries  map[string]cron.EntryID
+	// calendar is where an Event schedule waits for its event. Nil means none does.
+	calendar CalendarSource
+	// stopWatch ends the calendar watcher. Nil when it is not running.
+	stopWatch context.CancelFunc
 }
 
 // Option tunes a Service. Every field may be left out.
@@ -122,6 +126,12 @@ func (s *Service) Start(ctx context.Context) error {
 	s.mu.Lock()
 	s.cron.Start()
 	err := s.reloadLocked(ctx)
+	if s.calendar != nil && s.stopWatch == nil {
+		// The watcher outlives the call that started it, so it takes its own context.
+		watchCtx, stop := context.WithCancel(context.WithoutCancel(ctx))
+		s.stopWatch = stop
+		go s.watchCalendar(watchCtx)
+	}
 	s.mu.Unlock()
 	if err != nil {
 		return err
@@ -139,6 +149,10 @@ func (s *Service) Stop() {
 
 	s.cron.Stop()
 	s.entries = make(map[string]cron.EntryID)
+	if s.stopWatch != nil {
+		s.stopWatch()
+		s.stopWatch = nil
+	}
 }
 
 func (s *Service) reloadLocked(ctx context.Context) error {
@@ -188,6 +202,12 @@ func scheduledByCron(trigger string) bool {
 }
 
 func (s *Service) executeSchedule(ctx context.Context, sched protocol.Schedule) {
+	s.runBecause(ctx, sched, "")
+}
+
+// runBecause runs one schedule. cause, when it is not empty, is what started it, and heads the run's
+// details so the history says why a calendar-driven run happened.
+func (s *Service) runBecause(ctx context.Context, sched protocol.Schedule, cause string) {
 	s.logger.Info("executing schedule", "id", sched.ID, "name", sched.Name, "action", sched.Action)
 	since := s.sinceOf(ctx, sched.ID)
 
@@ -210,6 +230,9 @@ func (s *Service) executeSchedule(ctx context.Context, sched protocol.Schedule) 
 		}
 	}
 
+	if cause != "" {
+		details = cause + "\n" + details
+	}
 	now := s.now().UnixMilli()
 	_ = s.store.Write(ctx, func(q *db.Queries) error {
 		if err := q.UpdateScheduleLastRun(ctx, db.UpdateScheduleLastRunParams{
