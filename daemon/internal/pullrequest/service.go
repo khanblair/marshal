@@ -179,7 +179,7 @@ func (s *Service) review(ctx context.Context, cardID string) {
 }
 
 // resolve reads the project's GitHub repository and the branch to merge into: the project's own
-// default branch when it is set, and otherwise the repository's.
+// integration branch (its default branch when none is chosen), and otherwise the repository's.
 func (s *Service) resolve(ctx context.Context, project protocol.Project) (github.Repository, string, error) {
 	info, err := s.git.Inspect(ctx, project.Path)
 	if err != nil {
@@ -191,7 +191,7 @@ func (s *Service) resolve(ctx context.Context, project protocol.Project) (github
 			"This project's origin remote is not a GitHub repository, so Marshal cannot open a pull request.").
 			With("projectId", project.ID)
 	}
-	base := project.DefaultBranch
+	base := project.Target()
 	if strings.TrimSpace(base) == "" {
 		base = info.DefaultBranch
 	}
@@ -206,6 +206,14 @@ func (s *Service) resolve(ctx context.Context, project protocol.Project) (github
 // named as a sign-in problem, a missing repository is named as such, and a refusal carries the
 // forge's own message so the reason is not hidden.
 func translate(err error, cardID string) error {
+	switch {
+	case errors.Is(err, github.ErrNotConnected):
+		return protocol.Refused("GitHub is not connected. Connect it in Settings, under Integrations.").
+			With("cardId", cardID).With("reason", "github_not_connected")
+	case errors.Is(err, github.ErrReconnect):
+		return protocol.Refused("GitHub access has expired. Reconnect GitHub in Settings.").
+			With("cardId", cardID).With("reason", "github_reconnect")
+	}
 	var api *github.APIError
 	if errors.As(err, &api) {
 		switch {

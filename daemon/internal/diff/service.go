@@ -149,7 +149,7 @@ type worktree struct {
 // readable reports whether there is a worktree to read. A card that never started has none, and a
 // card whose recorded folder was deleted by hand is treated the same way: an empty diff, never an
 // error.
-func (w worktree) readable() bool { return w.path != "" && w.project.DefaultBranch != "" }
+func (w worktree) readable() bool { return w.path != "" && w.project.Target() != "" }
 
 // Files returns the card's whole diff: every file it changed, with the counts of each, and no
 // hunks. An unknown card is not found. A card that never started, or whose worktree is gone, is an
@@ -160,13 +160,13 @@ func (s *Service) Files(ctx context.Context, cardID string) (protocol.CardDiff, 
 		return protocol.CardDiff{}, err
 	}
 	answer := protocol.CardDiff{
-		CardID: cardID, Base: work.project.DefaultBranch, Branch: work.branch,
+		CardID: cardID, Base: work.project.Target(), Branch: work.branch,
 		Files: []protocol.ChangedFile{}, ServerTime: protocol.NewTimestamp(s.now()),
 	}
 	if !work.readable() {
 		return answer, nil
 	}
-	files, truncated, err := s.git.DiffFiles(ctx, work.path, work.project.DefaultBranch, s.limits.MaxBytes)
+	files, truncated, err := s.git.DiffFiles(ctx, work.path, work.project.Target(), s.limits.MaxBytes)
 	if err != nil {
 		return protocol.CardDiff{}, fmt.Errorf("read the diff of card %s: %w", cardID, err)
 	}
@@ -196,7 +196,7 @@ func (s *Service) Hunks(ctx context.Context, cardID, path string) (protocol.File
 	if !work.readable() {
 		return protocol.FileHunks{}, notFoundFile(path)
 	}
-	file, found, err := s.git.DiffHunks(ctx, work.path, work.project.DefaultBranch, path, s.limits.MaxLines, s.limits.MaxBytes)
+	file, found, err := s.git.DiffHunks(ctx, work.path, work.project.Target(), path, s.limits.MaxLines, s.limits.MaxBytes)
 	if err != nil {
 		if errors.Is(err, gitx.ErrBadPath) {
 			// A path that cannot name a file inside the worktree reads the same as a path that

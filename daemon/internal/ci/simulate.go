@@ -190,7 +190,7 @@ func (s *Service) simulateReal(ctx context.Context, card protocol.Card) (protoco
 	if remote == "" {
 		return protocol.SimulateCIFailureResult{}, protocol.Refused(messageSimulateNoRemote).With("cardId", card.ID)
 	}
-	if err := s.git.Push(ctx, worktree, remote, card.Branch, info.DefaultBranch); err != nil {
+	if err := s.git.Push(ctx, worktree, remote, card.Branch, project.Target()); err != nil {
 		s.log.Warn("could not push a simulated failure's marked commit",
 			"card_id", card.ID, "branch", card.Branch, "commit", commit, "error", err)
 		return protocol.SimulateCIFailureResult{}, protocol.Unavailable(messageSimulatePushFailed).WithCause(err)

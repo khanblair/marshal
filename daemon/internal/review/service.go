@@ -306,7 +306,7 @@ func (s *Service) target(ctx context.Context, project protocol.Project, card pro
 			"This project's origin remote is not a GitHub repository, so its pull request cannot be read.").
 			With("projectId", project.ID).With("reason", "review_not_github")
 	}
-	base := project.DefaultBranch
+	base := project.Target()
 	if strings.TrimSpace(base) == "" {
 		base = info.DefaultBranch
 	}
@@ -320,6 +320,14 @@ func (s *Service) target(ctx context.Context, project protocol.Project, card pro
 // translate turns a forge failure into a plain sentence for the person who asked, the same way the
 // pull-request service does, so a bad token reads as a sign-in problem wherever it is hit.
 func translate(err error, cardID string) error {
+	switch {
+	case errors.Is(err, github.ErrNotConnected):
+		return protocol.Refused("GitHub is not connected. Connect it in Settings, under Integrations.").
+			With("cardId", cardID).With("reason", "github_not_connected")
+	case errors.Is(err, github.ErrReconnect):
+		return protocol.Refused("GitHub access has expired. Reconnect GitHub in Settings.").
+			With("cardId", cardID).With("reason", "github_reconnect")
+	}
 	var api *github.APIError
 	if errors.As(err, &api) {
 		switch {

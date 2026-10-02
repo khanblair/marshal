@@ -219,7 +219,7 @@ func New(deps Deps, opts ...Option) (*Service, error) {
 }
 
 // Check runs the checks for a card and answers its findings. It reads the card's worktree, reads the
-// diff against the project's default branch, runs the checks the project's profile turns on, keeps
+// diff against the project's integration branch, runs the checks the project's profile turns on, keeps
 // only the smells the card itself introduced, and saves them.
 //
 // A commit is checked once: a second call for the same commit answers what the first one saved,
@@ -253,7 +253,7 @@ func (s *Service) Check(ctx context.Context, cardID string) (protocol.SmellFindi
 		}
 		return protocol.NewSmellFindingList(cardID, commit, findings, checkedAt, s.now()), nil
 	}
-	files, err := s.changedFiles(ctx, path, project.DefaultBranch)
+	files, err := s.changedFiles(ctx, path, project.Target())
 	if err != nil {
 		return protocol.SmellFindingList{}, err
 	}

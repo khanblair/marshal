@@ -128,11 +128,14 @@ type fakeGit struct {
 	baseCopy map[string]string
 	head     string
 	diffRuns int
-	err      error
+	// bases are the branches DiffFiles was asked to compare against.
+	bases []string
+	err   error
 }
 
-func (g *fakeGit) DiffFiles(_ context.Context, _, _ string, _ int) ([]gitx.DiffFile, bool, error) {
+func (g *fakeGit) DiffFiles(_ context.Context, _, base string, _ int) ([]gitx.DiffFile, bool, error) {
 	g.diffRuns++
+	g.bases = append(g.bases, base)
 	if g.err != nil {
 		return nil, false, g.err
 	}
