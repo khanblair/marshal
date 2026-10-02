@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"testing"
 	"time"
@@ -178,5 +179,35 @@ func TestTheChatsModuleStopsARunningChatSession(t *testing.T) {
 	row, err = st.Queries().GetSessionByChat(ctx, &last.ID)
 	if err != nil || row.State != string(protocol.SessionStateAsleep) {
 		t.Errorf("the chat's session after the daemon stopped = %+v, %v, want asleep", row, err)
+	}
+}
+
+// A module the server has routes for must be handed to it, or the routes are never registered and
+// answer "nothing at that address" (the card notes were left out once). Only what main sets itself
+// is allowed to be empty here.
+func TestEveryModuleIsHandedToTheServer(t *testing.T) {
+	stub := filepath.Join(t.TempDir(), "stub-agent")
+	if err := os.WriteFile(stub, []byte("#!/bin/sh\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	mods, _, _, _ := buildTestModules(t, stub)
+	setByServe := map[string]bool{
+		"Store": true, "Bus": true, "Dev": true, "Alerts": true, "Devices": true,
+		"Tailnet": true, "Funnel": true, "WebUI": true,
+		// Nil on purpose until a GitHub token is saved (modules.go).
+		"PullRequests": true, "Review": true,
+	}
+	deps := reflect.ValueOf(moduleDeps(mods))
+	for i := range deps.NumField() {
+		field := deps.Type().Field(i)
+		if setByServe[field.Name] {
+			continue
+		}
+		switch deps.Field(i).Kind() {
+		case reflect.Pointer, reflect.Interface, reflect.Func, reflect.Map, reflect.Slice:
+			if deps.Field(i).IsNil() {
+				t.Errorf("the server is not given %s, so its routes are never registered", field.Name)
+			}
+		}
 	}
 }

@@ -234,23 +234,27 @@ func serve(ctx context.Context, settings config.Settings, env platform.Env, log 
 	if node != nil {
 		tailnetNode = node
 	}
-	return api.New(settings, log, time.Now, api.Deps{
-		Store: st, Bus: bus, Dev: dev, Projects: mods.proj, Sessions: mods.sessions,
-		Catalog: mods.catalog, Dashboard: mods.dashboard, History: mods.history,
-		Diff: mods.diff, Chats: mods.chats, Search: mods.search, Accounts: mods.accounts,
-		Auditlog: mods.auditlog, Providers: mods.providers, CostLimits: mods.costLimits,
-		ConnectionTests: mods.connectionTests, Roles: mods.roles,
-		PullRequests: mods.pullRequests, Review: mods.review, Integrator: mods.integrator,
-		SleepSettings: mods.sleepSettings, Alerts: alerts, Quality: mods.quality,
-		Integrations: mods.integrations, Webhooks: mods.integrations.Receiver(),
-		CI: mods.ci, LocalCI: mods.localCI, CardPanel: mods.cardPanel, Preview: mods.preview,
-		Schedules: mods.schedules,
-		Devices:   pairedDevices,
-		Tailnet:   tailnetNode,
-		Funnel:    settings.Funnel,
-		MCP:       mods.mcpHost,
-		WebUI:     webUIFS(),
-	}).Run(ctx)
+	deps := moduleDeps(mods)
+	deps.Store, deps.Bus, deps.Dev, deps.Alerts = st, bus, dev, alerts
+	deps.Devices, deps.Tailnet, deps.Funnel, deps.WebUI = pairedDevices, tailnetNode, settings.Funnel, webUIFS()
+	return api.New(settings, log, time.Now, deps).Run(ctx)
+}
+
+// moduleDeps is the part of the server's dependencies that comes from the modules built at start.
+// Every module the server has a route group for belongs here: a module left out leaves its routes
+// unregistered, and they answer "nothing at that address" with no other sign (the card notes did).
+func moduleDeps(mods daemonModules) api.Deps {
+	return api.Deps{
+		Projects: mods.proj, Sessions: mods.sessions, Catalog: mods.catalog,
+		Dashboard: mods.dashboard, History: mods.history, Diff: mods.diff, Chats: mods.chats,
+		Search: mods.search, Memory: mods.memory, Accounts: mods.accounts, Auditlog: mods.auditlog,
+		Providers: mods.providers, CostLimits: mods.costLimits, ConnectionTests: mods.connectionTests,
+		Roles: mods.roles, PullRequests: mods.pullRequests, Review: mods.review,
+		Integrator: mods.integrator, SleepSettings: mods.sleepSettings, Quality: mods.quality,
+		Integrations: mods.integrations, Webhooks: mods.integrations.Receiver(), CI: mods.ci,
+		LocalCI: mods.localCI, CardPanel: mods.cardPanel, Preview: mods.preview,
+		Schedules: mods.schedules, MCP: mods.mcpHost,
+	}
 }
 
 // acquireDaemonLock takes the run lock for a data folder. It logs the one failure serve treats as
