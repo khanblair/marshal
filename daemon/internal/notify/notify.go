@@ -179,6 +179,9 @@ type Service struct {
 	// sent is the ids of standing notices this router has already delivered, so the whole-list
 	// payload of notice.created sends only what is new (bus.go).
 	sent map[string]struct{}
+	// quiet, when set, says notices that are not asking for an answer should wait: a calendar event is
+	// on. It is asked only when something is waiting.
+	quiet func(ctx context.Context) bool
 	// ciStatus is the last default-branch state seen per project, so a red branch is told once and
 	// not on every run that leaves it red.
 	ciStatus map[string]protocol.CIState
@@ -215,6 +218,19 @@ func New(sender Sender, opts Options) (*Service, error) {
 	s.defaultChannels = []Channel{ChannelTelegram}
 	return s, nil
 }
+
+// SetQuiet says when grouped notices are held back instead of sent. quiet is asked each time there
+// is something to send, so it should be cheap; nil means never. A notice asking for an answer is
+// never held. What waited is sent, as one message per channel, once quiet says no.
+func (s *Service) SetQuiet(quiet func(ctx context.Context) bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.quiet = quiet
+}
+
+// maxHeld is the most notices one channel keeps while quiet. A long meeting never grows the list
+// without bound: the oldest are dropped, and the message that is sent says how many.
+const maxHeld = 100
 
 // Window is how long a groupable notice waits before it is sent.
 func (s *Service) Window() time.Duration { return s.window }
@@ -268,6 +284,23 @@ func (s *Service) Notify(ctx context.Context, event Event) {
 // Flush sends everything that has grouped so far, one message per channel. It is what the ticker
 // calls, and it is exported so a test can flush without waiting out the window.
 func (s *Service) Flush(ctx context.Context) {
+	s.mu.Lock()
+	waiting := false
+	for _, notices := range s.pending {
+		waiting = waiting || len(notices) > 0
+	}
+	quiet := s.quiet
+	s.mu.Unlock()
+	if waiting && quiet != nil && quiet(ctx) {
+		s.mu.Lock()
+		for channel, notices := range s.pending {
+			if extra := len(notices) - maxHeld; extra > 0 {
+				s.pending[channel] = notices[extra:]
+			}
+		}
+		s.mu.Unlock()
+		return
+	}
 	s.mu.Lock()
 	pending := s.pending
 	s.pending = make(map[Channel][]chatbot.Notice)

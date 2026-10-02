@@ -2,6 +2,7 @@ package notify_test
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"testing"
@@ -166,5 +167,60 @@ func TestRoutesAreReadableAndDefaulted(t *testing.T) {
 	routes := svc.Routes()
 	if len(routes) != len(notify.DefaultRoutes()) {
 		t.Fatalf("Routes answered %d rows, want %d", len(routes), len(notify.DefaultRoutes()))
+	}
+}
+
+func TestNoticesAreHeldWhileQuietAndSentTogetherAfterwards(t *testing.T) {
+	rec := newRecorder()
+	svc := newService(t, rec, notify.Options{})
+	quiet := true
+	svc.SetQuiet(func(context.Context) bool { return quiet })
+	for _, title := range []string{"CI failed on card 7", "CI failed on card 8"} {
+		svc.Notify(context.Background(), notify.Event{Type: notify.EventCIFailed, Title: title})
+	}
+	svc.Flush(context.Background())
+	if got := rec.all(); len(got) != 0 {
+		t.Fatalf("notices were sent during a calendar event: %+v", got)
+	}
+	// An approval is asking for an answer, so it is never held.
+	svc.Notify(context.Background(), notify.Event{
+		Type: notify.EventApproval, Title: "Card 42 needs you",
+		Actions: []chatbot.Action{{Label: "Approve", Data: "approve:abc"}},
+	})
+	if len(rec.forChannel(notify.ChannelTelegram)) != 1 {
+		t.Fatal("an approval was held back during a calendar event")
+	}
+	quiet = false
+	svc.Flush(context.Background())
+	got := rec.forChannel(notify.ChannelTelegram)
+	if len(got) != 2 || !strings.Contains(got[1].notice.Body, "CI failed on card 8") {
+		t.Fatalf("after the event: %+v, want the held notices as one message", got)
+	}
+}
+
+func TestQuietIsOnlyAskedWhenSomethingIsWaiting(t *testing.T) {
+	svc := newService(t, newRecorder(), notify.Options{})
+	asked := 0
+	svc.SetQuiet(func(context.Context) bool { asked++; return false })
+	svc.Flush(context.Background())
+	if asked != 0 {
+		t.Errorf("quiet was asked %d times with nothing waiting, want 0 (it can cost a calendar read)", asked)
+	}
+}
+
+func TestALongQuietKeepsOnlyTheNewestNotices(t *testing.T) {
+	rec := newRecorder()
+	svc := newService(t, rec, notify.Options{})
+	quiet := true
+	svc.SetQuiet(func(context.Context) bool { return quiet })
+	for i := range 130 {
+		svc.Notify(context.Background(), notify.Event{Type: notify.EventCIFailed, Title: fmt.Sprintf("notice %03d", i)})
+	}
+	svc.Flush(context.Background())
+	quiet = false
+	svc.Flush(context.Background())
+	got := rec.forChannel(notify.ChannelTelegram)
+	if len(got) != 1 || strings.Contains(got[0].notice.Body, "notice 000") || !strings.Contains(got[0].notice.Body, "notice 129") {
+		t.Fatalf("held notices = %+v, want the newest 100 and not the oldest", got)
 	}
 }

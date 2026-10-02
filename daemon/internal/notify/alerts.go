@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"sync"
 	"time"
 
 	"github.com/khanblair/marshal/daemon/internal/protocol"
@@ -16,6 +17,13 @@ type RouteStore interface {
 	AlertRoutes(ctx context.Context) (map[string][]string, error)
 	// SetAlertRoutes stores the routes, replacing what was saved.
 	SetAlertRoutes(ctx context.Context, routes map[string][]string) error
+}
+
+// QuietStore keeps whether alerts are held during calendar events, across restarts. A RouteStore may
+// also be one; when it is not, the choice lasts until the daemon restarts.
+type QuietStore interface {
+	AlertQuiet(ctx context.Context) (bool, error)
+	SetAlertQuiet(ctx context.Context, quiet bool) error
 }
 
 // alertEvent is one kind of alert a person can route, and the words the screen calls it.
@@ -57,6 +65,47 @@ type Alerts struct {
 	store     RouteStore
 	connected func(ctx context.Context) map[Channel]bool
 	now       func() time.Time
+
+	mu sync.Mutex
+	// quiet is whether alerts are held during calendar events, and inEvent says whether one is on.
+	quiet   bool
+	inEvent func(ctx context.Context) bool
+	// busyAt and busy keep the last answer of inEvent for a short while, so the router asking every
+	// flush does not ask the calendar every flush.
+	busyAt time.Time
+	busy   bool
+}
+
+// busyFor is how long the answer to "is an event on" is kept.
+const busyFor = 30 * time.Second
+
+// SetInEvent says how to tell that a calendar event is on. Without it nothing is ever held.
+func (a *Alerts) SetInEvent(inEvent func(ctx context.Context) bool) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.inEvent = inEvent
+}
+
+// Quiet says whether notices should be held right now: the person asked for it, and an event is on.
+// Google that cannot be read never holds a notice back.
+func (a *Alerts) Quiet(ctx context.Context) bool {
+	a.mu.Lock()
+	quiet, inEvent := a.quiet, a.inEvent
+	if !quiet || inEvent == nil {
+		a.mu.Unlock()
+		return false
+	}
+	if a.now().Sub(a.busyAt) < busyFor {
+		busy := a.busy
+		a.mu.Unlock()
+		return busy
+	}
+	a.mu.Unlock()
+	busy := inEvent(ctx)
+	a.mu.Lock()
+	a.busy, a.busyAt = busy, a.now()
+	a.mu.Unlock()
+	return busy
 }
 
 // NewAlerts builds the alert settings over a router and a store. connected answers which channels
@@ -81,7 +130,20 @@ func (a *Alerts) Load(ctx context.Context) error {
 	for event, channels := range saved {
 		a.router.SetRoute(event, toChannels(channels)...)
 	}
+	if store, ok := a.store.(QuietStore); ok {
+		quiet, err := store.AlertQuiet(ctx)
+		if err != nil {
+			return err
+		}
+		a.setQuiet(quiet)
+	}
 	return nil
+}
+
+func (a *Alerts) setQuiet(quiet bool) {
+	a.mu.Lock()
+	a.quiet, a.busyAt = quiet, time.Time{}
+	a.mu.Unlock()
 }
 
 // Get answers where every kind of alert goes now, and which channels can be used.
@@ -104,7 +166,12 @@ func (a *Alerts) Get(ctx context.Context) (protocol.AlertSettings, error) {
 	for _, one := range alertChannels() {
 		channels = append(channels, protocol.AlertChannel{ID: string(one.id), Name: one.name, Connected: up[one.id]})
 	}
-	return protocol.AlertSettings{Routes: routes, Channels: channels, ServerTime: protocol.NewTimestamp(a.now())}, nil
+	a.mu.Lock()
+	quiet := a.quiet
+	a.mu.Unlock()
+	return protocol.AlertSettings{
+		Routes: routes, Channels: channels, QuietDuringEvents: quiet, ServerTime: protocol.NewTimestamp(a.now()),
+	}, nil
 }
 
 // Save checks the choices, keeps them, applies them to the router, and answers the settings as they
@@ -127,6 +194,14 @@ func (a *Alerts) Save(ctx context.Context, req protocol.SaveAlertSettingsRequest
 	}
 	for _, choice := range req.Routes {
 		a.router.SetRoute(choice.Event, toChannels(dedupe(choice.Channels))...)
+	}
+	if req.QuietDuringEvents != nil {
+		if store, ok := a.store.(QuietStore); ok {
+			if err := store.SetAlertQuiet(ctx, *req.QuietDuringEvents); err != nil {
+				return protocol.AlertSettings{}, err
+			}
+		}
+		a.setQuiet(*req.QuietDuringEvents)
 	}
 	return a.Get(ctx)
 }

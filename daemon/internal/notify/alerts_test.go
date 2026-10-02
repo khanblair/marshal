@@ -4,6 +4,7 @@ import (
 	"context"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/khanblair/marshal/daemon/internal/notify"
 	"github.com/khanblair/marshal/daemon/internal/protocol"
@@ -133,3 +134,66 @@ func TestSavedChoicesAreAppliedWhenTheDaemonStarts(t *testing.T) {
 		t.Errorf("after a restart the router delivered %+v, want the saved choice", rec.all())
 	}
 }
+
+// quietStore is a route store that also keeps whether alerts are held during calendar events.
+type quietStore struct {
+	memoryStore
+	quiet bool
+}
+
+func (q *quietStore) AlertQuiet(context.Context) (bool, error) { return q.quiet, nil }
+func (q *quietStore) SetAlertQuiet(_ context.Context, quiet bool) error {
+	q.quiet = quiet
+	return nil
+}
+
+func TestQuietDuringEventsIsKeptAndOnlyHoldsWhileAnEventIsOn(t *testing.T) {
+	store := &quietStore{}
+	rec := newRecorder()
+	router := newService(t, rec, notify.Options{})
+	var now = time.Date(2026, 10, 2, 9, 0, 0, 0, time.UTC)
+	alerts, err := notify.NewAlerts(router, store, nil, func() time.Time { return now })
+	if err != nil {
+		t.Fatal(err)
+	}
+	busy, asked := true, 0
+	alerts.SetInEvent(func(context.Context) bool { asked++; return busy })
+	router.SetQuiet(alerts.Quiet)
+
+	if alerts.Quiet(context.Background()) {
+		t.Fatal("quiet before the person asked for it")
+	}
+	saved, err := alerts.Save(context.Background(), protocol.SaveAlertSettingsRequest{QuietDuringEvents: ptr(true)})
+	if err != nil || !saved.QuietDuringEvents || !store.quiet {
+		t.Fatalf("saved = %+v, %v, store quiet = %v, want it on and kept", saved, err, store.quiet)
+	}
+	if !alerts.Quiet(context.Background()) {
+		t.Error("not quiet while an event is on and the setting is on")
+	}
+	// The answer is kept for a short while, so asking each flush does not ask the calendar each time.
+	alerts.Quiet(context.Background())
+	if asked != 1 {
+		t.Errorf("the calendar was asked %d times inside the keep window, want 1", asked)
+	}
+	busy, now = false, now.Add(time.Minute)
+	if alerts.Quiet(context.Background()) {
+		t.Error("still quiet after the event ended")
+	}
+	// A save that does not mention it leaves it alone.
+	if kept, _ := alerts.Save(context.Background(), protocol.SaveAlertSettingsRequest{}); !kept.QuietDuringEvents {
+		t.Error("a save that did not mention quiet turned it off")
+	}
+	// A restart reads it back.
+	again, err := notify.NewAlerts(newService(t, newRecorder(), notify.Options{}), store, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := again.Load(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := again.Get(context.Background()); !got.QuietDuringEvents {
+		t.Error("the choice was lost across a restart")
+	}
+}
+
+func ptr[T any](v T) *T { return &v }

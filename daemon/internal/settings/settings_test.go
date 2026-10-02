@@ -130,3 +130,23 @@ func TestValuesTheFormWouldNotOfferAreRefused(t *testing.T) {
 		})
 	}
 }
+
+func TestQuietDuringEventsIsOffUntilChosenAndIsKept(t *testing.T) {
+	svc := settingsFor(t)
+	ctx := context.Background()
+	if quiet, err := svc.AlertQuiet(ctx); err != nil || quiet {
+		t.Fatalf("a fresh install = %v, %v, want off", quiet, err)
+	}
+	if err := svc.SetAlertQuiet(ctx, true); err != nil {
+		t.Fatal(err)
+	}
+	if quiet, err := svc.AlertQuiet(ctx); err != nil || !quiet {
+		t.Fatalf("after turning it on = %v, %v, want on", quiet, err)
+	}
+	if err := svc.SetAlertQuiet(ctx, false); err != nil {
+		t.Fatal(err)
+	}
+	if quiet, _ := svc.AlertQuiet(ctx); quiet {
+		t.Error("turning it off did not stick")
+	}
+}

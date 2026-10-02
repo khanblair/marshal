@@ -33,6 +33,9 @@ const sleepKey = "sleep"
 // channel ids it goes to, holding only the alerts a person has changed.
 const alertsKey = "alerts"
 
+// alertsQuietKey is the settings row that says alerts are held while a calendar event is on.
+const alertsQuietKey = "alerts.quiet-during-events"
+
 // The default sleep settings are protocol.DefaultSleepSettings, beside the wire type, so this
 // service and the session manager cannot answer a fresh install with two different sets of numbers.
 
@@ -138,6 +141,41 @@ func (s *Service) SetAlertRoutes(ctx context.Context, routes map[string][]string
 	})
 	if err != nil {
 		return fmt.Errorf("save the alert routes: %w", err)
+	}
+	return nil
+}
+
+// AlertQuiet reads whether alerts that are not asking for an answer are held while a calendar event
+// is on. An install that never chose answers false.
+func (s *Service) AlertQuiet(ctx context.Context) (bool, error) {
+	if err := s.ready(); err != nil {
+		return false, err
+	}
+	raw, err := s.store.Queries().GetSetting(ctx, alertsQuietKey)
+	switch {
+	case err == nil:
+		return raw == "true", nil
+	case store.IsNotFound(err):
+		return false, nil
+	default:
+		return false, fmt.Errorf("read the quiet-during-events setting: %w", err)
+	}
+}
+
+// SetAlertQuiet stores whether alerts are held while a calendar event is on.
+func (s *Service) SetAlertQuiet(ctx context.Context, quiet bool) error {
+	if err := s.ready(); err != nil {
+		return err
+	}
+	value := "false"
+	if quiet {
+		value = "true"
+	}
+	err := s.store.Write(ctx, func(q *db.Queries) error {
+		return q.SetSetting(ctx, db.SetSettingParams{Key: alertsQuietKey, ValueJSON: value})
+	})
+	if err != nil {
+		return fmt.Errorf("save the quiet-during-events setting: %w", err)
 	}
 	return nil
 }
