@@ -1,0 +1,18 @@
+{
+  "state": "connected",
+  "mode": "oauth",
+  "login": "octo",
+  "installUrl": "https://github.com/apps/marshal-kanban/installations/new",
+  "installations": [
+    {
+      "account": "octo",
+      "kind": "user",
+      "allRepositories": true
+    },
+    {
+      "account": "acme",
+      "kind": "organization",
+      "allRepositories": false
+    }
+  ]
+}

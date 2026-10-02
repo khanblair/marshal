@@ -4,6 +4,7 @@
   "path": "/home/ada/code/web-dashboard",
   "language": "TypeScript",
   "defaultBranch": "main",
+  "integrationBranch": "main",
   "devCommand": "pnpm dev",
   "bypassLocked": true,
   "isMonorepo": false,

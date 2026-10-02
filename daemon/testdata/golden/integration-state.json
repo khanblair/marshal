@@ -1,0 +1,37 @@
+{
+  "projectId": "web",
+  "target": "development",
+  "integratorBranch": "integrator",
+  "aheadBy": 2,
+  "state": "merging",
+  "currentCardId": "01HZ",
+  "queue": [
+    {
+      "cardId": "01HZ",
+      "key": "web#12",
+      "title": "Add login page",
+      "phase": "resolving",
+      "position": 1
+    },
+    {
+      "cardId": "01J0",
+      "key": "web#13",
+      "title": "Fix search bug",
+      "phase": "queued",
+      "position": 2
+    }
+  ],
+  "history": [
+    {
+      "cardId": "01GX",
+      "key": "web#11",
+      "title": "Rename config",
+      "mergedAt": "2026-09-27T09:30:00.000Z",
+      "commit": "3f2a9c1",
+      "resolved": 1,
+      "summary": "Both cards edited config.py; kept both settings.",
+      "canUndo": true
+    }
+  ],
+  "serverTime": "2026-09-27T09:30:00.000Z"
+}

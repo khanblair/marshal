@@ -200,6 +200,15 @@
     "terminal.screen",
     "terminal.refused"
   ],
+  "GitHubConnectState": [
+    "idle",
+    "pending",
+    "needs_install",
+    "connected",
+    "denied",
+    "expired",
+    "failed"
+  ],
   "HandoffRefusalReason": [
     "handoff_no_session",
     "handoff_turn_running",
@@ -219,6 +228,12 @@
     "connected",
     "none",
     "error"
+  ],
+  "IntegratorState": [
+    "idle",
+    "merging",
+    "waiting",
+    "paused"
   ],
   "LabelColor": [
     "slate",
@@ -244,6 +259,13 @@
     "failed",
     "unsupported",
     "skipped"
+  ],
+  "MergePhase": [
+    "queued",
+    "resolving",
+    "testing",
+    "landing",
+    "stopped"
   ],
   "MoveRefusalReason": [
     "move_from_done",
@@ -313,7 +335,8 @@
     "board",
     "list",
     "timeline",
-    "calendar"
+    "calendar",
+    "integration"
   ],
   "ProviderStatus": [
     "saved",
