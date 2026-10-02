@@ -24,3 +24,9 @@ ON CONFLICT (day, project_id) DO UPDATE SET
 SELECT * FROM daily_stats
 WHERE day >= sqlc.arg(from_day) AND day <= sqlc.arg(to_day)
 ORDER BY day, project_id;
+
+-- name: DeleteDailyStatsForProject :exec
+-- Drops a removed project's numbers, the same way its activity rows go (DeleteActivityForProject).
+-- The table has no foreign key on project_id, so without this a removed project kept showing in the
+-- Home charts and counts.
+DELETE FROM daily_stats WHERE project_id = ?;

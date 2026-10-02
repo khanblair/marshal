@@ -1,17 +1,22 @@
 -- name: CreateChat :exec
 INSERT INTO chats (
     id, project_id, title, target_kind, target_id, agent_kind, model, thinking,
-    permission_mode, archived_at, last_active_at, created_at, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    permission_mode, archived_at, last_active_at, created_at, updated_at, system
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: GetChat :one
 SELECT * FROM chats WHERE id = ?;
 
+-- name: GetSystemChat :one
+-- The chat Marshal keeps for a project under a system name, such as the pinned Integrator chat.
+SELECT * FROM chats WHERE project_id = ? AND system = ?;
+
 -- name: ListChatsByProject :many
--- A project's live chats: the ones in the main list, most recently active first.
+-- A project's live chats: the ones in the main list. A system chat is pinned first; the rest are
+-- most recently active first.
 SELECT * FROM chats
 WHERE project_id = ? AND archived_at IS NULL
-ORDER BY last_active_at DESC, id;
+ORDER BY system = '', last_active_at DESC, id;
 
 -- name: ListArchivedChatsByProject :many
 -- A project's archived chats, most recently active first. The live list and this one are two

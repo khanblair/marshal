@@ -1,8 +1,8 @@
 -- name: CreateProject :exec
 INSERT INTO projects (
-    id, name, repo_path, default_branch, language, dev_command,
+    id, name, repo_path, default_branch, integration_branch, language, dev_command,
     bypass_locked, is_monorepo, packages_json, created_at, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: GetProject :one
 SELECT * FROM projects WHERE id = ?;
@@ -18,7 +18,8 @@ SELECT * FROM projects ORDER BY created_at, id;
 
 -- name: UpdateProject :execrows
 UPDATE projects
-SET name = ?, dev_command = ?, default_branch = ?, bypass_locked = ?, updated_at = ?
+SET name = ?, dev_command = ?, default_branch = ?, integration_branch = ?, bypass_locked = ?,
+    updated_at = ?
 WHERE id = ?;
 
 -- name: DeleteProject :execrows
