@@ -52,7 +52,51 @@ func (m *Manager) startOrResume(ctx context.Context, cardID string) (protocol.Ca
 	case !store.IsNotFound(err):
 		return protocol.Card{}, fmt.Errorf("look for an existing session of card %s: %w", cardID, err)
 	}
-	return m.startFresh(ctx, cardID)
+	card, err := m.startFresh(ctx, cardID)
+	if err != nil {
+		return card, err
+	}
+	m.sendStartPrompt(ctx, cardID)
+	return card, nil
+}
+
+// sendStartPrompt gives a session that has just started its first turn, when the config sets one.
+// The session is already running, so a failure here is logged and not returned: the card started.
+func (m *Manager) sendStartPrompt(ctx context.Context, cardID string) {
+	if m.cfg.StartPrompt == "" {
+		return
+	}
+	ls, err := m.live(cardID)
+	if err == nil {
+		err = m.deliver(ctx, ls, m.cfg.StartPrompt)
+	}
+	if err != nil {
+		m.log.Warn("could not send a new session its first turn", "card_id", cardID, "error", err)
+	}
+}
+
+// startForSend starts a session for a message to a card that never had one, when the config lets a
+// message do so. It reports whether a session was started. A card with a session row of any state
+// is left to the wake and resume paths, which never start a new conversation in its place.
+func (m *Manager) startForSend(ctx context.Context, cardID string) (bool, error) {
+	if !m.cfg.StartOnSend {
+		return false, nil
+	}
+	_, err := m.store.Queries().GetSessionByCard(ctx, cardID)
+	switch {
+	case err == nil:
+		return false, nil
+	case !store.IsNotFound(err):
+		return false, fmt.Errorf("look for an existing session of card %s: %w", cardID, err)
+	}
+	if err := m.reserve(cardID); err != nil {
+		return false, err
+	}
+	defer m.release(cardID)
+	if _, err := m.startFresh(ctx, cardID); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // startHeld is Start's path for a card a pause holds. The pause is cleared first. When the agent

@@ -159,6 +159,10 @@ type coreDaemonModules struct {
 	sessions         *session.Manager
 }
 
+// startPrompt is the first message a started card's agent gets. The card's title, body, role, and
+// tools already reached it as instructions, so this only says to begin.
+const startPrompt = "Start working on this card now."
+
 // buildCoreModules makes git, projects, the agent registry and catalog, and the session manager,
 // in the order each depends on the last.
 func buildCoreModules(st *store.Store, bus *events.Bus, settings config.Settings, env platform.Env, log *slog.Logger) (coreDaemonModules, error) {
@@ -231,6 +235,7 @@ func buildCoreModules(st *store.Store, bus *events.Bus, settings config.Settings
 	sessions, err := session.NewManager(st, bus, proj, registry, git, session.Config{
 		DataDir: settings.DataDir, Logger: log, History: historyStore, Plans: historyStore,
 		Terminals: terminals, Audit: auditRec,
+		StartPrompt: startPrompt, StartOnSend: true,
 	})
 	if err != nil {
 		return coreDaemonModules{}, fmt.Errorf("start the session manager: %w", err)

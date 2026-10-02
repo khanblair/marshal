@@ -114,6 +114,13 @@ type Config struct {
 	// set gitleaks ships with; set it to a scanner a test controls to prove the block without
 	// inventing a key that the real rules would not match.
 	Secrets *secrets.Scanner
+	// StartPrompt is the first message Start sends to a card's brand-new session, so the agent
+	// begins on its own. Left empty, Start only brings the agent up and it waits for a message. A
+	// resume never sends it.
+	StartPrompt string
+	// StartOnSend lets a message to a card that never had a session start one first, and then
+	// delivers the message as its first turn. Left false, such a message is refused.
+	StartOnSend bool
 }
 
 // withDefaults checks the config and fills in what was left out.

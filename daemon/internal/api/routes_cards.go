@@ -134,6 +134,8 @@ func (s *Server) sendMessage(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, err)
 		return
 	}
+	// A message to a card that never started starts its agent first, which can take a minute.
+	s.allowSlowAnswer(w)
 	if err := s.sessions.Send(r.Context(), id, req.Text); err != nil {
 		s.writeError(w, s.sessionError(r.Context(), id, err))
 		return

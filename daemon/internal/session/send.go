@@ -33,6 +33,9 @@ func (m *Manager) Send(ctx context.Context, cardID, text string) error {
 		if !errors.Is(err, ErrNoLiveSession) {
 			return err
 		}
+		if _, err := m.startForSend(ctx, cardID); err != nil {
+			return err
+		}
 		if err := m.wakeForSend(ctx, cardID); err != nil {
 			return err
 		}

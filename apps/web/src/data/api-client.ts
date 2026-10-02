@@ -430,7 +430,7 @@ function cardMethods({
     fileHunks: (cid, path, o) =>
       request("GET", `/v1/cards/${id(cid)}/diff/${path.split("/").map(id).join("/")}`, o),
     startCard: (cid, o) => request("POST", `/v1/cards/${id(cid)}/start`, slow(o)),
-    sendMessage: (cid, body, o) => command("POST", `/v1/cards/${id(cid)}/messages`, { ...o, body }),
+    sendMessage: (cid, body, o) => command("POST", `/v1/cards/${id(cid)}/messages`, { ...slow(o), body }),
     stopCard: (cid, o) => command("POST", `/v1/cards/${id(cid)}/stop`, o),
     resumeCard: (cid, o) => command("POST", `/v1/cards/${id(cid)}/resume`, slow(o)),
     pauseCard: (cid, o) => request("POST", `/v1/cards/${id(cid)}/pause`, o),

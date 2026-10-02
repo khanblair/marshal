@@ -653,3 +653,52 @@ func TestNewManagerValidatesItsConfig(t *testing.T) {
 		t.Error("NewManager with a relative data folder should fail")
 	}
 }
+
+func TestStartSendsTheStartPromptWhenSetAndResumeDoesNot(t *testing.T) {
+	e := newEnv(t, func(c *session.Config) { c.StartPrompt = "Begin now." })
+	t.Cleanup(func() { _ = e.mgr.Close() })
+	project := e.project(t, "small-repo")
+	card := e.card(t, project.ID, "Add a health check")
+	if _, err := e.mgr.Start(context.Background(), card.ID); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	out := e.untilType(t, protocol.EventTypeSessionOutput)
+	data, _ := out.Data.(protocol.SessionOutputEventData)
+	if !strings.Contains(data.Text, "turn 1") || !strings.Contains(data.Text, "Begin now.") {
+		t.Errorf("first turn output = %+v, want the start prompt as turn 1", data)
+	}
+}
+
+func TestSendStartsACardThatNeverHadASessionWhenAllowed(t *testing.T) {
+	e := newEnv(t, func(c *session.Config) { c.StartOnSend = true })
+	t.Cleanup(func() { _ = e.mgr.Close() })
+	project := e.project(t, "small-repo")
+	card := e.card(t, project.ID, "Add a health check")
+	if err := e.mgr.Send(context.Background(), card.ID, "look at the docs"); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	row, err := e.store.Queries().GetSessionByCard(context.Background(), card.ID)
+	if err != nil || row.AgentSessionID == "" {
+		t.Fatalf("session row = %+v, %v, want a started session", row, err)
+	}
+	out := e.untilType(t, protocol.EventTypeSessionOutput)
+	data, _ := out.Data.(protocol.SessionOutputEventData)
+	if !strings.Contains(data.Text, "turn 1") || !strings.Contains(data.Text, "look at the docs") {
+		t.Errorf("first turn output = %+v, want the person's message as turn 1", data)
+	}
+}
+
+func TestSendToACardWithAStoppedSessionStillDoesNotStartANewOne(t *testing.T) {
+	e := newEnv(t, func(c *session.Config) { c.StartOnSend = true })
+	t.Cleanup(func() { _ = e.mgr.Close() })
+	project := e.project(t, "small-repo")
+	card := e.card(t, project.ID, "Add a health check")
+	if _, err := e.mgr.Start(context.Background(), card.ID); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	if err := e.mgr.Stop(context.Background(), card.ID); err != nil {
+		t.Fatalf("Stop: %v", err)
+	}
+	err := e.mgr.Send(context.Background(), card.ID, "hello again")
+	wantCode(t, err, protocol.ErrorCodeRefused)
+}
