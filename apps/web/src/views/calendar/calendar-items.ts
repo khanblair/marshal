@@ -69,6 +69,19 @@ function scheduleItems(src: CalSource, dow: number, off: number): CalItem[] {
     }));
 }
 
+/** When an event is, in words: "all day", "at 09:30", or "09:30 to 10:00". */
+export function eventWhen(e: CalEvent): string {
+  if (e.allDay) return "All day";
+  return e.endTime ? `${e.time} to ${e.endTime}` : e.time;
+}
+
+/** The hover text of an event: its title, when, where, and which calendar it is on. */
+function eventTip(e: CalEvent): string {
+  const place = e.location ? `, ${e.location}` : "";
+  const when = e.allDay ? ", all day" : ` at ${e.endTime ? `${e.time} to ${e.endTime}` : e.time}`;
+  return `${e.title}${when}${place}, from ${e.calendar || "Google Calendar"}`;
+}
+
 function eventItems(src: CalSource, t: number, dow: number, off: number): CalItem[] {
   return src.events
     .filter((e) => e.days?.includes(dow) || e.dayOffset === off)
@@ -77,7 +90,7 @@ function eventItems(src: CalSource, t: number, dow: number, off: number): CalIte
       icon: "calendar",
       time: e.time,
       label: e.title,
-      tip: `${e.title} at ${e.time}, from Google Calendar`,
+      tip: eventTip(e),
       target: { kind: "event", event: e, day: t },
     }));
 }
@@ -115,11 +128,16 @@ export function scheduleDialog(s: Schedule): ConfirmText {
   };
 }
 
-/** Confirm dialog of a Google Calendar event on day `t`. */
+/** Confirm dialog of a Google Calendar event on day `t`: when, where, and how to join or open it. */
 export function eventDialog(e: CalEvent, t: number): ConfirmText {
+  const lines = [`${eventWhen(e)} on ${fullDate(t)}.`];
+  if (e.location) lines.push(`Where: ${e.location}.`);
+  if (e.joinUrl) lines.push(`Video call: ${e.joinUrl}`);
+  lines.push(e.calendar ? `On the calendar ${e.calendar}.` : "Synced from Google Calendar.");
+  lines.push("Briefs use it for smart timing.");
   return {
     title: e.title,
-    message: `${e.time} on ${fullDate(t)}. Synced from Google Calendar. Briefs use it for smart timing.`,
-    action: "Close",
+    message: lines.join(" "),
+    action: e.url ? "Open in Google Calendar" : "Close",
   };
 }

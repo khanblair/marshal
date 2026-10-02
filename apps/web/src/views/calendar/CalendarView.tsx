@@ -3,6 +3,7 @@ import { M } from "~/mock";
 import { CalendarAgenda } from "./CalendarAgenda";
 import { CalendarGrid } from "./CalendarGrid";
 import { CalendarToolbar } from "./CalendarToolbar";
+import { GoogleNotice } from "./GoogleNotice";
 
 /**
  * Month and week calendar of the open project: schedule runs, Google Calendar events,
@@ -12,6 +13,7 @@ export function CalendarView() {
   return (
     <div class="absolute inset-0 flex flex-col bg-surface">
       <CalendarToolbar />
+      <GoogleNotice class="mx-4 mt-3" />
       <Show when={M.mobile} fallback={<CalendarGrid />}>
         <CalendarAgenda />
       </Show>

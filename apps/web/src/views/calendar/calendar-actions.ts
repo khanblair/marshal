@@ -10,7 +10,13 @@ export function openCalItem(item: CalItem): void {
     return;
   }
   if (target.kind === "event") {
-    M.confirm({ ...eventDialog(target.event, target.day), run: () => {} });
+    const { url } = target.event;
+    M.confirm({
+      ...eventDialog(target.event, target.day),
+      run: () => {
+        if (url) window.open(url, "_blank", "noopener,noreferrer");
+      },
+    });
     return;
   }
   const { schedule } = target;

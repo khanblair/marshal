@@ -35,12 +35,15 @@ function eventItems(weekday: number): TodayItem[] {
   return M.S.calEvents
     .filter((e) => e.days?.includes(weekday) || e.dayOffset === 0)
     .map((e) => ({
-      time: e.time,
+      time: e.allDay ? "All day" : e.time,
       icon: "calendar",
       iconColor: QUIET,
       label: e.title,
       kind: "Event",
-      open: () => M.toast(`${e.title} is from Google Calendar`),
+      open: () => {
+        if (e.url) window.open(e.url, "_blank", "noopener,noreferrer");
+        else M.toast(`${e.title} is from Google Calendar`);
+      },
     }));
 }
 

@@ -1,6 +1,7 @@
 import { Icon, ShowMoreFooter } from "@marshal/ui";
 import { createMemo, Index, Show } from "solid-js";
 import { M } from "~/mock";
+import { GoogleNotice } from "../calendar/GoogleNotice";
 import { openCalendar } from "./home-actions";
 import { type TodayItem, todayItems } from "./today";
 import { createShowAll } from "./use-show-all";
@@ -33,6 +34,7 @@ export function TodaySection() {
       <h2 id="h-today" class="m-0 mb-2 text-subtitle leading-5.5 font-semibold">
         Coming up today
       </h2>
+      <GoogleNotice class="mb-2" />
       <Show when={items().length === 0}>
         <p class="m-0 text-secondary">Nothing else is scheduled today.</p>
       </Show>
