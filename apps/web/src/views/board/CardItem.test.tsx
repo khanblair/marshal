@@ -84,6 +84,36 @@ describe("CardItem", () => {
     expect(bar).toHaveAttribute("aria-valuenow", String(findCard(CARD_MERGING).mergePct));
   });
 
+  it("says the merge phase in plain words in place of the generic merging text", () => {
+    const card = findCard(CARD_MERGING);
+    render(() => <LiveCard id={CARD_MERGING} />);
+    expect(screen.getByText("Merging")).toBeInTheDocument();
+    const words = {
+      queued: "Waiting for the Integrator",
+      resolving: "Resolving conflicts",
+      testing: "Testing the merge",
+      landing: "Landing in your folder",
+    } as const;
+    for (const [phase, text] of Object.entries(words)) {
+      card.mergePhase = phase as keyof typeof words;
+      expect(screen.getByText(text)).toBeInTheDocument();
+    }
+    expect(screen.queryByText("Merging")).not.toBeInTheDocument();
+    expect(screen.queryByRole("progressbar", { name: "Merge progress" })).toBeNull();
+  });
+
+  it("shows the merge note as the secondary line only while a phase is set", () => {
+    const card = findCard(CARD_MERGING);
+    render(() => <LiveCard id={CARD_MERGING} />);
+    card.mergeNote = "Resolving 2 conflicts in api.go";
+    expect(screen.queryByText("Resolving 2 conflicts in api.go")).not.toBeInTheDocument();
+    card.mergePhase = "resolving";
+    expect(screen.getByText("Resolving 2 conflicts in api.go")).toHaveClass("text-secondary");
+    card.mergePhase = undefined;
+    expect(screen.queryByText("Resolving 2 conflicts in api.go")).not.toBeInTheDocument();
+    expect(screen.getByRole("progressbar", { name: "Merge progress" })).toBeInTheDocument();
+  });
+
   it("shows the bypass badge only when bypass is on", () => {
     render(() => <LiveCard id={CARD_WORKING} />);
     expect(screen.queryByText("Bypass")).not.toBeInTheDocument();

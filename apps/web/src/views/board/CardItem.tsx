@@ -25,7 +25,7 @@ function CardTitle(props: CardItemProps) {
 function StateLine(props: CardItemProps) {
   return (
     <div class="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-small leading-4.5 text-secondary">
-      <StatusLabel state={props.c.state}>{props.c.stateLabel}</StatusLabel>
+      <StatusLabel state={props.c.state}>{props.c.mergeText ?? props.c.stateLabel}</StatusLabel>
       <Show when={props.c.asleep}>
         <IconLabel icon="moon" gap={3}>
           {props.c.sleepLabel}
@@ -67,8 +67,8 @@ function Activity(props: CardItemProps) {
 }
 
 /**
- * One card on the board: state, role and model, what it is doing, merge progress, package, and
- * a footer of meta. Port of design/CardItem.dc.html. The status edge, the selected and focus
+ * One card on the board: state, role and model, what it is doing, merge progress (or the
+ * Integrator's phase in words), package, and a footer of meta. Port of design/CardItem.dc.html. The status edge, the selected and focus
  * ring, and the dragging fade come from the view model as inline colors.
  */
 export function CardItem(props: CardItemProps) {
@@ -97,8 +97,11 @@ export function CardItem(props: CardItemProps) {
       <CardTitle c={props.c} />
       <StateLine c={props.c} />
       <Activity c={props.c} />
-      <Show when={props.c.merging}>
+      <Show when={props.c.merging && !props.c.mergeText}>
         <ProgressBar value={props.c.mergeNum} label="Merge progress" tone="ready" size={4} />
+      </Show>
+      <Show when={props.c.mergeNote}>
+        <div class="text-small leading-4.5 text-secondary line-clamp-2">{props.c.mergeNote}</div>
       </Show>
       <Show when={props.c.hasPkg}>
         <Badge tone="outline" icon="package" class="self-start font-mono font-normal! leading-4">
