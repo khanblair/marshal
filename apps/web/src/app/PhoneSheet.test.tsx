@@ -88,7 +88,7 @@ describe("Go to sheet", () => {
 describe("More sheet", () => {
   beforeEach(() => M.set({ menu: "more" }));
 
-  it("lists the eight actions, Search with its hint", () => {
+  it("lists the nine actions, Search with its hint", () => {
     render(() => <PhoneSheet />);
     expect(screen.getByRole("dialog", { name: "More" })).toBeInTheDocument();
     expect(rows().map((r) => r.textContent)).toEqual([
@@ -96,6 +96,7 @@ describe("More sheet", () => {
       "List view",
       "Timeline view",
       "Calendar view",
+      "Integration view",
       "New card",
       "New project",
       "Settings",

@@ -12,7 +12,7 @@ interface NavTab {
   go: () => void;
 }
 
-const MORE_VIEWS: readonly ViewKey[] = ["list", "timeline", "calendar"];
+const MORE_VIEWS: readonly ViewKey[] = ["list", "timeline", "calendar", "integration"];
 
 const view = (key: ViewKey) => () => M.go("project", M.S.route.pid, key);
 

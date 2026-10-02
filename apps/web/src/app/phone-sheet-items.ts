@@ -47,7 +47,7 @@ export function pickerItems(): SheetItem[] {
 }
 
 const openView =
-  (view: "list" | "timeline" | "calendar"): (() => void) =>
+  (view: "list" | "timeline" | "calendar" | "integration"): (() => void) =>
   () =>
     M.go("project", M.S.route.pid, view);
 
@@ -68,6 +68,7 @@ export function moreItems(): SheetItem[] {
     { icon: "list", label: "List view", run: closing(openView("list")) },
     { icon: "gantt-chart", label: "Timeline view", run: closing(openView("timeline")) },
     { icon: "calendar", label: "Calendar view", run: closing(openView("calendar")) },
+    { icon: "git-merge", label: "Integration view", run: closing(openView("integration")) },
     { icon: "plus", label: "New card", run: closing(newCard) },
     { icon: "folder-plus", label: "New project", run: openNewProject },
     { icon: "settings", label: "Settings", run: closing(() => M.go("settings")) },

@@ -24,6 +24,7 @@ const stubs = vi.hoisted(() => {
     list: stub("list"),
     settings: stub("settings"),
     timeline: stub("timeline"),
+    integration: stub("integration"),
   };
 });
 vi.mock("~/views/agents/AgentsView", () => ({ AgentsView: stubs.agents }));
@@ -33,6 +34,7 @@ vi.mock("~/views/card/CardDetail", () => ({ CardDetail: stubs.card }));
 vi.mock("~/views/chats/ChatsView", () => ({ ChatsView: stubs.chat }));
 vi.mock("~/views/home/HomeAllView", () => ({ HomeAllView: stubs.homeAll }));
 vi.mock("~/views/home/HomeView", () => ({ HomeView: stubs.home }));
+vi.mock("~/views/integration/IntegrationView", () => ({ IntegrationView: stubs.integration }));
 vi.mock("~/views/list/ListView", () => ({ ListView: stubs.list }));
 vi.mock("~/views/settings/SettingsView", () => ({ SettingsView: stubs.settings }));
 vi.mock("~/views/timeline/TimelineView", () => ({ TimelineView: stubs.timeline }));
@@ -120,7 +122,7 @@ describe("Workspace split panes", () => {
       within(picker)
         .getAllByRole("option")
         .map((o) => o.textContent),
-    ).toEqual(["Chats", "Agents", "Board", "List", "Timeline", "Calendar"]);
+    ).toEqual(["Chats", "Agents", "Board", "List", "Timeline", "Calendar", "Integration"]);
     fireEvent.change(picker, { target: { value: "timeline" } });
     expect([...M.S.split]).toEqual(["timeline"]);
     expect(shown()).toEqual(["board", "timeline"]);

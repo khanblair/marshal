@@ -40,7 +40,7 @@ function FolderField(props: { draft: NewProjectDraft }) {
   return (
     <Field
       label="Repository folder"
-      hint="Marshal reads this repository and makes worktrees beside it. It never moves or deletes your files."
+      hint="Marshal reads this repository and keeps each card's worktree in its own folder. Open any worktree from its card. It never moves or deletes your files."
     >
       <FolderInput value={draft().path} onChange={setPath} />
     </Field>

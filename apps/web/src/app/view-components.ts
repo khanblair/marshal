@@ -7,12 +7,13 @@ import { CalendarView } from "~/views/calendar/CalendarView";
 import { ChatsView } from "~/views/chats/ChatsView";
 import { HomeAllView } from "~/views/home/HomeAllView";
 import { HomeView } from "~/views/home/HomeView";
+import { IntegrationView } from "~/views/integration/IntegrationView";
 import { ListView } from "~/views/list/ListView";
 import { SettingsView } from "~/views/settings/SettingsView";
 import { TimelineView } from "~/views/timeline/TimelineView";
 import { isProject } from "./shell-layout";
 
-/** The six views of a project, in the design's tab order. Split panes reuse them. */
+/** The seven views of a project, in the design's tab order. Split panes reuse them. */
 export const VIEW_COMPONENTS: Record<ViewKey, Component> = {
   chat: ChatsView,
   agents: AgentsView,
@@ -20,6 +21,7 @@ export const VIEW_COMPONENTS: Record<ViewKey, Component> = {
   list: ListView,
   timeline: TimelineView,
   calendar: CalendarView,
+  integration: IntegrationView,
 };
 
 /** The component for the current route, or nothing for a project that no longer exists. */

@@ -48,7 +48,7 @@ describe("NewProjectDialog", () => {
     expect(path()).toHaveAttribute("placeholder", "~/code/my-repo");
     expect(
       screen.getByText(
-        "Marshal reads this repository and makes worktrees beside it. It never moves or deletes your files.",
+        "Marshal reads this repository and keeps each card's worktree in its own folder. Open any worktree from its card. It never moves or deletes your files.",
       ),
     ).toBeInTheDocument();
     expect(name()).toHaveValue("");
