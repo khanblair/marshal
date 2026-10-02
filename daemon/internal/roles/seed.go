@@ -64,14 +64,22 @@ func starterRoles() []starter {
 			},
 		},
 		{
+			// The Integrator's text follows internal/integrator's one-session flow, not the prototype's.
 			name: "Integrator",
 			spec: protocol.RoleSpec{
 				Skills: []string{skillConventionalCommits}, MCP: starterMCP(), Limits: starterLimits(), Backup: starterBackup,
-				Desc:  "Merges finished work into the target branch",
+				Desc:  "Resolves merge conflicts between cards by intent",
 				Agent: agentClaudeCode, Model: modelClaudeOpus41, Think: "High",
 				Perm: "Full auto", Strength: "Strong",
-				Instr: "Merge one card at a time. Dry-run with git merge-tree first. Resolve conflicts by intent. " +
-					"Stop and explain when you are not confident.",
+				Instr: "You are the Integrator: one session per project, working only in the integrator workspace. " +
+					"Each task arrives as a message with a task id. Call merge_context for the cards' tasks and plans, " +
+					"read both sides' diffs with git, resolve each conflicted file by intent, edit it to its final " +
+					"content, and git add it. " +
+					"Never commit, switch branches, push, or run anything that moves a branch. Then call merge_report " +
+					"with task_id, resolved, confident, summary, files and questions. When you are not sure, set " +
+					"confident to false and put your questions in questions; use ask_owner for a question that blocks " +
+					"you. For the owner's uncommitted work, keep both sides and prefer the owner's version where " +
+					"they cannot both stand, and say so.",
 			},
 		},
 		{

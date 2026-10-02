@@ -313,7 +313,7 @@ func checkProjectUpdates(changes map[string]protocol.UpdateProjectPreferences) e
 // checkProjectUpdate refuses one project's change that is not allowed.
 func checkProjectUpdate(in protocol.UpdateProjectPreferences) error {
 	if in.LastView != nil && !in.LastView.Valid() {
-		return protocol.InvalidArgument("That is not a view Marshal knows. Use chat, agents, board, list, timeline, or calendar.").
+		return protocol.InvalidArgument("That is not a view Marshal knows. Use chat, agents, board, list, timeline, calendar, or integration.").
 			With("lastView", string(*in.LastView))
 	}
 	if in.Filters != nil {

@@ -265,7 +265,7 @@ func TestUpdatePreferencesRefusals(t *testing.T) {
 		{"too many projects at once", protocol.UpdatePreferencesRequest{Projects: manyProjects}, protocol.ErrorCodeInvalidArgument,
 			"One change can name at most 100 projects."},
 		{"a view that is not one", on(protocol.UpdateProjectPreferences{LastView: ptr(protocol.ProjectView("kanban"))}), protocol.ErrorCodeInvalidArgument,
-			"That is not a view Marshal knows. Use chat, agents, board, list, timeline, or calendar."},
+			"That is not a view Marshal knows. Use chat, agents, board, list, timeline, calendar, or integration."},
 		{"a filter that is not one", on(protocol.UpdateProjectPreferences{Filters: &[]protocol.Filter{{Key: "cost", Value: "1"}}}),
 			protocol.ErrorCodeInvalidArgument, badFilter},
 		{"a search that is too long", on(protocol.UpdateProjectPreferences{Query: ptr(strings.Repeat("x", 201))}), protocol.ErrorCodeInvalidArgument,

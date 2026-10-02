@@ -18,6 +18,7 @@ import (
 	"log/slog"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -69,6 +70,9 @@ type Sessions interface {
 	// RemoveChatLogs deletes the on-disk log folder of a chat's session. A chat that never had a
 	// session has nothing to remove, and a missing folder is not an error.
 	RemoveChatLogs(ctx context.Context, chatID string) error
+	// ResetChatSession ends a chat's live session and forgets the conversation its agent kept, so the
+	// chat's next message starts a fresh one. The chat's own history stays.
+	ResetChatSession(ctx context.Context, chatID string) error
 }
 
 // Titler writes a chat's name from its first message. cmd/marshald hands in the providers' Service,
@@ -99,6 +103,9 @@ type Deps struct {
 	// is still made, listed, renamed, archived, restored, and deleted, and only the live half is
 	// skipped. A message cannot be sent without it.
 	Sessions Sessions
+	// Roles reads a role's model, for a system chat that runs as a role. Optional: without it a
+	// system chat starts with the agent's own default model.
+	Roles Roles
 }
 
 // Service owns a project's chats. It is safe for use by many goroutines.
@@ -107,6 +114,8 @@ type Service struct {
 	bus      Events
 	titles   Titler
 	sessions Sessions
+	rolesMu  sync.RWMutex
+	roles    Roles
 	log      *slog.Logger
 	now      func() time.Time
 
@@ -146,7 +155,7 @@ func New(deps Deps, opts ...Option) (*Service, error) {
 		return nil, fmt.Errorf("chats: a store and the event bus are both required")
 	}
 	s := &Service{
-		store: deps.Store, bus: deps.Bus, titles: deps.Titles, sessions: deps.Sessions,
+		store: deps.Store, bus: deps.Bus, titles: deps.Titles, sessions: deps.Sessions, roles: deps.Roles,
 		log: slog.New(slog.DiscardHandler), now: time.Now,
 	}
 	for _, opt := range opts {
@@ -213,46 +222,60 @@ func (s *Service) Create(ctx context.Context, projectID string, in protocol.Crea
 	if err != nil {
 		return protocol.Chat{}, err
 	}
-	now := s.now()
-	chatID, err := s.newID(now)
-	if err != nil {
-		return protocol.Chat{}, err
-	}
-	sessionID, err := s.newID(now)
-	if err != nil {
-		return protocol.Chat{}, err
-	}
-	millis := now.UnixMilli()
-	params := db.CreateChatParams{
-		ID: chatID, ProjectID: projectID, Title: title,
-		TargetKind: string(target.Kind), TargetID: target.ID,
-		AgentKind: string(settings.agent), Model: settings.model, Thinking: settings.thinking,
-		PermissionMode: string(settings.permission),
-		CreatedAt:      millis, UpdatedAt: millis, LastActiveAt: millis,
-	}
-	// The session's own settings come from the agent the session manager starts, which is only
-	// known once it starts; the chat carries what the session row starts with.
-	sessionParams := db.CreateChatSessionParams{
-		ID: sessionID, ChatID: &chatID, AgentKind: string(settings.agent), State: string(protocol.SessionStateStarting),
-		Model: settings.model, Thinking: settings.thinking, PermissionMode: string(settings.permission),
-		LastActiveAt: millis, CreatedAt: millis, UpdatedAt: millis,
-	}
 	row, err := s.writeChat(ctx, func(q *db.Queries) (db.Chat, error) {
-		if err := q.CreateChat(ctx, params); err != nil {
-			return db.Chat{}, err
-		}
-		if err := q.CreateChatSession(ctx, sessionParams); err != nil {
-			return db.Chat{}, err
-		}
-		return q.GetChat(ctx, chatID)
+		return s.insertChat(ctx, q, projectID, madeChat{title: title, target: target, settings: settings})
 	})
 	if err != nil {
 		return protocol.Chat{}, err
 	}
 	chat := chatOf(row)
 	s.publish(protocol.ProjectTopic(projectID), protocol.EventTypeChatCreated, protocol.ChatEventData{Chat: chat})
-	s.log.Info("made a project chat", "chat_id", chat.ID, "project_id", projectID, "session_id", sessionID)
+	s.log.Info("made a project chat", "chat_id", chat.ID, "project_id", projectID)
 	return chat, nil
+}
+
+// madeChat is what a new chat is made from, whether a person asked for it or Marshal did.
+type madeChat struct {
+	title    string
+	system   string
+	target   protocol.ChatTarget
+	settings chatSettings
+}
+
+// insertChat writes a chat and its session row inside the caller's transaction and answers the
+// stored chat. The session's own settings come from the agent the session manager starts, which is
+// only known once it starts; the chat carries what the session row starts with.
+func (s *Service) insertChat(ctx context.Context, q *db.Queries, projectID string, in madeChat) (db.Chat, error) {
+	now := s.now()
+	chatID, err := s.newID(now)
+	if err != nil {
+		return db.Chat{}, err
+	}
+	sessionID, err := s.newID(now)
+	if err != nil {
+		return db.Chat{}, err
+	}
+	millis := now.UnixMilli()
+	settings := in.settings
+	err = q.CreateChat(ctx, db.CreateChatParams{
+		ID: chatID, ProjectID: projectID, Title: in.title,
+		TargetKind: string(in.target.Kind), TargetID: in.target.ID,
+		AgentKind: string(settings.agent), Model: settings.model, Thinking: settings.thinking,
+		PermissionMode: string(settings.permission),
+		CreatedAt:      millis, UpdatedAt: millis, LastActiveAt: millis, System: in.system,
+	})
+	if err != nil {
+		return db.Chat{}, err
+	}
+	err = q.CreateChatSession(ctx, db.CreateChatSessionParams{
+		ID: sessionID, ChatID: &chatID, AgentKind: string(settings.agent), State: string(protocol.SessionStateStarting),
+		Model: settings.model, Thinking: settings.thinking, PermissionMode: string(settings.permission),
+		LastActiveAt: millis, CreatedAt: millis, UpdatedAt: millis,
+	})
+	if err != nil {
+		return db.Chat{}, err
+	}
+	return q.GetChat(ctx, chatID)
 }
 
 // Update answers PATCH /v1/chats/{id}: rename a chat. A field that is not set is left alone, and a
@@ -264,6 +287,9 @@ func (s *Service) Update(ctx context.Context, chatID string, in protocol.UpdateC
 	}
 	if in.Title == nil {
 		return chatOf(row), nil
+	}
+	if err := refuseSystem(row, "renamed"); err != nil {
+		return protocol.Chat{}, err
 	}
 	title, err := checkTitle(*in.Title, false)
 	if err != nil {
@@ -292,6 +318,9 @@ func (s *Service) Archive(ctx context.Context, chatID string) (protocol.Chat, er
 	defer s.locks.Lock(chatID)()
 	row, err := s.row(ctx, chatID)
 	if err != nil {
+		return protocol.Chat{}, err
+	}
+	if err := refuseSystem(row, "archived"); err != nil {
 		return protocol.Chat{}, err
 	}
 	now := s.now()
@@ -349,6 +378,9 @@ func (s *Service) Remove(ctx context.Context, chatID string) error {
 	defer s.locks.Lock(chatID)()
 	row, err := s.row(ctx, chatID)
 	if err != nil {
+		return err
+	}
+	if err := refuseSystem(row, "deleted"); err != nil {
 		return err
 	}
 	if err := s.stopSession(ctx, chatID); err != nil {
@@ -672,6 +704,7 @@ func chatOf(row db.Chat) protocol.Chat {
 	chat := protocol.Chat{
 		ID: row.ID, ProjectID: row.ProjectID, Title: row.Title,
 		Target:     protocol.ChatTarget{Kind: protocol.ChatTargetKind(row.TargetKind), ID: row.TargetID},
+		System:     row.System,
 		AgentKind:  protocol.AgentKind(row.AgentKind),
 		Model:      row.Model,
 		ArchivedAt: store.OptionalTimestamp(row.ArchivedAt),

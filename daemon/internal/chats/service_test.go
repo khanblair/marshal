@@ -53,11 +53,14 @@ type sessionsStub struct {
 	mu      sync.Mutex
 	stopped []string
 	logs    []string
+	reset   []string
 	sent    []sentMessage
 	order   []string
 	stopErr error
 	logsErr error
 	sendErr error
+	// resetErr is what ResetChatSession answers, when set.
+	resetErr error
 	// sendStarted and sendGate, when set, make SendChat announce that it has begun and then wait
 	// to be released, so a test can hold a message inside the session manager.
 	sendStarted chan struct{}
@@ -95,6 +98,17 @@ func (s *sessionsStub) StopChatSession(_ context.Context, chatID string) error {
 	}
 	s.stopped = append(s.stopped, chatID)
 	s.order = append(s.order, "stop")
+	return nil
+}
+
+func (s *sessionsStub) ResetChatSession(_ context.Context, chatID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.resetErr != nil {
+		return s.resetErr
+	}
+	s.reset = append(s.reset, chatID)
+	s.order = append(s.order, "reset")
 	return nil
 }
 
