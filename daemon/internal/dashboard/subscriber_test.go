@@ -155,8 +155,9 @@ func TestSubscriberCountsACardCreatedDone(t *testing.T) {
 	}
 }
 
-// A card that is created in any other state is not counted: only done means finished.
-func TestSubscriberIgnoresACardThatIsNotDone(t *testing.T) {
+// A card that is added or moved to any other state gets a line in the stream, and is not counted:
+// only done means finished, so only that adds to the day's numbers.
+func TestSubscriberWritesALineForANewOrMovedCardButCountsOnlyDone(t *testing.T) {
 	_, sub, st, bus := newSubscriber(t, fixedTime())
 	seedProject(t, st, "api", "api-gateway")
 	if err := sub.Start(context.Background()); err != nil {
@@ -164,11 +165,14 @@ func TestSubscriberIgnoresACardThatIsNotDone(t *testing.T) {
 	}
 	topic := string(protocol.ProjectTopic("api"))
 	working := finishedCard()
-	working.State = protocol.CardStateWorking
+	working.State = protocol.CardStateBacklog
 	bus.Publish(topic, string(protocol.EventTypeCardCreated), protocol.CardEventData{Card: working}, true)
+	working.State = protocol.CardStateWorking
 	bus.Publish(topic, string(protocol.EventTypeCardMoved),
 		protocol.CardMovedEventData{Card: working, From: protocol.CardStateBacklog}, true)
-	// A real finish follows, so the wait is on the subscriber having applied the two events above.
+	// A move that changes nothing is no line.
+	bus.Publish(topic, string(protocol.EventTypeCardMoved),
+		protocol.CardMovedEventData{Card: working, From: protocol.CardStateWorking}, true)
 	other := finishedCard()
 	other.ID = "01M3C107JB041061050R3GG28B"
 	other.Number = 42
@@ -176,10 +180,23 @@ func TestSubscriberIgnoresACardThatIsNotDone(t *testing.T) {
 	bus.Publish(topic, string(protocol.EventTypeCardMoved),
 		protocol.CardMovedEventData{Card: other, From: protocol.CardStateWorking}, true)
 
-	eventually(t, "the finished card to be stored", func() bool { return len(allActivity(t, st)) == 1 })
-	row := allActivity(t, st)[0]
-	if row.SubjectKey != "api#42" {
-		t.Errorf("stored row = %+v, want only the card that reached done", row)
+	eventually(t, "the three lines to be stored", func() bool { return len(allActivity(t, st)) == 3 })
+	var texts []string
+	for _, row := range allActivity(t, st) {
+		texts = append(texts, row.Summary)
+	}
+	want := map[string]protocol.FeedKind{
+		"#41 Fix token refresh on login was added":        protocol.FeedKindTool,
+		"#41 Fix token refresh on login moved to Working": protocol.FeedKindTool,
+		"#42 Fix token refresh on login merged into main": protocol.FeedKindMerge,
+	}
+	for _, row := range allActivity(t, st) {
+		if kind, ok := want[row.Summary]; !ok || string(kind) != row.Kind {
+			t.Errorf("stored lines = %q, unexpected %q (%s)", texts, row.Summary, row.Kind)
+		}
+	}
+	if stats := allStats(t, st); len(stats) != 1 || stats[0].CardsFinished != 1 || stats[0].Merges != 1 {
+		t.Errorf("stored days = %+v, want one finished card and one merge", stats)
 	}
 }
 
@@ -212,6 +229,11 @@ func TestSubscriberDropsARemovedProjectsActivity(t *testing.T) {
 		activityRow{id: "keep", projectID: "", kind: protocol.FeedKindBrief, summary: "brief", at: midnight(1)},
 		activityRow{id: "drop", projectID: "api", kind: protocol.FeedKindMerge, summary: "merged", at: midnight(1)},
 	)
+	// The removed project's numbers go with it, so the charts and counts stop showing it.
+	seedStats(t, st,
+		statRow{day: midnight(1), projectID: "api", finished: 4, merges: 4},
+		statRow{day: midnight(1), projectID: "web", finished: 1},
+	)
 	if err := sub.Start(context.Background()); err != nil {
 		t.Fatalf("start the subscriber: %v", err)
 	}
@@ -220,7 +242,8 @@ func TestSubscriberDropsARemovedProjectsActivity(t *testing.T) {
 
 	eventually(t, "the removed project's rows to go", func() bool {
 		rows := allActivity(t, st)
-		return len(rows) == 1 && rows[0].ID == "keep"
+		stats := allStats(t, st)
+		return len(rows) == 1 && rows[0].ID == "keep" && len(stats) == 1 && stats[0].ProjectID == "web"
 	})
 }
 

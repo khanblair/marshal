@@ -129,16 +129,28 @@ func (s *Subscriber) apply(ctx context.Context, ev events.Event) {
 	}
 	switch protocol.EventType(ev.Type) {
 	case protocol.EventTypeCardCreated:
+		data, ok := ev.Data.(protocol.CardEventData)
+		if !ok {
+			break
+		}
 		// A card created directly in done (a fixture, or a create that asks for the done state) is
-		// finished the moment it exists.
-		if data, ok := ev.Data.(protocol.CardEventData); ok && data.Card.State == protocol.CardStateDone {
+		// finished the moment it exists. Any other new card is a line of its own.
+		if data.Card.State == protocol.CardStateDone {
 			s.cardFinished(ctx, data.Card)
+		} else {
+			s.cardNote(ctx, data.Card, fmt.Sprintf("#%d %s was added", data.Card.Number, data.Card.Title))
 		}
 	case protocol.EventTypeCardMoved:
-		if data, ok := ev.Data.(protocol.CardMovedEventData); ok && data.From != protocol.CardStateDone {
-			if data.Card.State == protocol.CardStateDone {
-				s.cardFinished(ctx, data.Card)
-			}
+		data, ok := ev.Data.(protocol.CardMovedEventData)
+		if !ok || data.From == data.Card.State {
+			break
+		}
+		switch {
+		case data.Card.State == protocol.CardStateDone && data.From != protocol.CardStateDone:
+			s.cardFinished(ctx, data.Card)
+		case data.Card.State != protocol.CardStateDone:
+			s.cardNote(ctx, data.Card, fmt.Sprintf("#%d %s moved to %s",
+				data.Card.Number, data.Card.Title, stateLabel(data.Card.State)))
 		}
 	case protocol.EventTypeProjectCreated:
 		if data, ok := ev.Data.(protocol.ProjectEventData); ok {
@@ -217,15 +229,77 @@ func (s *Subscriber) cardFinished(ctx context.Context, card protocol.Card) {
 		protocol.ActivityCreatedEventData{Entry: entry, Day: dayStats}, false)
 }
 
+// stateLabel is a state in the words the app uses for it.
+func stateLabel(state protocol.CardState) string {
+	switch state {
+	case protocol.CardStateBacklog:
+		return "Backlog"
+	case protocol.CardStatePlanning:
+		return "Planning"
+	case protocol.CardStateWorking:
+		return "Working"
+	case protocol.CardStateNeeds:
+		return "Needs you"
+	case protocol.CardStateReview:
+		return "In review"
+	case protocol.CardStateReady:
+		return "Ready to merge"
+	case protocol.CardStateMerging:
+		return "Merging"
+	default:
+		return string(state)
+	}
+}
+
+// cardNote writes a line about a card to the stream, for something that is not a finished card: it
+// was added, or it moved. It adds nothing to the day's numbers. A line that cannot be stored is
+// logged and dropped, because the feed is a record of the work and never a reason to fail it.
+func (s *Subscriber) cardNote(ctx context.Context, card protocol.Card, text string) {
+	now := s.svc.now()
+	id, err := protocol.NewID(now, s.entropy)
+	if err != nil {
+		s.svc.log.Error("could not make an activity id", "error", err)
+		return
+	}
+	projectID := card.ProjectID
+	entry := protocol.FeedEntry{
+		ID: id, Kind: protocol.FeedKindTool, Text: text, ProjectID: &projectID,
+		At: protocol.NewTimestamp(now), CardID: card.ID, CardKey: card.Key,
+	}
+	err = s.svc.store.Write(ctx, func(q *db.Queries) error {
+		seq, err := q.NextActivitySeq(ctx)
+		if err != nil {
+			return fmt.Errorf("take the next activity number: %w", err)
+		}
+		if err := q.InsertActivity(ctx, db.InsertActivityParams{
+			ID: id, Seq: seq, ProjectID: card.ProjectID, Kind: string(protocol.FeedKindTool),
+			SubjectKind: subjectCard, SubjectID: card.ID, SubjectKey: card.Key, Summary: text,
+			CreatedAt: now.UnixMilli(),
+		}); err != nil {
+			return fmt.Errorf("append to the activity stream: %w", err)
+		}
+		return q.TrimActivity(ctx, now.AddDate(0, 0, -activityRetentionDays).UnixMilli())
+	})
+	if err != nil {
+		s.svc.log.Error("could not store a card's activity line", "card", card.Key, "error", err)
+		return
+	}
+	s.bus.Publish(string(protocol.HomeTopic), string(protocol.EventTypeActivityCreated),
+		protocol.ActivityCreatedEventData{Entry: entry}, false)
+}
+
 // dropProject removes a project's rows from the stream. It does not write a line about the removal:
 // the only event is the project's id, so there is no name to write a sentence with, and the screens
 // already drop the project row itself.
 func (s *Subscriber) dropProject(ctx context.Context, projectID string) {
 	err := s.svc.store.Write(ctx, func(q *db.Queries) error {
-		return q.DeleteActivityForProject(ctx, projectID)
+		if err := q.DeleteActivityForProject(ctx, projectID); err != nil {
+			return err
+		}
+		return q.DeleteDailyStatsForProject(ctx, projectID)
 	})
 	if err != nil {
-		s.svc.log.Error("could not drop a removed project's activity", "project", projectID, "error", err)
+		s.svc.log.Error("could not drop a removed project's activity and numbers", "project", projectID, "error", err)
 	}
 }
 
