@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"log/slog"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -236,6 +237,7 @@ func buildCoreModules(st *store.Store, bus *events.Bus, settings config.Settings
 		DataDir: settings.DataDir, Logger: log, History: historyStore, Plans: historyStore,
 		Terminals: terminals, Audit: auditRec,
 		StartPrompt: startPrompt, StartOnSend: true,
+		Usage: providers.NewStoreRecorder(st, rand.Reader),
 	})
 	if err != nil {
 		return coreDaemonModules{}, fmt.Errorf("start the session manager: %w", err)
@@ -344,6 +346,8 @@ func buildCardModules(ctx context.Context, st *store.Store, bus *events.Bus, set
 	// than handed to NewManager because it is built after the manager; the manager reads it when a
 	// card's turn ends, so a card already running picks it up.
 	core.sessions.SetRoleLimits(roleSvc)
+	// Chats start from their target role's instructions, so they read the roles module too.
+	projectChats.SetRoles(roleSvc)
 	// The automatic sleep's two readers (B5.6): the settings above, which decide the idle time, the
 	// warning, and the keep-awake length, and the cost limits service, which answers a project's
 	// awake ceiling. Both are set here rather than handed to NewManager because both are built
@@ -383,11 +387,10 @@ type lateDaemonModules struct {
 func buildLateModules(st *store.Store, bus *events.Bus, settings config.Settings, log *slog.Logger, core coreDaemonModules, cm cardDaemonModules) (lateDaemonModules, error) {
 	// The pull-request service opens a card's branch as a real pull request on GitHub (B5.4,
 	// build-plan 5.6), and the review service runs the Reviewer role over every pull request that
-	// is opened (B5.4, build-plan 5.7). Both are built only when a GitHub token has been saved in
-	// the keychain; with no token they are left out, so POST /v1/cards/{id}/pull-request and
-	// POST /v1/cards/{id}/review do not exist and nothing is pretended. Phase 6 adds the GitHub App
-	// and the screen that saves the token.
-	pullReq, reviewSvc, err := buildForge(settings, core.proj, core.git, cm.roleSvc, core.sessions, log)
+	// is opened (B5.4, build-plan 5.7). Both are always built: they reach GitHub through lateGH, which
+	// answers "connect GitHub" until the connections service below is attached and GitHub is connected.
+	lateGH := &lateGitHub{}
+	pullReq, reviewSvc, err := buildForge(lateGH, core.proj, core.git, cm.roleSvc, core.sessions, log)
 	if err != nil {
 		return lateDaemonModules{}, err
 	}
@@ -402,15 +405,11 @@ func buildLateModules(st *store.Store, bus *events.Bus, settings config.Settings
 		return lateDaemonModules{}, fmt.Errorf("start the card panel: %w", err)
 	}
 	core.proj.SetChecklistGate(panelSvc)
-	// The merge queue (B5.5, build-plan 5.8). Its tests are nil for now: a clean merge with no
-	// test runner moves the target forward, and Phase 6's local CI supplies the runner that makes
-	// the queue wait for a real test run.
-	mergeQueue, err := integrator.New(integrator.Deps{
-		Cards: core.proj, Projects: core.proj, Git: core.git, DataDir: settings.DataDir, Log: log,
-		Checklists: panelSvc,
+	mergeMods, err := buildMergeQueue(mergeDeps{
+		st: st, bus: bus, settings: settings, log: log, core: core, chats: cm.projectChats, panel: panelSvc,
 	})
 	if err != nil {
-		return lateDaemonModules{}, fmt.Errorf("start the merge queue: %w", err)
+		return lateDaemonModules{}, err
 	}
 	// The code-smell module (B5.8, architecture.md section 17). It is built last of the modules
 	// that touch a card, because it reads cards and projects through the projects service and
@@ -439,10 +438,14 @@ func buildLateModules(st *store.Store, bus *events.Bus, settings config.Settings
 	integrationSvc, err := integrations.New(st, security.NewOSKeychain(platform.AppName(settings.Mode)),
 		integrations.Options{
 			Logger: log, Now: time.Now, VaultRoot: cm.mem.Root(), GCalRedirectURL: gcalRedirect,
+			GitHubClientID: os.Getenv("MARSHAL_GITHUB_CLIENT_ID"), GitHubAppSlug: os.Getenv("MARSHAL_GITHUB_APP_SLUG"),
+			GoogleClientID:     os.Getenv("MARSHAL_GOOGLE_CLIENT_ID"),
+			GoogleClientSecret: os.Getenv("MARSHAL_GOOGLE_CLIENT_SECRET"),
 		})
 	if err != nil {
 		return lateDaemonModules{}, fmt.Errorf("start the integrations module: %w", err)
 	}
+	lateGH.svc.Store(integrationSvc)
 	// The CI monitor (B6.2, B6.3, architecture.md section 9) watches the GitHub App's workflow runs.
 	// Its forge is an adapter rather than a client, because the App is saved and removed while the
 	// daemon runs: every call asks the connections service for the App as it is now, and answers
@@ -527,6 +530,9 @@ func buildLateModules(st *store.Store, bus *events.Bus, settings config.Settings
 		return lateDaemonModules{}, fmt.Errorf("start the internal MCP server: %w", err)
 	}
 	core.sessions.SetAttacher(attacher)
+	if err := attachChats(core, attacher, mergeMods); err != nil {
+		return lateDaemonModules{}, err
+	}
 	// The same module builds the board-awareness summary a card's agent is given at the start of
 	// every turn (internal/session's Awareness). It is a seam of its own rather than a third method
 	// on the attacher because a daemon that could not resolve its own executable still gives its
@@ -540,13 +546,38 @@ func buildLateModules(st *store.Store, bus *events.Bus, settings config.Settings
 	// reads, never a query of its own. Registered under the schedule's Kind, not its Action -
 	// every brief's Action is a person's own free-text sentence describing what happens, not a
 	// dispatchable key (executeSchedule's fallback, internal/schedules/service.go).
-	schedSvc.RegisterHandler("brief", briefs.New(core.proj).Handle)
+	// A brief reads Google Calendar for its calendar part, through the same cached read the calendar
+	// view uses, and leaves the part out when Google is not connected.
+	briefSvc := briefs.New(core.proj)
+	briefSvc.SetEvents(integrationSvc)
+	schedSvc.RegisterHandler("brief", briefSvc.Handle)
+	// An Event schedule waits on Google Calendar: smart brief times, and a brief or job that starts
+	// with an event. The scheduler reads the calendar through the same cached read as the screens.
+	schedSvc.SetCalendar(scheduleCalendar{integrationSvc})
 	return lateDaemonModules{
-		pullReq: pullReq, reviewSvc: reviewSvc, mergeQueue: mergeQueue, qualitySvc: qualitySvc,
+		pullReq: pullReq, reviewSvc: reviewSvc, mergeQueue: mergeMods.queue, qualitySvc: qualitySvc,
 		integrationSvc: integrationSvc, trelloOutbound: trelloOutbound, gmailPoller: gmailPoller,
 		ciSvc: ciSvc, localCISvc: localCISvc, panelSvc: panelSvc, previewSvc: previewSvc,
 		codeMap: codeMap, mcpHost: mcpHost, schedSvc: schedSvc,
 	}, nil
+}
+
+// scheduleCalendar is what the scheduler reads Google Calendar through: the integrations service's
+// cached read, narrowed to the few things a schedule needs to know of an event.
+type scheduleCalendar struct{ svc *integrations.Service }
+
+// Events answers the events in the range, and ok=false when Google is not connected or could not be
+// read fresh, so a schedule waits instead of acting on a guess or on old events.
+func (c scheduleCalendar) Events(ctx context.Context, start, end time.Time) ([]schedules.CalendarEvent, bool) {
+	found, reading := c.svc.GoogleEvents(ctx, start, end)
+	if !reading.Connected || reading.Error != "" {
+		return nil, false
+	}
+	events := make([]schedules.CalendarEvent, len(found))
+	for i, event := range found {
+		events[i] = schedules.CalendarEvent{ID: event.ID, Title: event.Title, Start: event.StartAt, AllDay: event.AllDay}
+	}
+	return events, true
 }
 
 // trelloCards is the board work the Trello sync writes through, answered by the projects service.

@@ -14,7 +14,6 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -149,6 +148,11 @@ func serve(ctx context.Context, settings config.Settings, env platform.Env, log 
 	if err := mods.roles.EnsureStarters(ctx); err != nil {
 		return fmt.Errorf("add the starter roles: %w", err)
 	}
+	// Every project has its pinned Integrator chat: the existing ones now, new ones as they are added.
+	if err := mods.chats.EnsureAllSystemChats(ctx); err != nil {
+		return fmt.Errorf("make the Integrator chats: %w", err)
+	}
+	followNewProjects(ctx, bus, mods.chats, log)
 	// The "after a restart" setting is read before anything is restored, so the cards come back the
 	// way the person chose on Settings > Sleep (B5.6). The config's mode is the default until the
 	// screen has ever been saved.
@@ -164,6 +168,12 @@ func serve(ctx context.Context, settings config.Settings, env platform.Env, log 
 			err = errors.Join(err, fmt.Errorf("close the session manager: %w", closeErr))
 		}
 	}()
+	// The merge queue stops before the sessions do (it is registered after them), so a merge in
+	// flight is not talking to an Integrator session that is already gone.
+	defer mods.integrator.Close()
+	if err := mods.integrator.Recover(ctx); err != nil {
+		return fmt.Errorf("pick up the merges that were under way: %w", err)
+	}
 	// The Home subscriber stops before the session manager, the bus, and the store: it is registered
 	// last, so it runs first, and a card finish it is still writing lands while the store still
 	// works. It is started before the fixture loads, so a card the fixture creates in the done state
@@ -250,7 +260,8 @@ func moduleDeps(mods daemonModules) api.Deps {
 		Search: mods.search, Memory: mods.memory, Accounts: mods.accounts, Auditlog: mods.auditlog,
 		Providers: mods.providers, CostLimits: mods.costLimits, ConnectionTests: mods.connectionTests,
 		Roles: mods.roles, PullRequests: mods.pullRequests, Review: mods.review,
-		Integrator: mods.integrator, SleepSettings: mods.sleepSettings, Quality: mods.quality,
+		Integrator: mods.integrator, Integration: mods.integrator, Opener: api.SystemOpener{},
+		SleepSettings: mods.sleepSettings, Quality: mods.quality,
 		Integrations: mods.integrations, Webhooks: mods.integrations.Receiver(), CI: mods.ci,
 		LocalCI: mods.localCI, CardPanel: mods.cardPanel, Preview: mods.preview,
 		Schedules: mods.schedules, MCP: mods.mcpHost,
@@ -523,6 +534,15 @@ func alertSettings(
 	if err := alerts.Load(ctx); err != nil {
 		log.Warn("the saved alert choices could not be read, so the defaults stand", "error", err)
 	}
+	// With "stay quiet during events" on, notices that are not asking for an answer wait while a
+	// Google Calendar event is on, and go out together when it ends.
+	if links != nil {
+		alerts.SetInEvent(func(callCtx context.Context) bool {
+			_, busy := links.EventNow(callCtx, time.Now())
+			return busy
+		})
+	}
+	router.SetQuiet(alerts.Quiet)
 	return alerts
 }
 
@@ -638,16 +658,13 @@ type appForge struct {
 	svc *integrations.Service
 }
 
-// client answers the GitHub client of the stored App, or ci.ErrNoForge when none is set up.
-func (f appForge) client(ctx context.Context) (*github.TransportClient, error) {
-	app, err := f.svc.App(ctx)
-	if err != nil {
-		if errors.Is(err, integrations.ErrNotConnected) {
-			return nil, ci.ErrNoForge
-		}
-		return nil, err
+// client answers the connected GitHub client, or ci.ErrNoForge when none is usable.
+func (f appForge) client(ctx context.Context) (integrations.GitHubClient, error) {
+	client, err := f.svc.GitHubClient(ctx)
+	if errors.Is(err, integrations.ErrNotConnected) || errors.Is(err, integrations.ErrGitHubReconnect) {
+		return nil, ci.ErrNoForge
 	}
-	return app.Client(), nil
+	return client, err
 }
 
 // ListWorkflowRuns lists one branch's workflow runs, newest first.
@@ -677,26 +694,72 @@ func (f appForge) FailedLog(ctx context.Context, repo github.Repository, runID i
 	return client.FailedLog(ctx, repo, runID, maxBytes)
 }
 
-// buildForge builds the two services that talk to GitHub from the token saved in the keychain: the
-// pull-request service, which opens a card's branch as a pull request, and the review service,
-// which runs the Reviewer role over every pull request. Both answer with a nil service and no error
-// on a machine with no token (the usual case until the owner signs in): not being signed in is not
-// a failure to start.
+// lateGitHub is the pull-request and review services' GitHub client. It asks the connections service
+// for the connected client on every call, so connecting GitHub in Settings works without a restart.
+// It answers github.ErrNotConnected until the service is attached and while nothing is connected.
+type lateGitHub struct {
+	svc atomic.Pointer[integrations.Service]
+}
+
+func (l *lateGitHub) client(ctx context.Context) (github.Client, error) {
+	svc := l.svc.Load()
+	if svc == nil {
+		return nil, github.ErrNotConnected
+	}
+	client, err := svc.GitHubClient(ctx)
+	switch {
+	case errors.Is(err, integrations.ErrNotConnected):
+		return nil, github.ErrNotConnected
+	case errors.Is(err, integrations.ErrGitHubReconnect):
+		return nil, github.ErrReconnect
+	case err != nil:
+		return nil, err
+	}
+	return client, nil
+}
+
+func (l *lateGitHub) CreatePullRequest(ctx context.Context, req github.NewPullRequest) (github.PullRequest, error) {
+	client, err := l.client(ctx)
+	if err != nil {
+		return github.PullRequest{}, err
+	}
+	return client.CreatePullRequest(ctx, req)
+}
+
+func (l *lateGitHub) GetPullRequest(ctx context.Context, repo github.Repository, number int) (github.PullRequest, error) {
+	client, err := l.client(ctx)
+	if err != nil {
+		return github.PullRequest{}, err
+	}
+	return client.GetPullRequest(ctx, repo, number)
+}
+
+func (l *lateGitHub) CreateReviewComment(ctx context.Context, req github.NewReviewComment) (github.ReviewComment, error) {
+	client, err := l.client(ctx)
+	if err != nil {
+		return github.ReviewComment{}, err
+	}
+	return client.CreateReviewComment(ctx, req)
+}
+
+func (l *lateGitHub) ListChecks(ctx context.Context, repo github.Repository, ref string) ([]github.Check, error) {
+	client, err := l.client(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return client.ListChecks(ctx, repo, ref)
+}
+
+var _ github.Client = (*lateGitHub)(nil)
+
+// buildForge builds the two services that talk to GitHub: the pull-request service, which opens a
+// card's branch as a pull request, and the review service, which runs the Reviewer role over every
+// pull request. Both are always built and reach GitHub through client, so with nothing connected a
+// request is refused with a sentence that says to connect GitHub.
 //
 // The review is wired into the pull-request service's After hook, so a pull request is read as soon
-// as it exists (build-plan 5.7). The hook runs the review service, whose Reviewer is the
-// ChecksReviewer over the same client, and whose worker is the session manager, so a request for
-// changes reaches the agent that wrote the branch.
-func buildForge(settings config.Settings, proj *projects.Service, git *gitx.Git, roleSvc *roles.Service, sessions *session.Manager, log *slog.Logger) (*pullrequest.Service, *review.Service, error) {
-	keys := security.NewOSKeychain(platform.AppName(settings.Mode))
-	token, err := keys.Get(githubTokenProvider)
-	if err != nil || strings.TrimSpace(token) == "" {
-		return nil, nil, nil
-	}
-	client, err := github.NewTokenClient(token)
-	if err != nil {
-		return nil, nil, fmt.Errorf("build the GitHub client: %w", err)
-	}
+// as it exists (build-plan 5.7).
+func buildForge(client github.Client, proj *projects.Service, git *gitx.Git, roleSvc *roles.Service, sessions *session.Manager, log *slog.Logger) (*pullrequest.Service, *review.Service, error) {
 	checker, err := review.NewChecksReviewer(client)
 	if err != nil {
 		return nil, nil, fmt.Errorf("start the review module: %w", err)
@@ -721,11 +784,6 @@ func buildForge(settings config.Settings, proj *projects.Service, git *gitx.Git,
 	log.Info("the pull-request and review services are ready")
 	return svc, reviewSvc, nil
 }
-
-// githubTokenProvider is the keychain entry the GitHub personal token is filed under. Two shapes
-// use it: Phase 5's personal token and, in Phase 6, the GitHub App's own credentials, both under
-// this one name because only one GitHub connection exists at a time.
-const githubTokenProvider = "github"
 
 // lateSessions lets the projects service reach the session manager, which is built after it
 // because the manager needs the projects service. It does nothing until the manager is set.
