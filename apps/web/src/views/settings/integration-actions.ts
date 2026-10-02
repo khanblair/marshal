@@ -2,14 +2,14 @@ import type {
   AuthorizeURL,
   DetectTelegramChatAnswer,
   SaveDiscordRequest,
-  SaveGitHubRequest,
   SaveGmailRequest,
   SaveGoogleCalendarRequest,
   SaveNtfyRequest,
   SaveTelegramRequest,
   SaveTrelloRequest,
 } from "@marshal/protocol";
-import { M } from "~/mock";
+import { M, type ProviderTest } from "~/mock";
+import type { GitHubAnswer } from "~/sync/integration-actions";
 
 /**
  * The daemon-side buttons of a connection row in Settings (section S29a). The words belong here,
@@ -17,12 +17,32 @@ import { M } from "~/mock";
  * nothing here judges one. Each answers whether it worked, so the form can close on a save.
  */
 
-/** Stores the GitHub App's connection and says so. The daemon tests it as part of the same call. */
-export function connectGitHub(body: SaveGitHubRequest): Promise<boolean> {
-  return M.connectGitHub(body).then((saved) => {
-    if (saved) M.toast("GitHub connected");
-    return saved;
+/** Starts a GitHub sign-in and answers the code to type, or the daemon's own sentence for a refusal. */
+export function startGitHubConnect(): Promise<GitHubAnswer> {
+  return M.startGitHubConnect();
+}
+
+/** Reads the GitHub sign-in, which moves it on. The dialog asks again every couple of seconds. */
+export function readGitHubConnect(): Promise<GitHubAnswer> {
+  return M.readGitHubConnect();
+}
+
+/** Cancels a pending GitHub sign-in. */
+export function cancelGitHubConnect(): Promise<GitHubAnswer> {
+  return M.cancelGitHubConnect();
+}
+
+/** Stores a GitHub token in place of whatever was connected, and says so. The daemon tests it too. */
+export function saveGitHubToken(token: string): Promise<{ saved: true } | { error: string }> {
+  return M.saveGitHubToken({ token }).then((answer) => {
+    if ("saved" in answer) M.toast("GitHub connected");
+    return answer;
   });
+}
+
+/** Tests a GitHub token and saves nothing. */
+export function testGitHubToken(token: string): Promise<ProviderTest | { error: string }> {
+  return M.testGitHubToken({ token });
 }
 
 /** Stores the Trello connection and says so. The daemon tests it as part of the same call. */
@@ -88,7 +108,7 @@ export function testConnection(id: string, name: string): Promise<void> {
  * Forgets a connection's settings and its secret, after asking. The confirm copy says what is
  * discarded rather than promising a backup: the daemon keeps none.
  */
-export function disconnectConnection(id: string, name: string): void {
+export function disconnectConnection(id: string, name: string, onDone?: () => void): void {
   M.confirm({
     title: `Disconnect ${name}`,
     message: `This forgets ${name}'s settings and its secret. Marshal stops using it until you connect it again.`,
@@ -96,7 +116,9 @@ export function disconnectConnection(id: string, name: string): void {
     destructive: true,
     run: () => {
       void M.disconnectIntegration(id).then((done) => {
-        if (done) M.toast(`${name} disconnected`);
+        if (!done) return;
+        M.toast(`${name} disconnected`);
+        onDone?.();
       });
     },
   });
