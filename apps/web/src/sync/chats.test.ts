@@ -129,7 +129,36 @@ describe("the chat mapper", () => {
       last: toMillis(wire.lastActiveAt),
       archived: false,
       fresh: false,
+      mode: wire.permissionMode,
     });
+  });
+
+  it("keeps the daemon's system name and permission mode, which the view pins and warns by", () => {
+    const wire = {
+      ...golden<WireChat>("chat"),
+      system: "integrator",
+      permissionMode: "plan" as const,
+    };
+    expect(storedChat(wire)).toMatchObject({ system: "integrator", mode: "plan" });
+    // A chat a person made has no system name at all, rather than an empty one.
+    expect(storedChat(golden<WireChat>("chat"))).not.toHaveProperty("system");
+  });
+
+  it("follows a change of the daemon's permission mode in a chat that is already in the store", () => {
+    const ctx = contextOf(createTestMarshal());
+    ctx.S.chats = {};
+    const wire = { ...apiChat(), permissionMode: "auto-edits" as const };
+    applyChatSnapshot(ctx, [wire]);
+    expect(ctx.S.chats.api?.[0]?.mode).toBe("auto-edits");
+    applyChatSnapshot(ctx, [{ ...wire, permissionMode: "plan" }]);
+    expect(ctx.S.chats.api?.[0]?.mode).toBe("plan");
+  });
+
+  it("marks the Integrator chat a system chat when the snapshot says so", () => {
+    const ctx = contextOf(createTestMarshal());
+    ctx.S.chats = {};
+    applyChatSnapshot(ctx, [apiChat({ title: "Integrator", system: "integrator" })]);
+    expect(ctx.S.chats.api?.[0]).toMatchObject({ title: "Integrator", system: "integrator" });
   });
 
   it("reads an archived chat as an archived row", () => {

@@ -191,6 +191,42 @@ describe("applying one card", () => {
     expect(ctx.S.cards.map((card) => card.id)).toEqual(["api#41", "api#43"]);
   });
 
+  it("follows a card's merge from queued to finished, and forgets what no longer applies", () => {
+    const ctx = contextOf(createTestMarshal());
+    ctx.S.cards = [];
+    applyCard(ctx, api41());
+    expect(ctx.S.cards[0]).toMatchObject({ worktree: undefined, mergePhase: undefined });
+    applyCard(
+      ctx,
+      api41({
+        state: "merging",
+        worktree: "/data/worktrees/api/01HZ41",
+        mergePhase: "resolving",
+        mergeNote: "Resolving 2 conflicts",
+      }),
+    );
+    expect(ctx.S.cards[0]).toMatchObject({
+      worktree: "/data/worktrees/api/01HZ41",
+      mergePhase: "resolving",
+      mergeNote: "Resolving 2 conflicts",
+    });
+    applyCard(ctx, api41({ state: "done", worktree: "/data/worktrees/api/01HZ41" }));
+    expect(ctx.S.cards[0]?.mergePhase).toBeUndefined();
+    expect(ctx.S.cards[0]?.mergeNote).toBeUndefined();
+  });
+
+  it("keeps why a card waits, so the screens can offer Retry for a merge that stopped", () => {
+    const ctx = contextOf(createTestMarshal());
+    ctx.S.cards = [];
+    applyCard(
+      ctx,
+      api41({ state: "needs", needsReason: { kind: "conflict", text: "api.go conflicts." } }),
+    );
+    expect(ctx.S.cards[0]).toMatchObject({ reason: "api.go conflicts.", reasonKind: "conflict" });
+    applyCard(ctx, api41({ state: "working" }));
+    expect(ctx.S.cards[0]?.reasonKind).toBeUndefined();
+  });
+
   it("changes a card that is already there in place, and a repeat of the event changes nothing", () => {
     const ctx = contextOf(createTestMarshal());
     ctx.S.cards = [];

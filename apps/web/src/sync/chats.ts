@@ -27,6 +27,8 @@ import type { Syncer } from "./syncer";
  *   - The wire has timestamps in UTC; the list draws "4 min ago", so `last` is milliseconds.
  *   - The wire has `archivedAt` (null while the chat is in the main list); the store has
  *     `archived`.
+ *   - The wire's `system` (the pinned Integrator chat) and `permissionMode` are kept as they are,
+ *     because the view pins a system chat and warns about a chat that edits the owner's folder.
  *
  * A chat's messages are not read here. They are read when a chat is opened and follow its own topic
  * (`chat-session.ts`), so this module never writes a chat's `msgs`, or the state of its history read:
@@ -69,6 +71,8 @@ export function storedChat(wire: WireChat, cards: readonly Card[] = []): Chat {
     last: toMillis(wire.lastActiveAt),
     archived: wire.archivedAt !== null,
     fresh: false,
+    ...(wire.system ? { system: wire.system } : {}),
+    mode: wire.permissionMode,
   };
 }
 
@@ -174,6 +178,9 @@ function mirrorChat(target: Chat, wire: WireChat, cards: readonly Card[]): void 
   if (target.target !== next.target) target.target = next.target;
   if (target.last !== next.last) target.last = next.last;
   if (target.archived !== next.archived) target.archived = next.archived;
+  // A chat never stops being a system chat, so only a name that is there is written.
+  if (next.system && target.system !== next.system) target.system = next.system;
+  if (target.mode !== wire.permissionMode) target.mode = wire.permissionMode;
 }
 
 /** The `chat.*` events of a project's topic. Each carries the chat as it is now. */
