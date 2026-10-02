@@ -109,6 +109,7 @@ These principles guide every feature decision. When two options conflict, these 
 | **Role** | An editable template that defines how an agent behaves: instructions, model, thinking mode, permissions, skills, MCP, and limits. |
 | **Agent** | The engine doing the work: a CLI agent (such as Claude Code) or Marshal's built-in agent. |
 | **Worktree** | An isolated copy of the repo's working files, on its own branch, for one card. |
+| **Integration branch** | The branch finished cards merge into and new cards start from, chosen per project (for example `development`). It defaults to the repository's default branch. |
 | **Daemon** | The background service that runs agents, Git, schedules, integrations, and the internal MCP server. |
 | **Board** | The kanban view of all cards in a project. Each project has exactly one board. |
 | **Brief** | A scheduled summary (morning or evening) of your work, calendar, and tasks. |
@@ -151,6 +152,8 @@ stateDiagram-v2
 - **Why:** splitting one project's cards across boards would break the features that need to see every card together: cards that move by themselves, file claims, early conflict warnings, and the Integrator merge queue. Filters and swimlanes give the same focus without that cost.
 
 **Monorepos are still one project with one board.** Swimlanes or filters by package show each part of the repo separately. The Integrator and conflict warnings still see all cards in the repo together (see [Section 13.2](#132-monorepo-support)).
+
+**The Integration view.** A project has one more tab, Integration, next to Chats, Agents, Board, List, Timeline, and Calendar. It is a view of the same cards, not a second board: it shows what waits for the Integrator, what is being merged, what stopped and needs you, and what was delivered, with Pause merging and Undo.
 
 **Project switcher.** A sidebar and the command palette let you jump between projects. Each project shows small badges:
 
@@ -769,6 +772,7 @@ Marshal gives agents context in three layers:
 
 - **What:** each card works in its own Git worktree and branch.
 - **How it works:** the daemon creates the worktree when the card starts and removes it after merge or close.
+- **Where:** worktrees are kept in Marshal's own data folder, not beside your repository. Open any card's worktree from its card (Show worktree: copy the path, reveal it in Finder, or open it in your editor).
 - **Why:** parallel agents cannot break each other's work, and every change is a clean, reviewable branch.
 
 ### 13.2 Monorepo support
@@ -803,15 +807,18 @@ Monorepos need a different approach, because full worktrees of a large repo are 
 
 ### 13.6 The Integrator merge queue
 
-- **What:** a strong-model agent that merges finished cards into the target branch.
+- **What:** one persistent Integrator agent per project merges finished cards into the project's **integration branch** (for example `development`) and updates your folder, so you see everything in your own editor.
 - **How it works:**
-  1. A card reaches Ready to merge and enters the queue.
-  2. The Integrator takes **one card at a time**.
+  1. A card reaches Ready to merge and enters the queue by itself (you can pause merging or hold a card).
+  2. The Integrator takes **one card at a time** and works in its **own workspace on its own branch, `integrator`**, never in your folder.
   3. It runs a **dry-run merge** with `git merge-tree`, which tests the merge without touching any files.
-  4. **No conflict:** it merges, runs tests (affected tests in monorepos), and lands the change.
-  5. **Conflict:** it reads the context of every card involved (task, plan, handoff notes, and diffs) and resolves based on intent, not only text.
-  6. **Not confident:** it stops, explains the conflict, and moves the card to Needs you.
-- **Why:** merging many parallel branches is where things break. A careful, context-aware, one-at-a-time process keeps the main branch healthy.
+  4. **No conflict:** it merges into `integrator`, runs tests (affected tests in monorepos), and delivers.
+  5. **Conflict:** it reads the context of every card involved (task, plan, handoff notes, and diffs) and resolves based on intent, not only text. The conflicts it resolved and how are written on the card as a short report.
+  6. **Not confident, or the tests fail:** nothing is delivered. The card goes to Needs you with a plain explanation and a Retry button.
+  7. **Delivery:** the integration branch moves forward and your folder is updated in place. If you have uncommitted changes, they are merged with the card work instead of blocking it: both end up in your files, and your own edits stay uncommitted. Marshal never commits your changes for you.
+  8. **Undo merge** puts the integration branch back to where it was, while your folder is clean.
+- **Where you see it:** the board header says "Merging into **development**", every card says where its work is and shows a Show worktree button, the **Integration** tab lists what is waiting, being merged, stopped, and delivered, and the pinned **Integrator** chat is where you watch the agent and steer it in plain words ("keep my version of config.py").
+- **Why:** merging many parallel branches is where things break, and the result is only useful if you can see it. A careful, context-aware, one-at-a-time process keeps your branch healthy, and delivering into your own folder means the work is where you look.
 
 ### 13.7 Safe merge rules
 
@@ -819,6 +826,7 @@ Monorepos need a different approach, because full worktrees of a large repo are 
 - **Never force push.**
 - On any failure, **abort cleanly** and return to the last good state.
 - The merged result is **tested before it lands**.
+- **Your uncommitted work is never discarded.** Before a delivery touches your folder with local changes, they are saved as a snapshot Git keeps, and nothing resets or overwrites your files.
 
 ### 13.8 Auto cleanup
 
