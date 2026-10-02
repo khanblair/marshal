@@ -174,7 +174,7 @@ func TestSavedViewGolden(t *testing.T) {
 func TestPreferenceWordsAreTheScreensWords(t *testing.T) {
 	want := map[string][]string{
 		"Theme":          {"light", "dark", "system"},
-		"ProjectView":    {"chat", "agents", "board", "list", "timeline", "calendar"},
+		"ProjectView":    {"chat", "agents", "board", "list", "timeline", "calendar", "integration"},
 		"Swimlane":       {"none", "role", "agent", "package", "label"},
 		"FilterKey":      {"status", "role", "agent", "model", "label", "package"},
 		"SortDirection":  {"asc", "desc"},

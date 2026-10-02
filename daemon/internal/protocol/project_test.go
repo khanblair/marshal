@@ -18,17 +18,18 @@ var sampleTime = time.Date(2026, time.September, 25, 10, 15, 30, 123_000_000, ti
 
 func sampleProject() protocol.Project {
 	return protocol.Project{
-		ID:            sampleProjectID,
-		Name:          "web-dashboard",
-		Path:          "/home/ada/code/web-dashboard",
-		Language:      "TypeScript",
-		DefaultBranch: "main",
-		DevCommand:    "pnpm dev",
-		BypassLocked:  true,
-		IsMonorepo:    false,
-		Packages:      []string{},
-		CreatedAt:     protocol.NewTimestamp(sampleTime),
-		Badges:        protocol.ProjectBadges{Needs: 2, Awake: 1},
+		ID:                sampleProjectID,
+		Name:              "web-dashboard",
+		Path:              "/home/ada/code/web-dashboard",
+		Language:          "TypeScript",
+		DefaultBranch:     "main",
+		IntegrationBranch: "main",
+		DevCommand:        "pnpm dev",
+		BypassLocked:      true,
+		IsMonorepo:        false,
+		Packages:          []string{},
+		CreatedAt:         protocol.NewTimestamp(sampleTime),
+		Badges:            protocol.ProjectBadges{Needs: 2, Awake: 1},
 	}
 }
 

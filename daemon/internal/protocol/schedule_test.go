@@ -83,7 +83,7 @@ func TestAScheduleListCopiesItsSchedules(t *testing.T) {
 
 // A calendar with nothing connected sends empty lists, never null, so a client can read them.
 func TestACalendarListWithNothingInItHasNoNullLists(t *testing.T) {
-	body, err := json.Marshal(protocol.NewCalendarList(nil, nil, nil, false, time.Now()))
+	body, err := json.Marshal(protocol.NewCalendarList(nil, nil, nil, protocol.GoogleReading{}, time.Now()))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -123,3 +123,44 @@ func TestSaveTrelloRequestGolden(t *testing.T) {
 		CallbackURL:   "https://marshal.local/hooks/trello",
 	})
 }
+
+// The GitHub sign-in answers one shape in every state: the code to type while it waits, and who and
+// where once it is connected. Nothing secret is in either.
+func TestGitHubConnectGolden(t *testing.T) {
+	expires := protocol.NewTimestamp(providersNow.Add(15 * time.Minute))
+	testutil.Golden(t, "github-connect-pending", protocol.GitHubConnect{
+		State: protocol.GitHubConnectStatePending, UserCode: "WDJB-MJHT",
+		VerificationURI: "https://github.com/login/device", ExpiresAt: &expires,
+		Installations: []protocol.GitHubInstallation{},
+	})
+	testutil.Golden(t, "github-connect-connected", protocol.GitHubConnect{
+		State: protocol.GitHubConnectStateConnected, Mode: "oauth", Login: "octo",
+		InstallURL: "https://github.com/apps/marshal-kanban/installations/new",
+		Installations: []protocol.GitHubInstallation{
+			{Account: "octo", Kind: "user", AllRepositories: true},
+			{Account: "acme", Kind: "organization"},
+		},
+	})
+}
+
+// A pasted token is written to the keychain and never comes back from a route.
+func TestSaveGitHubTokenRequestGolden(t *testing.T) {
+	testutil.Golden(t, "save-github-token-request", protocol.SaveGitHubTokenRequest{Token: "github_pat_synthetic"})
+}
+
+// The Integration view's one read model: a queue with a card mid-merge, and a delivery with its report.
+func TestIntegrationStateGolden(t *testing.T) {
+	testutil.Golden(t, "integration-state", protocol.IntegrationState{
+		ProjectID: "web", Target: "development", IntegratorBranch: protocol.IntegrationBranchName, AheadBy: 2,
+		State: protocol.IntegratorStateMerging, CurrentCardID: "01HZ",
+		Queue: []protocol.IntegrationQueueItem{
+			{CardID: "01HZ", Key: "web#12", Title: "Add login page", Phase: protocol.MergePhaseResolving, Position: 1},
+			{CardID: "01J0", Key: "web#13", Title: "Fix search bug", Phase: protocol.MergePhaseQueued, Position: 2},
+		},
+		History: []protocol.IntegrationHistoryItem{{
+			CardID: "01GX", Key: "web#11", Title: "Rename config", MergedAt: protocol.NewTimestamp(providersNow),
+			Commit: "3f2a9c1", Resolved: 1, Summary: "Both cards edited config.py; kept both settings.", CanUndo: true,
+		}},
+		ServerTime: protocol.NewTimestamp(providersNow),
+	})
+}

@@ -175,6 +175,11 @@ export interface AlertSettings {
    * Never null.
    */
   channels: AlertChannel[];
+  /**
+   * QuietDuringEvents says alerts that are not asking for an answer are held while a Google
+   * Calendar event is on, and sent together when it ends. An approval is always sent at once.
+   */
+  quietDuringEvents: boolean;
   /** ServerTime is the daemon's time when the answer was made. */
   serverTime: Timestamp;
 }
@@ -192,6 +197,8 @@ export interface AlertRouteChoice {
 export interface SaveAlertSettingsRequest {
   /** Routes are the alerts whose channels changed. */
   routes: AlertRouteChoice[];
+  /** QuietDuringEvents turns holding alerts during calendar events on or off. Null leaves it. */
+  quietDuringEvents?: boolean | null;
 }
 
 //////////
@@ -553,6 +560,18 @@ export interface Card {
   viewMode: CardViewMode;
   /** Branch is the Git branch of the card's work. Empty until the card starts. */
   branch: string;
+  /**
+   * Worktree is the folder of the card's worktree on the machine that runs the daemon. Empty
+   * until the card starts and after the worktree is removed.
+   */
+  worktree?: string;
+  /**
+   * MergePhase is where a card in the merge queue is: queued, resolving, testing, or landing.
+   * Empty for every card that is not being merged.
+   */
+  mergePhase?: MergePhase;
+  /** MergeNote is one plain sentence about the merge in progress, such as "Resolving 2 conflicts". */
+  mergeNote?: string;
   /** CreatedAt is when the card was made. */
   createdAt: Timestamp;
   /** UpdatedAt is when the card last changed. */
@@ -968,6 +987,11 @@ export interface Chat {
   /** Target is who the chat talks to. */
   target: ChatTarget;
   /**
+   * System names a chat that Marshal keeps for the project itself: "integrator" for the pinned
+   * Integrator chat. It is empty for a chat a person made, and a system chat cannot be deleted.
+   */
+  system?: string;
+  /**
    * AgentKind is the agent program its session starts, such as "claude". A chats' sessions are
    * started in slice C; the settings are stored here from the moment the chat is made so the
    * session has them.
@@ -1063,6 +1087,8 @@ export interface UpdateChatRequest {
   /** Title is the new name. Null leaves it, and a title that is only spaces is refused. */
   title?: string;
 }
+/** ChatSystemIntegrator is the System value of the pinned Integrator chat. */
+export const ChatSystemIntegrator = "integrator";
 
 //////////
 // source: chatbot.go
@@ -2650,6 +2676,60 @@ export interface FolderListing {
 }
 
 //////////
+// source: google.go
+
+/**
+ * GoogleCalendarChoice is one calendar a person has, for the tick list in Settings. Marshal reads
+ * the ticked ones for the calendar view, Home's coming-up list, and the briefs.
+ */
+export interface GoogleCalendarChoice {
+  /** ID is Google's own id for the calendar. */
+  id: string;
+  /** Name is what the person calls it. */
+  name: string;
+  /** Color is the calendar's own color as #rrggbb, or empty. */
+  color: string;
+  /** Primary is the calendar named after the person's own address. */
+  primary: boolean;
+  /** Owned says the person owns it, as opposed to being shared it or subscribed to it. */
+  owned: boolean;
+  /**
+   * Selected says Marshal reads it. Until the person chooses, it follows what is ticked in Google
+   * Calendar's own side list.
+   */
+  selected: boolean;
+}
+/** GoogleCalendarChoices is the answer to GET /v1/integrations/gcal/calendars. */
+export interface GoogleCalendarChoices {
+  calendars: GoogleCalendarChoice[];
+  /**
+   * Chosen says the person has picked calendars themselves, so Selected is theirs and no longer
+   * follows Google's side list.
+   */
+  chosen: boolean;
+}
+/**
+ * SetGoogleCalendarsRequest is the body of PUT /v1/integrations/gcal/calendars: the ids of the
+ * calendars Marshal should read. An empty list is valid and means none.
+ */
+export interface SetGoogleCalendarsRequest {
+  ids: string[];
+}
+/**
+ * GoogleClientInfo is the answer to GET /v1/integrations/gcal/client: which Google client Marshal
+ * would connect with.
+ */
+export interface GoogleClientInfo {
+  /**
+   * Bundled says this build has Marshal's own Google client, so a person connects with one click
+   * and pastes nothing.
+   */
+  bundled: boolean;
+  /** Own says the person saved a client of their own, which is then the one used. */
+  own: boolean;
+}
+
+//////////
 // source: handoff.go
 
 /**
@@ -3318,6 +3398,205 @@ export interface SaveGmailRequest {
   /** ProjectID is the Marshal project a labeled email becomes a card in. */
   projectId: string;
 }
+/** GitHubConnectState is where the GitHub sign-in is. A screen draws one panel for each value. */
+/** GitHubConnectStateIdle means nothing is connected and no sign-in is under way. */
+export const GitHubConnectStateIdle = "idle";
+/** GitHubConnectStatePending means a code was issued and the person has not approved it on GitHub yet. */
+export const GitHubConnectStatePending = "pending";
+/**
+ * GitHubConnectStateNeedsInstall means the person signed in but the Marshal GitHub App is not
+ * installed on any of their accounts, so there is nothing for Marshal to see yet.
+ */
+export const GitHubConnectStateNeedsInstall = "needs_install";
+/** GitHubConnectStateConnected means GitHub is connected, by a sign-in or by a pasted token. */
+export const GitHubConnectStateConnected = "connected";
+/** GitHubConnectStateDenied means the person refused the code on GitHub. */
+export const GitHubConnectStateDenied = "denied";
+/** GitHubConnectStateExpired means the code ran out before it was approved. */
+export const GitHubConnectStateExpired = "expired";
+/** GitHubConnectStateFailed means the sign-in could not be finished, with the reason in Message. */
+export const GitHubConnectStateFailed = "failed";
+export type GitHubConnectState =
+  | typeof GitHubConnectStateIdle
+  | typeof GitHubConnectStatePending
+  | typeof GitHubConnectStateNeedsInstall
+  | typeof GitHubConnectStateConnected
+  | typeof GitHubConnectStateDenied
+  | typeof GitHubConnectStateExpired
+  | typeof GitHubConnectStateFailed;
+/** Every GitHubConnectState, in the order the Go list gives them. */
+export const GitHubConnectStateValues: readonly GitHubConnectState[] = [
+  GitHubConnectStateIdle,
+  GitHubConnectStatePending,
+  GitHubConnectStateNeedsInstall,
+  GitHubConnectStateConnected,
+  GitHubConnectStateDenied,
+  GitHubConnectStateExpired,
+  GitHubConnectStateFailed,
+];
+/** GitHubInstallation is one account the Marshal GitHub App is installed on. */
+export interface GitHubInstallation {
+  /** Account is the user or organization login. */
+  account: string;
+  /** Kind is "user" or "organization". */
+  kind: string;
+  /** AllRepositories is true when the installation sees every repository the account owns. */
+  allRepositories: boolean;
+}
+/**
+ * GitHubConnect is the answer to every call that starts, reads, or ends the GitHub sign-in. One
+ * shape serves all its states; a field that does not apply to the state is left out.
+ */
+export interface GitHubConnect {
+  state: GitHubConnectState;
+  /** Mode is how GitHub is connected once it is: "oauth" for the sign-in, "token" for a pasted one. */
+  mode?: string;
+  /** UserCode is the short code the person types on GitHub. Set while pending. */
+  userCode?: string;
+  /** VerificationURI is the GitHub page the code is typed on. Set while pending. */
+  verificationUri?: string;
+  /** ExpiresAt is when the pending code stops working. */
+  expiresAt?: Timestamp;
+  /** Login is the GitHub user Marshal is signed in as, once known. */
+  login?: string;
+  /**
+   * InstallURL is the page that installs the Marshal GitHub App on an account or organization. Set
+   * while needs_install, and when connected through a sign-in, for "add another account".
+   */
+  installUrl?: string;
+  /** Installations lists the accounts the App is installed on. Never null; empty for a token. */
+  installations: GitHubInstallation[];
+  /** Message is one plain sentence for the person, set when the state needs explaining. */
+  message?: string;
+}
+/** SaveGitHubTokenRequest is the body of the calls that save or test a pasted GitHub token. */
+export interface SaveGitHubTokenRequest {
+  /** Token is a GitHub personal access token. It is written to the keychain and never comes back. */
+  token: string;
+}
+
+//////////
+// source: integration_flow.go
+
+/** MergePhase is where a card in the merge queue is. */
+/** MergePhaseQueued means the card waits for the Integrator to take it. */
+export const MergePhaseQueued = "queued";
+/** MergePhaseResolving means the Integrator is resolving conflicts. */
+export const MergePhaseResolving = "resolving";
+/** MergePhaseTesting means the merged result is being tested. */
+export const MergePhaseTesting = "testing";
+/** MergePhaseLanding means the tested result is being delivered to the branch and the folder. */
+export const MergePhaseLanding = "landing";
+/**
+ * MergePhaseStopped means the merge stopped and needs the owner; the card is in Needs you and
+ * can be retried.
+ */
+export const MergePhaseStopped = "stopped";
+export type MergePhase =
+  | typeof MergePhaseQueued
+  | typeof MergePhaseResolving
+  | typeof MergePhaseTesting
+  | typeof MergePhaseLanding
+  | typeof MergePhaseStopped;
+/** Every MergePhase, in the order the Go list gives them. */
+export const MergePhaseValues: readonly MergePhase[] = [
+  MergePhaseQueued,
+  MergePhaseResolving,
+  MergePhaseTesting,
+  MergePhaseLanding,
+  MergePhaseStopped,
+];
+/** IntegratorState is what a project's Integrator is doing. */
+/** IntegratorStateIdle means nothing is waiting to be merged. */
+export const IntegratorStateIdle = "idle";
+/** IntegratorStateMerging means a card is being merged. */
+export const IntegratorStateMerging = "merging";
+/** IntegratorStateWaiting means the Integrator stopped and needs the owner. */
+export const IntegratorStateWaiting = "waiting";
+/** IntegratorStatePaused means the owner paused merging. */
+export const IntegratorStatePaused = "paused";
+export type IntegratorState =
+  | typeof IntegratorStateIdle
+  | typeof IntegratorStateMerging
+  | typeof IntegratorStateWaiting
+  | typeof IntegratorStatePaused;
+/** Every IntegratorState, in the order the Go list gives them. */
+export const IntegratorStateValues: readonly IntegratorState[] = [
+  IntegratorStateIdle,
+  IntegratorStateMerging,
+  IntegratorStateWaiting,
+  IntegratorStatePaused,
+];
+/** IntegrationBranchName is the one branch the Integrator works on, in its own workspace. */
+export const IntegrationBranchName = "integrator";
+/** IntegrationQueueItem is one card waiting for, or in, a merge. */
+export interface IntegrationQueueItem {
+  /** CardID is the card's opaque id. */
+  cardId: string;
+  /** Key is the card's project-and-number key, such as "web#12". */
+  key: string;
+  /** Title is the card's title. */
+  title: string;
+  /** Phase is where the card is in the merge. */
+  phase: MergePhase;
+  /** Position counts from 1; the card being merged is 1. */
+  position: number /* int */;
+}
+/** IntegrationHistoryItem is one card the Integrator delivered. */
+export interface IntegrationHistoryItem {
+  cardId: string;
+  key: string;
+  title: string;
+  /** MergedAt is when the work landed. */
+  mergedAt: Timestamp;
+  /** Commit is the commit that landed. */
+  commit: string;
+  /** Resolved counts the conflicts the Integrator resolved, 0 for a clean merge. */
+  resolved: number /* int */;
+  /** Summary is the Integrator's one-paragraph report. */
+  summary: string;
+  /** CanUndo is true while the branch tip is still this merge and the folder is clean. */
+  canUndo: boolean;
+}
+/** IntegrationState is the answer to GET /v1/projects/{id}/integration. */
+export interface IntegrationState {
+  projectId: string;
+  /** Target is the integration branch finished cards land on, such as "development". */
+  target: string;
+  /** IntegratorBranch is the Integrator's own branch, always IntegrationBranchName. */
+  integratorBranch: string;
+  /** AheadBy counts the commits the Integrator's branch has that Target does not yet. */
+  aheadBy: number /* int */;
+  /** State is what the Integrator is doing. */
+  state: IntegratorState;
+  /** CurrentCardID is the card being merged, empty when none is. */
+  currentCardId?: string;
+  /** Queue lists the cards waiting or being merged, in order. Never null. */
+  queue: IntegrationQueueItem[];
+  /** History lists the most recent deliveries, newest first. Never null. */
+  history: IntegrationHistoryItem[];
+  /** Message is one plain sentence when State is waiting, such as why it stopped. */
+  message?: string;
+  /** ServerTime is the daemon's time when the answer was made. */
+  serverTime: Timestamp;
+}
+/**
+ * MergeProgressEvent is the data of a merge.progress event: a card's merge moved to a new phase. It
+ * is sent on the project's topic and the card's topic.
+ */
+export interface MergeProgressEvent {
+  projectId: string;
+  cardId: string;
+  /** Phase is the new phase, empty when the merge ended. */
+  phase?: MergePhase;
+  /** Note is one plain sentence for the card's activity line. */
+  note?: string;
+}
+/** OpenWorktreeRequest is the body of POST /v1/cards/{id}/worktree/open. */
+export interface OpenWorktreeRequest {
+  /** With is "finder" to reveal the folder, or "editor" to open it in the machine's editor. */
+  with: string;
+}
 
 //////////
 // source: label.go
@@ -3554,13 +3833,16 @@ export const ProjectViewList = "list";
 export const ProjectViewTimeline = "timeline";
 /** ProjectViewCalendar is the Calendar. */
 export const ProjectViewCalendar = "calendar";
+/** ProjectViewIntegration is the Integration view: what the Integrator is merging. */
+export const ProjectViewIntegration = "integration";
 export type ProjectView =
   | typeof ProjectViewChat
   | typeof ProjectViewAgents
   | typeof ProjectViewBoard
   | typeof ProjectViewList
   | typeof ProjectViewTimeline
-  | typeof ProjectViewCalendar;
+  | typeof ProjectViewCalendar
+  | typeof ProjectViewIntegration;
 /** Every ProjectView, in the order the Go list gives them. */
 export const ProjectViewValues: readonly ProjectView[] = [
   ProjectViewChat,
@@ -3569,6 +3851,7 @@ export const ProjectViewValues: readonly ProjectView[] = [
   ProjectViewList,
   ProjectViewTimeline,
   ProjectViewCalendar,
+  ProjectViewIntegration,
 ];
 /** Swimlane is what a board's rows are grouped by. "none" draws one row. */
 /** SwimlaneNone draws the board as one row. It is what a board has until another is chosen. */
@@ -4312,6 +4595,11 @@ export interface Project {
   /** DefaultBranch is the branch new work starts from. */
   defaultBranch: string;
   /**
+   * IntegrationBranch is the branch finished cards merge into and new cards start from. The
+   * daemon fills it with the effective branch: the owner's choice, else DefaultBranch.
+   */
+  integrationBranch?: string;
+  /**
    * DevCommand is the command that starts the project's dev server. It is a guess when the
    * project is added, it may be empty, and the person can change it.
    */
@@ -4369,6 +4657,11 @@ export interface UpdateProjectRequest {
   devCommand?: string;
   /** DefaultBranch is the new default branch. It must exist in the repository. */
   defaultBranch?: string;
+  /**
+   * IntegrationBranch is the new integration branch. It must exist in the repository. An empty
+   * string clears the choice, so the default branch is used again.
+   */
+  integrationBranch?: string;
   /** BypassLocked turns the bypass lock on or off. */
   bypassLocked?: boolean;
 }
@@ -4841,6 +5134,21 @@ export interface CalendarEvent {
   id: string;
   title: string;
   start: Timestamp;
+  /**
+   * End is when the event ends. For an all-day event it is the first day it no longer covers.
+   * Null when Google gave none.
+   */
+  end?: Timestamp | null;
+  /** AllDay says the event covers whole days, so its time of day means nothing. */
+  allDay: boolean;
+  /** Location is the place, as typed. Empty when there is none. */
+  location: string;
+  /** URL opens the event in Google Calendar. Empty when there is none. */
+  url: string;
+  /** JoinURL is the event's video call link. Empty when there is none. */
+  joinUrl: string;
+  /** Calendar is the name of the calendar the event is on. */
+  calendar: string;
   time?: string;
   days?: number /* int */[];
   dayOffset?: number /* int */;
@@ -4851,15 +5159,30 @@ export interface CalendarEvent {
  * addresses. Schedules is every schedule, enabled or not - the same list GET /v1/schedules answers
  * - not only the ones inside the asked-for range, because a schedule's own days and time, not a
  * range, say which days it draws on; the screen already knows to skip a disabled one. DueCards is
- * scoped to the range. GoogleConnected is false with an always-empty Events until B8.3 connects
- * Google Calendar for real: never sample data.
+ * scoped to the range. GoogleConnected is false with an always-empty Events until Google Calendar is
+ * connected: never sample data. When Google could not be read, GoogleError says why in a sentence a
+ * person can act on, and the rest of the list is still there: a Google that is down never takes the
+ * schedules and the due cards with it.
  */
 export interface CalendarList {
   schedules: Schedule[];
   dueCards: Card[];
   events: CalendarEvent[];
   googleConnected: boolean;
+  /** GoogleError is why Google's events are missing or old, or empty when nothing is wrong. */
+  googleError: string;
+  /** GoogleStale says Events are the last ones read, because Google could not be reached just now. */
+  googleStale: boolean;
   serverTime: Timestamp;
+}
+/** GoogleReading is how reading Google Calendar went, for the answer that carries its events. */
+export interface GoogleReading {
+  /** Connected says Google Calendar is set up and its access works. */
+  Connected: boolean;
+  /** Error is why Google's events are missing, in words a person can act on. Empty when none. */
+  Error: string;
+  /** Stale says the events are the last ones read, because Google could not be reached just now. */
+  Stale: boolean;
 }
 
 //////////
