@@ -68,3 +68,6 @@ Thumbs.db
 .superpowers/
 # Added by code-review-graph
 .code-review-graph/
+
+# Marshal's own Google OAuth client, written by the release build
+daemon/internal/integrations/googleclient/files/client.json
