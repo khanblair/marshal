@@ -1,5 +1,6 @@
 import { Button, Icon, TextArea } from "@marshal/ui";
 import { Show } from "solid-js";
+import { Markdown } from "~/features/markdown/Markdown";
 import type { Card } from "~/mock";
 import { notePath, noteText, saveNote } from "./card-note";
 import type { Panel } from "./panel-state";
@@ -30,10 +31,7 @@ export function NotesTab(props: NotesTabProps) {
           </Button>
         </Show>
       </div>
-      <Show
-        when={editing()}
-        fallback={<div class="max-w-[72ch] whitespace-pre-wrap text-pretty">{text()}</div>}
-      >
+      <Show when={editing()} fallback={<Markdown text={text()} class="max-w-[72ch]" />}>
         <TextArea
           mono
           rows={12}

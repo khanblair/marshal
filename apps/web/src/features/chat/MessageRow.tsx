@@ -1,5 +1,6 @@
 import { Icon } from "@marshal/ui";
 import { Show } from "solid-js";
+import { Markdown } from "~/features/markdown/Markdown";
 import type { MsgView } from "~/mock";
 import { ApprovalBlock } from "./ApprovalBlock";
 import { CardLinks } from "./CardLinks";
@@ -22,11 +23,8 @@ export function MessageRow(props: MessageRowProps) {
         </div>
       </Show>
       <Show when={props.item.isAgent}>
-        <div
-          aria-busy={props.item.streaming}
-          class="max-w-[72ch] whitespace-pre-wrap text-pretty text-primary"
-        >
-          {props.item.text}
+        <div aria-busy={props.item.streaming} class="max-w-[72ch] text-primary">
+          <Markdown text={props.item.text} />
         </div>
       </Show>
       <Show when={props.item.isSystem}>

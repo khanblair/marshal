@@ -1,5 +1,6 @@
 import { Avatar, Icon, IconLabel } from "@marshal/ui";
 import { Index, Show } from "solid-js";
+import { Markdown } from "~/features/markdown/Markdown";
 import { M } from "~/mock";
 import type { CardKey } from "~/mock/card-key";
 import type { CommentView } from "./comment-model";
@@ -93,11 +94,11 @@ export function CommentItem(props: CommentItemProps) {
         </div>
         <Show when={props.comment.text}>
           <div
-            class={`max-w-[72ch] py-2 px-2.5 rounded-md border border-border whitespace-pre-wrap wrap-anywhere ${
+            class={`max-w-[72ch] py-2 px-2.5 rounded-md border border-border ${
               props.comment.isAgent ? "bg-surface" : "bg-surface-sunken"
             }`}
           >
-            {props.comment.text}
+            <Markdown text={props.comment.text} />
           </div>
         </Show>
         <Show when={props.comment.images.length > 0}>
