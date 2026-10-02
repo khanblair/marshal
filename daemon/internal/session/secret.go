@@ -45,11 +45,15 @@ func (m *Manager) scanTurnForSecrets(ls *liveSession) bool {
 		m.log.Error("could not read a project to scan a card's commits", "card_id", ls.cardID, "error", err)
 		return false
 	}
-	if project.DefaultBranch == "" {
+	base := project.IntegrationBranch
+	if base == "" {
+		base = project.DefaultBranch
+	}
+	if base == "" {
 		// Without a base there is no way to tell the agent's commits from the project's history.
 		return false
 	}
-	commits, err := m.git.CommitsOnBranch(m.ctx, row.WorktreePath, project.DefaultBranch)
+	commits, err := m.git.CommitsOnBranch(m.ctx, row.WorktreePath, base)
 	if err != nil {
 		m.log.Error("could not read a card's commits to scan them", "card_id", ls.cardID, "error", err)
 		return false

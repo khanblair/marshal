@@ -64,6 +64,7 @@ func (m *Manager) handleEvent(ls *liveSession, ev agents.AgentEvent) {
 	case agents.ToolCall, agents.ToolCallUpdate:
 		m.publishToolCall(ls, e)
 	case agents.TurnEnded:
+		m.recordUsage(ls, e)
 		m.onTurnEnded(ls)
 	case agents.TerminalOutput:
 		m.publishTerminalOutput(ls, e)

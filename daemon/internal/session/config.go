@@ -11,6 +11,7 @@ import (
 
 	"github.com/khanblair/marshal/daemon/internal/agents"
 	"github.com/khanblair/marshal/daemon/internal/audit"
+	"github.com/khanblair/marshal/daemon/internal/providers"
 	"github.com/khanblair/marshal/daemon/internal/secrets"
 	"github.com/khanblair/marshal/daemon/internal/security"
 )
@@ -114,6 +115,10 @@ type Config struct {
 	// set gitleaks ships with; set it to a scanner a test controls to prove the block without
 	// inventing a key that the real rules would not match.
 	Secrets *secrets.Scanner
+	// Usage files what each finished turn cost, for an agent that reports it (Claude Code does). It
+	// is the same recorder the built-in agent's calls go through, so the Home numbers add both. Left
+	// nil, nothing is recorded.
+	Usage providers.UsageRecorder
 	// StartPrompt is the first message Start sends to a card's brand-new session, so the agent
 	// begins on its own. Left empty, Start only brings the agent up and it waits for a message. A
 	// resume never sends it.

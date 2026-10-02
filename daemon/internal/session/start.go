@@ -159,9 +159,9 @@ func (m *Manager) makeWorktree(ctx context.Context, project protocol.Project, ca
 	branch = gitx.CardBranchName(project.ID, card.Number, card.Title)
 	path = filepath.Join(projects.WorktreesDir(m.cfg.DataDir, project.ID), card.ID)
 	// A fork starts from the branch of the card it came from, so its work continues that card's
-	// work instead of starting again from the project's default branch. An empty answer means the
-	// default branch: a card that is not a fork, or a fork whose source is gone.
-	base := project.DefaultBranch
+	// work instead of starting again from the project's integration branch. An empty answer means
+	// the integration branch: a card that is not a fork, or a fork whose source is gone.
+	base := project.Target()
 	if forkBase := m.projects.ForkBase(ctx, project, card.ID); forkBase != "" {
 		base = forkBase
 	}

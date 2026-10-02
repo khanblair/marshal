@@ -65,6 +65,9 @@ type Manager struct {
 	// sleep. A chat that is not running is started by its next message, and two messages must not
 	// each start a process.
 	chatLocks keyedlock.Locks
+	// chatKit is what a chat's session is given beyond its settings: the Integrator's workspace and
+	// the internal tools (chat_spec.go).
+	chatKit chatKit
 	// viewLocks serializes what is done to a card's session while its view is switched: the switch
 	// stops the process and starts another, and a message, a stop, a sleep, or a delete that arrived in
 	// between would find no session. They wait for the switch instead and then act on the new session.
