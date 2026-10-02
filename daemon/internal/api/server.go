@@ -134,6 +134,14 @@ type Deps struct {
 	// POST /v1/cards/{id}/merge is registered: a card in Ready to merge is merged into the
 	// project's default branch, one card at a time per project.
 	Integrator *integrator.Service
+	// Integration is the merge queue as the Integration view reads it. When it is set, the routes
+	// that read a project's merge state and press pause, resume, retry, and undo are registered.
+	// Never put a typed nil pointer here: leave the field unset instead.
+	Integration integrator.Reader
+	// Opener shows a card's worktree in the file manager or the editor. Nil means SystemOpener,
+	// which starts this machine's own programs. POST /v1/cards/{id}/worktree/open is registered
+	// when Projects is set, and answers only requests that come from this machine.
+	Opener Opener
 	// Review runs the Reviewer role over a card's pull request (B5.4, build-plan 5.7). When it is
 	// set, and Projects is too, POST /v1/cards/{id}/review is registered. It stays unset until a
 	// forge token is saved, the same as PullRequests, and it is wired as that service's own
@@ -247,6 +255,8 @@ type Server struct {
 	roles        *roles.Service
 	pullRequests *pullrequest.Service
 	integrator   *integrator.Service
+	integration  integrator.Reader
+	opener       Opener
 	review       *review.Service
 
 	sleepSettings *settings.Service
@@ -284,6 +294,8 @@ func New(settings config.Settings, log *slog.Logger, now func() time.Time, deps 
 		roles:           deps.Roles,
 		pullRequests:    deps.PullRequests,
 		integrator:      deps.Integrator,
+		integration:     deps.Integration,
+		opener:          deps.Opener,
 		review:          deps.Review,
 		sleepSettings:   deps.SleepSettings,
 		alerts:          deps.Alerts,
@@ -300,6 +312,9 @@ func New(settings config.Settings, log *slog.Logger, now func() time.Time, deps 
 		tailnet:         deps.Tailnet,
 		funnel:          deps.Funnel && deps.Tailnet != nil,
 		mcp:             deps.MCP,
+	}
+	if s.opener == nil {
+		s.opener = SystemOpener{}
 	}
 	if deps.Store == nil {
 		return s
@@ -346,6 +361,10 @@ func (s *Server) handler(extra ...func(*router)) http.Handler {
 	// of checking one is reading the two halves out of the keychain and the row.
 	if s.integrations != nil {
 		routes.signedWebhook("POST /hooks/trello", s.trelloWebhook)
+		// Google's consent page sends the owner's browser back here, and a browser visit carries no
+		// token, so this one cannot sit behind the token check. What authorizes it is the single-use
+		// state that only a signed-in owner's own authorize call mints (integrations.FinishGoogle).
+		routes.public("GET /v1/integrations/gcal/callback", s.callbackGoogleCalendar)
 	}
 	if s.auth != nil {
 		routes.protected("GET /v1/auth/whoami", s.whoami)

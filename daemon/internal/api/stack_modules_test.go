@@ -58,9 +58,18 @@ func (st *stack) startModules() {
 		if st.webhookSink == nil {
 			st.webhookSink = &webhookRecorder{}
 		}
+		// A stack that is not given a fake GitHub points at a closed local port, so no test reaches the network.
+		githubBase := st.cfg.githubBaseURL
+		if githubBase == "" {
+			githubBase = "http://127.0.0.1:1"
+		}
 		opts := integrations.Options{
 			Logger: st.log, Now: st.now, Tester: st.cfg.integrationsTester,
 			TrelloBaseURL: st.cfg.trelloBaseURL,
+			GoogleAuthURL: st.cfg.google.auth, GoogleTokenURL: st.cfg.google.token, GCalBaseURL: st.cfg.google.calendar,
+			GoogleClientID: st.cfg.google.clientID, GoogleClientSecret: st.cfg.google.clientSecret,
+			GCalRedirectURL:  "http://127.0.0.1:47801/v1/integrations/gcal/callback",
+			GitHubAPIBaseURL: githubBase, GitHubAuthBaseURL: githubBase,
 		}
 		svc, err := integrations.New(st.store, st.keychain, opts)
 		if err != nil {
@@ -366,6 +375,17 @@ func (st *stack) startModules() {
 			t.Fatalf("make the review service: %v", err)
 		}
 		deps.Review = reviewSvc
+	}
+	if !st.cfg.noIntegration {
+		deps.Integration = st.cfg.integration
+		if deps.Integration == nil {
+			deps.Integration = &fakeMergeQueue{}
+		}
+	}
+	// The opener is always a fake, so no test can start the machine's file manager or editor.
+	deps.Opener = st.cfg.opener
+	if deps.Opener == nil {
+		deps.Opener = &recordingOpener{}
 	}
 	if !st.cfg.noIntegrator && !st.cfg.noProjects {
 		// The merge queue is built the way cmd/marshald builds it, with no test runner.

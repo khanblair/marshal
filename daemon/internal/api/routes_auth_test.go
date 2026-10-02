@@ -178,7 +178,11 @@ func TestARouteIsRegisteredOnlyWhenItsServiceIsThere(t *testing.T) {
 	// follow the connections service the GitHub app is reached through.
 	integrationRoutes := []string{"POST /v1/integrations/telegram/detect-chat",
 		"GET /v1/integrations", "PUT /v1/integrations/{id}", "DELETE /v1/integrations/{id}",
-		"GET /v1/integrations/gcal/authorize", "GET /v1/integrations/gcal/callback",
+		"GET /v1/integrations/gcal/authorize", "GET /v1/integrations/gmail/authorize",
+		"GET /v1/integrations/gcal/client", "GET /v1/integrations/gcal/calendars", "PUT /v1/integrations/gcal/calendars",
+		"POST /v1/integrations/github/connect", "GET /v1/integrations/github/connect",
+		"DELETE /v1/integrations/github/connect", "PUT /v1/integrations/github/token",
+		"POST /v1/integrations/github/token/test",
 	}
 	// Asking a connection to test itself needs the connections service and the runner that runs it.
 	integrationTestRoutes := []string{"POST /v1/integrations/{id}/test"}
@@ -193,6 +197,14 @@ func TestARouteIsRegisteredOnlyWhenItsServiceIsThere(t *testing.T) {
 	reviewRoutes := []string{"POST /v1/cards/{id}/review"}
 	// The merge route needs both projects and the merge queue.
 	integratorRoutes := []string{"POST /v1/cards/{id}/merge"}
+	// The Integration view's routes need the merge queue's reader. Showing a card's worktree needs
+	// only the projects service, which owns the card's folder.
+	mergeStateRoutes := []string{
+		"GET /v1/projects/{id}/integration", "POST /v1/projects/{id}/integration/pause",
+		"POST /v1/projects/{id}/integration/resume", "POST /v1/cards/{id}/merge/retry",
+		"POST /v1/cards/{id}/merge/undo",
+	}
+	worktreeRoutes := []string{"POST /v1/cards/{id}/worktree/open"}
 	// The notice routes are the session manager's: a sleep notice names live sessions and the
 	// moment they sleep, so they follow the sessions service and need nothing else.
 	noticeRoutes := []string{
@@ -271,6 +283,7 @@ func TestARouteIsRegisteredOnlyWhenItsServiceIsThere(t *testing.T) {
 		"checkpoints": checkpointRoutes, "pull requests": pullRequestRoutes,
 		"handoffs": handoffRoutes, "notes": noteRoutes, "lessons": lessonRoutes,
 		"integrator": integratorRoutes, "review": reviewRoutes,
+		"merge state": mergeStateRoutes, "worktree": worktreeRoutes,
 		"notices": noticeRoutes, "sleep settings": sleepSettingsRoutes, "alerts": alertRoutes, "card panel": panelRoutes, "quality": qualityRoutes,
 		"ci": ciRoutes, "ci simulation": ciSimulateRoutes, "local ci": localCIRoutes,
 		"preview": previewRoutes, "schedules": scheduleRoutes, "calendar": calendarRoutes, "devices": deviceRoutes,
@@ -310,7 +323,7 @@ func TestARouteIsRegisteredOnlyWhenItsServiceIsThere(t *testing.T) {
 		"no accounts": withoutAccounts(), "no audit": withoutAudit(), "a normal daemon": normalDaemon(), "no connection tests": withoutConnectionTests(), "no roles": withoutRoles(),
 		"no pull requests": withoutPullRequests(), "no integrator": withoutIntegrator(),
 		"no review": withoutReview(), "no sleep settings": withoutSleepSettings(),
-		"no quality": withoutQuality(), "no integrations": withoutIntegrations(),
+		"no quality": withoutQuality(), "no integrations": withoutIntegrations(), "no merge state": withoutIntegration(),
 		"no ci": withoutCI(), "no local ci": withoutLocalCI(),
 		"no preview": withoutPreview(), "no schedules": withoutSchedules(),
 		"no devices": withoutDevices(), "no alerts": withoutAlerts(), "no card panel": withoutCardPanel(),
@@ -352,6 +365,9 @@ func TestARouteIsRegisteredOnlyWhenItsServiceIsThere(t *testing.T) {
 			have["review"] = !st.cfg.noReview && !st.cfg.noProjects && !st.cfg.noRoles
 			// The merge route needs both services too.
 			have["integrator"] = !st.cfg.noIntegrator && !st.cfg.noProjects
+			// The merge queue's reader stands alone; opening a worktree follows the projects service.
+			have["merge state"] = !st.cfg.noIntegration
+			have["worktree"] = !st.cfg.noProjects
 			// The notice routes are the session manager's own.
 			have["notices"] = !st.cfg.noSessions
 			// The sleep settings follow their own service.

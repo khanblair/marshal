@@ -25,6 +25,7 @@ import (
 	"github.com/khanblair/marshal/daemon/internal/gitx"
 	"github.com/khanblair/marshal/daemon/internal/history"
 	"github.com/khanblair/marshal/daemon/internal/integrations"
+	"github.com/khanblair/marshal/daemon/internal/integrator"
 	"github.com/khanblair/marshal/daemon/internal/localci"
 	"github.com/khanblair/marshal/daemon/internal/memory"
 	"github.com/khanblair/marshal/daemon/internal/platform"
@@ -84,6 +85,14 @@ type stackConfig struct {
 	noPullRequests bool
 	// noIntegrator leaves the merge queue out, so the route that merges a card is not registered.
 	noIntegrator bool
+	// noIntegration leaves the merge queue's reader out, so the Integration view's routes are not
+	// registered. By default the stack has a fake one that answers an idle queue.
+	noIntegration bool
+	// integration replaces the default fake reader of the merge queue.
+	integration integrator.Reader
+	// opener replaces the recording fake that stands in for the machine's file manager and editor.
+	// The stack never lets the real one run.
+	opener api.Opener
 	// noReview leaves the review service out, so the route that runs the Reviewer over a card's
 	// pull request is not registered. This is the usual case: it is unset until a GitHub token is
 	// saved.
@@ -173,6 +182,10 @@ type stackConfig struct {
 	// trelloBaseURL, when it is set, points the Trello connection at a fake server, so an API test
 	// that saves a Trello connection and presses Test never dials Trello.
 	trelloBaseURL string
+	// google, when it is set, points Google's consent endpoints and Calendar API at a fake server.
+	google googleFake
+	// githubBaseURL, when set, points GitHub's API and sign-in endpoints at a fake server.
+	githubBaseURL string
 	// providerFailure is what every provider call answers with, standing in for a provider that
 	// refused the key or could not be reached. Nil is a provider that works.
 	providerFailure error
@@ -257,6 +270,9 @@ func withWebhooks(secret string) stackOption {
 }
 func withIntegrationsTester(fn func(ctx context.Context, info integrations.Info) (protocol.TestResult, error)) stackOption {
 	return func(c *stackConfig) { c.integrationsTester = fn }
+}
+func withGitHubBaseURL(url string) stackOption {
+	return func(c *stackConfig) { c.githubBaseURL = url }
 }
 func withTrelloBaseURL(url string) stackOption {
 	return func(c *stackConfig) { c.trelloBaseURL = url }
