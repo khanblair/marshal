@@ -25,6 +25,9 @@ interface PanelState {
   diffHunks: Record<string, DiffFile["hunks"]>;
   noteEdit: boolean;
   noteDraft: string;
+  /** The agent, role, model, thinking, and permission settings are shown in full. Collapsed, a
+   * summary line stands in for them, so a card you have no reason to reconfigure opens calmer. */
+  settingsExpanded: boolean;
 }
 
 const initialState = (): PanelState => ({
@@ -44,6 +47,7 @@ const initialState = (): PanelState => ({
   diffHunks: {},
   noteEdit: false,
   noteDraft: "",
+  settingsExpanded: false,
 });
 
 export interface Panel {

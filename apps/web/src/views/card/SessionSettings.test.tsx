@@ -6,6 +6,7 @@ import { daemon, resetDaemonCards } from "~/testing/daemon-cards-store";
 import { M } from "~/mock";
 import { GOLDEN_CATALOG } from "~/testing/agents";
 import { useCatalog } from "~/testing/test-store";
+import { createPanelState } from "./panel-state";
 import { SessionSettings } from "./SessionSettings";
 import { cardOf, resetStore } from "./test-helpers";
 
@@ -25,7 +26,13 @@ afterEach(() => {
   restore = () => {};
 });
 
-const show = (id = "api#41") => render(() => <SessionSettings card={cardOf(id)} />);
+/** Renders with its settings expanded by default, as every test below but the collapse ones
+ * assumes, since that is the state the full grid of comboboxes needs to be visible in. */
+const show = (id = "api#41", expanded = true) => {
+  const panel = createPanelState();
+  panel.set({ settingsExpanded: expanded });
+  return render(() => <SessionSettings card={cardOf(id)} panel={panel} />);
+};
 const combo = (name: string) => screen.getByRole("combobox", { name });
 const options = (name: string) =>
   within(combo(name))
@@ -154,5 +161,39 @@ describe("SessionSettings with the daemon's agents", () => {
     expect(
       within(combo("Agent")).getByRole("option", { name: "Codex (not installed)" }),
     ).toBeDisabled();
+  });
+});
+
+describe("SessionSettings collapsed", () => {
+  beforeEach(() => {
+    restore = useCatalog(M, GOLDEN_CATALOG);
+  });
+
+  it("starts collapsed, with no comboboxes, and a summary of the card's settings", () => {
+    show("api#41", false);
+    expect(screen.queryByRole("combobox")).toBeNull();
+    const card = cardOf("api#41");
+    const summary = screen.getByRole("button");
+    expect(summary).toHaveTextContent(card.agent);
+    expect(summary).toHaveTextContent(card.role);
+    expect(summary).toHaveTextContent(card.model);
+    expect(summary).toHaveTextContent(card.perm);
+  });
+
+  it("expands to the full grid on click, and collapses back on Hide", () => {
+    show("api#41", false);
+    fireEvent.click(screen.getByRole("button"));
+    expect(screen.getByRole("combobox", { name: "Agent" })).toBeInTheDocument();
+    expect(screen.getByText("Changes take effect on the next turn.")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Hide" }));
+    expect(screen.queryByRole("combobox")).toBeNull();
+  });
+
+  it("hides an agent's note until expanded", () => {
+    cardOf("api#41").agent = "Gemini CLI";
+    show("api#41", false);
+    expect(screen.queryByText(/has not been tested with Gemini CLI/)).toBeNull();
+    fireEvent.click(screen.getByRole("button"));
+    expect(screen.getByText(/has not been tested with Gemini CLI/)).toBeVisible();
   });
 });

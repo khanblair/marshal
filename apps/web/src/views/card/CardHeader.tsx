@@ -91,10 +91,7 @@ export function CardHeader(props: CardHeaderProps) {
       <CardMeta card={props.card} c={props.c} />
       <MembersRow card={props.card} panel={props.panel} />
       <CardActions card={props.card} panel={props.panel} />
-      <SessionSettings card={props.card} />
-      <span class="text-caption leading-4 text-secondary -mt-1">
-        Changes take effect on the next turn.
-      </span>
+      <SessionSettings card={props.card} panel={props.panel} />
       <CardTabs card={props.card} diffCount={props.diffCount} />
     </div>
   );
