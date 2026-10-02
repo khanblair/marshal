@@ -31,6 +31,9 @@ type githubConfig struct {
 	AppID int64 `json:"appId"`
 	// InstallationID is the numeric id of the installation Marshal acts as.
 	InstallationID int64 `json:"installationId"`
+	// Mode and Login describe a user connection: "oauth" or "token", and who it is signed in as.
+	Mode  string `json:"mode,omitempty"`
+	Login string `json:"login,omitempty"`
 }
 
 // githubSecrets is the secret half, stored in the OS keychain as one JSON document under the
@@ -42,6 +45,13 @@ type githubSecrets struct {
 	PrivateKey string `json:"privateKey"`
 	// WebhookSecret is what the App's deliveries are signed with.
 	WebhookSecret string `json:"webhookSecret"`
+	// The fields below hold a user connection: a sign-in ("oauth") or a pasted token ("token").
+	// Times are Unix milliseconds, and zero means the token does not expire.
+	Mode             string `json:"mode,omitempty"`
+	Token            string `json:"token,omitempty"`
+	RefreshToken     string `json:"refreshToken,omitempty"`
+	ExpiresAt        int64  `json:"expiresAt,omitempty"`
+	RefreshExpiresAt int64  `json:"refreshExpiresAt,omitempty"`
 }
 
 // SaveGitHub stores the App's connection, replacing whatever was there - which is what setting it up
@@ -97,6 +107,7 @@ func (s *Service) SaveGitHub(ctx context.Context, req protocol.SaveGitHubRequest
 		return fmt.Errorf("save the GitHub App's settings: %w", err)
 	}
 	s.forgetGitHub()
+	s.forgetGitHubUser()
 	return nil
 }
 
@@ -124,6 +135,9 @@ func (s *Service) Remove(ctx context.Context, id string) error {
 	}
 	s.forgetGitHub()
 	s.forgetTrello()
+	if id == GitHubID {
+		s.forgetGitHubUser()
+	}
 	return nil
 }
 
@@ -213,12 +227,9 @@ func (s *Service) readGitHubLocked(ctx context.Context) (githubConfig, githubSec
 		return githubConfig{}, githubSecrets{}, fmt.Errorf(
 			"read the GitHub App's secrets from the keychain: %w", err)
 	}
-	var secrets githubSecrets
-	if raw != "" {
-		if err := json.Unmarshal([]byte(raw), &secrets); err != nil {
-			return githubConfig{}, githubSecrets{}, fmt.Errorf(
-				"read the GitHub App's secrets: %w", err)
-		}
+	secrets, err := parseGitHubSecrets(raw)
+	if err != nil {
+		return githubConfig{}, githubSecrets{}, err
 	}
 	s.secretsLoaded, s.secretsVal = true, secrets
 	return config, secrets, nil
@@ -231,4 +242,21 @@ func (s *Service) forgetGitHub() {
 	defer s.mu.Unlock()
 	s.built, s.app = false, nil
 	s.secretsLoaded, s.secretsVal = false, githubSecrets{}
+}
+
+// parseGitHubSecrets reads the keychain entry. A value that is not JSON is a personal token saved
+// with `marshal keys` before connections had a shape of their own.
+func parseGitHubSecrets(raw string) (githubSecrets, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return githubSecrets{}, nil
+	}
+	if !strings.HasPrefix(raw, "{") {
+		return githubSecrets{Mode: githubModeToken, Token: raw}, nil
+	}
+	var secrets githubSecrets
+	if err := json.Unmarshal([]byte(raw), &secrets); err != nil {
+		return githubSecrets{}, fmt.Errorf("read the GitHub connection's secrets: %w", err)
+	}
+	return secrets, nil
 }

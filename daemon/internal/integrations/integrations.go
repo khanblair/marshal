@@ -118,6 +118,14 @@ type Options struct {
 	GCalBaseURL string
 	// GmailBaseURL overrides where the Gmail API is reached, for a test. Empty uses the real API.
 	GmailBaseURL string
+	// GoogleAuthURL and GoogleTokenURL point Google's consent page and its token endpoint at a fake
+	// in a test. Empty uses Google's own, which is what the daemon does.
+	GoogleAuthURL  string
+	GoogleTokenURL string
+	// GoogleClientID and GoogleClientSecret are Marshal's own Google OAuth client, when the
+	// environment gives one. Empty uses the one built into the binary, if there is one.
+	GoogleClientID     string
+	GoogleClientSecret string
 	// TelegramBaseURL overrides where the Telegram Bot API is reached, so the Telegram connection
 	// test can be driven against a fake server without dialing Telegram. Empty uses the real API,
 	// which is what the daemon does (hard rule 3).
@@ -128,6 +136,15 @@ type Options struct {
 	// NtfyHTTPClient overrides how an ntfy server is reached, for the same reason. Nil uses the real
 	// one, which is what the daemon does.
 	NtfyHTTPClient *http.Client
+	// GitHubClientID and GitHubAppSlug name the public Marshal GitHub App people sign in with. Empty
+	// uses Marshal's own, which is what the daemon does.
+	GitHubClientID string
+	GitHubAppSlug  string
+	// GitHubAPIBaseURL, GitHubAuthBaseURL and GitHubHTTPClient point GitHub's API, its sign-in
+	// endpoints, and the HTTP client at a fake in a test. Empty and nil use the real ones.
+	GitHubAPIBaseURL  string
+	GitHubAuthBaseURL string
+	GitHubHTTPClient  *http.Client
 }
 
 // Service is the one place that knows which connections are set up, and the only reader of a
@@ -153,14 +170,17 @@ type Service struct {
 	telegramBase  string
 	discordClient *http.Client
 	ntfyClient    *http.Client
-	// gcalState is the one pending consent flow's CSRF token, guarded by mu. A daemon runs one
-	// owner's consent flow at a time, so one field is enough.
-	gcalState string
+	// google is what the Google connections keep in memory: consent flows under way and what was
+	// last read (google.go).
+	google googleState
 
 	// webhooks verifies and accepts GitHub's deliveries. It is built with this service, so the
 	// secret it checks against is read from the keychain on every delivery and a secret saved
 	// through Settings takes effect without a restart.
 	webhooks *githubapp.Receiver
+
+	// gh holds the person-level GitHub connection: the sign-in in progress and the token in use.
+	gh githubUserState
 
 	mu      sync.Mutex
 	monitor githubapp.Sink
@@ -202,6 +222,8 @@ func New(st *store.Store, keys security.Keychain, opts Options) (*Service, error
 	if s.now == nil {
 		s.now = time.Now
 	}
+	s.gh.configure(opts)
+	s.google.configure(opts)
 	if s.test == nil {
 		s.test = s.testFor
 	}
@@ -294,6 +316,9 @@ func (s *Service) rowToWire(ctx context.Context, info Info, row integrationRow, 
 	}
 	wire.Status = statusFor(last, tested)
 	wire.Detail = detailFor(last, tested)
+	if info.ID == GitHubID && s.githubNeedsReconnect() {
+		wire.Status, wire.Detail = protocol.IntegrationStatusError, reconnectSentence
+	}
 	return wire
 }
 

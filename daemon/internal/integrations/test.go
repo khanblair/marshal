@@ -110,15 +110,18 @@ func (s *Service) testGitHub(ctx context.Context, info Info) (protocol.TestResul
 	if info.ID != GitHubID {
 		return protocol.TestResult{}, protocol.NotFound("connection").With("id", info.ID)
 	}
+	token, mode, tokErr := s.githubToken(ctx)
+	switch {
+	case tokErr == nil:
+		return s.testGitHubUser(ctx, token, mode), nil
+	case errors.Is(tokErr, ErrGitHubReconnect):
+		return s.githubReconnectTest(), nil
+	case !errors.Is(tokErr, ErrNotConnected):
+		return protocol.TestResult{}, tokErr
+	}
 	app, err := s.appFn(ctx)
 	if errors.Is(err, ErrNotConnected) {
-		return protocol.NewTestResult(info.ID, []protocol.TestCheck{{
-			Name:    CheckSummary,
-			State:   protocol.CheckStateFailed,
-			Message: "Marshal has no GitHub App saved, so it cannot use GitHub.",
-			Fix: "Add the App's id, installation id, private key, and webhook secret in Settings, " +
-				"under Integrations.",
-		}}, s.now()), nil
+		return s.githubNotConnectedTest(), nil
 	}
 	if err != nil {
 		return protocol.TestResult{}, err

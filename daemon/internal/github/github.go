@@ -200,6 +200,13 @@ func (c Check) Passed() bool {
 	return c.Status == "completed" && c.Conclusion == "success"
 }
 
+// ErrNotConnected means no GitHub connection is saved. ErrReconnect means the saved sign-in expired.
+// A client resolved late answers them, so a caller can tell the person what to do.
+var (
+	ErrNotConnected = errors.New("GitHub is not connected")
+	ErrReconnect    = errors.New("the saved GitHub sign-in expired")
+)
+
 // Client is how Marshal talks to a Git forge. A caller builds a pull request, a review comment, or
 // a check request and the implementation makes the HTTP call. Returning a *TokenClient where a
 // Client is wanted is the point: Phase 6's App implementation goes behind the same interface.
