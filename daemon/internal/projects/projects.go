@@ -83,10 +83,8 @@ func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (protoc
 	if err != nil {
 		return protocol.Project{}, notFound(fmt.Errorf("read project %s: %w", id, err), notFoundProject(id))
 	}
-	if in.DefaultBranch != nil {
-		if err := s.checkBranch(ctx, row.RepoPath, strings.TrimSpace(*in.DefaultBranch)); err != nil {
-			return protocol.Project{}, err
-		}
+	if err := s.checkBranches(ctx, row.RepoPath, in); err != nil {
+		return protocol.Project{}, err
 	}
 	changed := false
 	err = s.store.Write(ctx, func(q *db.Queries) error {
@@ -101,7 +99,8 @@ func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (protoc
 		next.UpdatedAt = s.now().UnixMilli()
 		if _, err := q.UpdateProject(ctx, db.UpdateProjectParams{
 			Name: next.Name, DevCommand: next.DevCommand, DefaultBranch: next.DefaultBranch,
-			BypassLocked: next.BypassLocked, UpdatedAt: next.UpdatedAt, ID: id,
+			IntegrationBranch: next.IntegrationBranch, BypassLocked: next.BypassLocked,
+			UpdatedAt: next.UpdatedAt, ID: id,
 		}); err != nil {
 			return fmt.Errorf("update project %s: %w", id, err)
 		}
@@ -151,13 +150,32 @@ func applyUpdate(row db.Project, in UpdateInput) db.Project {
 	if in.DefaultBranch != nil {
 		row.DefaultBranch = strings.TrimSpace(*in.DefaultBranch)
 	}
+	if in.IntegrationBranch != nil {
+		row.IntegrationBranch = strings.TrimSpace(*in.IntegrationBranch)
+	}
 	if in.BypassLocked != nil {
 		row.BypassLocked = intFromBool(*in.BypassLocked)
 	}
 	return row
 }
 
-// checkBranch refuses a default branch that is not a branch of the repository.
+// checkBranches refuses a default or integration branch that is not a branch of the repository.
+// An empty integration branch clears the choice, so there is nothing to look for.
+func (s *Service) checkBranches(ctx context.Context, repo string, in UpdateInput) error {
+	if in.DefaultBranch != nil {
+		if err := s.checkBranch(ctx, repo, strings.TrimSpace(*in.DefaultBranch)); err != nil {
+			return err
+		}
+	}
+	if in.IntegrationBranch != nil {
+		if name := strings.TrimSpace(*in.IntegrationBranch); name != "" {
+			return s.checkBranch(ctx, repo, name)
+		}
+	}
+	return nil
+}
+
+// checkBranch refuses a branch name that is not a branch of the repository.
 func (s *Service) checkBranch(ctx context.Context, repo, name string) error {
 	if !folderExists(repo) {
 		return protocol.Unavailable(messageNoRepoFolder)
@@ -167,7 +185,7 @@ func (s *Service) checkBranch(ctx context.Context, repo, name string) error {
 	}
 	found, err := s.git.BranchExists(ctx, repo, name)
 	if err != nil {
-		return fmt.Errorf("look for the default branch: %w", err)
+		return fmt.Errorf("look for the branch: %w", err)
 	}
 	if !found {
 		return protocol.InvalidArgument("That branch does not exist in the repository.").With("branch", name)

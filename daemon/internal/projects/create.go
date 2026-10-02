@@ -247,9 +247,11 @@ func (s *Service) insertProject(ctx context.Context, in newProject) (protocol.Pr
 		return protocol.Project{}, fmt.Errorf("encode the packages: %w", err)
 	}
 	now := s.now()
+	// The branch the repository is on is where the owner works, so finished cards land there. A
+	// detached HEAD has no branch (CurrentBranch is empty), which leaves the choice to the default.
 	row := db.Project{
 		Name: in.name, RepoPath: in.info.Root, DefaultBranch: in.info.DefaultBranch,
-		Language: in.found.Language, DevCommand: in.found.DevCommand,
+		IntegrationBranch: in.info.CurrentBranch, Language: in.found.Language, DevCommand: in.found.DevCommand,
 		IsMonorepo: intFromBool(in.found.IsMonorepo), PackagesJSON: string(packages),
 		NextCardNumber: 1, CreatedAt: now.UnixMilli(), UpdatedAt: now.UnixMilli(),
 	}
@@ -287,7 +289,7 @@ func writeProject(ctx context.Context, q *db.Queries, row db.Project, board newB
 	}
 	err := q.CreateProject(ctx, db.CreateProjectParams{
 		ID: row.ID, Name: row.Name, RepoPath: row.RepoPath, DefaultBranch: row.DefaultBranch,
-		Language: row.Language, DevCommand: row.DevCommand, BypassLocked: row.BypassLocked,
+		IntegrationBranch: row.IntegrationBranch, Language: row.Language, DevCommand: row.DevCommand, BypassLocked: row.BypassLocked,
 		IsMonorepo: row.IsMonorepo, PackagesJSON: row.PackagesJSON,
 		CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
 	})

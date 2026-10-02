@@ -29,23 +29,29 @@ func toProject(row db.Project, badges protocol.ProjectBadges) (protocol.Project,
 	if packages == nil {
 		packages = []string{}
 	}
+	// The wire carries the effective branch, so a client never has to repeat the fallback.
+	integration := row.IntegrationBranch
+	if integration == "" {
+		integration = row.DefaultBranch
+	}
 	return protocol.Project{
-		ID:            row.ID,
-		Name:          row.Name,
-		Path:          row.RepoPath,
-		Language:      row.Language,
-		DefaultBranch: row.DefaultBranch,
-		DevCommand:    row.DevCommand,
-		BypassLocked:  boolFromInt(row.BypassLocked),
-		IsMonorepo:    boolFromInt(row.IsMonorepo),
-		Packages:      packages,
-		CreatedAt:     store.Timestamp(row.CreatedAt),
-		Badges:        badges,
+		ID:                row.ID,
+		Name:              row.Name,
+		Path:              row.RepoPath,
+		Language:          row.Language,
+		DefaultBranch:     row.DefaultBranch,
+		IntegrationBranch: integration,
+		DevCommand:        row.DevCommand,
+		BypassLocked:      boolFromInt(row.BypassLocked),
+		IsMonorepo:        boolFromInt(row.IsMonorepo),
+		Packages:          packages,
+		CreatedAt:         store.Timestamp(row.CreatedAt),
+		Badges:            badges,
 	}, nil
 }
 
-// toCard builds the wire card from a row and the labels on it. The worktree folder stays server
-// side: it is a path on the daemon's machine, and clients have no use for it.
+// toCard builds the wire card from a row and the labels on it. Worktree is a folder on the
+// daemon's machine, which a card's menu copies or opens.
 //
 // Labels is never nil, so a card with no labels sends [] and never null: a list on the wire is
 // never null, the same rule the agent catalog and a page of results follow.
@@ -83,6 +89,9 @@ func toCard(row db.Card, labels []protocol.Label) protocol.Card {
 		Paused:       boolFromInt(row.Paused),
 		Pinned:       boolFromInt(row.Pinned),
 		Branch:       row.Branch,
+		Worktree:     row.WorktreePath,
+		MergePhase:   protocol.MergePhase(row.MergePhase),
+		MergeNote:    row.MergeNote,
 		CreatedAt:    store.Timestamp(row.CreatedAt),
 		UpdatedAt:    store.Timestamp(row.UpdatedAt),
 	}

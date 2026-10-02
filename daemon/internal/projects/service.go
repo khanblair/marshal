@@ -210,6 +210,8 @@ type Service struct {
 	gateMu sync.RWMutex
 	gate   ReviewGate
 	lists  ChecklistGate
+	// ready is called when a card enters Ready to merge. The Integrator's Enqueue is set here.
+	ready func(ctx context.Context, cardID string)
 	// trust marks a folder as trusted in the agent CLIs' own settings. It is nil in tests.
 	trust func(dir string) error
 }
@@ -327,6 +329,29 @@ func (s *Service) SetChecklistGate(g ChecklistGate) {
 	s.gateMu.Lock()
 	s.lists = g
 	s.gateMu.Unlock()
+}
+
+// SetOnReadyToMerge sets a callback for a card that enters Ready to merge, by a person's move or by
+// the daemon's own. It runs after the move is committed and announced, and it must not block: the
+// Integrator's Enqueue starts its merge in a goroutine. The default is no callback.
+func (s *Service) SetOnReadyToMerge(fn func(ctx context.Context, cardID string)) {
+	s.gateMu.Lock()
+	s.ready = fn
+	s.gateMu.Unlock()
+}
+
+// notifyMoved calls the callback of SetOnReadyToMerge, if there is one, for a card that has just
+// moved to the state `to`. Only a move to Ready to merge is announced.
+func (s *Service) notifyMoved(ctx context.Context, cardID string, to protocol.CardState) {
+	if to != protocol.CardStateReady {
+		return
+	}
+	s.gateMu.RLock()
+	fn := s.ready
+	s.gateMu.RUnlock()
+	if fn != nil {
+		fn(ctx, cardID)
+	}
 }
 
 // checklistGate answers the checklist gate, or nil when none was set.

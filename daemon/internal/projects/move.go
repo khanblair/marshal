@@ -185,6 +185,7 @@ func (s *Service) applyMove(ctx context.Context, card protocol.Card, target prot
 		"from", card.State, "to", target)
 	s.publish(protocol.ProjectTopic(moved.ProjectID), protocol.EventTypeCardMoved,
 		protocol.CardMovedEventData{Card: moved, From: card.State}, true)
+	s.notifyMoved(ctx, moved.ID, target)
 	return moved, nil
 }
 

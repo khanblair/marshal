@@ -97,6 +97,7 @@ func (s *Service) SetState(ctx context.Context, id string, state protocol.CardSt
 	s.publish(protocol.ProjectTopic(card.ProjectID), protocol.EventTypeCardMoved,
 		protocol.CardMovedEventData{Card: card, From: from}, true)
 	s.announceBadges(ctx, card.ProjectID, from, state)
+	s.notifyMoved(ctx, id, state)
 	return card, nil
 }
 
