@@ -28,6 +28,8 @@ export interface Platform {
   readonly canScanCode: boolean;
   /** The text of the QR code that was scanned, or null when it was cancelled or cannot be done. */
   scanCode(): Promise<string | null>;
+  /** Opens a web address in the person's own browser. False when nothing opened, such as a blocked pop-up. */
+  openExternal(url: string): Promise<boolean>;
   /** A short tap. It does nothing where the device has no vibration. */
   haptic(kind: Haptic): void;
   /** Calls the handler with each `marshal://` link that opens the app. Returns a stop function. */

@@ -16,6 +16,17 @@ export function pickFilesWithInput(options: PickOptions = {}): Promise<File[]> {
   });
 }
 
+/**
+ * Opens an address in a new tab. It does not pass `noopener`, which would hide whether the browser
+ * allowed the tab, so the new page is cut loose from this one by hand instead.
+ */
+export function openInNewTab(url: string): Promise<boolean> {
+  const tab = window.open(url, "_blank");
+  if (!tab) return Promise.resolve(false);
+  tab.opener = null;
+  return Promise.resolve(true);
+}
+
 /** A plain browser tab: a file chooser and, where the device has it, a short vibration. */
 export function createWebPlatform(): Platform {
   return {
@@ -25,6 +36,7 @@ export function createWebPlatform(): Platform {
     pickFolder: () => Promise.resolve(null),
     canScanCode: false,
     scanCode: () => Promise.resolve(null),
+    openExternal: openInNewTab,
     haptic(kind) {
       if (typeof navigator !== "undefined" && "vibrate" in navigator) {
         navigator.vibrate(VIBRATE_MS[kind]);

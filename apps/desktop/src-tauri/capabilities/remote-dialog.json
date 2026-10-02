@@ -1,10 +1,10 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "remote-dialog",
-  "description": "The one native capability the daemon's own served page gets, even though it is a remote origin (http://127.0.0.1) and not this app's own bundled frontend: the folder-picker dialog data/desktop.ts's pickFolder calls for New project. Nothing else reaches that origin - no shell, no filesystem, no notifications, no updater - only this one dialog permission, and only from the daemon's fixed loopback port.",
+  "description": "The two native capabilities the daemon's own served page gets, even though it is a remote origin (http://127.0.0.1) and not this app's own bundled frontend: the folder-picker dialog data/desktop.ts's pickFolder calls for New project, and opening an http(s), mailto or tel link in the system browser (platform/desktop.ts's openExternal), because this window has no new windows of its own. Nothing else reaches that origin - no command execution, no filesystem, no notifications, no updater - and only from the daemon's fixed loopback port.",
   "windows": ["main"],
   "remote": {
     "urls": ["http://127.0.0.1:47800/*"]
   },
-  "permissions": ["dialog:allow-open"]
+  "permissions": ["dialog:allow-open", "shell:allow-open"]
 }

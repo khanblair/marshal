@@ -79,6 +79,47 @@ describe("the desktop platform", () => {
   });
 });
 
+describe("opening an address", () => {
+  const URL_TO_OPEN = "https://github.com/login/device";
+  const tab = (): Window => ({ opener: {} }) as unknown as Window;
+  afterEach(() => Reflect.deleteProperty(window, "__TAURI_INTERNALS__"));
+
+  it("opens a browser tab, cut loose from the page, and says so", async () => {
+    const opened = tab();
+    const open = vi.spyOn(window, "open").mockReturnValue(opened);
+    expect(await createPlatform("web").openExternal(URL_TO_OPEN)).toBe(true);
+    // No `noopener` flag, which would hide whether the browser allowed the tab at all.
+    expect(open).toHaveBeenCalledWith(URL_TO_OPEN, "_blank");
+    expect(opened.opener).toBeNull();
+  });
+
+  it("says no when the browser blocked the tab", async () => {
+    vi.spyOn(window, "open").mockReturnValue(null);
+    expect(await createPlatform("web").openExternal(URL_TO_OPEN)).toBe(false);
+  });
+
+  it("asks the desktop shell to open it in the system browser, which has no new windows of its own", async () => {
+    const invoke = vi.fn().mockResolvedValue(null);
+    Object.assign(window, { __TAURI_INTERNALS__: { invoke } });
+    const open = vi.spyOn(window, "open");
+    expect(await createPlatform("desktop").openExternal(URL_TO_OPEN)).toBe(true);
+    expect(invoke).toHaveBeenCalledWith("plugin:shell|open", { path: URL_TO_OPEN });
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it("falls back to a tab when the desktop shell refuses or is not there", async () => {
+    const open = vi.spyOn(window, "open").mockReturnValue(tab());
+    Object.assign(window, {
+      __TAURI_INTERNALS__: { invoke: vi.fn().mockRejectedValue(new Error("not allowed")) },
+    });
+    expect(await createPlatform("desktop").openExternal(URL_TO_OPEN)).toBe(true);
+    expect(open).toHaveBeenCalledWith(URL_TO_OPEN, "_blank");
+    Reflect.deleteProperty(window, "__TAURI_INTERNALS__");
+    expect(await createPlatform("desktop").openExternal(URL_TO_OPEN)).toBe(true);
+    expect(open).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe("the mobile platform", () => {
   it("scans a QR code through the camera plugin after asking for permission", async () => {
     const requestPermissions = vi.fn().mockResolvedValue("granted");
