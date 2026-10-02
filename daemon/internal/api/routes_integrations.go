@@ -204,19 +204,100 @@ func (s *Server) authorizeGoogleCalendar(w http.ResponseWriter, r *http.Request)
 	s.writeJSON(w, http.StatusOK, protocol.AuthorizeURL{URL: url})
 }
 
-// callbackGoogleCalendar is GET /v1/integrations/gcal/callback: where Google's own redirect lands
-// after the owner grants access. It answers plain text - a browser tab, not a screen - and then
-// runs the same test a save is followed by, so the connection's status is current at once.
-func (s *Server) callbackGoogleCalendar(w http.ResponseWriter, r *http.Request) {
-	code, state := r.URL.Query().Get("code"), r.URL.Query().Get("state")
-	if err := s.integrations.FinishGoogleCalendar(r.Context(), code, state); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		_, _ = w.Write([]byte("Google Calendar could not be connected: " + err.Error()))
+// authorizeGmail is GET /v1/integrations/gmail/authorize: Gmail's own consent URL, for the owner's
+// own browser. Gmail has its own consent so Calendar never has to ask for its restricted scope. It
+// answers not-found until the Google OAuth client is saved under Calendar.
+func (s *Server) authorizeGmail(w http.ResponseWriter, r *http.Request) {
+	url, err := s.integrations.AuthorizeGmail(r.Context())
+	if errors.Is(err, integrations.ErrNoGoogleClient) {
+		s.writeError(w, protocol.NotFound("connection").With("id", integrations.GmailID))
 		return
 	}
-	s.integrationsTestAfterConnect(r.Context(), integrations.GCalID)
+	if err != nil {
+		s.writeError(w, translate(err))
+		return
+	}
+	s.writeJSON(w, http.StatusOK, protocol.AuthorizeURL{URL: url})
+}
+
+// callbackGoogleCalendar is GET /v1/integrations/gcal/callback: where Google's own redirect lands
+// after the owner grants access, for Calendar and for Gmail alike (the state says which). It takes
+// no token, because a browser visit carries none; the single-use state is what authorizes it. It
+// answers plain text - a browser tab, not a screen - and then runs the same test a save is followed
+// by, so the connection's status is current at once.
+func (s *Server) callbackGoogleCalendar(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	if problem := r.URL.Query().Get("error"); problem != "" {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte("Google did not grant access (" + problem + "). You can close this tab and try again from Marshal."))
+		return
+	}
+	code, state := r.URL.Query().Get("code"), r.URL.Query().Get("state")
+	id, err := s.integrations.FinishGoogle(r.Context(), code, state)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte("Google could not be connected: " + err.Error()))
+		return
+	}
+	s.integrationsTestAfterConnect(r.Context(), id)
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte("Google Calendar is connected. You can close this tab."))
+	name := "Google Calendar"
+	if id == integrations.GmailID {
+		name = "Gmail"
+	}
+	_, _ = w.Write([]byte(name + " is connected. You can close this tab."))
+}
+
+// googleClientInfo is GET /v1/integrations/gcal/client: whether this build has Marshal's own Google
+// client, so Settings can offer one click, and whether the person saved their own.
+func (s *Server) googleClientInfo(w http.ResponseWriter, r *http.Request) {
+	info, err := s.integrations.GoogleClientInfo(r.Context())
+	if err != nil {
+		s.writeError(w, translate(err))
+		return
+	}
+	s.writeJSON(w, http.StatusOK, info)
+}
+
+// listGoogleCalendars is GET /v1/integrations/gcal/calendars: every calendar the owner has, with
+// whether Marshal reads it. It answers a refusal until Google Calendar is connected.
+func (s *Server) listGoogleCalendars(w http.ResponseWriter, r *http.Request) {
+	choices, err := s.integrations.GoogleCalendars(r.Context())
+	if err != nil {
+		s.writeError(w, s.googleError(err))
+		return
+	}
+	s.writeJSON(w, http.StatusOK, choices)
+}
+
+// setGoogleCalendars is PUT /v1/integrations/gcal/calendars: choose which calendars Marshal reads.
+func (s *Server) setGoogleCalendars(w http.ResponseWriter, r *http.Request) {
+	var req protocol.SetGoogleCalendarsRequest
+	if err := s.decodeJSON(r, &req); err != nil {
+		s.writeError(w, err)
+		return
+	}
+	if err := s.integrations.SetGoogleCalendars(r.Context(), req.IDs); err != nil {
+		s.writeError(w, s.googleError(err))
+		return
+	}
+	choices, err := s.integrations.GoogleCalendars(r.Context())
+	if err != nil {
+		s.writeError(w, s.googleError(err))
+		return
+	}
+	s.writeJSON(w, http.StatusOK, choices)
+}
+
+// googleError turns what reading Google answered into the refusal a person can act on.
+func (s *Server) googleError(err error) error {
+	switch {
+	case errors.Is(err, integrations.ErrNotConnected), errors.Is(err, integrations.ErrNoGoogleClient):
+		return protocol.Refused("Google Calendar is not connected yet. Save the client and grant access first.")
+	case errors.Is(err, integrations.ErrNeedsReconnect):
+		return protocol.Refused("Google no longer accepts Marshal's access. Reconnect Google Calendar in Settings.")
+	}
+	return translate(err)
 }
 
 // writeIntegrations sends the whole list, stamped with the daemon's time. Every connection route but

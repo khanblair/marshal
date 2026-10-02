@@ -104,6 +104,10 @@ const (
 	// because a device is a client rather than a person: the profile is read through the accounts
 	// service, and these are the machines signed in with it.
 	needsDevices
+	// needsIntegration registers the routes that read the merge queue's state and press its pause,
+	// resume, retry, and undo (the Integration view). It is a bit of its own and not part of
+	// needsIntegrator, which is the older route that merges one card.
+	needsIntegration
 	// rawBody marks a route that reads its body as it is and not as JSON, such as an image upload.
 	// It is not a service, and has ignores it.
 	rawBody
@@ -132,6 +136,7 @@ func domainRoutes() []routeSpec {
 	routes = append(routes, ciPreviewAndIntegrationRoutes()...)
 	routes = append(routes, schedulesAndCalendarRoutes()...)
 	routes = append(routes, deviceAndTailnetRoutes()...)
+	routes = append(routes, integrationRoutes()...)
 	return routes
 }
 
@@ -324,7 +329,15 @@ func ciPreviewAndIntegrationRoutes() []routeSpec {
 		{"DELETE /v1/integrations/{id}", needsIntegrations, (*Server).removeIntegration},
 		{"POST /v1/integrations/{id}/test", needsIntegrations | needsConnectionTests, (*Server).testIntegration},
 		{"GET /v1/integrations/gcal/authorize", needsIntegrations, (*Server).authorizeGoogleCalendar},
-		{"GET /v1/integrations/gcal/callback", needsIntegrations, (*Server).callbackGoogleCalendar},
+		{"GET /v1/integrations/gmail/authorize", needsIntegrations, (*Server).authorizeGmail},
+		{"GET /v1/integrations/gcal/client", needsIntegrations, (*Server).googleClientInfo},
+		{"GET /v1/integrations/gcal/calendars", needsIntegrations, (*Server).listGoogleCalendars},
+		{"PUT /v1/integrations/gcal/calendars", needsIntegrations, (*Server).setGoogleCalendars},
+		{"POST /v1/integrations/github/connect", needsIntegrations, (*Server).startGitHubConnect},
+		{"GET /v1/integrations/github/connect", needsIntegrations, (*Server).readGitHubConnect},
+		{"DELETE /v1/integrations/github/connect", needsIntegrations, (*Server).cancelGitHubConnect},
+		{"PUT /v1/integrations/github/token", needsIntegrations, (*Server).saveGitHubToken},
+		{"POST /v1/integrations/github/token/test", needsIntegrations, (*Server).testGitHubToken},
 	}
 }
 
@@ -362,6 +375,20 @@ func deviceAndTailnetRoutes() []routeSpec {
 	}
 }
 
+// integrationRoutes is the Integration view's merge state and its controls, and showing a card's
+// worktree on this machine. Opening a folder needs only the card's own record, so it follows the
+// projects service and not the merge queue.
+func integrationRoutes() []routeSpec {
+	return []routeSpec{
+		{"GET /v1/projects/{id}/integration", needsIntegration, (*Server).integrationState},
+		{"POST /v1/projects/{id}/integration/pause", needsIntegration, (*Server).pauseIntegration},
+		{"POST /v1/projects/{id}/integration/resume", needsIntegration, (*Server).resumeIntegration},
+		{"POST /v1/cards/{id}/merge/retry", needsIntegration, (*Server).retryMerge},
+		{"POST /v1/cards/{id}/merge/undo", needsIntegration, (*Server).undoMerge},
+		{"POST /v1/cards/{id}/worktree/open", needsProjects, (*Server).openWorktree},
+	}
+}
+
 // addDomainRoutes registers the routes whose services the server has. Every one is protected.
 func (s *Server) addDomainRoutes(r *router) {
 	for _, spec := range domainRoutes() {
@@ -378,11 +405,16 @@ func (s *Server) addDomainRoutes(r *router) {
 	}
 }
 
-// has reports whether the server has every service in needs. Split across two checks only to stay
+// has reports whether the server has every service in needs. Split across three checks only to stay
 // under this codebase's cognitive-complexity limit for one function - a route needing a service
-// from either half is treated exactly the same as one whole switch would.
+// from any part is treated exactly the same as one whole switch would.
 func (s *Server) has(needs routeNeeds) bool {
-	return s.hasCoreServices(needs) && s.hasLaterPhaseServices(needs)
+	return s.hasCoreServices(needs) && s.hasLaterPhaseServices(needs) && s.hasMergeFlowServices(needs)
+}
+
+// hasMergeFlowServices checks the merge queue's reader, which the Integration view's routes need.
+func (s *Server) hasMergeFlowServices(needs routeNeeds) bool {
+	return needs&needsIntegration == 0 || s.integration != nil
 }
 
 // hasCoreServices checks the services Phase 1 and 2 routes need.

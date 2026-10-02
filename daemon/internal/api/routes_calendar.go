@@ -2,12 +2,10 @@ package api
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"strconv"
 	"time"
 
-	"github.com/khanblair/marshal/daemon/internal/integrations"
 	"github.com/khanblair/marshal/daemon/internal/protocol"
 )
 
@@ -32,38 +30,33 @@ func (s *Server) calendarRange(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, translate(err))
 		return
 	}
-	events, connected, err := s.calendarEvents(r.Context(), start, end)
-	if err != nil {
-		s.writeError(w, translate(err))
-		return
-	}
-	s.writeJSON(w, http.StatusOK, protocol.NewCalendarList(list, due, events, connected, s.now()))
+	events, google := s.calendarEvents(r.Context(), start, end)
+	s.writeJSON(w, http.StatusOK, protocol.NewCalendarList(list, due, events, google, s.now()))
 }
 
-// calendarEvents reads Google Calendar's events for the range, or answers connected=false with no
-// events when nothing is connected yet - the honest "Not connected" state, never sample data.
-func (s *Server) calendarEvents(ctx context.Context, start, end int64) ([]protocol.CalendarEvent, bool, error) {
+// calendarEvents reads Google Calendar's events for the range. Nothing connected answers an empty
+// list and connected=false - the honest "Not connected" state, never sample data - and a Google that
+// cannot be read answers the last events read, or none, with the reason, so the schedules and due
+// cards beside them are never lost to it.
+func (s *Server) calendarEvents(ctx context.Context, start, end int64) ([]protocol.CalendarEvent, protocol.GoogleReading) {
 	if s.integrations == nil {
-		return nil, false, nil
+		return nil, protocol.GoogleReading{}
 	}
-	client, err := s.integrations.GoogleCalendarClient(ctx)
-	if errors.Is(err, integrations.ErrNotConnected) || errors.Is(err, integrations.ErrNoGoogleClient) {
-		return nil, false, nil
-	}
-	if err != nil {
-		return nil, false, err
-	}
-	found, err := client.Events(ctx, time.UnixMilli(start), time.UnixMilli(end))
-	if err != nil {
-		return nil, false, err
-	}
+	found, reading := s.integrations.GoogleEvents(ctx, time.UnixMilli(start), time.UnixMilli(end))
 	events := make([]protocol.CalendarEvent, len(found))
 	for i, event := range found {
-		events[i] = protocol.CalendarEvent{
+		wire := protocol.CalendarEvent{
 			ID: event.ID, Title: event.Title, Start: protocol.NewTimestamp(event.StartAt),
+			AllDay: event.AllDay, Location: event.Location, URL: event.URL, JoinURL: event.JoinURL,
+			Calendar: event.CalendarName,
 		}
+		if !event.EndAt.IsZero() {
+			end := protocol.NewTimestamp(event.EndAt)
+			wire.End = &end
+		}
+		events[i] = wire
 	}
-	return events, true, nil
+	return events, reading
 }
 
 // calendarRangeOf reads the required start and end query parameters, both epoch milliseconds.
