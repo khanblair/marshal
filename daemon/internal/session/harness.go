@@ -24,19 +24,7 @@ import (
 // guess, and the careful direction is to ask.
 func (m *Manager) harnessConfig(ls *liveSession) (harness.Config, bool) {
 	if ls.isChat() {
-		chat, err := m.store.Queries().GetChat(m.ctx, ls.chatID)
-		if err != nil {
-			if !store.IsNotFound(err) {
-				m.log.Error("could not read a chat to decide a permission request", "chat_id", ls.chatID, "error", err)
-			}
-			return harness.Config{}, false
-		}
-		if chat.PermissionMode == "" {
-			return harness.Config{}, false
-		}
-		return harness.Config{
-			Mode: protocol.PermissionMode(chat.PermissionMode), Profile: m.profile(), Blocklist: m.blocklist,
-		}, true
+		return m.HarnessConfigForChat(ls.chatID)
 	}
 	row, err := m.store.Queries().GetCard(m.ctx, ls.cardID)
 	if err != nil {

@@ -16,7 +16,7 @@ import (
 //
 // The chats module makes the chat and its session row together, in state `starting`, with no agent
 // behind it. Nothing runs until the person says something: the first message starts the agent, in
-// the project's own repository folder and with the settings the chat was made with, and every later
+// the folder and with the role, tools, and settings its kind gives it (chat_spec.go), and every later
 // message goes into the same process. A chat that is archived is put to sleep, and one that nobody
 // has spoken to since the daemon started is not running, so the next message resumes it through the
 // agent's saved session id. That is the same sleep, wake, and resume the cards have, with two
@@ -82,11 +82,12 @@ func (m *Manager) bringUpChat(ctx context.Context, chat protocol.Chat) (*liveSes
 	if err != nil {
 		return nil, err
 	}
-	spec := agents.StartSpec{
-		Cwd: project.Path, Model: chat.Model, Thinking: thinkingOrEmpty(chat.Thinking),
-		PermissionMode: string(chat.PermissionMode), Label: chat.ID,
+	fresh := row.AgentSessionID == ""
+	spec, err := m.chatSpec(ctx, chat, project, fresh)
+	if err != nil {
+		return nil, err
 	}
-	if row.AgentSessionID == "" {
+	if fresh {
 		return m.startChat(ctx, chat, row, spec)
 	}
 	return m.resumeChat(ctx, chat, row, spec)
@@ -191,6 +192,11 @@ func (m *Manager) stopUnregistered(sa startedAgent) {
 func (m *Manager) StopChatSession(ctx context.Context, chatID string) error {
 	unlock := m.chatLocks.Lock(chatID)
 	defer unlock()
+	return m.sleepChatLocked(ctx, chatID)
+}
+
+// sleepChatLocked is StopChatSession for a caller that already holds the chat's lock.
+func (m *Manager) sleepChatLocked(ctx context.Context, chatID string) error {
 	if ls := m.liveOf(chatID); ls != nil {
 		if err := m.endChatProcess(ctx, ls); err != nil {
 			return err
@@ -257,6 +263,7 @@ func (m *Manager) RemoveChatLogs(ctx context.Context, chatID string) error {
 	if err := os.RemoveAll(sessionLogDir(m.cfg.DataDir, row.ID)); err != nil {
 		return fmt.Errorf("remove the log folder of chat %s: %w", chatID, err)
 	}
+	m.detachChat(chatID)
 	m.log.Info("removed a chat's session logs", "chat_id", chatID, "session_id", row.ID)
 	return nil
 }

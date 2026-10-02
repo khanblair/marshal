@@ -113,6 +113,7 @@ func (m *Manager) CheckIdle(ctx context.Context) {
 		m.sweepCard(ctx, ls, cfg, now)
 	}
 	m.sleepExpiredGroups(ctx, now)
+	m.sleepIdleChats(ctx, cfg, now)
 }
 
 // sweepCard decides what one idle time and one card mean together, and is the state diagram of
@@ -266,7 +267,7 @@ func (m *Manager) oldestIdleAwake(ctx context.Context, projectID, exceptCardID s
 }
 
 // liveCardSessions is a snapshot of the live sessions that belong to a card. A chat's session is
-// left out: a chat is never warned and never slept on a timer (section 16.2).
+// left out: a chat is never warned, and only a system chat is slept on a timer (chat_sleep.go).
 func (m *Manager) liveCardSessions() []*liveSession {
 	m.mu.Lock()
 	defer m.mu.Unlock()
