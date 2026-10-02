@@ -1,32 +1,42 @@
-// Package integrator runs Marshal's merge queue (docs/architecture.md section 8,
-// docs/backend-checklist.md B5.5, build-plan 5.8 and 5.9). A card in Ready to merge is merged into
-// the project's default branch one at a time per project, the target branch moving forward only
-// after the merge has been made in a throwaway worktree and its tests have passed.
+// Package integrator runs Marshal's merge queue and its own branch (docs/architecture.md section 8,
+// docs/backend-checklist.md B5.5, build-plan 5.8 and 5.9). A card in Ready to merge is merged, one
+// at a time per project, into the Integrator's own branch in the Integrator's own workspace, tested
+// there, and then delivered to the project's integration branch and to the owner's folder.
 //
-// The order is the one the architecture doc draws:
+// A merge goes through four phases, each announced as a merge.progress event:
 //
-//  1. a dry-run merge, which touches nothing and names the conflicts;
-//  2. a backup branch at the target's tip;
-//  3. a merge inside a temporary worktree;
-//  4. the tests a merge must pass;
-//  5. the target branch moved forward, or aborted with the target untouched.
+//  1. queued, then resolving: the card's branch is merged into the integrator branch. A conflict
+//     goes to the ConflictResolver; without one, or when it is not confident, the card goes to
+//     Needs you;
+//  2. testing: the tests a merge must pass run in the workspace;
+//  3. landing: the integration branch moves to the merged commit. When the owner's folder has that
+//     branch checked out, the folder follows: by Git's own fast-forward when that loses nothing,
+//     otherwise by merging the owner's uncommitted changes into the result (wip.go);
+//  4. done: the card moves to Done and the delivery is written to the history, where it can be
+//     undone while the branch is still where the merge left it.
 //
-// When the merge conflicts, the queue does not guess at a resolution: it names the conflicted files
-// on the card and moves the card to Needs you, which is "the Integrator says so when it is not
-// confident". Resolving a conflict by intent needs the context of every card involved and is a
-// later slice; this queue is the mechanism around it.
+// A merge that stops sends the card to Needs you with the merge phase "stopped" and the reason as
+// its merge note, which is what makes the card retryable. A stop before landing resets the
+// integrator branch to where it was. A delivery that stops (the folder is busy, or the owner's
+// changes clash) keeps the tested merge on the integrator branch, so a retry only delivers.
 //
-// Nothing here pushes anywhere, and the only method that moves a branch moves it forward
-// (gitx.FastForwardRef). Every test runs against a throwaway repository.
+// Nothing here pushes anywhere, no branch moves except forward (an undo is the one move back, by
+// compare-and-swap), and the owner's folder is never reset, checked out over, or cleaned. Every test
+// runs against a throwaway repository.
 package integrator
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"path/filepath"
 	"strings"
+	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/khanblair/marshal/daemon/internal/gitx"
 	"github.com/khanblair/marshal/daemon/internal/keyedlock"
@@ -49,16 +59,23 @@ type Projects interface {
 	Get(ctx context.Context, id string) (protocol.Project, error)
 }
 
-// Git is the part of gitx the queue uses. It is the merge-queue primitives (internal/gitx/merge.go)
-// and nothing else, so a test can drive the whole flow with a fake.
-type Git interface {
-	DryRunMerge(ctx context.Context, repo, into, branch string) (gitx.MergePreview, error)
-	BackupBranch(ctx context.Context, repo, name, from string) error
-	AddMergeWorktree(ctx context.Context, repo, path, base string) error
-	MergeInto(ctx context.Context, worktree, branch, message string) (string, error)
-	FastForwardRef(ctx context.Context, repo, target, commit string) error
-	AbortMerge(ctx context.Context, worktree string) error
-	RemoveWorktree(ctx context.Context, repo, path, root string, force bool) error
+// Publisher sends an event to the clients that follow a topic. The event bus implements it.
+type Publisher interface {
+	Publish(topic, eventType string, data any, critical bool) uint64
+}
+
+// Brief is what the cards module knows about a card's work, for the resolver.
+type Brief struct {
+	// Plan is the card's approved plan, empty when it has none.
+	Plan string
+	// Handoff is the card's handoff note, empty when it has none.
+	Handoff string
+}
+
+// Briefs reads the plan and the handoff note of a card. Nil means the resolver is told only the
+// card's title and description.
+type Briefs interface {
+	Brief(ctx context.Context, cardID string) (Brief, error)
 }
 
 // Outcome is what a test run over a merged branch found. It is deliberately small: the queue only
@@ -77,35 +94,101 @@ type Tester interface {
 	Run(ctx context.Context, worktree string, changed []string) (Outcome, error)
 }
 
+// ChecklistGate says whether a card's required checklists are done. The card panel implements it.
+type ChecklistGate interface {
+	// OpenRequiredItems says how many lines of the card's required checklists are still open.
+	OpenRequiredItems(ctx context.Context, cardID string) (int, error)
+}
+
+// FolderRetry bounds how long a delivery waits for the owner's folder to be free, and how often it
+// reads the folder again when an editor keeps writing to it.
+type FolderRetry struct {
+	// Attempts is how many times it tries. Zero means 4.
+	Attempts int
+	// Wait is how long it waits between tries. Zero means 2 seconds.
+	Wait time.Duration
+}
+
 // Deps are the parts the queue is built from.
 type Deps struct {
 	Cards    Cards
 	Projects Projects
-	Git      Git
+	// Git runs every Git command.
+	Git *gitx.Git
 	// Tests runs the merge's tests. Nil means a clean merge is enough.
 	Tests Tester
 	// Checklists holds a card back while a required checklist is open (B10.5). Nil means none is.
 	Checklists ChecklistGate
-	// DataDir is where the queue's temporary worktrees go: <DataDir>/merge/<project>/<card>.
+	// Resolver resolves conflicts by intent. Nil sends a conflict to Needs you.
+	Resolver ConflictResolver
+	// ResolveTimeout bounds one call to the resolver. Zero means 15 minutes.
+	ResolveTimeout time.Duration
+	// Briefs reads a card's plan and handoff note for the resolver. Nil leaves them empty.
+	Briefs Briefs
+	// Ledger keeps the history, the settings, and the merge progress of cards. Nil keeps the
+	// history and the settings in memory, and writes no progress to the cards.
+	Ledger Ledger
+	// Events receives merge.progress. Nil sends nothing.
+	Events Publisher
+	// Workspace makes the Integrator's workspace. Nil builds the Git one under DataDir.
+	Workspace Workspace
+	// Folder bounds the waits of a delivery into the owner's folder.
+	Folder FolderRetry
+	// DataDir is where the Integrator's workspaces go: <DataDir>/integrator/<project>.
 	DataDir string
+	// Now is the clock. Nil means time.Now.
+	Now func() time.Time
 	// Log is where problems are written. Nil discards.
 	Log *slog.Logger
 }
+
+const (
+	defaultResolveTimeout = 15 * time.Minute
+	defaultFolderAttempts = 4
+	defaultFolderWait     = 2 * time.Second
+	// maxAttempts is how many times a merge starts over when the target branch moves under it.
+	maxAttempts = 3
+)
 
 // Service is the merge queue. It is safe for use by many goroutines; one card at a time per project
 // is held by a per-project lock.
 type Service struct {
 	cards    Cards
 	projects Projects
-	git      Git
+	git      *gitx.Git
 	tests    Tester
 	lists    ChecklistGate
+	resolver ConflictResolver
+	briefs   Briefs
+	ledger   Ledger
+	events   Publisher
+	ws       Workspace
 	dataDir  string
 	log      *slog.Logger
-	locks    keyedlock.Locks
+	now      func() time.Time
+	timeout  time.Duration
+	folder   FolderRetry
+
+	locks keyedlock.Locks
+	idMu  sync.Mutex
+	// qmu guards the cards Enqueue has accepted: waiting by project, and which projects are being
+	// drained by a goroutine.
+	qmu      sync.Mutex
+	waiting  map[string][]string
+	draining map[string]bool
+	// retrying holds the cards whose retry has started and not yet ended.
+	retrying map[string]bool
+	// base is the context the merges that Enqueue starts run in; Close cancels it.
+	base    context.Context
+	cancel  context.CancelFunc
+	wg      sync.WaitGroup
+	closing atomic.Bool
 }
 
-// New builds a Service. Everything but Tests is required.
+var _ Reader = (*Service)(nil)
+
+// New builds a Service. Everything but the tests, the resolver, the ledger, the events, and the
+// briefs is required.
 func New(deps Deps) (*Service, error) {
 	if deps.Cards == nil || deps.Projects == nil || deps.Git == nil {
 		return nil, errors.New("the merge queue needs the cards, the projects, and Git")
@@ -113,35 +196,63 @@ func New(deps Deps) (*Service, error) {
 	if !filepath.IsAbs(deps.DataDir) {
 		return nil, errors.New("the merge queue needs the data folder as a full path")
 	}
-	log := deps.Log
-	if log == nil {
-		log = slog.New(slog.DiscardHandler)
+	s := &Service{
+		cards: deps.Cards, projects: deps.Projects, git: deps.Git, tests: deps.Tests, lists: deps.Checklists,
+		resolver: deps.Resolver, briefs: deps.Briefs, ledger: deps.Ledger, events: deps.Events,
+		ws: deps.Workspace, dataDir: filepath.Clean(deps.DataDir), log: deps.Log, now: deps.Now,
+		timeout: deps.ResolveTimeout, folder: deps.Folder,
+		waiting: map[string][]string{}, draining: map[string]bool{}, retrying: map[string]bool{},
 	}
-	return &Service{
-		cards: deps.Cards, projects: deps.Projects, git: deps.Git,
-		tests: deps.Tests, lists: deps.Checklists, dataDir: filepath.Clean(deps.DataDir), log: log,
-	}, nil
+	s.fillDefaults()
+	if s.ws == nil {
+		ws, err := NewWorkspace(WorkspaceDeps{Projects: s.projects, Git: s.git, DataDir: s.dataDir})
+		if err != nil {
+			return nil, err
+		}
+		s.ws = ws
+	}
+	s.base, s.cancel = context.WithCancel(context.Background())
+	return s, nil
 }
 
-// ChecklistGate says whether a card's required checklists are done. The card panel implements it.
-type ChecklistGate interface {
-	// OpenRequiredItems says how many lines of the card's required checklists are still open.
-	OpenRequiredItems(ctx context.Context, cardID string) (int, error)
+// fillDefaults gives every optional part of a Service its default.
+func (s *Service) fillDefaults() {
+	if s.log == nil {
+		s.log = slog.New(slog.DiscardHandler)
+	}
+	if s.now == nil {
+		s.now = time.Now
+	}
+	if s.ledger == nil {
+		s.ledger = newMemoryLedger()
+	}
+	if s.timeout <= 0 {
+		s.timeout = defaultResolveTimeout
+	}
+	if s.folder.Attempts <= 0 {
+		s.folder.Attempts = defaultFolderAttempts
+	}
+	if s.folder.Wait <= 0 {
+		s.folder.Wait = defaultFolderWait
+	}
 }
 
 // Result says what the queue did.
 type Result struct {
-	// Merged is true when the target branch moved forward.
+	// Merged is true when the card's work is in the target branch.
 	Merged bool
-	// Commit is the merge commit, when there is one.
+	// Commit is the commit the target moved to, when it moved.
 	Commit string
+	// Note is a sentence about the delivery that is not a failure, such as that the owner's folder
+	// is on another branch and so did not change.
+	Note string
 	// Reason is a plain sentence for a person when the merge did not finish.
 	Reason string
 }
 
 // Merge takes one card from Ready to merge to Done, or leaves it in Needs you with a reason, and
-// the project's default branch untouched. One card at a time per project: a second card waits for
-// the first project's merge to finish.
+// the project's integration branch untouched. One card at a time per project: a second card waits
+// for the first project's merge to finish.
 //
 // A card that is not in Ready to merge is refused, because the queue is not a way to merge a card
 // the board has not sent to it.
@@ -151,8 +262,7 @@ func (s *Service) Merge(ctx context.Context, cardID string) (Result, error) {
 		return Result{}, err
 	}
 	if card.State != protocol.CardStateReady {
-		return Result{}, protocol.Refused("Only a card in Ready to merge goes to the merge queue.").
-			With("cardId", cardID).With("reason", "merge_not_ready")
+		return Result{}, refusedNotReady(cardID)
 	}
 	if s.lists != nil {
 		open, err := s.lists.OpenRequiredItems(ctx, cardID)
@@ -164,124 +274,99 @@ func (s *Service) Merge(ctx context.Context, cardID string) (Result, error) {
 				With("cardId", cardID).With("reason", "merge_checklist_open")
 		}
 	}
+	return s.queue(ctx, card, false)
+}
+
+// refusedNotReady is the refusal for a card that the board has not sent to the queue.
+func refusedNotReady(cardID string) *protocol.Error {
+	return protocol.Refused("Only a card in Ready to merge goes to the merge queue.").
+		With("cardId", cardID).With("reason", "merge_not_ready")
+}
+
+// queue waits for the project's turn and runs the card's merge. The card is read again once the lock
+// is held, because it may have left Ready while it waited. A retry is a card a merge stopped.
+func (s *Service) queue(ctx context.Context, card protocol.Card, retry bool) (Result, error) {
 	project, err := s.projects.Get(ctx, card.ProjectID)
 	if err != nil {
 		return Result{}, err
 	}
-	unlock := s.locks.Lock(card.ProjectID)
+	if !retry {
+		s.markQueued(ctx, card)
+	}
+	unlock := s.locks.Lock(project.ID)
 	defer unlock()
-	return s.merge(ctx, card, project)
-}
-
-// merge is Merge's body, run while the project's lock is held.
-func (s *Service) merge(ctx context.Context, card protocol.Card, project protocol.Project) (Result, error) {
-	if strings.TrimSpace(card.Branch) == "" {
-		return s.fail(ctx, card.ID, protocol.NeedsReasonKindConflict,
-			"This card has no branch to merge.")
-	}
-	target := project.DefaultBranch
-	if strings.TrimSpace(target) == "" {
-		return s.fail(ctx, card.ID, protocol.NeedsReasonKindConflict,
-			"This project has no default branch to merge into.")
-	}
-	// The board shows the card as merging from here until it is done or sent back.
-	if _, err := s.cards.SetState(ctx, card.ID, protocol.CardStateMerging); err != nil {
+	fresh, err := s.cards.Card(ctx, card.ID)
+	if err != nil {
 		return Result{}, err
 	}
+	if !mergeable(fresh, retry) {
+		if !retry {
+			s.clearProgress(ctx, fresh, "")
+		}
+		return Result{}, refusedNotReady(card.ID)
+	}
+	return s.run(ctx, fresh, project)
+}
 
-	preview, err := s.git.DryRunMerge(ctx, project.Path, target, card.Branch)
+// mergeable says whether a card may be merged now: a card in Ready to merge, or, for a retry, one that
+// is waiting in Needs you because a merge stopped it.
+func mergeable(card protocol.Card, retry bool) bool {
+	if retry {
+		return card.State == protocol.CardStateNeeds
+	}
+	return card.State == protocol.CardStateReady
+}
+
+// stalled says whether a merge stopped this card and left it for a person: it is in Needs you with
+// the merge phase "stopped".
+func (s *Service) stalled(ctx context.Context, card protocol.Card) bool {
+	if card.State != protocol.CardStateNeeds {
+		return false
+	}
+	rows, err := s.ledger.Stalled(ctx, card.ProjectID)
 	if err != nil {
-		return s.fail(ctx, card.ID, protocol.NeedsReasonKindConflict,
-			"The merge could not be tested: "+err.Error())
+		s.log.Warn("could not read the cards a merge stopped", "project_id", card.ProjectID, "error", err)
+		return false
 	}
-	if !preview.Clean {
-		return s.fail(ctx, card.ID, protocol.NeedsReasonKindConflict, conflictReason(target, preview.Conflicts))
-	}
-
-	// A backup branch keeps the target's tip, so a mistaken move is recoverable. Its name carries
-	// the card's own id, so two merges never share a backup.
-	backup := "marshal/backup/" + target + "-" + shortID(card.ID)
-	if err := s.git.BackupBranch(ctx, project.Path, backup, target); err != nil {
-		// The backup is a safety net, not a requirement: a backup that cannot be made (for
-		// example, one with that name already there) must not stop a merge whose dry run was clean.
-		s.log.Warn("could not make a merge backup branch", "card_id", card.ID, "branch", backup, "error", err)
-	}
-
-	worktree := s.worktreePath(project.ID, card.ID)
-	defer s.cleanWorktree(ctx, project.Path, worktree, project.ID)
-	if err := s.git.AddMergeWorktree(ctx, project.Path, worktree, target); err != nil {
-		return s.fail(ctx, card.ID, protocol.NeedsReasonKindConflict,
-			"The merge worktree could not be made: "+err.Error())
-	}
-	commit, err := s.git.MergeInto(ctx, worktree, card.Branch, mergeMessage(card))
-	if err != nil {
-		if errors.Is(err, gitx.ErrMergeConflict) {
-			_ = s.git.AbortMerge(ctx, worktree)
-			return s.fail(ctx, card.ID, protocol.NeedsReasonKindConflict, conflictReason(target, preview.Conflicts))
-		}
-		_ = s.git.AbortMerge(ctx, worktree)
-		return s.fail(ctx, card.ID, protocol.NeedsReasonKindConflict, "The merge failed: "+err.Error())
-	}
-
-	if s.tests != nil {
-		outcome, err := s.tests.Run(ctx, worktree, preview.Changed)
-		if err != nil {
-			return s.fail(ctx, card.ID, protocol.NeedsReasonKindCIFailed,
-				"The merge queue's tests could not run: "+err.Error()+" The target branch was not changed.")
-		}
-		if !outcome.Passed {
-			summary := outcome.Summary
-			if strings.TrimSpace(summary) == "" {
-				summary = "the tests failed"
-			}
-			return s.fail(ctx, card.ID, protocol.NeedsReasonKindCIFailed,
-				"The merge queue's tests did not pass: "+summary+" The target branch was not changed.")
+	for _, row := range rows {
+		if row.ID == card.ID {
+			return true
 		}
 	}
-
-	// Everything passed. The target moves forward now, and nowhere else.
-	if err := s.git.FastForwardRef(ctx, project.Path, target, commit); err != nil {
-		return s.fail(ctx, card.ID, protocol.NeedsReasonKindConflict,
-			"The target branch could not be moved forward: "+err.Error())
-	}
-	if _, err := s.cards.SetState(ctx, card.ID, protocol.CardStateDone); err != nil {
-		return Result{Merged: true, Commit: commit}, err
-	}
-	s.log.Info("merged a card", "project_id", project.ID, "card_id", card.ID, "branch", card.Branch, "commit", commit)
-	return Result{Merged: true, Commit: commit}, nil
+	return false
 }
 
-// fail moves a card to Needs you with a reason the merge queue found, and returns a Result naming
-// the same sentence. The target branch is untouched in every case that calls it.
-func (s *Service) fail(ctx context.Context, cardID string, kind protocol.NeedsReasonKind, text string) (Result, error) {
-	if _, err := s.cards.SetNeeds(ctx, cardID, protocol.NeedsReason{Kind: kind, Text: text}); err != nil {
-		return Result{}, err
+// isRetrying says whether a retry of the card is under way.
+func (s *Service) isRetrying(cardID string) bool {
+	s.qmu.Lock()
+	defer s.qmu.Unlock()
+	return s.retrying[cardID]
+}
+
+// startRetry marks a card as being retried. It answers false when a retry is already under way.
+func (s *Service) startRetry(cardID string) bool {
+	s.qmu.Lock()
+	defer s.qmu.Unlock()
+	if s.retrying[cardID] {
+		return false
 	}
-	s.log.Warn("the merge queue stopped a card", "card_id", cardID, "reason", text)
-	return Result{Merged: false, Reason: text}, nil
+	s.retrying[cardID] = true
+	return true
 }
 
-// cleanWorktree removes the queue's temporary worktree. It never fails the merge: a leftover folder
-// is a smaller problem than a merge reported as failed after the target moved.
-func (s *Service) cleanWorktree(ctx context.Context, repo, worktree, projectID string) {
-	root := filepath.Join(s.dataDir, "merge", projectID)
-	if err := s.git.RemoveWorktree(ctx, repo, worktree, root, true); err != nil {
-		s.log.Warn("could not remove the merge worktree", "worktree", worktree, "error", err)
-	}
+func (s *Service) endRetry(cardID string) {
+	s.qmu.Lock()
+	defer s.qmu.Unlock()
+	delete(s.retrying, cardID)
 }
 
-// worktreePath is where the queue puts the temporary worktree of one card's merge.
-func (s *Service) worktreePath(projectID, cardID string) string {
-	return filepath.Join(s.dataDir, "merge", projectID, cardID)
-}
-
-// MergeRoot is the folder the queue's temporary worktrees live under, for one project. The daemon
-// and the tests share this one rule, the way they share projects.WorktreesDir.
+// MergeRoot is the folder the old queue's temporary worktrees lived under, for one project. The
+// Integrator's own workspace is WorkspaceDir.
 func MergeRoot(dataDir, projectID string) string {
 	return filepath.Join(dataDir, "merge", projectID)
 }
 
-// conflictReason is the sentence a person reads when a merge conflicts.
+// conflictReason is the sentence a person reads when a merge conflicts and nothing resolves it.
 func conflictReason(target string, conflicts []string) string {
 	files := "a file"
 	if len(conflicts) > 0 {
@@ -308,3 +393,13 @@ func shortID(id string) string {
 	}
 	return id[:8]
 }
+
+// newID makes an opaque id from the clock and the system's entropy.
+func (s *Service) newID() (string, error) {
+	s.idMu.Lock()
+	defer s.idMu.Unlock()
+	return protocol.NewID(s.now(), entropy())
+}
+
+// entropy is where ids get their random part.
+func entropy() io.Reader { return rand.Reader }
