@@ -67,7 +67,7 @@ pnpm dev
 
 This builds the stub agent first, then starts two things in parallel, with their output labeled in one terminal:
 
-1. **The daemon** in dev mode, through `air`, so it restarts when you save a Go file. It starts with `--dev --fixture prototype`, so the three prototype projects are there.
+1. **The daemon** in dev mode, through `air`, so it restarts when you save a Go file. It starts with `--dev`, so it shows your own projects and nothing else. To get the three prototype projects as well, start it with `MARSHAL_FIXTURE=prototype pnpm dev`.
 2. **The Vite dev server** for the UI, which reloads the page as you edit.
 
 Then open the printed local address in your browser. Most UI work happens here, in a normal browser, because it is the fastest loop.
@@ -119,7 +119,7 @@ The browser gets the dev token from the Vite dev server, so there is nothing to 
 | `MARSHAL_PORT` | 47801 | Use another port |
 | `MARSHAL_AGENT` | `stub` | Set to `real` to use installed CLI agents |
 | `MARSHAL_LOG_LEVEL` | `debug` | `debug`, `info`, `warn`, or `error` |
-| `MARSHAL_FIXTURE` | none | Load a fixture on start (or pass `--fixture`). The only one is `prototype`: the three projects the prototype shows, `api-gateway`, `web-dashboard`, and `mobile-app`, as real Git repositories under `<data>/fixtures`. It is safe on every start, and it loads in dev mode only (a normal install ignores it). `pnpm dev` passes it. See below |
+| `MARSHAL_FIXTURE` | none | Load a fixture on start (or pass `--fixture`). The only one is `prototype`: the three projects the prototype shows, `api-gateway`, `web-dashboard`, and `mobile-app`, as real Git repositories under `<data>/fixtures`. It is safe on every start, and it loads in dev mode only (a normal install ignores it). `pnpm dev` no longer passes it: set it yourself to get the prototype data. See below |
 
 With `MARSHAL_FIXTURE=prototype` the daemon makes the repositories from `daemon/testdata/repos` (`small-repo` twice, `monorepo` once), gives each one a single commit with a fixed author and date, and adds them as the projects `api`, `web`, and `mobile`. It also writes the prototype's 29 cards (11 in `api`, 9 in `web`, 9 in `mobile`) with their numbers, states, labels, dates, pull requests, CI states, and needs-you reasons, and a session row for each of the 20 cards that has started, so the screens look as they do in the prototype. **Those sessions have no agent process behind them, and a daemon with a fixture loaded does not restore sessions on start**, so nothing runs until a person starts a card themselves. A project that already exists is left alone. The fixture finds `daemon/testdata/repos` from the checkout the daemon was built from, so run a daemon built from a checkout (`pnpm dev` does). If it cannot load, the daemon logs a warning and starts without it. The project language and packages are what detection finds in those repositories (for example `JavaScript` for the two small ones), not the hand-picked labels of the mock data.
 
@@ -156,6 +156,36 @@ You have two options:
 
 - **Real webhooks through Funnel.** Not built yet: the daemon has no `--tailnet` flag, so Funnel and `marshal-dev` on your tailnet are Phase 9 work. Replay recorded webhooks until then.
 
+### 3.7a Connecting Google Calendar and Gmail
+
+Marshal reads your Google Calendar (and, if you want, a Gmail label) with read-only access. A person connects it with one button, **Connect with Google**, and pastes nothing. That works when the build has **Marshal's own Google client**; without one, Settings asks the person to make a client of their own (see "Without Marshal's client" below).
+
+**Making Marshal's own Google client (once, by whoever publishes Marshal)**
+
+1. In the Google Cloud console, make a project for Marshal and turn on the **Google Calendar API** and the **Gmail API**.
+2. Under **OAuth consent screen**, choose **External**. Give it Marshal's name, a homepage, a privacy policy address, and your contact address. Add the scopes `calendar.readonly` and `gmail.readonly`.
+3. Under **Credentials**, make an **OAuth client ID** of type **Desktop app**. Google accepts any `http://127.0.0.1:<port>` return address for that type, so the dev daemon (47801) and the installed app (47800) both work. A Desktop app's secret is not confidential to Google, which is why it is allowed to ship inside the app.
+4. Hand the client to the build:
+   - **Release builds:** add the repository secrets `MARSHAL_GOOGLE_CLIENT_ID` and `MARSHAL_GOOGLE_CLIENT_SECRET`. `release.yml` writes them to `daemon/internal/integrations/googleclient/files/client.json` (which is not in git) before the daemon is compiled.
+   - **Your own dev daemon:** set `MARSHAL_GOOGLE_CLIENT_ID` and `MARSHAL_GOOGLE_CLIENT_SECRET`, or put the same `{"clientId": "...", "clientSecret": "..."}` in `client.json` before building.
+
+**Who can use it, and when it is smooth**
+
+- While the app's publishing status is **Testing**, only the test users you list can connect, and Google expires their access after about a week (Marshal then says "Reconnect Google Calendar").
+- Set the status to **In production** so anyone can connect. Until Google **verifies** the app, each person sees an "unverified app" warning, and Google caps unverified apps at 100 users. `calendar.readonly` is a sensitive scope: verification asks for the privacy policy, the homepage, and a short demo video of the consent and what it is used for.
+- `gmail.readonly` is a restricted scope. Letting other people use it through Marshal's client needs Google's yearly security assessment. Until then Gmail works for you and your test users only, and anyone else can use Gmail with a client of their own.
+
+**Without Marshal's client (a build with none, or a person who prefers their own)**
+
+Settings, Integrations, Google Calendar shows the four steps and a form: make a project, turn on the Calendar API, set up the consent screen and add yourself as a test user, then make a **Desktop app** OAuth client and paste its id and secret. **Save and grant access** does both in one go. A client the person saved is always the one used.
+
+**Using it**
+
+- Grant access in your own browser on the computer that runs Marshal, because Google sends the browser back to that computer's own daemon. A phone cannot finish it, and then says so; it shows the events once connected.
+- Calendar asks for `calendar.readonly` only. **Gmail** is a separate row with its own **Grant access**, asking for `gmail.readonly` alone.
+- Once connected, the row lists every calendar you have, with a tick for each one Marshal reads. Until you choose, the ticks follow what is ticked in Google Calendar itself.
+- Marshal uses the calendar for the calendar view and Home's "Coming up today", the calendar part of the morning and evening briefs, schedules with the **Event** trigger (for example "When 30 minutes before my first calendar event", or "When a calendar event named "Morning brief" starts"), and **Stay quiet during calendar events** under Settings, Alerts. Events are read at most once a minute and kept for that minute; if Google cannot be reached, the last events read are shown and marked as old.
+
 ### 3.8 Testing on phones and tablets
 
 - **In the browser:** use the browser's device mode for quick checks at phone and tablet sizes.
@@ -188,7 +218,7 @@ Add `--dev` to any of these to manage the dev daemon's own, separate service ins
 
 | Command | What it does |
 |---|---|
-| `pnpm dev` | Build the stub agent, then daemon and web UI with reload (dev daemon, prototype fixture) |
+| `pnpm dev` | Build the stub agent, then daemon and web UI with reload (dev daemon, your own data; add `MARSHAL_FIXTURE=prototype` for the prototype projects) |
 | `pnpm dev:daemon` | Only the daemon, with reload |
 | `pnpm dev:web` | Only the Vite dev server |
 | `pnpm gen` | Run all code generators (tokens, the UI index, the sqlc queries, the protocol types) |

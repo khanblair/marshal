@@ -98,6 +98,20 @@ jobs:
       # `pnpm --filter desktop build` runs bundle-sidecar.mjs itself, which builds it and, the
       # first time apps/web/dist is missing, the web app too; running the web build explicitly
       # first just avoids relying on that fallback in CI.
+      # Marshal's own Google OAuth client, so a person connects Google Calendar with one click. It is
+      # a repository secret, never in git; the daemon embeds the file when it is built below. With no
+      # secrets set the build has no Google client of its own, and Settings asks for one instead.
+      - name: Put Marshal's own Google client in the build
+        env:
+          GOOGLE_CLIENT_ID: ${{ secrets.MARSHAL_GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.MARSHAL_GOOGLE_CLIENT_SECRET }}
+        run: |
+          if [ -n "$GOOGLE_CLIENT_ID" ] && [ -n "$GOOGLE_CLIENT_SECRET" ]; then
+            node -e "require('fs').writeFileSync('daemon/internal/integrations/googleclient/files/client.json', JSON.stringify({clientId: process.env.GOOGLE_CLIENT_ID, clientSecret: process.env.GOOGLE_CLIENT_SECRET}))"
+          else
+            echo "No Google client secrets: this build has no built-in Google sign-in."
+          fi
+
       - run: pnpm gen
       - run: pnpm --filter web build
       - run: node scripts/copy-web-dist.mjs
