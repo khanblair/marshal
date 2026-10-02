@@ -121,6 +121,28 @@ describe("reading the open card's history", () => {
     });
   });
 
+  it("still draws the chat and the activity when the card's note cannot be read", async () => {
+    // The daemon answers "nothing at that address" for the note, as it did when the module was not
+    // wired in: the failed read must not take the chat with it.
+    daemon = createFakeDaemon({ projects: PROTOTYPE_PROJECTS, cards: [CARD], history });
+    daemon.data.api.note = async () => {
+      throw new Error("Marshal has nothing at that address.");
+    };
+    const M = createTestMarshal({
+      data: daemon.data,
+      sections: { ...SECTIONS, S14: "daemon" as const },
+    });
+    await daemon.connect();
+    await vi.waitFor(() => expect(M.S.ready).toBe(true));
+    const ctx = contextOf(M);
+    const card = ctx.S.cards.find((one) => one.id === KEY)!;
+    ctx.S.openId = KEY;
+    await readOpenCard(ctx, daemon.data.api, card, KEY);
+    expect(ctx.S.chat[KEY]?.map((one) => one.id)).toEqual(["m1", "m2", "m3"]);
+    expect(ctx.S.act[KEY]?.map((one) => one.id)).toEqual(["a1"]);
+    expect(ctx.S.notes?.[KEY]).toBeUndefined();
+  });
+
   it("reads no note while section S14 is still the mock's", async () => {
     const { ctx, d } = await storeWithHistory(NOTES_ON_MOCK);
     ctx.S.openId = KEY;

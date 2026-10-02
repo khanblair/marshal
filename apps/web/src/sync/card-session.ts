@@ -34,6 +34,14 @@ const FIRST_PAGE = 50;
 const cardTopic = (daemonId: string): string => `card:${daemonId}`;
 
 /**
+ * One read of the open card's panel, on its own: when it fails (a note the daemon cannot read, a
+ * preview that is down) that part keeps what it had and the others still draw. Without this, one
+ * failed read left the chat empty.
+ */
+const apart = <T>(read: Promise<T> | null): Promise<T | null> =>
+  read ? read.catch(() => null) : Promise.resolve(null);
+
+/**
  * Reads the open card's chat and its activity from the daemon, where the screens read them from the
  * store. Only the section that is on the daemon is read, so a card whose chat is still the mock's
  * keeps what the store already holds.
@@ -56,20 +64,20 @@ export async function readOpenCard(
   // The panel's checks, checklists, comments, and members (S12, S15, S16) are read beside the rest.
   const panel = readPanel(ctx, api, daemonId, key);
   const [messages, activity, checkpoints, preview, note] = await Promise.all([
-    wantsChat ? api.messages(daemonId, { limit: FIRST_PAGE }) : null,
-    wantsActivity ? api.activity(daemonId, { limit: FIRST_PAGE }) : null,
+    apart(wantsChat ? api.messages(daemonId, { limit: FIRST_PAGE }) : null),
+    apart(wantsActivity ? api.activity(daemonId, { limit: FIRST_PAGE }) : null),
     // A card's restore points are read with its activity, because that is the tab they are drawn in
     // (B5.3). They are the daemon's own commits, so a card that never started has none.
-    wantsActivity ? api.checkpoints(daemonId) : null,
+    apart(wantsActivity ? api.checkpoints(daemonId) : null),
     // A card's live preview (section S13) is read when the card opens. Reading it starts nothing, so
     // opening a card never starts a dev server on the person's machine.
-    wantsPreview ? api.preview(daemonId) : null,
+    apart(wantsPreview ? api.preview(daemonId) : null),
     // A card's note (section S14) is read when the card opens, the same as a card's activity is:
     // reading never writes one, so opening a card a person has never written a note on leaves no
     // file behind (`card-note.ts`'s `ensureNote` no longer does that once S14 is the daemon's).
-    wantsNote ? api.note(daemonId) : null,
+    apart(wantsNote ? api.note(daemonId) : null),
   ]);
-  await panel;
+  await panel.catch(() => undefined);
   // The card may have been closed, or another one opened, while the daemon was answering.
   if (ctx.S.openId !== key) return;
   if (messages) ctx.S.chat[key] = toStoredMessages(messages.items);
