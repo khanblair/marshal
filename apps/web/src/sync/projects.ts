@@ -23,7 +23,15 @@ const NEW_PROJECT_LIMITS = { day: 8, month: 120, awake: 6 };
 /** The fields the daemon fills. The mock-only ones (`ci`, `ciAgo`, `monthBase`, `runs`) are never touched. */
 type Mirrored = Pick<
   Project,
-  "id" | "name" | "lang" | "path" | "packages" | "branch" | "dev" | "lockBypass"
+  | "id"
+  | "name"
+  | "lang"
+  | "path"
+  | "packages"
+  | "branch"
+  | "integrationBranch"
+  | "dev"
+  | "lockBypass"
 >;
 
 function mirrored(project: DaemonProject): Mirrored {
@@ -34,6 +42,7 @@ function mirrored(project: DaemonProject): Mirrored {
     path: project.path,
     packages: project.packages,
     branch: project.branch,
+    integrationBranch: project.integrationBranch,
     dev: project.dev,
     lockBypass: project.lockBypass,
   };
@@ -48,6 +57,9 @@ function update(target: Project, next: Mirrored): void {
   if (target.lang !== next.lang) target.lang = next.lang;
   if (target.path !== next.path) target.path = next.path;
   if (target.branch !== next.branch) target.branch = next.branch;
+  if (target.integrationBranch !== next.integrationBranch) {
+    target.integrationBranch = next.integrationBranch;
+  }
   if (target.dev !== next.dev) target.dev = next.dev;
   if (target.lockBypass !== next.lockBypass) target.lockBypass = next.lockBypass;
   if (!sameList(target.packages, next.packages)) target.packages = next.packages;

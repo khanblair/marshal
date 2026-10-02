@@ -21,6 +21,8 @@ export type AddProjectResult = { id: string } | { error: string };
 export interface ProjectSettings {
   name: string;
   branch: string;
+  /** The integration branch. Empty clears the choice, so the default branch is used again. */
+  integrationBranch: string;
   dev: string;
   lockBypass: boolean;
 }
@@ -98,11 +100,18 @@ export async function renameProject(ctx: Ctx, id: string, name: string): Promise
   });
 }
 
+/** The integration branch a project shows: its own, else the default branch. */
+const integrationOf = (project: Project): string =>
+  project.integrationBranch ?? project.branch ?? "";
+
 /** Only what changed goes to the daemon, so a save cannot undo another device's edit of another field. */
 function changesOf(project: Project, next: ProjectSettings): UpdateProjectRequest {
   const body: UpdateProjectRequest = {};
   if (next.name !== project.name) body.name = next.name;
   if (next.branch !== (project.branch ?? "")) body.defaultBranch = next.branch;
+  if (next.integrationBranch !== integrationOf(project)) {
+    body.integrationBranch = next.integrationBranch;
+  }
   if (next.dev !== (project.dev ?? "")) body.devCommand = next.dev;
   if (next.lockBypass !== !!project.lockBypass) body.bypassLocked = next.lockBypass;
   return body;
@@ -117,16 +126,19 @@ export async function saveProject(ctx: Ctx, id: string, next: ProjectSettings): 
   const old: ProjectSettings = {
     name: project.name,
     branch: project.branch ?? "",
+    integrationBranch: integrationOf(project),
     dev: project.dev ?? "",
     lockBypass: !!project.lockBypass,
   };
   const set = (values: ProjectSettings) => () => {
     batch(() => Object.assign(project, values));
   };
+  // An empty integration branch means the default branch, so that is what shows meanwhile.
+  const shown = { ...next, integrationBranch: next.integrationBranch || next.branch };
   return attempt(ctx, async (api) => {
     const updated = await ctx.optimistic({
       key: `update:${id}`,
-      apply: set(next),
+      apply: set(shown),
       request: () => api.updateProject(id, body),
       rollback: set(old),
     });

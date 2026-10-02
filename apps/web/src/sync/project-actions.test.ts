@@ -114,7 +114,13 @@ describe("renameProject", () => {
 });
 
 describe("saveProject", () => {
-  const same = { name: "api-gateway", branch: "main", dev: "", lockBypass: false };
+  const same = {
+    name: "api-gateway",
+    branch: "main",
+    integrationBranch: "main",
+    dev: "",
+    lockBypass: false,
+  };
 
   it("sends only the fields that changed, and toasts when the daemon has them", async () => {
     const { M, d } = await setup();
@@ -135,15 +141,32 @@ describe("saveProject", () => {
       "That branch does not exist in the repository.",
     );
     expect(
-      await M.saveProject("api", { name: "Renamed", branch: "nope", dev: "x", lockBypass: true }),
+      await M.saveProject("api", {
+        name: "Renamed",
+        branch: "nope",
+        integrationBranch: "nowhere",
+        dev: "x",
+        lockBypass: true,
+      }),
     ).toBe(false);
     expect(M.proj("api")).toMatchObject({
       name: "api-gateway",
       branch: "main",
+      integrationBranch: "main",
       dev: "",
       lockBypass: false,
     });
     expect(toasts(M)).toEqual(["That branch does not exist in the repository."]);
+  });
+
+  it("sends the integration branch, and an empty one clears the choice", async () => {
+    const { M, d } = await setup();
+    expect(await M.saveProject("api", { ...same, integrationBranch: "development" })).toBe(true);
+    expect(d.bodies("PATCH /v1/projects/api")).toEqual([{ integrationBranch: "development" }]);
+    expect(M.proj("api")?.integrationBranch).toBe("development");
+    expect(await M.saveProject("api", { ...same, integrationBranch: "" })).toBe(true);
+    expect(d.bodies("PATCH /v1/projects/api")[1]).toEqual({ integrationBranch: "" });
+    expect(M.proj("api")?.integrationBranch).toBe("main");
   });
 
   it("asks for nothing when nothing changed", async () => {

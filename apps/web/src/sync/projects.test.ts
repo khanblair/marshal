@@ -91,6 +91,18 @@ describe("applyProjectSnapshot", () => {
     });
   });
 
+  it("keeps the integration branch beside the default branch, and follows a change of it", () => {
+    const ctx = emptyStore();
+    const [first] = prototype;
+    if (!first) throw new Error("the prototype has no project");
+    applyProjectSnapshot(ctx, [{ ...first, integrationBranch: "development" }]);
+    const row = ctx.S.projects[0];
+    expect(row).toMatchObject({ branch: "main", integrationBranch: "development" });
+    applyProjectSnapshot(ctx, [{ ...first, integrationBranch: "trunk" }]);
+    expect(ctx.S.projects[0]).toBe(row);
+    expect(row?.integrationBranch).toBe("trunk");
+  });
+
   it("shows only the mock records of the projects that exist", () => {
     const ctx = emptyStore();
     applyProjectSnapshot(ctx, only("web"));

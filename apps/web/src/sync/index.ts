@@ -18,6 +18,7 @@ import { followDeepLinks } from "./deep-links";
 import { devicesSyncer } from "./devices";
 import { homeFeedSyncer } from "./home-feed";
 import { homeStatsSyncer } from "./home-stats";
+import { applyMergeFlowEvent, followMergeFlow } from "./integration-flow";
 import { integrationsSyncer } from "./integrations";
 import { limitsSyncer } from "./limits";
 import { noticesSyncer } from "./notices";
@@ -221,6 +222,8 @@ export function startSync(ctx: Ctx, syncers: readonly Syncer[] = SYNCERS): SyncC
   // card's terminal output is never replayed either (docs/architecture.md 11.2).
   let rereadChat: () => void = () => undefined;
   let resendTerminal: () => void = () => undefined;
+  // Reads the merge flow of the project whose Integration view is shown (`integration-flow.ts`).
+  let rereadMergeFlow: () => void = () => undefined;
   const stops = [
     data.onEvents((events) =>
       batch(() => {
@@ -241,6 +244,8 @@ export function startSync(ctx: Ctx, syncers: readonly Syncer[] = SYNCERS): SyncC
           applyPanelEvent(ctx, event);
           // A card's live preview changing state (section S13) arrives on the card's own topic too.
           applyPreviewEvent(ctx, event);
+          // A merge moved on, or a card entered or left the queue (the Integration view).
+          applyMergeFlowEvent(ctx, event);
           for (const syncer of active) syncer.onEvent?.(ctx, event);
         }
       }),
@@ -249,11 +254,13 @@ export function startSync(ctx: Ctx, syncers: readonly Syncer[] = SYNCERS): SyncC
       void reload();
       rereadChat();
       resendTerminal();
+      rereadMergeFlow();
     }),
     data.connection.onReconnected(() => {
       void reload();
       rereadChat();
       resendTerminal();
+      rereadMergeFlow();
     }),
     // A card's terminal channel answered or refused (`card-view.ts`'s `applyTerminalFrame`), for
     // whichever card asked for it — only the open one ever does, since `followOpenCardTerminal`'s
@@ -270,6 +277,8 @@ export function startSync(ctx: Ctx, syncers: readonly Syncer[] = SYNCERS): SyncC
     // The open card's real terminal (section S9), registered after `followOpenCard` so its own
     // topic is already followed by the time this asks for a snapshot on the same socket.
     resendTerminal = followOpenCardTerminal(ctx, data.api, data.stream);
+    // The merge flow of the project whose Integration view is shown, and the actions that act on it.
+    rereadMergeFlow = followMergeFlow(ctx);
     // What a section does between snapshots, such as saving a preference the person changed.
     const stopped = active.flatMap((syncer) => syncer.start?.(ctx, data.api) ?? []);
     // The links that open the app at a card or a shared note, from a notice or another app.
