@@ -1,4 +1,4 @@
-import type { IntegrationList, SaveGitHubRequest } from "@marshal/protocol";
+import type { IntegrationList } from "@marshal/protocol";
 import { unwrap } from "solid-js/store";
 import { afterEach, describe, expect, it } from "vitest";
 import type { ApiClient } from "~/data/api-client";
@@ -19,7 +19,9 @@ import {
 // syncer publishes no topic and its snapshot is the same answer a save gets back.
 
 const list = golden<IntegrationList>("integration-list");
-const SAVE: SaveGitHubRequest = golden<SaveGitHubRequest>("save-github-request");
+/** A pasted token, as a person types it. It is synthetic: the fake daemon never reaches GitHub. */
+const TOKEN = "ghp_synthetic0token0for0tests";
+const TOKEN_BODY = { token: TOKEN };
 
 let daemon: FakeDaemon | null = null;
 afterEach(() => {
@@ -141,12 +143,12 @@ describe("the connections with a daemon", () => {
     expect(row(M, "github").st).toBe("none");
   });
 
-  it("stores the App's settings and keeps the whole list the save answers", async () => {
+  it("stores a token and keeps the whole list the save answers", async () => {
     const d = createFakeDaemon();
     daemon = d;
     const M = await createSyncedMarshal(d);
-    expect(await M.connectGitHub(SAVE)).toBe(true);
-    expect(d.bodies("PUT /v1/integrations/github")).toEqual([SAVE]);
+    expect(await M.saveGitHubToken(TOKEN_BODY)).toEqual({ saved: true });
+    expect(d.bodies("PUT /v1/integrations/github/token")).toEqual([TOKEN_BODY]);
     expect(row(M, "github").st).toBe("connected");
     // The row's sentence is the one its own passing test wrote into its Summary check, as the
     // daemon derives it (`integrations.go`'s `detailFor`).
@@ -166,27 +168,138 @@ describe("the connections with a daemon", () => {
     const d = createFakeDaemon();
     daemon = d;
     const M = await createSyncedMarshal(d);
-    await M.connectGitHub(SAVE);
-    // The whole App setup goes up, key and secret and all: no part of it is any use alone.
-    expect(d.bodies("PUT /v1/integrations/github")).toEqual([SAVE]);
-    // What the store holds afterwards carries neither the key nor the secret, which never leave the
-    // daemon's keychain: only the status, the sentence, and the last test's checks come back.
-    expect(JSON.stringify(M.S.integrations)).not.toContain("PRIVATE KEY");
-    expect(JSON.stringify(M.S.integrations)).not.toContain(SAVE.webhookSecret);
+    await M.saveGitHubToken(TOKEN_BODY);
+    expect(d.bodies("PUT /v1/integrations/github/token")).toEqual([TOKEN_BODY]);
+    // What the store holds afterwards carries no token, which never leaves the daemon's keychain:
+    // only the status, the sentence, and the last test's checks come back.
+    expect(JSON.stringify(M.S.integrations)).not.toContain(TOKEN);
+    expect(JSON.stringify(await M.readGitHubConnect())).not.toContain(TOKEN);
     expect(row(M, "github").lastTest?.checks.at(-1)?.message).toBe("A ping reached Marshal.");
   });
 
-  it("shows the daemon's own sentence and keeps what it had when the settings are refused", async () => {
+  it("answers the daemon's own sentence and keeps what it had when a token is refused", async () => {
     const d = createFakeDaemon({
-      integrationSaveRefused: () => "That does not look like a private key.",
+      integrationSaveRefused: () => "GitHub did not accept that token.",
     });
     daemon = d;
     const M = await createSyncedMarshal(d);
-    expect(await M.connectGitHub(SAVE)).toBe(false);
-    expect(M.S.toasts.map((toast) => toast.msg)).toEqual([
-      "That does not look like a private key.",
-    ]);
+    expect(await M.saveGitHubToken(TOKEN_BODY)).toEqual({
+      error: "GitHub did not accept that token.",
+    });
+    // The sentence goes to the dialog beside the field, not to a toast.
+    expect(M.S.toasts).toEqual([]);
     expect(row(M, "github").st).toBe("none");
+  });
+
+  it("tests a token without saving anything", async () => {
+    const d = createFakeDaemon();
+    daemon = d;
+    const M = await createSyncedMarshal(d);
+    const result = await M.testGitHubToken(TOKEN_BODY);
+    expect(result).toMatchObject({ ok: true });
+    expect(d.bodies("POST /v1/integrations/github/token/test")).toEqual([TOKEN_BODY]);
+    // Nothing was stored: the row is still not connected and there was no save.
+    expect(row(M, "github").st).toBe("none");
+    expect(d.routes()).not.toContain("PUT /v1/integrations/github/token");
+  });
+
+  it("says what is wrong with a token the test refuses, in a failed check", async () => {
+    const d = createFakeDaemon({
+      integrationSaveRefused: () => "GitHub did not accept that token.",
+    });
+    daemon = d;
+    const M = await createSyncedMarshal(d);
+    const result = await M.testGitHubToken(TOKEN_BODY);
+    if ("error" in result) throw new Error("the test ran, so it answers a result");
+    expect(result.ok).toBe(false);
+    expect(result.checks[0]).toMatchObject({
+      name: "Token",
+      state: "failed",
+      message: "GitHub did not accept that token.",
+    });
+  });
+
+  it("starts a sign-in and answers the code to type, as a connection the screen can read", async () => {
+    const d = createFakeDaemon();
+    daemon = d;
+    const M = await createSyncedMarshal(d);
+    const answer = await M.startGitHubConnect();
+    expect(d.routes()).toContain("POST /v1/integrations/github/connect");
+    expect(answer).toMatchObject({
+      state: "pending",
+      userCode: "WDJB-MJHT",
+      verificationUri: "https://github.com/login/device",
+      installations: [],
+    });
+    // The wire's timestamp is milliseconds here, like every other time the screens read.
+    expect("error" in answer ? 0 : answer.expiresAt).toBeGreaterThan(Date.now());
+  });
+
+  it("reads the sign-in on, and reads the list again the first time it says connected", async () => {
+    const d = createFakeDaemon();
+    daemon = d;
+    const M = await createSyncedMarshal(d);
+    await M.startGitHubConnect();
+    d.integrations.github.script.push({
+      state: "connected",
+      mode: "oauth",
+      login: "ada",
+      installations: [{ account: "ada", kind: "user", allRepositories: true }],
+    });
+    const lists = () => d.routes().filter((route) => route === "GET /v1/integrations").length;
+    const before = lists();
+    expect(row(M, "github").st).toBe("none");
+    const answer = await M.readGitHubConnect();
+    expect(answer).toMatchObject({ state: "connected", mode: "oauth", login: "ada" });
+    // The connect routes answer the sign-in, not the list, so the row needs its own read.
+    expect(lists()).toBe(before + 1);
+    expect(row(M, "github").st).toBe("connected");
+    expect(row(M, "github").lastTest?.ok).toBe(true);
+    // The next read finds the row and the daemon agreeing, and asks for nothing more.
+    await M.readGitHubConnect();
+    expect(lists()).toBe(before + 1);
+  });
+
+  it("reads a stored token connection when no sign-in is under way, and nothing before one", async () => {
+    const d = createFakeDaemon();
+    daemon = d;
+    const M = await createSyncedMarshal(d);
+    expect(await M.readGitHubConnect()).toEqual({ state: "idle", installations: [] });
+    await M.saveGitHubToken(TOKEN_BODY);
+    expect(await M.readGitHubConnect()).toEqual({
+      state: "connected",
+      mode: "token",
+      login: "ada",
+      installations: [],
+    });
+    // A stored sign-in also carries the page that adds another account.
+    d.integrations.github.mode = "oauth";
+    expect(await M.readGitHubConnect()).toMatchObject({
+      mode: "oauth",
+      installUrl: "https://github.com/apps/marshal-kanban/installations/new",
+      installations: [{ account: "ada", kind: "user", allRepositories: true }],
+    });
+  });
+
+  it("cancels a pending sign-in", async () => {
+    const d = createFakeDaemon();
+    daemon = d;
+    const M = await createSyncedMarshal(d);
+    await M.startGitHubConnect();
+    expect(await M.cancelGitHubConnect()).toMatchObject({ state: "idle" });
+    expect(d.routes()).toContain("DELETE /v1/integrations/github/connect");
+    expect(await M.readGitHubConnect()).toMatchObject({ state: "idle" });
+  });
+
+  it("narrows a state it does not know to a failure with a sentence of its own", async () => {
+    const d = createFakeDaemon();
+    daemon = d;
+    const M = await createSyncedMarshal(d);
+    // Built from text, so the test stays true if the generated state type is ever narrowed to a union.
+    d.integrations.github.script.push(JSON.parse('{"state":"mystery","installations":[]}'));
+    const answer = await M.readGitHubConnect();
+    expect(answer).toMatchObject({ state: "failed" });
+    expect("error" in answer ? "" : answer.message).toContain("does not know how to show");
   });
 
   it("runs a test on the daemon, keeps what it found, and refuses a second one too soon", async () => {
@@ -251,7 +364,7 @@ describe("the connections with a daemon", () => {
     const d = createFakeDaemon();
     daemon = d;
     const M = await createSyncedMarshal(d);
-    await M.connectGitHub(SAVE);
+    await M.saveGitHubToken(TOKEN_BODY);
     expect(await M.disconnectIntegration("github")).toBe(true);
     expect(d.routes()).toContain("DELETE /v1/integrations/github");
     expect(row(M, "github").st).toBe("none");
@@ -263,8 +376,8 @@ describe("the connections with a daemon", () => {
     const d = createFakeDaemon();
     daemon = d;
     const M = await createSyncedMarshal(d);
-    // Only the GitHub App can be saved today, so another connection's save has no shape: the daemon
-    // refuses it rather than silently accepting it, and the row does not change.
+    // Only some connections can be saved, so an unknown one has no shape: the daemon refuses it
+    // rather than silently accepting it, and the row does not change.
     expect(await M.disconnectIntegration("nope")).toBe(false);
     expect(row(M, "github").st).toBe("none");
   });
@@ -322,7 +435,12 @@ describe("the connections with a daemon", () => {
 describe("the connections with no daemon", () => {
   it("changes nothing and shows nothing, because there is nothing to ask", async () => {
     const M = createTestMarshal();
-    expect(await M.connectGitHub(SAVE)).toBe(false);
+    const refused = { error: "Marshal is not connected to its daemon." };
+    expect(await M.saveGitHubToken(TOKEN_BODY)).toEqual(refused);
+    expect(await M.testGitHubToken(TOKEN_BODY)).toEqual(refused);
+    expect(await M.startGitHubConnect()).toEqual(refused);
+    expect(await M.readGitHubConnect()).toEqual(refused);
+    expect(await M.cancelGitHubConnect()).toEqual(refused);
     expect(await M.disconnectIntegration("github")).toBe(false);
     expect(await M.testIntegration("github")).toBe(false);
     expect(M.S.toasts).toEqual([]);

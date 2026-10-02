@@ -2,16 +2,20 @@ import type {
   AuthorizeURL,
   DetectTelegramChatAnswer,
   DetectTelegramChatRequest,
+  GitHubConnect,
   IntegrationList,
   SaveDiscordRequest,
-  SaveGitHubRequest,
+  SaveGitHubTokenRequest,
   SaveGmailRequest,
   SaveGoogleCalendarRequest,
   SaveNtfyRequest,
   SaveTelegramRequest,
   SaveTrelloRequest,
 } from "@marshal/protocol";
+import type { ApiClient } from "~/data/api-client";
 import { ApiError } from "~/data/api-error";
+import { type GitHubConnection, toGitHubConnection } from "~/data/mappers/integrations";
+import { type ProviderTest, toProviderTest } from "~/data/mappers/providers";
 import type { Ctx } from "~/mock/context";
 import {
   applyIntegrationList,
@@ -28,13 +32,44 @@ import {
  * The writes the Settings Integrations screen makes on the daemon (section S29a). Every one of them
  * answers with the daemon's whole connection list, which is applied to the store as it arrives. One
  * table serves every connection kind (`docs/architecture.md` section 18), so the same three calls
- * serve GitHub today and the later phases' connections tomorrow.
+ * serve GitHub today and the later phases' connections tomorrow. GitHub's sign-in routes answer the
+ * sign-in's own state instead, and a refusal there is the daemon's sentence, not a toast.
  *
  * The words belong to the screen: "GitHub connected" is said there. A refusal is already shown by
  * `optimistic` in the daemon's own words, and the store then keeps what it had.
  */
 
 const DETECT_FAILED = "Marshal could not look for your chat. Try again.";
+const NO_DAEMON = "Marshal is not connected to its daemon.";
+const GITHUB_FAILED = "Marshal could not reach GitHub. Try again.";
+const TOKEN_FAILED = "Marshal could not check that token. Try again.";
+
+/** What a GitHub sign-in call answers: the connection, or the daemon's own sentence for a refusal. */
+export type GitHubAnswer = GitHubConnection | { error: string };
+
+/** Asks one of the GitHub sign-in routes and narrows its answer. Nothing here is a toast. */
+async function githubAnswer(
+  c: Ctx,
+  ask: (api: ApiClient) => Promise<GitHubConnect>,
+): Promise<GitHubAnswer> {
+  const api = c.env.data?.api;
+  if (!api) return { error: NO_DAEMON };
+  try {
+    return toGitHubConnection(await ask(api));
+  } catch (error) {
+    return { error: error instanceof ApiError ? error.message : GITHUB_FAILED };
+  }
+}
+
+/** Reads the connection list again. Best effort: the row keeps what it had when the read fails. */
+async function refreshIntegrations(c: Ctx): Promise<void> {
+  try {
+    const api = c.env.data?.api;
+    if (api) applyIntegrationList(c, await api.listIntegrations());
+  } catch {
+    // The list is read again with the next change.
+  }
+}
 
 /** Runs one connection write and applies the whole list it answers. False means the daemon refused it. */
 async function write(
@@ -59,15 +94,65 @@ async function write(
 }
 
 /**
- * Stores the GitHub App's connection: the App's id, its installation id, its private key, and its
- * webhook secret, which arrive together because no part of it is any use alone. The daemon validates
- * the key, writes it and the secret to the OS keychain, tests the connection, and answers the whole
- * list, so nothing is judged here.
+ * Starts a GitHub sign-in: the daemon asks GitHub for a code and answers it, pending. A refusal comes
+ * back as the daemon's own sentence, for the dialog to show where the button was.
  */
-export async function connectGitHub(c: Ctx, body: SaveGitHubRequest): Promise<boolean> {
+export async function startGitHubConnect(c: Ctx): Promise<GitHubAnswer> {
+  return githubAnswer(c, (api) => api.startGitHubConnect());
+}
+
+/**
+ * Reads the GitHub sign-in, which also moves it on. It is polled, so a failed read is not a toast:
+ * the dialog keeps what it had and asks again. When the answer says GitHub is connected, or not, and
+ * the row says the opposite, the list is read again, because only that carries the row's sentence.
+ */
+export async function readGitHubConnect(c: Ctx): Promise<GitHubAnswer> {
+  const answer = await githubAnswer(c, (api) => api.readGitHubConnect());
+  if ("error" in answer) return answer;
+  const row = c.S.integrations.find((integration) => integration.id === GITHUB_ID);
+  const settled = answer.state === "connected" || answer.state === "idle";
+  if (row && settled && (answer.state === "connected") !== (row.st !== "none")) {
+    await refreshIntegrations(c);
+  }
+  return answer;
+}
+
+/** Cancels a pending GitHub sign-in. One that is not pending is not an error. */
+export async function cancelGitHubConnect(c: Ctx): Promise<GitHubAnswer> {
+  return githubAnswer(c, (api) => api.cancelGitHubConnect());
+}
+
+/**
+ * Stores a GitHub personal access token, in place of whatever was connected. The daemon writes it to
+ * the keychain, tests it, and answers the whole list, which is applied. A token GitHub refuses comes
+ * back as the daemon's own sentence, for the dialog to show beside the field.
+ */
+export async function saveGitHubToken(
+  c: Ctx,
+  body: SaveGitHubTokenRequest,
+): Promise<{ saved: true } | { error: string }> {
   const api = c.env.data?.api;
-  if (!api) return false;
-  return write(c, `integration:${GITHUB_ID}`, () => api.saveIntegration(GITHUB_ID, body));
+  if (!api) return { error: NO_DAEMON };
+  try {
+    applyIntegrationList(c, await api.saveGitHubToken(body));
+    return { saved: true };
+  } catch (error) {
+    return { error: error instanceof ApiError ? error.message : TOKEN_FAILED };
+  }
+}
+
+/** Tests a GitHub personal access token and saves nothing. */
+export async function testGitHubToken(
+  c: Ctx,
+  body: SaveGitHubTokenRequest,
+): Promise<ProviderTest | { error: string }> {
+  const api = c.env.data?.api;
+  if (!api) return { error: NO_DAEMON };
+  try {
+    return toProviderTest(await api.testGitHubToken(body));
+  } catch (error) {
+    return { error: error instanceof ApiError ? error.message : TOKEN_FAILED };
+  }
 }
 
 /** Stores the Trello connection: the key, the token, the board, and the webhook secret's pair. */

@@ -64,3 +64,27 @@ export async function saveAlertChannels(
     return false;
   }
 }
+
+/**
+ * Turns "stay quiet during calendar events" on or off. While a Google Calendar event is on, alerts
+ * that are not asking for an answer wait and go out together when it ends. The change is drawn at
+ * once and put back, with the daemon's own sentence, if it refuses.
+ */
+export async function saveQuietDuringEvents(c: Ctx, on: boolean): Promise<boolean> {
+  const api = c.env.data?.api;
+  const before = settings();
+  if (!api || !before) return false;
+  try {
+    const saved = await c.optimistic({
+      key: "alert:quiet-during-events",
+      apply: () => setSettings({ ...before, quietDuringEvents: on }),
+      request: () => api.saveAlertSettings({ routes: [], quietDuringEvents: on }),
+      rollback: () => setSettings(before),
+    });
+    setSettings(saved);
+    toast(c, "Saved");
+    return true;
+  } catch {
+    return false;
+  }
+}
