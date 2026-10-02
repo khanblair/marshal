@@ -95,5 +95,5 @@ func (s *session) handleResult(line []byte) {
 		s.log.Warn("could not read a result from claude code", "err", err)
 		return
 	}
-	s.endTurn(m)
+	s.endTurn(m, usageOf(line))
 }

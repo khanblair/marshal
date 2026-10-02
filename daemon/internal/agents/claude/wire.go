@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"math"
+
+	"github.com/khanblair/marshal/daemon/internal/agents"
 )
 
 // lineHead is read from every line Claude Code writes to standard output, to decide which shape
@@ -62,14 +65,52 @@ type contentBlock struct {
 
 // resultLine is the "result" message that ends a turn. Subtype "success" is a normal end;
 // "error_max_turns" is documented; every other non-empty subtype is read as a generic failure.
-// Claude Code also reports duration_ms, total_cost_usd, and usage on this line, which are left
-// undecoded here: nothing reads them yet, and a future usage-tracking task is the place to add
-// them, not this adapter.
+// Claude Code also reports total_cost_usd and usage on this line; they are read apart, by
+// usageOf, so that a field of an unexpected type can never stop the turn from ending.
 type resultLine struct {
 	Subtype    string `json:"subtype"`
 	IsError    bool   `json:"is_error"`
 	Result     string `json:"result"`
 	StopReason string `json:"stop_reason"`
+}
+
+// usageLine is the part of a result line that says what the turn cost.
+type usageLine struct {
+	TotalCostUSD float64 `json:"total_cost_usd"`
+	Usage        struct {
+		InputTokens         int64 `json:"input_tokens"`
+		OutputTokens        int64 `json:"output_tokens"`
+		CacheCreationTokens int64 `json:"cache_creation_input_tokens"`
+		CacheReadTokens     int64 `json:"cache_read_input_tokens"`
+	} `json:"usage"`
+	// ModelUsage is keyed by model name. The model with the highest cost names the turn.
+	ModelUsage map[string]struct {
+		CostUSD float64 `json:"costUSD"`
+	} `json:"modelUsage"`
+}
+
+const microsPerDollar = 1_000_000
+
+// usageOf reads what a result line says the turn cost. It returns nil when the line says nothing
+// about it, or when its usage cannot be read: the cost is extra, and the turn ends either way.
+func usageOf(line []byte) *agents.Usage {
+	var u usageLine
+	if err := json.Unmarshal(line, &u); err != nil {
+		return nil
+	}
+	in := u.Usage.InputTokens + u.Usage.CacheCreationTokens + u.Usage.CacheReadTokens
+	out := u.Usage.OutputTokens
+	cost := int64(math.Round(u.TotalCostUSD * microsPerDollar))
+	if in == 0 && out == 0 && cost == 0 {
+		return nil
+	}
+	model, best := "", -1.0
+	for name, m := range u.ModelUsage {
+		if m.CostUSD > best || (m.CostUSD == best && name < model) {
+			model, best = name, m.CostUSD
+		}
+	}
+	return &agents.Usage{Provider: "anthropic", Model: model, InputTokens: in, OutputTokens: out, CostMicros: cost}
 }
 
 // controlResponseLine answers a control_request this adapter sent, such as the interrupt request.

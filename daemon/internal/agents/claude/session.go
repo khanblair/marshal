@@ -94,6 +94,15 @@ func (a *Adapter) open(ctx context.Context, spec agents.StartSpec, resumeID, fre
 	if err != nil {
 		return agents.SessionHandle{}, err
 	}
+	mcpPath, err := writeMCPConfig(spec.MCPServers)
+	if err != nil {
+		return agents.SessionHandle{}, err
+	}
+	kept := false
+	defer func() { removeUnless(mcpPath, &kept) }()
+	if mcpPath != "" {
+		common = append(common, "--mcp-config", mcpPath)
+	}
 	id, args, err := idAndArgs(resumeID, common, spec.Instructions)
 	if freshID != "" {
 		id, args, err = freshID, startArgs(common, freshID, spec.Instructions), nil
@@ -124,6 +133,8 @@ func (a *Adapter) open(ctx context.Context, spec agents.StartSpec, resumeID, fre
 		return agents.SessionHandle{}, s.abandon(ctx, p, stdoutDone, err)
 	}
 	go s.watchThisProcess(p, stdoutDone)
+	kept = true
+	go removeWhenDone(mcpPath, s.done)
 	s.log.Info("claude code session started", "resumed", resumeID != "")
 	return agents.SessionHandle{
 		ID: id, Label: spec.Label, Model: spec.Model, Thinking: spec.Thinking, PermissionMode: spec.PermissionMode,

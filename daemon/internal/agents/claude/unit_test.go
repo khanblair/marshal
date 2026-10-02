@@ -183,3 +183,24 @@ func TestToolTitle(t *testing.T) {
 		}
 	}
 }
+
+func TestUsageOfReadsTheCostAndTokensOfAResultLine(t *testing.T) {
+	line := []byte(`{"type":"result","subtype":"success","total_cost_usd":0.0452,
+		"usage":{"input_tokens":10,"output_tokens":200,"cache_creation_input_tokens":300,"cache_read_input_tokens":4000},
+		"modelUsage":{"claude-haiku-4-5":{"costUSD":0.001},"claude-sonnet-5-5":{"costUSD":0.0442}}}`)
+	got := usageOf(line)
+	want := agents.Usage{Provider: "anthropic", Model: "claude-sonnet-5-5", InputTokens: 4310, OutputTokens: 200, CostMicros: 45200}
+	if got == nil || *got != want {
+		t.Fatalf("usage = %+v, want %+v", got, want)
+	}
+}
+
+func TestUsageOfSaysNothingWhenTheLineHasNoUsage(t *testing.T) {
+	if got := usageOf([]byte(`{"type":"result","subtype":"success"}`)); got != nil {
+		t.Errorf("usage = %+v, want nil", got)
+	}
+	// A field of the wrong type must not matter: the turn ends either way.
+	if got := usageOf([]byte(`{"type":"result","total_cost_usd":"lots"}`)); got != nil {
+		t.Errorf("usage = %+v, want nil for an unreadable field", got)
+	}
+}

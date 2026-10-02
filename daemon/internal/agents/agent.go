@@ -66,6 +66,12 @@ type StartSpec struct {
 	// carries them another way, ignores this list; the request that carries it is built by the
 	// adapter, not here.
 	MCPServers []MCPServer
+	// AllowedTools and DisallowedTools are tool rules the agent program enforces itself, written in
+	// that program's own syntax (Claude Code's, "Bash(git push:*)"). A disallowed rule wins over an
+	// allowed one and over the permission mode. An adapter whose program has no such rules ignores
+	// them, so they are a second line behind the harness and never the only one.
+	AllowedTools    []string
+	DisallowedTools []string
 	// Env is added to the agent's environment as KEY=value entries, for example a provider key.
 	// The agent gets nothing else from the daemon's environment beyond the short list that
 	// internal/proc lets through.

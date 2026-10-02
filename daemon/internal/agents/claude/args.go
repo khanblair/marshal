@@ -28,6 +28,7 @@ func (c Config) commonArgs(spec agents.StartSpec) ([]string, error) {
 	if spec.Model != "" {
 		args = append(args, "--model="+c.mappedModel(spec.Model))
 	}
+	args = append(args, toolRuleArgs(spec)...)
 	if spec.Thinking == "" {
 		return args, nil
 	}

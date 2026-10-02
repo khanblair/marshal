@@ -135,10 +135,26 @@ type PermissionRequested struct {
 	Options    []PermissionOption
 }
 
+// Usage is what one turn used, when the agent reports it.
+type Usage struct {
+	// Provider is who bills the work, such as "anthropic".
+	Provider string
+	// Model is the model that did most of the work, as the agent names it. Empty when unknown.
+	Model string
+	// InputTokens counts every token the model read, cached or not. OutputTokens counts what it wrote.
+	InputTokens  int64
+	OutputTokens int64
+	// CostMicros is what the agent says the turn cost, in micro-dollars. For a subscription it is the
+	// pay-per-token price of the same work, and not a charge.
+	CostMicros int64
+}
+
 // TurnEnded says that a turn is over and the agent waits for the next message.
 type TurnEnded struct {
 	// Reason is one of the Turn constants.
 	Reason string
+	// Usage is what the turn used, or nil when the agent does not say.
+	Usage *Usage
 }
 
 // Failed says that the agent broke. Message is a plain sentence, and Detail is for logs and for a

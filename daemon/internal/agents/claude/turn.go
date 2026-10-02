@@ -100,7 +100,7 @@ func (s *session) commitResumed(p *proc.Process, stdoutDone <-chan struct{}) err
 // endTurn is called with every "result" line. It clears the turn state and reports how the turn
 // ended, unless Interrupt already claimed it: the state is cleared before the event is sent, so a
 // reader that reacts to TurnEnded by sending again does not get ErrBusy.
-func (s *session) endTurn(m resultLine) {
+func (s *session) endTurn(m resultLine, usage *agents.Usage) {
 	s.mu.Lock()
 	if !s.turnActive {
 		s.mu.Unlock()
@@ -113,13 +113,13 @@ func (s *session) endTurn(m resultLine) {
 	s.mu.Unlock()
 
 	if interrupted {
-		s.emit(agents.TurnEnded{Reason: agents.TurnCancelled})
+		s.emit(agents.TurnEnded{Reason: agents.TurnCancelled, Usage: usage})
 		return
 	}
 	if m.IsError {
 		s.emit(agents.Failed{Message: resultFailureMessage(m), Detail: resultFailureDetail(m)})
 	}
-	s.emit(agents.TurnEnded{Reason: turnReason(m)})
+	s.emit(agents.TurnEnded{Reason: turnReason(m), Usage: usage})
 }
 
 // stopInterruptTimer stops and clears the interrupt grace timer. The caller holds s.mu.
