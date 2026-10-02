@@ -14,6 +14,7 @@ import * as connection from "~/sync/connection-actions";
 import * as devices from "~/sync/devices";
 import { loadCardDiff, loadFileHunks } from "~/sync/diff";
 import { browseFolders } from "~/sync/folder-actions";
+import * as googleWrites from "~/sync/google-actions";
 import { homeActivityPage } from "~/sync/home-feed";
 import * as integrationWrites from "~/sync/integration-actions";
 import * as integrations from "~/sync/integrations";
@@ -230,10 +231,14 @@ function appActions(ctx: Ctx) {
     saveProviderKey: providerWrites.saveProviderKey,
     testProviderKey: providerWrites.testProviderKey,
     // The connections (S29a for GitHub) are the daemon's once their section is switched: the
-    // settings row saves the App's whole setup, forgets it, and runs its test through the daemon,
+    // settings row signs in or saves a token, forgets it, and runs its test through the daemon,
     // which owns the keychain entry and the last test's result. The mock's own "connect" story
     // stays in the screen for the rows whose sections are still the mock's.
-    connectGitHub: integrationWrites.connectGitHub,
+    startGitHubConnect: integrationWrites.startGitHubConnect,
+    readGitHubConnect: integrationWrites.readGitHubConnect,
+    cancelGitHubConnect: integrationWrites.cancelGitHubConnect,
+    saveGitHubToken: integrationWrites.saveGitHubToken,
+    testGitHubToken: integrationWrites.testGitHubToken,
     connectTrello: integrationWrites.connectTrello,
     connectGoogleCalendar: integrationWrites.connectGoogleCalendar,
     connectGmail: integrationWrites.connectGmail,
@@ -288,6 +293,21 @@ function appActions(ctx: Ctx) {
 
 /** The daemon's version of a write when its section is switched, and the mock's until then. */
 const pick = <T>(onDaemon: boolean, daemon: T, mock: T): T => (onDaemon ? daemon : mock);
+
+/**
+ * Google Calendar's own writes (S29d, S29e, S25): Gmail's consent, the choice of calendars, and
+ * holding alerts while an event is on. The daemon's alone: the prototype has none of them.
+ */
+function calendarActions(ctx: Ctx) {
+  return bindActions(ctx, {
+    authorizeGmail: googleWrites.authorizeGmail,
+    googleClientInfo: googleWrites.googleClientInfo,
+    refreshIntegrationList: googleWrites.refreshIntegrationList,
+    googleCalendars: googleWrites.googleCalendars,
+    setGoogleCalendars: googleWrites.setGoogleCalendars,
+    saveQuietDuringEvents: alertWrites.saveQuietDuringEvents,
+  });
+}
 
 function cardActions(ctx: Ctx) {
   // The cards are the daemon's once section S5a is switched, so these writes go to it; while the
@@ -455,6 +475,7 @@ export function createMarshalIn(ctx: Ctx) {
     },
     ...queries(ctx),
     ...appActions(ctx),
+    ...calendarActions(ctx),
     ...cardActions(ctx),
     ...chatActions(ctx),
   };

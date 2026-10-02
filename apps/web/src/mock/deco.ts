@@ -1,3 +1,4 @@
+import { mergePhaseText } from "~/data/mappers/card";
 import { openCard } from "./actions/navigation";
 import { thinkSupported } from "./agents";
 import { type CardKey, cardLabel } from "./card-key";
@@ -64,6 +65,10 @@ export interface CardView {
   merging: boolean;
   mergePct: string;
   mergeNum: number;
+  /** The merge phase in plain words. Undefined unless the daemon says the card is being merged. */
+  mergeText?: string;
+  /** The merge's one-line note, shown under `mergeText`. Undefined when there is none. */
+  mergeNote?: string;
   sleepLabel: string;
   awakeLabel: string;
   hasFooter: boolean;
@@ -101,6 +106,7 @@ function statusBits(c: Card) {
   const st = STATUS[c.state];
   const t = st.tone;
   const quiet = c.state === "done" || c.asleep;
+  const mergeText = mergePhaseText(c.mergePhase);
   return {
     state: c.state,
     col: colOf(c.state),
@@ -119,6 +125,8 @@ function statusBits(c: Card) {
     merging: c.state === "merging",
     mergePct: `${c.mergePct}%`,
     mergeNum: c.mergePct,
+    mergeText: mergeText || undefined,
+    mergeNote: mergeText && c.mergeNote ? c.mergeNote : undefined,
   };
 }
 

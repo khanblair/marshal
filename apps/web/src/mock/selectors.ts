@@ -141,8 +141,11 @@ export const pendingApproval = (ctx: Ctx, id: CardKey): ApprovalMsg | PlanMsg | 
     (x): x is ApprovalMsg | PlanMsg => (x.k === "approval" || x.k === "plan") && x.st === "waiting",
   );
 
+/** A project's chats, a system chat (the Integrator's) pinned first, then the most recent. */
 export const chatsOf = (ctx: Ctx, pid: string): Chat[] =>
-  [...(ctx.S.chats[pid] ?? [])].sort((a, b) => b.last - a.last);
+  [...(ctx.S.chats[pid] ?? [])].sort(
+    (a, b) => Number(!!b.system) - Number(!!a.system) || b.last - a.last,
+  );
 
 export const chatById = (ctx: Ctx, pid: string, id: string | null | undefined): Chat | undefined =>
   (ctx.S.chats[pid] ?? []).find((c) => c.id === id);

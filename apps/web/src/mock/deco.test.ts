@@ -3,6 +3,13 @@ import type { CardKey } from "./card-key";
 import { FIXED_TIME, makeTwin, SLOW_TEST_MS, type Twin } from "./testing/twin";
 import type { Card, Status } from "./types";
 
+/** The prototype has no Integration view, so its palette command is left out of the comparison. */
+const INTEGRATION_COMMAND = "Switch to integration view";
+const withoutIntegration = (name: string, port: unknown): unknown =>
+  name === "commands"
+    ? (port as { label: string }[]).filter((c) => c.label !== INTEGRATION_COMMAND)
+    : port;
+
 describe("view models match the prototype", { timeout: SLOW_TEST_MS }, () => {
   let t: Twin;
   beforeEach(() => {
@@ -58,7 +65,7 @@ describe("view models match the prototype", { timeout: SLOW_TEST_MS }, () => {
     (name) => {
       for (const pid of [undefined, "api", "web", "mobile"]) {
         const r = t.ask(name, pid);
-        expect(r.port).toEqual(r.proto);
+        expect(withoutIntegration(name, r.port)).toEqual(r.proto);
       }
     },
   );
@@ -67,7 +74,7 @@ describe("view models match the prototype", { timeout: SLOW_TEST_MS }, () => {
     t.run("go", "project", "api");
     t.run("openCard", "api#44");
     const r = t.ask("commands");
-    expect(r.port).toEqual(r.proto);
+    expect(withoutIntegration("commands", r.port)).toEqual(r.proto);
     expect(t.port.commands().map((c) => c.label)).toContain("Approve on #44");
   });
 
