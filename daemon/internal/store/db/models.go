@@ -88,6 +88,8 @@ type Card struct {
 	ForkedFrom        string
 	TemplateID        string
 	ParentID          *string
+	MergePhase        string
+	MergeNote         string
 }
 
 type CardCheck struct {
@@ -131,6 +133,7 @@ type Chat struct {
 	LastActiveAt   int64
 	CreatedAt      int64
 	UpdatedAt      int64
+	System         string
 }
 
 type Checklist struct {
@@ -257,6 +260,22 @@ type McpServer struct {
 	LastCheckedAt int64
 }
 
+type MergeHistory struct {
+	ID           string
+	ProjectID    string
+	CardID       string
+	Target       string
+	MergedAt     int64
+	CommitSha    string
+	PrevTip      string
+	Resolved     int64
+	Summary      string
+	BackupBranch string
+	WipRef       string
+	FolderTree   string
+	UndoneAt     int64
+}
+
 type Note struct {
 	ID        string
 	ProjectID string
@@ -280,18 +299,27 @@ type NotesFt struct {
 }
 
 type Project struct {
-	ID             string
-	Name           string
-	RepoPath       string
-	DefaultBranch  string
-	Language       string
-	DevCommand     string
-	BypassLocked   int64
-	IsMonorepo     int64
-	PackagesJSON   string
-	NextCardNumber int64
-	CreatedAt      int64
-	UpdatedAt      int64
+	ID                string
+	Name              string
+	RepoPath          string
+	DefaultBranch     string
+	Language          string
+	DevCommand        string
+	BypassLocked      int64
+	IsMonorepo        int64
+	PackagesJSON      string
+	NextCardNumber    int64
+	CreatedAt         int64
+	UpdatedAt         int64
+	IntegrationBranch string
+}
+
+type ProjectMergeSetting struct {
+	ProjectID  string
+	Paused     int64
+	AutoMerge  int64
+	PendingTip string
+	UpdatedAt  int64
 }
 
 type ProjectPreference struct {

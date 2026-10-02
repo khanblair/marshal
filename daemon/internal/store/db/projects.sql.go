@@ -214,23 +214,24 @@ func (q *Queries) CreateLabel(ctx context.Context, arg CreateLabelParams) error 
 
 const createProject = `-- name: CreateProject :exec
 INSERT INTO projects (
-    id, name, repo_path, default_branch, language, dev_command,
+    id, name, repo_path, default_branch, integration_branch, language, dev_command,
     bypass_locked, is_monorepo, packages_json, created_at, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateProjectParams struct {
-	ID            string
-	Name          string
-	RepoPath      string
-	DefaultBranch string
-	Language      string
-	DevCommand    string
-	BypassLocked  int64
-	IsMonorepo    int64
-	PackagesJSON  string
-	CreatedAt     int64
-	UpdatedAt     int64
+	ID                string
+	Name              string
+	RepoPath          string
+	DefaultBranch     string
+	IntegrationBranch string
+	Language          string
+	DevCommand        string
+	BypassLocked      int64
+	IsMonorepo        int64
+	PackagesJSON      string
+	CreatedAt         int64
+	UpdatedAt         int64
 }
 
 func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) error {
@@ -239,6 +240,7 @@ func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) er
 		arg.Name,
 		arg.RepoPath,
 		arg.DefaultBranch,
+		arg.IntegrationBranch,
 		arg.Language,
 		arg.DevCommand,
 		arg.BypassLocked,
@@ -298,7 +300,7 @@ func (q *Queries) GetBoardByProject(ctx context.Context, projectID string) (Boar
 }
 
 const getCard = `-- name: GetCard :one
-SELECT id, project_id, number, board_id, title, body, state, role_id, agent_kind, model, thinking, permission_mode, branch, worktree_path, pinned, created_by, created_at, updated_at, role, package, planned_start, planned_end, due, actual_start, actual_end, pull_request_number, pull_request_url, ci_state, context_used, needs_reason_kind, needs_reason_text, needs_since, doing_now, paused, forked_from, template_id, parent_id FROM cards WHERE id = ?
+SELECT id, project_id, number, board_id, title, body, state, role_id, agent_kind, model, thinking, permission_mode, branch, worktree_path, pinned, created_by, created_at, updated_at, role, package, planned_start, planned_end, due, actual_start, actual_end, pull_request_number, pull_request_url, ci_state, context_used, needs_reason_kind, needs_reason_text, needs_since, doing_now, paused, forked_from, template_id, parent_id, merge_phase, merge_note FROM cards WHERE id = ?
 `
 
 func (q *Queries) GetCard(ctx context.Context, id string) (Card, error) {
@@ -342,12 +344,14 @@ func (q *Queries) GetCard(ctx context.Context, id string) (Card, error) {
 		&i.ForkedFrom,
 		&i.TemplateID,
 		&i.ParentID,
+		&i.MergePhase,
+		&i.MergeNote,
 	)
 	return i, err
 }
 
 const getCardByKey = `-- name: GetCardByKey :one
-SELECT id, project_id, number, board_id, title, body, state, role_id, agent_kind, model, thinking, permission_mode, branch, worktree_path, pinned, created_by, created_at, updated_at, role, package, planned_start, planned_end, due, actual_start, actual_end, pull_request_number, pull_request_url, ci_state, context_used, needs_reason_kind, needs_reason_text, needs_since, doing_now, paused, forked_from, template_id, parent_id FROM cards WHERE project_id = ? AND number = ?
+SELECT id, project_id, number, board_id, title, body, state, role_id, agent_kind, model, thinking, permission_mode, branch, worktree_path, pinned, created_by, created_at, updated_at, role, package, planned_start, planned_end, due, actual_start, actual_end, pull_request_number, pull_request_url, ci_state, context_used, needs_reason_kind, needs_reason_text, needs_since, doing_now, paused, forked_from, template_id, parent_id, merge_phase, merge_note FROM cards WHERE project_id = ? AND number = ?
 `
 
 type GetCardByKeyParams struct {
@@ -396,6 +400,8 @@ func (q *Queries) GetCardByKey(ctx context.Context, arg GetCardByKeyParams) (Car
 		&i.ForkedFrom,
 		&i.TemplateID,
 		&i.ParentID,
+		&i.MergePhase,
+		&i.MergeNote,
 	)
 	return i, err
 }
@@ -430,7 +436,7 @@ func (q *Queries) GetLabel(ctx context.Context, id string) (Label, error) {
 }
 
 const getProject = `-- name: GetProject :one
-SELECT id, name, repo_path, default_branch, language, dev_command, bypass_locked, is_monorepo, packages_json, next_card_number, created_at, updated_at FROM projects WHERE id = ?
+SELECT id, name, repo_path, default_branch, language, dev_command, bypass_locked, is_monorepo, packages_json, next_card_number, created_at, updated_at, integration_branch FROM projects WHERE id = ?
 `
 
 func (q *Queries) GetProject(ctx context.Context, id string) (Project, error) {
@@ -449,12 +455,13 @@ func (q *Queries) GetProject(ctx context.Context, id string) (Project, error) {
 		&i.NextCardNumber,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IntegrationBranch,
 	)
 	return i, err
 }
 
 const getProjectByRepoPath = `-- name: GetProjectByRepoPath :one
-SELECT id, name, repo_path, default_branch, language, dev_command, bypass_locked, is_monorepo, packages_json, next_card_number, created_at, updated_at FROM projects WHERE repo_path = ?
+SELECT id, name, repo_path, default_branch, language, dev_command, bypass_locked, is_monorepo, packages_json, next_card_number, created_at, updated_at, integration_branch FROM projects WHERE repo_path = ?
 `
 
 func (q *Queries) GetProjectByRepoPath(ctx context.Context, repoPath string) (Project, error) {
@@ -473,6 +480,7 @@ func (q *Queries) GetProjectByRepoPath(ctx context.Context, repoPath string) (Pr
 		&i.NextCardNumber,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IntegrationBranch,
 	)
 	return i, err
 }
@@ -554,7 +562,7 @@ func (q *Queries) ListCardLabelsByProject(ctx context.Context, projectID string)
 }
 
 const listCardsByProject = `-- name: ListCardsByProject :many
-SELECT id, project_id, number, board_id, title, body, state, role_id, agent_kind, model, thinking, permission_mode, branch, worktree_path, pinned, created_by, created_at, updated_at, role, package, planned_start, planned_end, due, actual_start, actual_end, pull_request_number, pull_request_url, ci_state, context_used, needs_reason_kind, needs_reason_text, needs_since, doing_now, paused, forked_from, template_id, parent_id FROM cards WHERE project_id = ? ORDER BY number
+SELECT id, project_id, number, board_id, title, body, state, role_id, agent_kind, model, thinking, permission_mode, branch, worktree_path, pinned, created_by, created_at, updated_at, role, package, planned_start, planned_end, due, actual_start, actual_end, pull_request_number, pull_request_url, ci_state, context_used, needs_reason_kind, needs_reason_text, needs_since, doing_now, paused, forked_from, template_id, parent_id, merge_phase, merge_note FROM cards WHERE project_id = ? ORDER BY number
 `
 
 func (q *Queries) ListCardsByProject(ctx context.Context, projectID string) ([]Card, error) {
@@ -604,6 +612,8 @@ func (q *Queries) ListCardsByProject(ctx context.Context, projectID string) ([]C
 			&i.ForkedFrom,
 			&i.TemplateID,
 			&i.ParentID,
+			&i.MergePhase,
+			&i.MergeNote,
 		); err != nil {
 			return nil, err
 		}
@@ -619,7 +629,7 @@ func (q *Queries) ListCardsByProject(ctx context.Context, projectID string) ([]C
 }
 
 const listCardsNeedingYou = `-- name: ListCardsNeedingYou :many
-SELECT cards.id, cards.project_id, cards.number, cards.board_id, cards.title, cards.body, cards.state, cards.role_id, cards.agent_kind, cards.model, cards.thinking, cards.permission_mode, cards.branch, cards.worktree_path, cards.pinned, cards.created_by, cards.created_at, cards.updated_at, cards.role, cards.package, cards.planned_start, cards.planned_end, cards.due, cards.actual_start, cards.actual_end, cards.pull_request_number, cards.pull_request_url, cards.ci_state, cards.context_used, cards.needs_reason_kind, cards.needs_reason_text, cards.needs_since, cards.doing_now, cards.paused, cards.forked_from, cards.template_id, cards.parent_id, projects.name AS project_name
+SELECT cards.id, cards.project_id, cards.number, cards.board_id, cards.title, cards.body, cards.state, cards.role_id, cards.agent_kind, cards.model, cards.thinking, cards.permission_mode, cards.branch, cards.worktree_path, cards.pinned, cards.created_by, cards.created_at, cards.updated_at, cards.role, cards.package, cards.planned_start, cards.planned_end, cards.due, cards.actual_start, cards.actual_end, cards.pull_request_number, cards.pull_request_url, cards.ci_state, cards.context_used, cards.needs_reason_kind, cards.needs_reason_text, cards.needs_since, cards.doing_now, cards.paused, cards.forked_from, cards.template_id, cards.parent_id, cards.merge_phase, cards.merge_note, projects.name AS project_name
 FROM cards
 JOIN projects ON projects.id = cards.project_id
 WHERE cards.state = 'needs'
@@ -664,6 +674,8 @@ type ListCardsNeedingYouRow struct {
 	ForkedFrom        string
 	TemplateID        string
 	ParentID          *string
+	MergePhase        string
+	MergeNote         string
 	ProjectName       string
 }
 
@@ -715,6 +727,8 @@ func (q *Queries) ListCardsNeedingYou(ctx context.Context) ([]ListCardsNeedingYo
 			&i.ForkedFrom,
 			&i.TemplateID,
 			&i.ParentID,
+			&i.MergePhase,
+			&i.MergeNote,
 			&i.ProjectName,
 		); err != nil {
 			return nil, err
@@ -828,7 +842,7 @@ func (q *Queries) ListLabelsForCard(ctx context.Context, cardID string) ([]Label
 }
 
 const listProjects = `-- name: ListProjects :many
-SELECT id, name, repo_path, default_branch, language, dev_command, bypass_locked, is_monorepo, packages_json, next_card_number, created_at, updated_at FROM projects ORDER BY created_at, id
+SELECT id, name, repo_path, default_branch, language, dev_command, bypass_locked, is_monorepo, packages_json, next_card_number, created_at, updated_at, integration_branch FROM projects ORDER BY created_at, id
 `
 
 func (q *Queries) ListProjects(ctx context.Context) ([]Project, error) {
@@ -853,6 +867,7 @@ func (q *Queries) ListProjects(ctx context.Context) ([]Project, error) {
 			&i.NextCardNumber,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.IntegrationBranch,
 		); err != nil {
 			return nil, err
 		}
@@ -1078,17 +1093,19 @@ func (q *Queries) UpdateLabel(ctx context.Context, arg UpdateLabelParams) (int64
 
 const updateProject = `-- name: UpdateProject :execrows
 UPDATE projects
-SET name = ?, dev_command = ?, default_branch = ?, bypass_locked = ?, updated_at = ?
+SET name = ?, dev_command = ?, default_branch = ?, integration_branch = ?, bypass_locked = ?,
+    updated_at = ?
 WHERE id = ?
 `
 
 type UpdateProjectParams struct {
-	Name          string
-	DevCommand    string
-	DefaultBranch string
-	BypassLocked  int64
-	UpdatedAt     int64
-	ID            string
+	Name              string
+	DevCommand        string
+	DefaultBranch     string
+	IntegrationBranch string
+	BypassLocked      int64
+	UpdatedAt         int64
+	ID                string
 }
 
 func (q *Queries) UpdateProject(ctx context.Context, arg UpdateProjectParams) (int64, error) {
@@ -1096,6 +1113,7 @@ func (q *Queries) UpdateProject(ctx context.Context, arg UpdateProjectParams) (i
 		arg.Name,
 		arg.DevCommand,
 		arg.DefaultBranch,
+		arg.IntegrationBranch,
 		arg.BypassLocked,
 		arg.UpdatedAt,
 		arg.ID,

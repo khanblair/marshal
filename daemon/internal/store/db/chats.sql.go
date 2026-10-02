@@ -30,8 +30,8 @@ func (q *Queries) ArchiveChat(ctx context.Context, arg ArchiveChatParams) (int64
 const createChat = `-- name: CreateChat :exec
 INSERT INTO chats (
     id, project_id, title, target_kind, target_id, agent_kind, model, thinking,
-    permission_mode, archived_at, last_active_at, created_at, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    permission_mode, archived_at, last_active_at, created_at, updated_at, system
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateChatParams struct {
@@ -48,6 +48,7 @@ type CreateChatParams struct {
 	LastActiveAt   int64
 	CreatedAt      int64
 	UpdatedAt      int64
+	System         string
 }
 
 func (q *Queries) CreateChat(ctx context.Context, arg CreateChatParams) error {
@@ -65,6 +66,7 @@ func (q *Queries) CreateChat(ctx context.Context, arg CreateChatParams) error {
 		arg.LastActiveAt,
 		arg.CreatedAt,
 		arg.UpdatedAt,
+		arg.System,
 	)
 	return err
 }
@@ -82,7 +84,7 @@ func (q *Queries) DeleteChat(ctx context.Context, id string) (int64, error) {
 }
 
 const getChat = `-- name: GetChat :one
-SELECT id, project_id, title, target_kind, target_id, agent_kind, model, thinking, permission_mode, archived_at, last_active_at, created_at, updated_at FROM chats WHERE id = ?
+SELECT id, project_id, title, target_kind, target_id, agent_kind, model, thinking, permission_mode, archived_at, last_active_at, created_at, updated_at, system FROM chats WHERE id = ?
 `
 
 func (q *Queries) GetChat(ctx context.Context, id string) (Chat, error) {
@@ -102,12 +104,45 @@ func (q *Queries) GetChat(ctx context.Context, id string) (Chat, error) {
 		&i.LastActiveAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.System,
+	)
+	return i, err
+}
+
+const getSystemChat = `-- name: GetSystemChat :one
+SELECT id, project_id, title, target_kind, target_id, agent_kind, model, thinking, permission_mode, archived_at, last_active_at, created_at, updated_at, system FROM chats WHERE project_id = ? AND system = ?
+`
+
+type GetSystemChatParams struct {
+	ProjectID string
+	System    string
+}
+
+// The chat Marshal keeps for a project under a system name, such as the pinned Integrator chat.
+func (q *Queries) GetSystemChat(ctx context.Context, arg GetSystemChatParams) (Chat, error) {
+	row := q.db.QueryRowContext(ctx, getSystemChat, arg.ProjectID, arg.System)
+	var i Chat
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Title,
+		&i.TargetKind,
+		&i.TargetID,
+		&i.AgentKind,
+		&i.Model,
+		&i.Thinking,
+		&i.PermissionMode,
+		&i.ArchivedAt,
+		&i.LastActiveAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.System,
 	)
 	return i, err
 }
 
 const listArchivedChatsByProject = `-- name: ListArchivedChatsByProject :many
-SELECT id, project_id, title, target_kind, target_id, agent_kind, model, thinking, permission_mode, archived_at, last_active_at, created_at, updated_at FROM chats
+SELECT id, project_id, title, target_kind, target_id, agent_kind, model, thinking, permission_mode, archived_at, last_active_at, created_at, updated_at, system FROM chats
 WHERE project_id = ? AND archived_at IS NOT NULL
 ORDER BY last_active_at DESC, id
 `
@@ -138,6 +173,7 @@ func (q *Queries) ListArchivedChatsByProject(ctx context.Context, projectID stri
 			&i.LastActiveAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.System,
 		); err != nil {
 			return nil, err
 		}
@@ -153,12 +189,13 @@ func (q *Queries) ListArchivedChatsByProject(ctx context.Context, projectID stri
 }
 
 const listChatsByProject = `-- name: ListChatsByProject :many
-SELECT id, project_id, title, target_kind, target_id, agent_kind, model, thinking, permission_mode, archived_at, last_active_at, created_at, updated_at FROM chats
+SELECT id, project_id, title, target_kind, target_id, agent_kind, model, thinking, permission_mode, archived_at, last_active_at, created_at, updated_at, system FROM chats
 WHERE project_id = ? AND archived_at IS NULL
-ORDER BY last_active_at DESC, id
+ORDER BY system = '', last_active_at DESC, id
 `
 
-// A project's live chats: the ones in the main list, most recently active first.
+// A project's live chats: the ones in the main list. A system chat is pinned first; the rest are
+// most recently active first.
 func (q *Queries) ListChatsByProject(ctx context.Context, projectID string) ([]Chat, error) {
 	rows, err := q.db.QueryContext(ctx, listChatsByProject, projectID)
 	if err != nil {
@@ -182,6 +219,7 @@ func (q *Queries) ListChatsByProject(ctx context.Context, projectID string) ([]C
 			&i.LastActiveAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.System,
 		); err != nil {
 			return nil, err
 		}

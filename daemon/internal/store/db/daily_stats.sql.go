@@ -9,6 +9,18 @@ import (
 	"context"
 )
 
+const deleteDailyStatsForProject = `-- name: DeleteDailyStatsForProject :exec
+DELETE FROM daily_stats WHERE project_id = ?
+`
+
+// Drops a removed project's numbers, the same way its activity rows go (DeleteActivityForProject).
+// The table has no foreign key on project_id, so without this a removed project kept showing in the
+// Home charts and counts.
+func (q *Queries) DeleteDailyStatsForProject(ctx context.Context, projectID string) error {
+	_, err := q.db.ExecContext(ctx, deleteDailyStatsForProject, projectID)
+	return err
+}
+
 const listDailyStats = `-- name: ListDailyStats :many
 SELECT day, project_id, cards_finished, merges, ci_failures, cost_micros FROM daily_stats
 WHERE day >= ?1 AND day <= ?2
