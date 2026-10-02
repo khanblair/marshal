@@ -26,6 +26,10 @@ func (s *Server) register() (err error) {
 		}
 	}()
 
+	if s.identity.ChatID != "" {
+		s.registerChat()
+		return nil
+	}
 	add(s, "board_status",
 		"What the other cards in this project are doing: their owner, goal, state, and the files they "+
 			"have claimed. Call it before starting work on something another card may be on.",

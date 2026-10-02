@@ -14,7 +14,8 @@ import (
 )
 
 // PathPrefix is where a Host is mounted on the daemon's own listener. The one segment after it is
-// the card the request speaks for, so /v1/mcp/<cardID> reaches that card's server.
+// the card or chat the request speaks for, so /v1/mcp/<cardID> reaches that card's server. Card and
+// chat ids never collide, so the host does not need to know which one it holds.
 const PathPrefix = "/v1/mcp/"
 
 // secretBytes is how much randomness a card's secret carries. It is the only thing standing between

@@ -10,6 +10,13 @@
 // may add), so binding the identity at construction is the shape the library leaves; a second agent
 // gets a second server over its own transport.
 //
+// # Chats
+//
+// A project chat's agent is served too, under the chat's id and with the tools of its kind
+// (register_chat.go): every chat reads the board, the Orchestrator chat plans with create_card, and
+// the Integrator chat answers merge tasks with merge_context, merge_report, and ask_owner. A chat has
+// no card, so none of the card tools that name "this card" are served to it.
+//
 // # The daemon's services, and not another copy of them
 //
 // Every tool is written against the same service interfaces the routes use (Cards, Notes, Claims,
@@ -51,6 +58,7 @@ import (
 
 	"github.com/khanblair/marshal/daemon/internal/codemap"
 	"github.com/khanblair/marshal/daemon/internal/harness"
+	"github.com/khanblair/marshal/daemon/internal/integrator"
 	"github.com/khanblair/marshal/daemon/internal/memory"
 	"github.com/khanblair/marshal/daemon/internal/projects"
 	"github.com/khanblair/marshal/daemon/internal/protocol"
@@ -69,15 +77,58 @@ const (
 	boardCardLimit = 40
 )
 
-// Identity is the agent session a server is served to. Every tool reads the card from here and never
-// from the call, so an agent cannot act as another card.
+// ChatKind says what a project chat's server is for, and so which tools it serves.
+type ChatKind string
+
+const (
+	// ChatKindOrchestrator is the Orchestrator chat: it reads the board and plans cards.
+	ChatKindOrchestrator ChatKind = "orchestrator"
+	// ChatKindIntegrator is the pinned Integrator chat: it answers merge tasks.
+	ChatKindIntegrator ChatKind = "integrator"
+	// ChatKindOther is any other chat: it only reads the board.
+	ChatKindOther ChatKind = "other"
+)
+
+// Valid reports whether the kind is one the server knows.
+func (k ChatKind) Valid() bool {
+	switch k {
+	case ChatKindOrchestrator, ChatKindIntegrator, ChatKindOther:
+		return true
+	}
+	return false
+}
+
+// Identity is the agent session a server is served to. Every tool reads the card or chat from here
+// and never from the call, so an agent cannot act as another card. Exactly one of CardID and ChatID
+// is set: a chat's server serves the tools of its Kind and none of a card's own.
 type Identity struct {
 	// CardID is the card whose agent the server is for.
 	CardID string
-	// ProjectID is that card's project.
+	// ChatID is the project chat whose agent the server is for, in place of a card.
+	ChatID string
+	// ChatKind says which tools a chat's server serves. It is required with ChatID and empty with
+	// CardID.
+	ChatKind ChatKind
+	// ProjectID is that card's or chat's project.
 	ProjectID string
 	// Role is the role's name, for the tool list the context order names. It may be empty.
 	Role string
+}
+
+// key is the id the server is hosted under: the card's or the chat's. The two never collide.
+func (i Identity) key() string {
+	if i.ChatID != "" {
+		return i.ChatID
+	}
+	return i.CardID
+}
+
+// noun is the word for what the server speaks for, in a sentence a model reads.
+func (i Identity) noun() string {
+	if i.ChatID != "" {
+		return "chat"
+	}
+	return "card"
 }
 
 // Cards is what the tools need from the projects service. It is exactly the part of that service
@@ -169,6 +220,10 @@ type Deps struct {
 	// could not be read; a call then needs the card's owner, exactly as the session's own permission
 	// requests do.
 	Harness func() (harness.Config, bool)
+	// MergeTools answers the Integrator chat's three merge tools. It is read for every call, so it
+	// may be set after the server is built; nil, or a getter that answers nil, makes each of them
+	// answer that the merge tools are not available.
+	MergeTools func() integrator.MergeTools
 	// Now is the clock. The default is time.Now.
 	Now func() time.Time
 	// Logger is where a refused or failed call is noted. The default logs nothing.
@@ -185,23 +240,11 @@ type Server struct {
 	names    []string
 }
 
-// New builds the server for one agent session and registers every tool.
+// New builds the server for one agent session and registers the tools of its identity: every card
+// tool for a card, and the tools of its kind for a chat.
 func New(deps Deps, identity Identity, opts ...Option) (*Server, error) {
-	switch {
-	case deps.Cards == nil:
-		return nil, errors.New("mcpserver: cards are required")
-	case deps.Notes == nil:
-		return nil, errors.New("mcpserver: the notes are required")
-	case deps.Claims == nil:
-		return nil, errors.New("mcpserver: the claims are required")
-	case deps.Agents == nil:
-		return nil, errors.New("mcpserver: the agents are required")
-	case deps.Harness == nil:
-		return nil, errors.New("mcpserver: the permission rules are required")
-	case identity.CardID == "":
-		return nil, errors.New("mcpserver: a card id is required")
-	case identity.ProjectID == "":
-		return nil, errors.New("mcpserver: a project id is required")
+	if err := checkNew(deps, identity); err != nil {
+		return nil, err
 	}
 	s := &Server{deps: deps, identity: identity, now: time.Now, logger: deps.Logger}
 	for _, opt := range opts {
@@ -220,6 +263,35 @@ func New(deps Deps, identity Identity, opts ...Option) (*Server, error) {
 	return s, nil
 }
 
+// checkNew refuses a server that could not answer its first call: a missing part, or an identity
+// that names both a card and a chat or neither.
+func checkNew(deps Deps, identity Identity) error {
+	isChat := identity.ChatID != ""
+	switch {
+	case deps.Cards == nil:
+		return errors.New("mcpserver: cards are required")
+	case !isChat && deps.Notes == nil:
+		return errors.New("mcpserver: the notes are required")
+	case deps.Claims == nil:
+		return errors.New("mcpserver: the claims are required")
+	case !isChat && deps.Agents == nil:
+		return errors.New("mcpserver: the agents are required")
+	case deps.Harness == nil:
+		return errors.New("mcpserver: the permission rules are required")
+	case identity.CardID == "" && !isChat:
+		return errors.New("mcpserver: a card id is required")
+	case identity.CardID != "" && isChat:
+		return errors.New("mcpserver: an identity is a card or a chat, not both")
+	case isChat && !identity.ChatKind.Valid():
+		return errors.New("mcpserver: a chat needs a kind")
+	case !isChat && identity.ChatKind != "":
+		return errors.New("mcpserver: a card has no chat kind")
+	case identity.ProjectID == "":
+		return errors.New("mcpserver: a project id is required")
+	}
+	return nil
+}
+
 // Option changes how New builds a server.
 type Option func(*Server)
 
@@ -236,13 +308,19 @@ func WithClock(now func() time.Time) Option {
 // short paragraph: the tools carry their own descriptions, and this is the line that says what the
 // set of them is for.
 func (s *Server) serverInstructions() string {
+	if s.identity.ChatID != "" {
+		return chatInstructions(s.identity.ChatKind)
+	}
 	return "Marshal's tools for this card. They read and write the card's own record - its notes, " +
 		"the files it claims, its progress line, its checklists and comments - and the board and " +
 		"memory around it. Every call is checked against the card's permission mode."
 }
 
-// CardID is the card the server is served to.
+// CardID is the card the server is served to, or "" for a chat's server.
 func (s *Server) CardID() string { return s.identity.CardID }
+
+// ChatID is the chat the server is served to, or "" for a card's server.
+func (s *Server) ChatID() string { return s.identity.ChatID }
 
 // ToolNames lists the tools in the order they were registered, which is the order the context order
 // of docs/architecture.md section 7 names them in.

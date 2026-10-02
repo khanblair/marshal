@@ -40,19 +40,38 @@ const (
 // model reads and can act on (see the note on ToolHandlerFor in the MCP SDK's tool.go), which is what
 // section 11.4's "a refused call comes back explained, not silently dropped" asks for.
 func (s *Server) allow(tool, kind string) error {
+	if s.ownTool(tool) {
+		return nil
+	}
+	noun := s.identity.noun()
 	cfg, ok := s.deps.Harness()
 	if !ok {
 		// The session could not tell what mode this card is in. The session makes the same request a
 		// person's in that case, and so does this gate: nothing is done, and the answer says why.
 		s.logRefusal(tool, harness.Outcome{Decision: harness.DecisionAsk})
-		return errors.New(cannotReadTheMode(tool))
+		return errors.New(cannotReadTheModeFor(noun, tool))
 	}
 	out := cfg.Decide(harness.Request{Kind: kind})
 	if out.Decision == harness.DecisionAllow {
 		return nil
 	}
 	s.logRefusal(tool, out)
-	return errors.New(refusal(cfg.Mode, tool, out))
+	return errors.New(refusalFor(noun, cfg.Mode, tool, out))
+}
+
+// ownTool says whether a tool is what a chat's server exists to serve: the Orchestrator chat's
+// create_card and the Integrator chat's three merge tools. They write Marshal's own record - the
+// board, a merge verdict - and not the owner's folder, which is what the chat's permission mode
+// speaks for, so the mode does not gate them. A chat that is plan-only still plans and creates
+// cards, and the Integrator still reports. A card's server has no such tools.
+func (s *Server) ownTool(tool string) bool {
+	switch s.identity.ChatKind {
+	case ChatKindOrchestrator:
+		return tool == "create_card"
+	case ChatKindIntegrator:
+		return tool == "merge_context" || tool == "merge_report" || tool == "ask_owner"
+	}
+	return false
 }
 
 // logRefusal notes a call that was not made, with the card, the decision, and the rule that made it,
@@ -62,33 +81,38 @@ func (s *Server) logRefusal(tool string, out harness.Outcome) {
 		return
 	}
 	s.logger.Warn("an MCP tool call was refused",
-		"tool", tool, "card_id", s.identity.CardID,
+		"tool", tool, s.identity.noun()+"_id", s.identity.key(),
 		"decision", string(out.Decision), "rule", out.Rule)
 }
 
 // refusal is the sentence a model reads when a tool call was not made. It names the mode the card is
 // in and what may be done about it, because a refusal an agent cannot act on is one it will simply
 // repeat.
+func refusal(mode protocol.PermissionMode, tool string, out harness.Outcome) string {
+	return refusalFor("card", mode, tool, out)
+}
+
+// refusalFor is refusal for a card or a chat, named by the noun.
 //
 // There are three rules a call like this can meet: the mode's own (the ordinary case), the profile,
 // and - for create_card - the mode again through security.ActionOther. Nothing here names a rule by
 // its internal name alone: "the profile rule" is not something an agent can do anything with.
-func refusal(mode protocol.PermissionMode, tool string, out harness.Outcome) string {
+func refusalFor(noun string, mode protocol.PermissionMode, tool string, out harness.Outcome) string {
 	switch {
 	case out.Rule == harness.RuleMode && out.Decision == harness.DecisionDeny:
 		return fmt.Sprintf(
-			"The card's permission mode is %s, which only reads, so %s was not done. "+
-				"Carry on without it; the card's owner can turn the mode up if it should be allowed.",
-			mode, tool)
+			"The %s's permission mode is %s, which only reads, so %s was not done. "+
+				"Carry on without it; the %s's owner can turn the mode up if it should be allowed.",
+			noun, mode, tool, noun)
 	case out.Rule == harness.RuleMode:
 		return fmt.Sprintf(
-			"The card's permission mode is %s, which leaves this to the card's owner, so %s was not done. "+
+			"The %s's permission mode is %s, which leaves this to the %s's owner, so %s was not done. "+
 				"Say what you want to do and ask them for it; it can be done once the mode allows it.",
-			mode, tool)
+			noun, mode, noun, tool)
 	case out.Rule == security.RuleProfile:
 		return fmt.Sprintf(
 			"Marshal's permission profile does not allow this at all, so %s was not done. "+
-				"The card's owner can change the profile if it should be.", tool)
+				"The %s's owner can change the profile if it should be.", tool, noun)
 	default:
 		return fmt.Sprintf("Marshal's %s rule refused %s, so it was not done.", out.Rule, tool)
 	}
@@ -96,8 +120,11 @@ func refusal(mode protocol.PermissionMode, tool string, out harness.Outcome) str
 
 // cannotReadTheMode is the sentence for a session whose permission rules could not be read at all,
 // which is the same state a session's own permission requests treat as the person's.
-func cannotReadTheMode(tool string) string {
+func cannotReadTheMode(tool string) string { return cannotReadTheModeFor("card", tool) }
+
+// cannotReadTheModeFor is cannotReadTheMode for a card or a chat, named by the noun.
+func cannotReadTheModeFor(noun, tool string) string {
 	return fmt.Sprintf(
-		"Marshal could not tell what permission mode this card is in, so %s was not done. "+
-			"Ask the card's owner to allow it.", tool)
+		"Marshal could not tell what permission mode this %s is in, so %s was not done. "+
+			"Ask the %s's owner to allow it.", noun, tool, noun)
 }
