@@ -59,6 +59,7 @@ func claudeModels() []protocol.AgentModel {
 		{ID: "haiku", Name: "Haiku (latest)", Thinking: false},
 		{ID: "fable", Name: "Fable (latest)", Thinking: true},
 		{ID: "claude-sonnet-5", Name: "Claude Sonnet 5", Thinking: true},
+		{ID: "claude-sonnet-5-5", Name: "Claude Sonnet 5.5", Thinking: true},
 		{ID: "claude-opus-5-5", Name: "Claude Opus 5.5", Thinking: true},
 		{ID: "claude-fable-5-1", Name: "Claude Fable 5.1", Thinking: true},
 		{ID: "claude-haiku-4-5", Name: "Claude Haiku 4.5", Thinking: false},
