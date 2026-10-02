@@ -1,8 +1,9 @@
 package integrations
 
 // This file owns the Gmail connection (B8.3): which label to watch and which project a labeled
-// email becomes a card in. It shares Google Calendar's OAuth client and token (google.go) rather
-// than asking for a second consent - one Google Cloud app, one grant, two rows on the screen.
+// email becomes a card in. It shares Google Calendar's OAuth client (google.go) but asks for its
+// own consent and keeps its own token, so a person who only wants the calendar is never asked for
+// Gmail's restricted scope.
 
 import (
 	"context"
@@ -30,8 +31,8 @@ type gmailConfig struct {
 	ProjectID string `json:"projectId"`
 }
 
-// SaveGmail stores which label to watch and which project a labeled email becomes a card in. It
-// has no secret of its own: Google Calendar's own client and token, once granted, cover Gmail too.
+// SaveGmail stores which label to watch and which project a labeled email becomes a card in. The
+// OAuth client is Calendar's; Gmail's own token comes from its own consent (AuthorizeGmail).
 func (s *Service) SaveGmail(ctx context.Context, req protocol.SaveGmailRequest) error {
 	if strings.TrimSpace(req.Label) == "" {
 		return protocol.InvalidArgument("Choose the Gmail label Marshal should watch.")
@@ -45,14 +46,16 @@ func (s *Service) SaveGmail(ctx context.Context, req protocol.SaveGmailRequest) 
 		return fmt.Errorf("write the Gmail connection's settings: %w", err)
 	}
 	return s.store.Write(ctx, func(q *db.Queries) error {
-		return q.UpsertIntegration(ctx, db.UpsertIntegrationParams{ID: GmailID, Kind: KindGmail, ConfigJSON: string(config)})
+		return q.UpsertIntegration(ctx, db.UpsertIntegrationParams{
+			ID: GmailID, Kind: KindGmail, ConfigJSON: string(config), KeychainRef: GmailID,
+		})
 	})
 }
 
-// GmailClient answers a client built from Google Calendar's own token. ErrNotConnected means
-// Google Calendar's own consent has not completed yet - the same answer either row gives.
+// GmailClient answers a client built from Gmail's own token. ErrNotConnected means Gmail's consent
+// has not completed yet.
 func (s *Service) GmailClient(ctx context.Context) (*gmailread.Client, error) {
-	fresh, err := s.freshGoogleToken(ctx)
+	fresh, err := s.freshGoogleToken(ctx, GmailID)
 	if err != nil {
 		return nil, err
 	}
@@ -90,14 +93,20 @@ func (s *Service) testGmail(ctx context.Context, info Info) (protocol.TestResult
 		}}, s.now()), nil
 	}
 	client, err := s.GmailClient(ctx)
-	if errors.Is(err, ErrNotConnected) || errors.Is(err, ErrNoGoogleClient) {
+	switch {
+	case errors.Is(err, ErrNotConnected) || errors.Is(err, ErrNoGoogleClient):
 		return protocol.NewTestResult(info.ID, []protocol.TestCheck{{
 			Name: CheckSummary, State: protocol.CheckStateFailed,
-			Message: "Google Calendar is not connected yet, so Gmail has no token to read with.",
-			Fix:     "Connect Google Calendar first; Gmail shares its access.",
+			Message: "Gmail has not been granted access yet.",
+			Fix:     "Save the Google OAuth client under Google Calendar, then choose Grant access on the Gmail row.",
 		}}, s.now()), nil
-	}
-	if err != nil {
+	case errors.Is(err, ErrNeedsReconnect):
+		return protocol.NewTestResult(info.ID, []protocol.TestCheck{{
+			Name: CheckSummary, State: protocol.CheckStateFailed,
+			Message: "Google no longer accepts Marshal's access to Gmail.",
+			Fix:     "Reconnect Gmail in Settings.",
+		}}, s.now()), nil
+	case err != nil:
 		return protocol.TestResult{}, err
 	}
 	total, err := client.About(ctx)
@@ -105,7 +114,7 @@ func (s *Service) testGmail(ctx context.Context, info Info) (protocol.TestResult
 		return protocol.NewTestResult(info.ID, []protocol.TestCheck{{
 			Name: CheckSummary, State: protocol.CheckStateFailed,
 			Message: "Marshal's Google token did not work for Gmail: " + err.Error(),
-			Fix:     "Reconnect Google Calendar in Settings; Gmail needs the gmail.readonly scope too.",
+			Fix:     "Reconnect Gmail in Settings.",
 		}}, s.now()), nil
 	}
 	return protocol.NewTestResult(info.ID, []protocol.TestCheck{{
