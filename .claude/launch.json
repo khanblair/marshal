@@ -6,6 +6,13 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "web", "dev"],
       "port": 3210
+    },
+    {
+      "name": "daemon",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "daemon", "dev"],
+      "port": 47801,
+      "url": "http://127.0.0.1:47801"
     }
   ]
 }
