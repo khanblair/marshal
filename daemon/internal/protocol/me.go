@@ -48,12 +48,15 @@ const (
 	ProjectViewTimeline ProjectView = "timeline"
 	// ProjectViewCalendar is the Calendar.
 	ProjectViewCalendar ProjectView = "calendar"
+	// ProjectViewIntegration is the Integration view: what the Integrator is merging.
+	ProjectViewIntegration ProjectView = "integration"
 )
 
 // ProjectViewValues lists every project view, in the order of the view switcher.
 func ProjectViewValues() []ProjectView {
 	return []ProjectView{
 		ProjectViewChat, ProjectViewAgents, ProjectViewBoard, ProjectViewList, ProjectViewTimeline, ProjectViewCalendar,
+		ProjectViewIntegration,
 	}
 }
 

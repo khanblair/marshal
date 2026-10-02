@@ -33,6 +33,9 @@ type AlertSettings struct {
 	// Channels has one entry per place an alert can be sent, in the order the screen shows them.
 	// Never null.
 	Channels []AlertChannel `json:"channels"`
+	// QuietDuringEvents says alerts that are not asking for an answer are held while a Google
+	// Calendar event is on, and sent together when it ends. An approval is always sent at once.
+	QuietDuringEvents bool `json:"quietDuringEvents"`
 	// ServerTime is the daemon's time when the answer was made.
 	ServerTime Timestamp `json:"serverTime"`
 }
@@ -50,4 +53,6 @@ type AlertRouteChoice struct {
 type SaveAlertSettingsRequest struct {
 	// Routes are the alerts whose channels changed.
 	Routes []AlertRouteChoice `json:"routes"`
+	// QuietDuringEvents turns holding alerts during calendar events on or off. Null leaves it.
+	QuietDuringEvents *bool `json:"quietDuringEvents,omitempty" tstype:"boolean | null"`
 }

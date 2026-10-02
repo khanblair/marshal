@@ -30,6 +30,9 @@ type Chat struct {
 	Title string `json:"title"`
 	// Target is who the chat talks to.
 	Target ChatTarget `json:"target"`
+	// System names a chat that Marshal keeps for the project itself: "integrator" for the pinned
+	// Integrator chat. It is empty for a chat a person made, and a system chat cannot be deleted.
+	System string `json:"system,omitempty"`
 	// AgentKind is the agent program its session starts, such as "claude". A chats' sessions are
 	// started in slice C; the settings are stored here from the moment the chat is made so the
 	// session has them.
@@ -110,3 +113,6 @@ type UpdateChatRequest struct {
 	// Title is the new name. Null leaves it, and a title that is only spaces is refused.
 	Title *string `json:"title,omitempty"`
 }
+
+// ChatSystemIntegrator is the System value of the pinned Integrator chat.
+const ChatSystemIntegrator = "integrator"

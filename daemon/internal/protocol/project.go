@@ -45,6 +45,9 @@ type Project struct {
 	Language string `json:"language"`
 	// DefaultBranch is the branch new work starts from.
 	DefaultBranch string `json:"defaultBranch"`
+	// IntegrationBranch is the branch finished cards merge into and new cards start from. The
+	// daemon fills it with the effective branch: the owner's choice, else DefaultBranch.
+	IntegrationBranch string `json:"integrationBranch,omitempty"`
 	// DevCommand is the command that starts the project's dev server. It is a guess when the
 	// project is added, it may be empty, and the person can change it.
 	DevCommand string `json:"devCommand"`
@@ -96,6 +99,9 @@ type UpdateProjectRequest struct {
 	DevCommand *string `json:"devCommand,omitempty"`
 	// DefaultBranch is the new default branch. It must exist in the repository.
 	DefaultBranch *string `json:"defaultBranch,omitempty"`
+	// IntegrationBranch is the new integration branch. It must exist in the repository. An empty
+	// string clears the choice, so the default branch is used again.
+	IntegrationBranch *string `json:"integrationBranch,omitempty"`
 	// BypassLocked turns the bypass lock on or off.
 	BypassLocked *bool `json:"bypassLocked,omitempty"`
 }
@@ -108,4 +114,14 @@ type RemoveProjectRequest struct {
 	KeepBranches bool `json:"keepBranches"`
 	// KeepMemory keeps the project's memory folder. When false the folder is deleted.
 	KeepMemory bool `json:"keepMemory"`
+}
+
+// Target is the branch finished cards merge into: the integration branch when one is chosen, and
+// the default branch otherwise. Every part of the daemon that used DefaultBranch for "where work
+// goes" reads this instead.
+func (p Project) Target() string {
+	if p.IntegrationBranch != "" {
+		return p.IntegrationBranch
+	}
+	return p.DefaultBranch
 }

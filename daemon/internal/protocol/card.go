@@ -80,6 +80,14 @@ type Card struct {
 	ViewMode CardViewMode `json:"viewMode"`
 	// Branch is the Git branch of the card's work. Empty until the card starts.
 	Branch string `json:"branch"`
+	// Worktree is the folder of the card's worktree on the machine that runs the daemon. Empty
+	// until the card starts and after the worktree is removed.
+	Worktree string `json:"worktree,omitempty"`
+	// MergePhase is where a card in the merge queue is: queued, resolving, testing, or landing.
+	// Empty for every card that is not being merged.
+	MergePhase MergePhase `json:"mergePhase,omitempty"`
+	// MergeNote is one plain sentence about the merge in progress, such as "Resolving 2 conflicts".
+	MergeNote string `json:"mergeNote,omitempty"`
 	// CreatedAt is when the card was made.
 	CreatedAt Timestamp `json:"createdAt"`
 	// UpdatedAt is when the card last changed.

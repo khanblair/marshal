@@ -74,12 +74,25 @@ type SaveScheduleRequest struct {
 // Start is the one field the daemon fills in; a cutover's mapper derives Time and DayOffset from
 // it (the mock's own relative shape), since only the viewer's own clock knows what day is "today".
 type CalendarEvent struct {
-	ID        string    `json:"id"`
-	Title     string    `json:"title"`
-	Start     Timestamp `json:"start"`
-	Time      string    `json:"time,omitempty"`
-	Days      []int     `json:"days,omitempty"`
-	DayOffset int       `json:"dayOffset,omitempty"`
+	ID    string    `json:"id"`
+	Title string    `json:"title"`
+	Start Timestamp `json:"start"`
+	// End is when the event ends. For an all-day event it is the first day it no longer covers.
+	// Null when Google gave none.
+	End *Timestamp `json:"end" tstype:"Timestamp | null"`
+	// AllDay says the event covers whole days, so its time of day means nothing.
+	AllDay bool `json:"allDay"`
+	// Location is the place, as typed. Empty when there is none.
+	Location string `json:"location"`
+	// URL opens the event in Google Calendar. Empty when there is none.
+	URL string `json:"url"`
+	// JoinURL is the event's video call link. Empty when there is none.
+	JoinURL string `json:"joinUrl"`
+	// Calendar is the name of the calendar the event is on.
+	Calendar  string `json:"calendar"`
+	Time      string `json:"time,omitempty"`
+	Days      []int  `json:"days,omitempty"`
+	DayOffset int    `json:"dayOffset,omitempty"`
 }
 
 // CalendarList is the answer to GET /v1/calendar: the one call N21 asks for so the calendar view
@@ -87,18 +100,34 @@ type CalendarEvent struct {
 // addresses. Schedules is every schedule, enabled or not - the same list GET /v1/schedules answers
 // - not only the ones inside the asked-for range, because a schedule's own days and time, not a
 // range, say which days it draws on; the screen already knows to skip a disabled one. DueCards is
-// scoped to the range. GoogleConnected is false with an always-empty Events until B8.3 connects
-// Google Calendar for real: never sample data.
+// scoped to the range. GoogleConnected is false with an always-empty Events until Google Calendar is
+// connected: never sample data. When Google could not be read, GoogleError says why in a sentence a
+// person can act on, and the rest of the list is still there: a Google that is down never takes the
+// schedules and the due cards with it.
 type CalendarList struct {
 	Schedules       []Schedule      `json:"schedules"`
 	DueCards        []Card          `json:"dueCards"`
 	Events          []CalendarEvent `json:"events"`
 	GoogleConnected bool            `json:"googleConnected"`
-	ServerTime      Timestamp       `json:"serverTime"`
+	// GoogleError is why Google's events are missing or old, or empty when nothing is wrong.
+	GoogleError string `json:"googleError"`
+	// GoogleStale says Events are the last ones read, because Google could not be reached just now.
+	GoogleStale bool      `json:"googleStale"`
+	ServerTime  Timestamp `json:"serverTime"`
+}
+
+// GoogleReading is how reading Google Calendar went, for the answer that carries its events.
+type GoogleReading struct {
+	// Connected says Google Calendar is set up and its access works.
+	Connected bool
+	// Error is why Google's events are missing, in words a person can act on. Empty when none.
+	Error string
+	// Stale says the events are the last ones read, because Google could not be reached just now.
+	Stale bool
 }
 
 // NewCalendarList makes an answer stamped with the daemon's time.
-func NewCalendarList(schedules []Schedule, dueCards []Card, events []CalendarEvent, googleConnected bool, now time.Time) CalendarList {
+func NewCalendarList(schedules []Schedule, dueCards []Card, events []CalendarEvent, google GoogleReading, now time.Time) CalendarList {
 	// The lists are never null on the wire: a daemon with no Google Calendar connected has no events.
 	if schedules == nil {
 		schedules = []Schedule{}
@@ -111,6 +140,7 @@ func NewCalendarList(schedules []Schedule, dueCards []Card, events []CalendarEve
 	}
 	return CalendarList{
 		Schedules: schedules, DueCards: dueCards, Events: events,
-		GoogleConnected: googleConnected, ServerTime: NewTimestamp(now),
+		GoogleConnected: google.Connected, GoogleError: google.Error, GoogleStale: google.Stale,
+		ServerTime: NewTimestamp(now),
 	}
 }

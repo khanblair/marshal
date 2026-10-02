@@ -155,3 +155,72 @@ type SaveGmailRequest struct {
 	// ProjectID is the Marshal project a labeled email becomes a card in.
 	ProjectID string `json:"projectId"`
 }
+
+// GitHubConnectState is where the GitHub sign-in is. A screen draws one panel for each value.
+type GitHubConnectState string
+
+const (
+	// GitHubConnectStateIdle means nothing is connected and no sign-in is under way.
+	GitHubConnectStateIdle GitHubConnectState = "idle"
+	// GitHubConnectStatePending means a code was issued and the person has not approved it on GitHub yet.
+	GitHubConnectStatePending GitHubConnectState = "pending"
+	// GitHubConnectStateNeedsInstall means the person signed in but the Marshal GitHub App is not
+	// installed on any of their accounts, so there is nothing for Marshal to see yet.
+	GitHubConnectStateNeedsInstall GitHubConnectState = "needs_install"
+	// GitHubConnectStateConnected means GitHub is connected, by a sign-in or by a pasted token.
+	GitHubConnectStateConnected GitHubConnectState = "connected"
+	// GitHubConnectStateDenied means the person refused the code on GitHub.
+	GitHubConnectStateDenied GitHubConnectState = "denied"
+	// GitHubConnectStateExpired means the code ran out before it was approved.
+	GitHubConnectStateExpired GitHubConnectState = "expired"
+	// GitHubConnectStateFailed means the sign-in could not be finished, with the reason in Message.
+	GitHubConnectStateFailed GitHubConnectState = "failed"
+)
+
+// GitHubConnectStateValues lists every state of the GitHub sign-in.
+func GitHubConnectStateValues() []GitHubConnectState {
+	return []GitHubConnectState{
+		GitHubConnectStateIdle, GitHubConnectStatePending, GitHubConnectStateNeedsInstall,
+		GitHubConnectStateConnected, GitHubConnectStateDenied, GitHubConnectStateExpired,
+		GitHubConnectStateFailed,
+	}
+}
+
+// GitHubInstallation is one account the Marshal GitHub App is installed on.
+type GitHubInstallation struct {
+	// Account is the user or organization login.
+	Account string `json:"account"`
+	// Kind is "user" or "organization".
+	Kind string `json:"kind"`
+	// AllRepositories is true when the installation sees every repository the account owns.
+	AllRepositories bool `json:"allRepositories"`
+}
+
+// GitHubConnect is the answer to every call that starts, reads, or ends the GitHub sign-in. One
+// shape serves all its states; a field that does not apply to the state is left out.
+type GitHubConnect struct {
+	State GitHubConnectState `json:"state"`
+	// Mode is how GitHub is connected once it is: "oauth" for the sign-in, "token" for a pasted one.
+	Mode string `json:"mode,omitempty"`
+	// UserCode is the short code the person types on GitHub. Set while pending.
+	UserCode string `json:"userCode,omitempty"`
+	// VerificationURI is the GitHub page the code is typed on. Set while pending.
+	VerificationURI string `json:"verificationUri,omitempty"`
+	// ExpiresAt is when the pending code stops working.
+	ExpiresAt *Timestamp `json:"expiresAt,omitempty"`
+	// Login is the GitHub user Marshal is signed in as, once known.
+	Login string `json:"login,omitempty"`
+	// InstallURL is the page that installs the Marshal GitHub App on an account or organization. Set
+	// while needs_install, and when connected through a sign-in, for "add another account".
+	InstallURL string `json:"installUrl,omitempty"`
+	// Installations lists the accounts the App is installed on. Never null; empty for a token.
+	Installations []GitHubInstallation `json:"installations"`
+	// Message is one plain sentence for the person, set when the state needs explaining.
+	Message string `json:"message,omitempty"`
+}
+
+// SaveGitHubTokenRequest is the body of the calls that save or test a pasted GitHub token.
+type SaveGitHubTokenRequest struct {
+	// Token is a GitHub personal access token. It is written to the keychain and never comes back.
+	Token string `json:"token"`
+}
