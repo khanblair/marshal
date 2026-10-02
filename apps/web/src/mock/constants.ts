@@ -93,6 +93,7 @@ export const VIEWS: readonly ViewInfo[] = [
   { key: "list", label: "List", icon: "list" },
   { key: "timeline", label: "Timeline", icon: "gantt-chart" },
   { key: "calendar", label: "Calendar", icon: "calendar" },
+  { key: "integration", label: "Integration", icon: "git-merge" },
 ];
 
 /**

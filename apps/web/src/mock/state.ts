@@ -139,6 +139,7 @@ export function initialState(seed: Seed, opts: StateOptions): State {
     // The Home numbers come from the daemon (`sync/home-stats.ts`); there are none until it answers,
     // so a chart draws the range the screen asked for with every day at zero.
     stats: { range: 7, days: [], projects: [] },
+    calGoogle: { known: false, connected: false, error: "", stale: false },
     chatOpen: {},
     chatQuery: {},
     archOpen: {},

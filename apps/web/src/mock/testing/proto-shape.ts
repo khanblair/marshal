@@ -18,9 +18,10 @@ import type { ProtoM } from "./prototype";
 const CARD_MAPS = ["chat", "act", "checks", "notes", "preview"] as const;
 /**
  * What the daemon knows about a project that the prototype's seed projects do not have: the
- * default branch, the dev command, and the bypass lock. A project in the port always has them.
+ * default and integration branches, the dev command, and the bypass lock. A project in the port
+ * always has them.
  */
-const DAEMON_PROJECT_FIELDS = ["branch", "dev", "lockBypass"] as const;
+const DAEMON_PROJECT_FIELDS = ["branch", "integrationBranch", "dev", "lockBypass"] as const;
 /** A schedule's own project id, which round-trips a save to the daemon; the prototype has no such
  * field, since it never saves a schedule anywhere. */
 /** Connections the port lists that the prototype never drew, so its seed has no row for them. */
@@ -67,8 +68,9 @@ function scheduleFields(schedule: Json): Json {
  * The whole state without what the port keeps beyond the prototype's fields:
  *
  * - `agents`, the daemon's catalog (the prototype's fixed table is in `M.AGENTS`), `agentTools`, the
- *   other agent programs it found, and `stats`, the
- *   stored Home numbers (`sync/home-stats.ts`).
+ *   other agent programs it found, `stats`, the
+ *   stored Home numbers (`sync/home-stats.ts`), and `calGoogle`, how reading Google Calendar went
+ *   (`sync/calendar.ts`).
  * - `checkpoints`, a card's restore points, which the port keeps in the store (Phase 5, B5.3) and
  *   fills from the daemon's own activity. The prototype keeps no such state: its `CardDetail.dc.html`
  *   makes three fake rows inside `renderVals`, so there is nothing here to compare them against.
@@ -84,6 +86,7 @@ function withoutPortOnly(value: unknown): unknown {
     agents: _daemon,
     agentTools: _tools,
     stats: _numbers,
+    calGoogle: _google,
     checkpoints: _restorePoints,
     ...rest
   } = value;

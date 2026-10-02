@@ -1,9 +1,18 @@
 import type { Agent, AgentTool, Preview } from "@marshal/protocol";
 import type { ConnectionState } from "~/data/connection-machine";
 import type { CheckpointRow } from "~/data/mappers/checkpoints";
+import type { MergeFlowSlot } from "~/data/mappers/integration";
 import type { NoteInfo } from "~/data/mappers/notes";
 import type { CardKey } from "./card-key";
-import type { CalEvent, Integration, Profile, Provider, Role, Schedule } from "./settings-types";
+import type {
+  CalEvent,
+  CalGoogle,
+  Integration,
+  Profile,
+  Provider,
+  Role,
+  Schedule,
+} from "./settings-types";
 import type {
   Activity,
   Card,
@@ -106,6 +115,8 @@ export interface State {
   integrations: Integration[];
   schedules: Schedule[];
   calEvents: CalEvent[];
+  /** How reading Google Calendar went, so the calendar and Home can say what is wrong. */
+  calGoogle: CalGoogle;
   settingsSection: string;
   roleSel: string;
   listCols: Record<string, boolean>;
@@ -142,6 +153,12 @@ export interface State {
    * entry has no preview read for it yet, which the tab draws as stopped.
    */
   preview?: Record<CardKey, Preview>;
+  /**
+   * A project's merge flow, by project id: what the Integrator is merging and what it delivered. It
+   * is read when the project's Integration view is shown (`sync/integration-flow.ts`), so a project
+   * whose view was never shown has no entry, and the view draws nothing for a store with no daemon.
+   */
+  integration?: Record<string, MergeFlowSlot>;
   notes?: Record<CardKey, string>;
   /**
    * A card's note, the daemon's own half (section S14): where it really lives in the vault, who

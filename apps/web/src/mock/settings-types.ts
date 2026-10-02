@@ -36,7 +36,7 @@ export interface Integration {
  * here, so the mapper never depends on the mock, and re-exported here because the screens import
  * their store types from `~/mock`.
  */
-export type { CalEvent } from "~/data/mappers/calendar";
+export type { CalEvent, CalGoogle } from "~/data/mappers/calendar";
 /**
  * A schedule row: the daemon's, mapped by `~/data/mappers/schedules.ts`. It is defined there, not
  * here, so the mapper never depends on the mock, and re-exported here because the screens import

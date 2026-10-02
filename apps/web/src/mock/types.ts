@@ -1,6 +1,6 @@
 /* Domain model of the fake daemon. Shapes match design/store.js exactly. */
 
-import type { CardViewMode, SessionState } from "@marshal/protocol";
+import type { CardViewMode, MergePhase, NeedsReasonKind, SessionState } from "@marshal/protocol";
 import type { CardKey } from "./card-key";
 
 export type Status =
@@ -15,7 +15,14 @@ export type Status =
 export type Column = Exclude<Status, "merging">;
 export type CiState = "queued" | "running" | "passed" | "failed" | "cancelled";
 export type ToneKind = "solid" | "text" | "subtle";
-export type ViewKey = "chat" | "agents" | "board" | "list" | "timeline" | "calendar";
+export type ViewKey =
+  | "chat"
+  | "agents"
+  | "board"
+  | "list"
+  | "timeline"
+  | "calendar"
+  | "integration";
 export type Page = "home" | "project" | "settings" | "all";
 export type Theme = "light" | "dark" | "system";
 export type ResolvedTheme = "light" | "dark";
@@ -53,6 +60,8 @@ export interface Project {
   runs?: CiRun[];
   packages?: string[] | undefined;
   branch?: string;
+  /** The branch finished cards merge into, as the daemon sends it: the owner's choice, else `branch`. */
+  integrationBranch?: string;
   dev?: string;
   lockBypass?: boolean;
 }
@@ -139,6 +148,14 @@ export interface Card {
    * whichever card is open, not stored per card).
    */
   viewMode?: CardViewMode;
+  /** The card's worktree folder on the daemon's machine. Undefined until the card starts. */
+  worktree?: string;
+  /** Where the card is in the Integrator's merge queue. Undefined when it is not being merged. */
+  mergePhase?: MergePhase;
+  /** One plain sentence about the merge in progress. Undefined when there is none. */
+  mergeNote?: string;
+  /** Why the card waits on a person, as the daemon names it. Undefined on a card the mock made. */
+  reasonKind?: NeedsReasonKind;
   asleep: boolean;
   pinned: boolean;
   bypass: boolean;
@@ -291,6 +308,13 @@ export interface Chat {
   last: number;
   archived: boolean;
   fresh?: boolean;
+  /**
+   * Names a chat Marshal keeps for the project itself: `integrator` is the pinned Integrator chat.
+   * It is listed first and cannot be renamed, archived, or deleted. Absent on a chat a person made.
+   */
+  system?: string;
+  /** The permission mode the daemon runs the chat's agent with, such as `plan`. Absent on a mock chat. */
+  mode?: string;
   /**
    * Where the read of a daemon chat's history stands (section S17): `loading` while it is being read,
    * and `failed` when it could not be, with the daemon's own sentence in `historyError`. Both are
