@@ -58,6 +58,10 @@ export function SignInScreen() {
       if (code) pair(code, deviceName());
       else if (text)
         setPairError("That is not a Marshal code. Scan the one shown in Pair a device.");
+      else
+        setPairError(
+          "The camera could not read a code. Allow the camera for Marshal, or type the code instead.",
+        );
     });
   };
   // A phone that opened the address from the QR code arrives with the code in it. It is taken out

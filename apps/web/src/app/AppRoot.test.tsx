@@ -260,6 +260,25 @@ describe("AppRoot and the daemon", () => {
     await vi.waitFor(() => expect(pair).toHaveBeenCalledWith("7QX-2LD", "Phone app"));
   });
 
+  it("says so when the camera could not read a code, and when it read something else", async () => {
+    const pair = vi.spyOn(M, "pairWithCode").mockResolvedValue("");
+    connectTo("unauthorized");
+    const scanCode = vi.fn().mockResolvedValue(null);
+    vi.spyOn(platformModule, "platform").mockReturnValue({
+      ...platformModule.createPlatform("web"),
+      kind: "mobile",
+      canScanCode: true,
+      scanCode,
+    });
+    render(() => <AppRoot />);
+    fireEvent.click(screen.getByRole("button", { name: "Scan the QR code" }));
+    expect(await screen.findByText(/camera could not read a code/)).toBeInTheDocument();
+    scanCode.mockResolvedValue("https://example.com");
+    fireEvent.click(screen.getByRole("button", { name: "Scan the QR code" }));
+    expect(await screen.findByText(/not a Marshal code/)).toBeInTheDocument();
+    expect(pair).not.toHaveBeenCalled();
+  });
+
   it("shows a busy sign-in while the token is checked", () => {
     connectTo("unauthorized", { busy: true });
     render(() => <AppRoot />);
