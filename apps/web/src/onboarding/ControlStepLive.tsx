@@ -3,6 +3,7 @@ import { createResource, createSignal, For, onMount, Show } from "solid-js";
 import { M } from "~/mock";
 import { platform } from "~/platform";
 import { pairingQrText } from "~/platform/pairing";
+import { phoneAccess } from "~/platform/phone-access";
 import { DiscordForm } from "~/views/settings/DiscordForm";
 import { createEditState } from "~/views/settings/edit-state";
 import { NtfyForm } from "~/views/settings/NtfyForm";
@@ -51,10 +52,10 @@ function PairAPhone() {
         <span class="font-semibold">Pair a phone over Tailscale</span>
         <span class="text-small leading-4.5 text-secondary">
           <Show
-            when={node()?.dnsName}
-            fallback="Turn Tailscale on for this computer to reach it from a phone. Start Marshal with --tailnet."
+            when={phoneAccess(node() ?? null)?.address}
+            fallback="Your phone cannot reach this computer yet. Settings, then Remote control, shows the exact step."
           >
-            {(name) => `Open ${name()} on your phone, or scan the code, and enter the code.`}
+            {(address) => `Open ${address()} on your phone, or scan the code, and enter the code.`}
           </Show>
         </span>
         <Button onClick={() => void M.createPairingCode()}>New code</Button>

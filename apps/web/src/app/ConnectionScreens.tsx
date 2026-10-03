@@ -57,7 +57,9 @@ export function SignInScreen() {
       const code = parsePairingScan(text);
       if (code) pair(code, deviceName());
       else if (text)
-        setPairError("That is not a Marshal code. Scan the one shown in Pair a device.");
+        setPairError(
+          "That is not a Marshal code. Scan the one shown under Remote control, Pair a device.",
+        );
       else
         setPairError(
           "The camera could not read a code. Allow the camera for Marshal, or type the code instead.",
@@ -78,6 +80,7 @@ export function SignInScreen() {
   return (
     <SignIn
       phone={isPhone()}
+      lead={device.kind === "mobile" || isPhone() ? "pair" : "token"}
       busy={M.S.connection?.busy || pairing()}
       error={M.S.connection?.rejection}
       onSubmit={(token) => M.signIn(token)}

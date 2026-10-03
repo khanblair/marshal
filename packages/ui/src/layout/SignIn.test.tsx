@@ -200,4 +200,50 @@ describe("SignIn", () => {
       expect(screen.getByRole("button", { name: "Pair this device" })).toBeDisabled();
     });
   });
+
+  describe("leading with pairing", () => {
+    const pairing = (extra = {}) =>
+      render(() => <SignIn lead="pair" onSubmit={() => {}} onPair={() => {}} {...extra} />);
+
+    it("asks to connect to the computer and keeps the token behind a disclosure", () => {
+      const { container } = pairing();
+      expect(screen.getByRole("heading", { name: "Connect to your computer" })).toBeInTheDocument();
+      expect(
+        screen.getByText(/open Settings, then Remote control, then Pair a device/),
+      ).toBeInTheDocument();
+      const details = container.querySelector("details") as HTMLDetailsElement;
+      expect(details).not.toHaveAttribute("open");
+      expect(details).toHaveTextContent("Use an access token instead");
+      expect(details).toContainElement(tokenField());
+      expect(screen.getByRole("form", { name: "Pair with a code" })).toBeInTheDocument();
+    });
+
+    it("puts Scan the QR code first and as the main button when the device can scan", () => {
+      pairing({ onScan: () => {} });
+      const buttons = screen.getAllByRole("button");
+      expect(buttons[0]).toHaveTextContent("Scan the QR code");
+      expect(buttons[0]).toHaveClass("bg-ink");
+      expect(screen.getByRole("button", { name: "Pair this device" })).not.toHaveClass("bg-ink");
+    });
+
+    it("does not take focus, so a phone's keyboard is not raised before anyone chose", () => {
+      vi.useFakeTimers();
+      pairing();
+      vi.advanceTimersByTime(FOCUS_DELAY_MS);
+      expect(document.activeElement).toBe(document.body);
+    });
+
+    it("pairs with the code and the device name, trimmed", () => {
+      const onPair = vi.fn();
+      pairing({ onPair, deviceName: "Phone app" });
+      fireEvent.input(screen.getByLabelText("Pairing code"), { target: { value: " 7QX-2LD " } });
+      fireEvent.click(screen.getByRole("button", { name: "Pair this device" }));
+      expect(onPair).toHaveBeenCalledWith("7QX-2LD", "Phone app");
+    });
+
+    it("still leads with the token when there is no way to pair", () => {
+      render(() => <SignIn lead="pair" onSubmit={() => {}} />);
+      expect(screen.getByRole("heading", { name: "Sign in to Marshal" })).toBeInTheDocument();
+    });
+  });
 });

@@ -190,7 +190,7 @@ describe("sign in", () => {
     const M = createTestMarshal({ data: d.data });
     await vi.waitFor(() => expect(M.S.connection?.state).toBe("unauthorized"));
     expect(await M.pairWithCode("NOP-000", "Phone browser")).toBe(
-      "That code did not work. Check it, or ask for a new one in Settings, Profile.",
+      "That code did not work. Check it, or ask for a new one in Settings, Remote control.",
     );
     expect(d.storage.values.get(TOKEN_KEY)).toBeUndefined();
     expect(M.S.connection?.state).toBe("unauthorized");

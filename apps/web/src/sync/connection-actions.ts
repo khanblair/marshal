@@ -4,7 +4,8 @@ import type { Ctx } from "~/mock/context";
 import { platform } from "~/platform";
 
 const HTTP_UNAUTHORIZED = 401;
-const REFUSED_CODE = "That code did not work. Check it, or ask for a new one in Settings, Profile.";
+const REFUSED_CODE =
+  "That code did not work. Check it, or ask for a new one in Settings, Remote control.";
 const NAME_LIMIT = 60;
 const NOT_CONNECTED = "Marshal cannot reach the computer. Check the connection and try again.";
 
