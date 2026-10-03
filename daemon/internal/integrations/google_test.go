@@ -27,6 +27,13 @@ type fakeGoogle struct {
 	tokenCalls, eventCalls atomic.Int32
 	// lastVerifier is the PKCE verifier the last code exchange carried.
 	lastVerifier atomic.Value
+	// revokeCalls counts how many times Marshal asked to end an access, lastRevoked is the token it
+	// sent, and revokeFails makes the endpoint answer with a 500.
+	revokeCalls atomic.Int32
+	lastRevoked atomic.Value
+	revokeFails atomic.Bool
+	// workBody, when set, is what the Work calendar answers with instead of its usual one event.
+	workBody atomic.Value
 }
 
 func newFakeGoogle(t *testing.T) *fakeGoogle {
@@ -47,6 +54,16 @@ func newFakeGoogle(t *testing.T) *fakeGoogle {
 		}
 		_, _ = w.Write([]byte(`{"access_token":"access-` + r.Form.Get("grant_type") + `","refresh_token":"refresh-1","token_type":"Bearer","expires_in":1}`))
 	})
+	mux.HandleFunc("/revoke", func(w http.ResponseWriter, r *http.Request) {
+		g.revokeCalls.Add(1)
+		_ = r.ParseForm()
+		g.lastRevoked.Store(r.Form.Get("token"))
+		if g.revokeFails.Load() {
+			http.Error(w, `{"error":"boom"}`, http.StatusInternalServerError)
+			return
+		}
+		_, _ = w.Write([]byte(`{}`))
+	})
 	mux.HandleFunc("/calendar/v3/users/me/calendarList", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"items":[
@@ -62,6 +79,8 @@ func newFakeGoogle(t *testing.T) *fakeGoogle {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		switch {
+		case strings.Contains(r.URL.Path, "/work/") && g.workBody.Load() != nil:
+			_, _ = w.Write([]byte(g.workBody.Load().(string)))
 		case strings.Contains(r.URL.Path, "/work/"):
 			_, _ = w.Write([]byte(`{"items":[{"id":"w1","summary":"Design review","start":{"dateTime":"2026-10-02T14:00:00Z"},"end":{"dateTime":"2026-10-02T15:00:00Z"}}]}`))
 		case strings.Contains(r.URL.Path, "/holidays/"):
@@ -84,6 +103,7 @@ func newGoogleFixture(t *testing.T, mutate ...func(*integrations.Options)) (*fix
 		o.GoogleAuthURL = g.server.URL + "/auth"
 		o.GoogleTokenURL = g.server.URL + "/token"
 		o.GCalBaseURL = g.server.URL + "/calendar/v3/"
+		o.GoogleRevokeURL = g.server.URL + "/revoke"
 	}}, mutate...)...)
 	if err := f.svc.SaveGoogleCalendar(context.Background(), protocol.SaveGoogleCalendarRequest{
 		ClientID: "client-id", ClientSecret: "client-secret",
@@ -419,6 +439,7 @@ func newGoogleFixtureWithoutClient(t *testing.T) (*fixture, *fakeGoogle) {
 		o.GCalRedirectURL = "http://127.0.0.1:47801/v1/integrations/gcal/callback"
 		o.GoogleAuthURL = g.server.URL + "/auth"
 		o.GoogleTokenURL = g.server.URL + "/token"
+		o.NoBundledGoogleClient = true
 	})
 	return f, g
 }
@@ -430,5 +451,116 @@ func TestGmailAlsoConnectsThroughMarshalsClient(t *testing.T) {
 	}
 	if _, err := f.svc.GmailClient(context.Background()); err != nil {
 		t.Errorf("Gmail through Marshal's client: %v", err)
+	}
+}
+
+func TestAnEventMarkedAvailableDoesNotMakeThePersonBusy(t *testing.T) {
+	now := time.Date(2026, 10, 2, 10, 5, 0, 0, time.UTC)
+	f, g := newGoogleFixture(t, func(o *integrations.Options) { o.Now = func() time.Time { return now } })
+	g.workBody.Store(`{"items":[
+		{"id":"a","summary":"Office hours","transparency":"transparent","start":{"dateTime":"2026-10-02T10:00:00Z"},"end":{"dateTime":"2026-10-02T11:00:00Z"}},
+		{"id":"b","summary":"Working from home","eventType":"workingLocation","start":{"dateTime":"2026-10-02T10:00:00Z"},"end":{"dateTime":"2026-10-02T11:00:00Z"}},
+		{"id":"c","summary":"Review","start":{"dateTime":"2026-10-02T10:30:00Z"},"end":{"dateTime":"2026-10-02T11:00:00Z"}}]}`)
+	f.grant(f.svc.AuthorizeGoogleCalendar)
+	if err := f.svc.SetGoogleCalendars(context.Background(), []string{"work"}); err != nil {
+		t.Fatal(err)
+	}
+	if event, on := f.svc.EventNow(context.Background(), now); on {
+		t.Errorf("at 10:05 only free events are on, but %q held alerts", event.Title)
+	}
+	if event, on := f.svc.EventNow(context.Background(), now.Add(30*time.Minute)); !on || event.Title != "Review" {
+		t.Errorf("at 10:35 = %+v, %v, want Review", event, on)
+	}
+}
+
+func TestDisconnectingTheLastGoogleConnectionEndsTheAccessAtGoogle(t *testing.T) {
+	f, g := newGoogleFixture(t)
+	f.grant(f.svc.AuthorizeGoogleCalendar)
+	if err := f.svc.Remove(context.Background(), integrations.GCalID); err != nil {
+		t.Fatal(err)
+	}
+	if g.revokeCalls.Load() != 1 || g.lastRevoked.Load() != "refresh-1" {
+		t.Errorf("revoke calls = %d, token = %v, want one call with the refresh token", g.revokeCalls.Load(), g.lastRevoked.Load())
+	}
+	if _, err := f.svc.GoogleCalendarClient(context.Background()); !errors.Is(err, integrations.ErrNotConnected) {
+		t.Errorf("Calendar after Disconnect gave %v, want ErrNotConnected", err)
+	}
+}
+
+func TestDisconnectingOneOfTwoGoogleConnectionsLeavesTheGrantAlone(t *testing.T) {
+	f, g := newGoogleFixture(t)
+	f.grant(f.svc.AuthorizeGoogleCalendar)
+	f.grant(f.svc.AuthorizeGmail)
+	if err := f.svc.Remove(context.Background(), integrations.GCalID); err != nil {
+		t.Fatal(err)
+	}
+	if g.revokeCalls.Load() != 0 {
+		t.Fatalf("revoked while Gmail still used the grant: Google ends every scope for one revoked token")
+	}
+	if _, err := f.svc.GmailClient(context.Background()); err != nil {
+		t.Errorf("Gmail stopped working after Calendar was removed: %v", err)
+	}
+	if err := f.svc.Remove(context.Background(), integrations.GmailID); err != nil {
+		t.Fatal(err)
+	}
+	if g.revokeCalls.Load() != 1 {
+		t.Errorf("revoke calls = %d after the last connection went, want 1", g.revokeCalls.Load())
+	}
+}
+
+func TestAGoogleThatCannotBeToldDoesNotStopTheDisconnect(t *testing.T) {
+	f, g := newGoogleFixture(t)
+	f.grant(f.svc.AuthorizeGoogleCalendar)
+	g.revokeFails.Store(true)
+	if err := f.svc.Remove(context.Background(), integrations.GCalID); err != nil {
+		t.Fatalf("Disconnect failed because Google answered 500: %v", err)
+	}
+	if _, err := f.svc.GoogleCalendarClient(context.Background()); !errors.Is(err, integrations.ErrNotConnected) {
+		t.Errorf("the token stayed on this computer: %v", err)
+	}
+}
+
+func TestGmailReadsConnectedOnlyWithALabelAndItsOwnGrant(t *testing.T) {
+	f, _ := newGoogleFixture(t)
+	ctx := context.Background()
+	gmail := func() protocol.Integration {
+		list, err := f.svc.List(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, row := range list {
+			if row.ID == integrations.GmailID {
+				return row
+			}
+		}
+		t.Fatal("no Gmail row")
+		return protocol.Integration{}
+	}
+	if got := gmail(); got.Status != protocol.IntegrationStatusNone {
+		t.Fatalf("before anything: %v", got.Status)
+	}
+	save := protocol.SaveGmailRequest{Label: "marshal", ProjectID: "marshal-sample"}
+	if err := f.svc.SaveGmail(ctx, save); err != nil {
+		t.Fatal(err)
+	}
+	if got := gmail(); got.Status != protocol.IntegrationStatusNone || !strings.Contains(got.Detail, "Grant access") {
+		t.Errorf("label saved, not granted: %v %q, want not connected and told to grant", got.Status, got.Detail)
+	}
+	f.grant(f.svc.AuthorizeGmail)
+	if got := gmail(); got.Status != protocol.IntegrationStatusConnected {
+		t.Errorf("label saved and granted: %v, want connected", got.Status)
+	}
+	if err := f.svc.Remove(ctx, integrations.GmailID); err != nil {
+		t.Fatal(err)
+	}
+	f.grant(f.svc.AuthorizeGmail)
+	if got := gmail(); got.Status != protocol.IntegrationStatusNone {
+		t.Errorf("granted with no label: %v, want not connected", got.Status)
+	}
+	if err := f.svc.SaveGmail(ctx, save); err != nil {
+		t.Fatal(err)
+	}
+	if got := gmail(); got.Status != protocol.IntegrationStatusConnected {
+		t.Errorf("granted first, label after: %v, want connected", got.Status)
 	}
 }

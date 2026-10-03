@@ -62,6 +62,28 @@ func (s *Service) GmailClient(ctx context.Context) (*gmailread.Client, error) {
 	return gmailread.New(ctx, oauth2.NewClient(ctx, oauth2.StaticTokenSource(fresh)), s.gmailBase)
 }
 
+// gmailUnfinished says what is still missing before Gmail is connected, or "" when nothing is. Gmail
+// is connected once it has a label to watch and its own consent has been granted, in either order.
+func (s *Service) gmailUnfinished(ctx context.Context) string {
+	config, err := s.readGmail(ctx)
+	if err != nil {
+		s.log.Warn("Gmail's settings could not be read", "err", err)
+		return ""
+	}
+	token, err := s.readGmailToken()
+	switch {
+	case err != nil:
+		return ""
+	case config.Label == "" && token == nil:
+		return "Choose a label and a project, then grant access."
+	case config.Label == "":
+		return "Access is granted. Choose a label and a project to finish."
+	case token == nil:
+		return "Choose Grant access to finish connecting Gmail."
+	}
+	return ""
+}
+
 func (s *Service) readGmail(ctx context.Context) (gmailConfig, error) {
 	var config gmailConfig
 	err := s.store.Read(ctx, func(q *db.Queries) error {

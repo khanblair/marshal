@@ -119,6 +119,9 @@ func (s *Service) Remove(ctx context.Context, id string) error {
 	if !ok {
 		return protocol.NotFound("connection").With("id", id)
 	}
+	if id == GCalID || id == GmailID {
+		s.dropGoogleAccess(ctx, id)
+	}
 	if info.Wired {
 		// Every wired connection that keeps a secret files it under its own id, so removing one is
 		// the same call for all of them. A connection with no secret (the Obsidian vault, which is a

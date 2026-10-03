@@ -15,6 +15,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -35,6 +36,12 @@ const GCalID = "gcal"
 
 // KindGCal is the kind the Google Calendar connection's row and test are filed under.
 const KindGCal = "calendar"
+
+// googleRevokeURL is where Google ends an access.
+const googleRevokeURL = "https://oauth2.googleapis.com/revoke"
+
+// revokeTimeout bounds the call that tells Google to end an access, so a Disconnect never waits long.
+const revokeTimeout = 5 * time.Second
 
 // consentTTL is how long a consent link stays good. Longer than a person needs to read Google's page.
 const consentTTL = 10 * time.Minute
@@ -79,6 +86,8 @@ type pendingConsent struct {
 // Google's own endpoints are (a test points them at a fake), and what was last read.
 type googleState struct {
 	endpoint oauth2.Endpoint
+	// revokeURL is where an access is ended at Google.
+	revokeURL string
 	// bundled is Marshal's own Google client, when this build has one. A person's own client, saved
 	// in Settings, is used instead whenever there is one.
 	bundled googleclient.Client
@@ -95,7 +104,13 @@ func (g *googleState) configure(opts Options) {
 	if opts.GoogleAuthURL != "" || opts.GoogleTokenURL != "" {
 		g.endpoint = oauth2.Endpoint{AuthURL: opts.GoogleAuthURL, TokenURL: opts.GoogleTokenURL}
 	}
-	g.bundled = googleclient.Bundled()
+	g.revokeURL = googleRevokeURL
+	if opts.GoogleRevokeURL != "" {
+		g.revokeURL = opts.GoogleRevokeURL
+	}
+	if !opts.NoBundledGoogleClient {
+		g.bundled = googleclient.Bundled()
+	}
 	if override := (googleclient.Client{ID: opts.GoogleClientID, Secret: opts.GoogleClientSecret}); override.Valid() {
 		g.bundled = override
 	}
@@ -465,4 +480,70 @@ func randomToken() (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(buf), nil
+}
+
+// grantToken is the token one Google connection holds, or nil when it holds none or its secrets
+// cannot be read.
+func (s *Service) grantToken(ctx context.Context, id string) *oauth2.Token {
+	if id == GmailID {
+		token, err := s.readGmailToken()
+		if err != nil {
+			s.log.Warn("Gmail's token could not be read", "err", err)
+		}
+		return token
+	}
+	_, secrets, err := s.readGCal(ctx)
+	if err != nil {
+		s.log.Warn("Google Calendar's token could not be read", "err", err)
+		return nil
+	}
+	return secrets.Token
+}
+
+// dropGoogleAccess runs when a Google connection is removed, before its secrets go. It forgets what
+// was read with the access. When this was the last Google connection holding a token, it also asks
+// Google to end the access. Google ends every scope a client was granted when it revokes one token,
+// so removing Calendar while Gmail is still connected, or the reverse, must leave the grant alone.
+func (s *Service) dropGoogleAccess(ctx context.Context, id string) {
+	token := s.grantToken(ctx, id)
+	other := GmailID
+	if id == GmailID {
+		other = GCalID
+	}
+	s.forgetGoogleReads()
+	if token == nil || s.grantToken(ctx, other) != nil {
+		return
+	}
+	s.revokeAtGoogle(ctx, token)
+}
+
+// revokeAtGoogle asks Google to end an access. It is best effort: a Google that cannot be reached, or
+// that already ended the access, never stops a Disconnect, and the person can still remove Marshal at
+// myaccount.google.com/permissions.
+func (s *Service) revokeAtGoogle(ctx context.Context, token *oauth2.Token) {
+	value := token.RefreshToken
+	if value == "" {
+		value = token.AccessToken
+	}
+	if value == "" {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, revokeTimeout)
+	defer cancel()
+	body := strings.NewReader(url.Values{"token": {value}}.Encode())
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.google.revokeURL, body)
+	if err != nil {
+		s.log.Warn("the request to end Google's access could not be made", "err", err)
+		return
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		s.log.Warn("Google could not be asked to end the access; it stays until removed at myaccount.google.com/permissions", "err", err)
+		return
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		s.log.Info("Google did not end the access", "status", resp.StatusCode)
+	}
 }

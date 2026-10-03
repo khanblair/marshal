@@ -122,10 +122,16 @@ type Options struct {
 	// in a test. Empty uses Google's own, which is what the daemon does.
 	GoogleAuthURL  string
 	GoogleTokenURL string
+	// GoogleRevokeURL is where Marshal asks Google to end an access when its last Google connection
+	// is removed. Empty uses Google's own.
+	GoogleRevokeURL string
 	// GoogleClientID and GoogleClientSecret are Marshal's own Google OAuth client, when the
 	// environment gives one. Empty uses the one built into the binary, if there is one.
 	GoogleClientID     string
 	GoogleClientSecret string
+	// NoBundledGoogleClient ignores the client built into the binary. A test that needs a daemon with
+	// no Google client sets it, because a developer's checkout may hold a client.json.
+	NoBundledGoogleClient bool
 	// TelegramBaseURL overrides where the Telegram Bot API is reached, so the Telegram connection
 	// test can be driven against a fake server without dialing Telegram. Empty uses the real API,
 	// which is what the daemon does (hard rule 3).
@@ -313,6 +319,12 @@ func (s *Service) rowToWire(ctx context.Context, info Info, row integrationRow, 
 	if !ok || !row.saved() {
 		wire.Status, wire.LastTest = protocol.IntegrationStatusNone, nil
 		return wire
+	}
+	if info.ID == GmailID {
+		if sentence := s.gmailUnfinished(ctx); sentence != "" {
+			wire.Status, wire.Detail, wire.LastTest = protocol.IntegrationStatusNone, sentence, nil
+			return wire
+		}
 	}
 	wire.Status = statusFor(last, tested)
 	wire.Detail = detailFor(last, tested)
