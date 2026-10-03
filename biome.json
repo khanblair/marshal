@@ -14,6 +14,7 @@
       "!design",
       "!pnpm-lock.yaml",
       "!packages/tokens/dist",
+      "!apps/mobile/splash/theme.css",
       "!apps/web/test-results",
       "!apps/web/playwright-report",
       "!apps/desktop/src-tauri/target",
