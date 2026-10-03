@@ -40,6 +40,7 @@ const SETTINGS: [section: string, label: string][] = [
   ["limits", "Cost and awake limits"],
   ["schedules", "Schedules"],
   ["integrations", "Integrations"],
+  ["remote", "Remote control"],
   ["shortcuts", "Keyboard shortcuts"],
 ];
 

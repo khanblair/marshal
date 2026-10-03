@@ -3,11 +3,14 @@ import type { CardKey } from "./card-key";
 import { FIXED_TIME, makeTwin, SLOW_TEST_MS, type Twin } from "./testing/twin";
 import type { Card, Status } from "./types";
 
-/** The prototype has no Integration view, so its palette command is left out of the comparison. */
-const INTEGRATION_COMMAND = "Switch to integration view";
+/**
+ * The prototype has no Integration view and no Remote control page, so their palette commands are
+ * left out of the comparison.
+ */
+const ADDED_COMMANDS = new Set(["Switch to integration view", "Remote control"]);
 const withoutIntegration = (name: string, port: unknown): unknown =>
   name === "commands"
-    ? (port as { label: string }[]).filter((c) => c.label !== INTEGRATION_COMMAND)
+    ? (port as { label: string }[]).filter((c) => !ADDED_COMMANDS.has(c.label))
     : port;
 
 describe("view models match the prototype", { timeout: SLOW_TEST_MS }, () => {

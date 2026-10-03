@@ -43,105 +43,15 @@ const saveButton = () => screen.getByRole("button", { name: "Save profile" });
 const toasts = () => M.S.toasts.map((toast) => toast.msg);
 
 describe("the Profile section on the daemon", () => {
-  it("shows the daemon's profile and its paired devices, with the tailnet identity the daemon reports", () => {
+  it("shows the daemon's profile, with its initials, and keeps devices and the tailnet to Remote control", () => {
     render(() => <SettingsView />);
     expect(nameField()).toHaveValue("Ada Okafor");
     expect(emailField()).toHaveValue("ada@example.com");
     expect(zoneField()).toHaveValue("Europe/London");
     expect(saveButton()).toBeDisabled();
     expect(screen.getByLabelText("Your avatar")).toHaveTextContent("AO");
-    // The paired devices are the daemon's own rows (S2b): it holds the token hashes, and these two
-    // are what it answered, not what a prototype seeded.
-    expect(screen.getByText("Pixel 8")).toBeInTheDocument();
-    expect(screen.getByText("iPad Air")).toBeInTheDocument();
-  });
-
-  it("says this computer is not on a tailnet, with how to put it on one, and shows no made-up account or machine", async () => {
-    render(() => <SettingsView />);
-    // The fake daemon answers "off", as a daemon never started with --tailnet does. The prototype's
-    // own account and machine name must not show in its place.
-    expect(screen.queryByText("ada@kolaborate.co")).toBeNull();
-    expect(screen.queryByText("marshal-laptop.tail3f2a.ts.net")).toBeNull();
-    expect(screen.getByText("Not signed in")).toBeInTheDocument();
-    expect(screen.getByText("Not on a tailnet")).toBeInTheDocument();
-    expect(screen.getByText("This machine only")).toBeInTheDocument();
-    expect(await screen.findByText(/Your phone cannot reach this computer yet/)).toHaveTextContent(
-      "--tailnet",
-    );
-  });
-
-  it("shows the node's own account and machine, and no start-up advice, once it is online", async () => {
-    vi.spyOn(M, "tailnetStatus").mockResolvedValue({
-      enabled: true,
-      state: "online",
-      hostname: "marshal-laptop",
-      dnsName: "marshal-laptop.tail1.ts.net",
-      ips: [],
-      port: 47800,
-      identity: "blair@example.com",
-      loginUrl: "",
-      funnel: false,
-      error: "",
-      serverTime: "2026-09-29T10:00:00.000Z",
-    });
-    render(() => <SettingsView />);
-    expect(await screen.findByText("blair@example.com")).toBeInTheDocument();
-    expect(screen.getByText("marshal-laptop.tail1.ts.net")).toBeInTheDocument();
-    expect(screen.getByText("On your tailnet")).toBeInTheDocument();
-    expect(screen.queryByText(/Your phone cannot reach this computer yet/)).toBeNull();
-  });
-
-  it("asks before removing a device, then removes it through the daemon", async () => {
-    render(() => <SettingsView />);
-    fireEvent.click(screen.getAllByRole("button", { name: "Remove device" })[0] as HTMLElement);
-    expect(M.S.dialog).toMatchObject({
-      title: "Remove device",
-      message: "Pixel 8 will lose access to Marshal and must pair again to reconnect.",
-      destructive: true,
-    });
-    M.S.dialog?.run();
-    await waitFor(() => expect(toasts()).toContain("Device removed"));
-    expect(daemon.routes()).toContain("DELETE /v1/me/devices/01H1234567890ABCDEFGHJKMNPQ");
-  });
-
-  it("shows the code the daemon made after Pair a device", async () => {
-    render(() => <SettingsView />);
-    expect(screen.queryByText("7QX-2LD")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Pair a device" }));
-    expect(await screen.findByText("7QX-2LD")).toBeInTheDocument();
-    expect(screen.getByText("Enter this code on the device")).toBeInTheDocument();
-    expect(screen.getByText("7QX-2LD").tagName).toBe("CODE");
-  });
-
-  it("adds a QR code with the tailnet address when the node is online", async () => {
-    vi.spyOn(M, "tailnetStatus").mockResolvedValue({
-      enabled: true,
-      state: "online",
-      hostname: "marshal-laptop",
-      dnsName: "marshal-laptop.tail1.ts.net",
-      ips: [],
-      port: 47800,
-      identity: "blair@example.com",
-      loginUrl: "",
-      funnel: false,
-      error: "",
-      serverTime: "2026-09-29T10:00:00.000Z",
-    });
-    render(() => <SettingsView />);
-    fireEvent.click(screen.getByRole("button", { name: "Pair a device" }));
-    expect(await screen.findByRole("img", { name: "Pairing QR code" })).toBeInTheDocument();
-    expect(screen.getByText(/choose Scan the QR code/)).toBeInTheDocument();
-  });
-
-  it("shows only the text code when the daemon is not on a tailnet", async () => {
-    render(() => <SettingsView />);
-    fireEvent.click(screen.getByRole("button", { name: "Pair a device" }));
-    await screen.findByText("7QX-2LD");
-    expect(screen.queryByRole("img", { name: "Pairing QR code" })).toBeNull();
-    // It says why there is no QR code, rather than showing none.
-    expect(
-      await screen.findByText(/A QR code appears once this computer is on your tailnet/),
-    ).toBeInTheDocument();
+    expect(screen.queryByText("Paired devices")).toBeNull();
+    expect(screen.queryByText("Tailnet identity")).toBeNull();
   });
 
   it("saves what was changed on the daemon, and then shows what the daemon answered", async () => {

@@ -29,8 +29,13 @@ describe("Profile section", () => {
     expect(saveButton()).toBeDisabled();
     expect(saveButton()).toHaveAttribute("type", "submit");
     expect(screen.getByLabelText("Your avatar")).toHaveTextContent("AO");
-    expect(screen.getByText("ada@kolaborate.co")).toBeInTheDocument();
-    expect(screen.getByText("marshal-laptop.tail3f2a.ts.net")).toBeInTheDocument();
+  });
+
+  it("keeps paired devices and the tailnet off this page, since they are under Remote control", () => {
+    showSettings("profile");
+    expect(screen.queryByText("Paired devices")).toBeNull();
+    expect(screen.queryByText("Tailnet identity")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Pair a device" })).toBeNull();
   });
 
   it("follows the name being typed in the initials, and saves the trimmed edits", () => {
@@ -71,12 +76,6 @@ describe("Profile section", () => {
     showSettings("profile");
     fireEvent.click(screen.getByRole("button", { name: "Upload image" }));
     expect(lastToast()).toBe("Choose an image to use as your avatar");
-  });
-
-  it("says so when there are no paired devices", () => {
-    showSettings("profile");
-    M.S.profile.devices = [];
-    expect(screen.getByText("No paired devices.")).toBeInTheDocument();
   });
 
   it("submitting the form does not save when nothing changed", () => {

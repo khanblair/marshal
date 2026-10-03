@@ -1,23 +1,16 @@
 import { Button, Icon, ItemText } from "@marshal/ui";
-import { createResource, For, Show } from "solid-js";
+import { For, Show } from "solid-js";
 import { M, type Profile } from "~/mock";
-import { pairingQrText } from "~/platform/pairing";
-import { PairingQr } from "./PairingQr";
-import type { ProfileDraft } from "./use-profile-draft";
 
 type Device = Profile["devices"][number];
 
 /**
- * Paired devices, each with Remove device, and the Pair a device button with its own code
- * (B9.1, B9.2, build-plan 9.9).
+ * Paired devices, each with Remove device (B9.1, B9.2, build-plan 9.9).
  *
- * Everything about a device now comes from the daemon: the list is its rows (section S2b), the code
- * is one the daemon just made and that expires in five minutes, and removing a device is the call
- * that makes its token stop signing in. The prototype's hardcoded code is gone - the only thing
- * shown here is what the daemon actually answered.
- *
- * A revoked device stays in the list, saying it was removed, rather than vanishing: a row that
- * disappears leaves the person wondering whether it is still signed in.
+ * Everything about a device comes from the daemon: the list is its rows (section S2b), and removing
+ * a device is the call that makes its token stop signing in. A revoked device stays in the list,
+ * saying it was removed, rather than vanishing: a row that disappears leaves the person wondering
+ * whether it is still signed in. Pairing a new one is `PairDevice`.
  */
 
 function confirmRemove(device: Device): void {
@@ -77,56 +70,13 @@ function DeviceRow(props: { device: Device }) {
   );
 }
 
-export function DevicesList(props: { profile: ProfileDraft }) {
-  // Asking for a code replaces the one that was live: only one code is ever on the screen, and the
-  // old one stops working the moment a new one is made (B9.1).
-  const pair = (): void => {
-    props.profile.showPairingCode();
-    void M.createPairingCode();
-  };
-  const code = () => M.pairingCode();
-  // The QR carries the address a phone reaches this daemon at, which only a node that is online
-  // has. Without one the text code still works for a device that already knows the address.
-  const [node] = createResource(async () => await M.tailnetStatus());
-  const qr = () => pairingQrText(node(), code()?.code);
-  // The daemon says it is not on a tailnet: say why there is no QR code, instead of showing none.
-  const noQr = () => {
-    const state = node()?.state;
-    return Boolean(state && state !== "online");
-  };
+export function DevicesList() {
   return (
     <div class="flex flex-col border-t border-border">
       <Show when={M.S.profile.devices.filter((device) => !device.revoked).length === 0}>
         <p class="my-2.5 text-secondary">No paired devices.</p>
       </Show>
       <For each={M.S.profile.devices}>{(device) => <DeviceRow device={device} />}</For>
-      <div class="flex flex-wrap items-center gap-3 py-3">
-        <Button onClick={pair}>Pair a device</Button>
-        <Show when={props.profile.pairing() && code()}>
-          <span class="flex items-center gap-2">
-            <span class="text-small text-secondary">Enter this code on the device</span>
-            <code class="font-mono text-title font-semibold py-0.5 px-2 rounded-sm bg-surface-sunken">
-              {code()?.code ?? ""}
-            </code>
-          </span>
-        </Show>
-      </div>
-      <Show when={props.profile.pairing() && code() && !qr() && noQr()}>
-        <p class="m-0 pb-3 text-small leading-4.5 text-secondary max-w-prose">
-          A QR code appears once this computer is on your tailnet. Until then, type the code on a
-          device that already knows this computer's address.
-        </p>
-      </Show>
-      <Show when={props.profile.pairing() && qr()}>
-        {(payload) => (
-          <div class="flex flex-wrap items-center gap-3 pb-3">
-            <PairingQr text={payload()} label="Pairing QR code" />
-            <span class="text-small text-secondary max-w-60">
-              In the Marshal phone app, choose Scan the QR code.
-            </span>
-          </div>
-        )}
-      </Show>
     </div>
   );
 }

@@ -9,6 +9,7 @@ import { LimitsSection } from "./LimitsSection";
 import { ProfileSection } from "./ProfileSection";
 import { ProjectSection } from "./ProjectSection";
 import { ProvidersSection } from "./ProvidersSection";
+import { RemoteSection } from "./RemoteSection";
 import { RolesSection } from "./RolesSection";
 import { SchedulesSection } from "./SchedulesSection";
 import { ShortcutsSection } from "./ShortcutsSection";
@@ -16,10 +17,12 @@ import type { SectionKey } from "./sections";
 import type { LimitsDraft } from "./use-limits-draft";
 import type { ProfileDraft } from "./use-profile-draft";
 import type { ProjectDraft } from "./use-project-draft";
+import type { RemoteDraft } from "./use-remote-draft";
 import type { RoleDraft } from "./use-role-draft";
 
 export interface SettingsDrafts {
   profile: ProfileDraft;
+  remote: RemoteDraft;
   project: ProjectDraft;
   roles: RoleDraft;
   limits: LimitsDraft;
@@ -58,6 +61,9 @@ export function SectionContent(props: { drafts: SettingsDrafts }) {
       </Match>
       <Match when={is("integrations")}>
         <IntegrationsSection />
+      </Match>
+      <Match when={is("remote")}>
+        <RemoteSection draft={props.drafts.remote} />
       </Match>
       <Match when={is("alerts")}>
         <AlertsSection />

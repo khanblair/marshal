@@ -12,10 +12,9 @@ const MAX_INITIALS = 2;
 const sameFields = (a: ProfileFields, b: ProfileFields): boolean =>
   a.name === b.name && a.email === b.email && a.tz === b.tz;
 
-/** The profile form's edits and the pairing code, kept while the section is switched away. */
+/** The profile form's edits, kept while the section is switched away. */
 export function createProfileDraft() {
   const [edited, setEdited] = createSignal<ProfileFields | null>(null);
-  const [pairing, setPairing] = createSignal(false);
   const saved = createMemo<ProfileFields>(() => ({
     name: M.S.profile.name,
     email: M.S.profile.email,
@@ -27,8 +26,6 @@ export function createProfileDraft() {
   return {
     fields,
     cannotSave,
-    pairing,
-    showPairingCode: () => setPairing(true),
     /**
      * Up to two initials of the name being typed; the saved name when it is empty. Until something
      * is typed they are the daemon's own, when it made them.

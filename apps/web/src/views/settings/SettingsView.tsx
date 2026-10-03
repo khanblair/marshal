@@ -7,6 +7,7 @@ import { SettingsNav } from "./SettingsNav";
 import { createLimitsDraft } from "./use-limits-draft";
 import { createProfileDraft } from "./use-profile-draft";
 import { createProjectDraft } from "./use-project-draft";
+import { createRemoteDraft } from "./use-remote-draft";
 import { createRoleDraft } from "./use-role-draft";
 
 /**
@@ -16,6 +17,7 @@ import { createRoleDraft } from "./use-role-draft";
 export function SettingsView() {
   const drafts: SettingsDrafts = {
     profile: createProfileDraft(),
+    remote: createRemoteDraft(),
     project: createProjectDraft(),
     roles: createRoleDraft(),
     limits: createLimitsDraft(),
