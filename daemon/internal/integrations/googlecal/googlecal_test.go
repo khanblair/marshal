@@ -113,6 +113,29 @@ func TestEventsReadTimesAllDayLinksAndLeaveOutCancelledAndDeclined(t *testing.T)
 	}
 }
 
+func TestAnEventMarkedAvailableOrAWorkingLocationIsFree(t *testing.T) {
+	client := fake(t, map[string]http.HandlerFunc{"calendars/main/events": json(`{"items":[
+		{"id":"a","summary":"Busy","start":{"dateTime":"2026-10-02T09:00:00Z"},"end":{"dateTime":"2026-10-02T10:00:00Z"}},
+		{"id":"b","summary":"Open slot","transparency":"transparent","start":{"dateTime":"2026-10-02T10:00:00Z"},"end":{"dateTime":"2026-10-02T11:00:00Z"}},
+		{"id":"c","summary":"Home","eventType":"workingLocation","start":{"dateTime":"2026-10-02T11:00:00Z"},"end":{"dateTime":"2026-10-02T12:00:00Z"}},
+		{"id":"d","summary":"Out","eventType":"outOfOffice","start":{"dateTime":"2026-10-02T12:00:00Z"},"end":{"dateTime":"2026-10-02T13:00:00Z"}}
+	]}`)})
+	events, err := client.Events(context.Background(), []Ref{{ID: "main", Name: "Main"}}, rangeStart, rangeEnd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	free := map[string]bool{}
+	for _, e := range events {
+		free[e.Title] = e.Free
+	}
+	want := map[string]bool{"Busy": false, "Open slot": true, "Home": true, "Out": false}
+	for title, wantFree := range want {
+		if free[title] != wantFree {
+			t.Errorf("%s: Free = %v, want %v", title, free[title], wantFree)
+		}
+	}
+}
+
 func TestOneBadCalendarDoesNotHideTheOthers(t *testing.T) {
 	client := fake(t, map[string]http.HandlerFunc{
 		"calendars/good/events": json(`{"items":[{"id":"a","summary":"Fine","start":{"dateTime":"2026-10-02T09:00:00Z"}}]}`),

@@ -246,7 +246,8 @@ func (s *Service) readEvents(ctx context.Context, client *googlecal.Client, gran
 	return client.Events(ctx, refs, start, end)
 }
 
-// EventNow answers the timed event that is on at t, if there is one. Google that cannot be read, or
+// EventNow answers the timed event that is on at t and makes the person busy, if there is one. An
+// event they marked as available does not count. Google that cannot be read, or
 // is not connected, is no event: nothing is ever held back because of it. It reads the same two days
 // the scheduler's watcher does, so the two share one cached call.
 func (s *Service) EventNow(ctx context.Context, t time.Time) (googlecal.Event, bool) {
@@ -256,7 +257,7 @@ func (s *Service) EventNow(ctx context.Context, t time.Time) (googlecal.Event, b
 		return googlecal.Event{}, false
 	}
 	for _, event := range events {
-		if !event.AllDay && !event.StartAt.After(t) && event.EndAt.After(t) {
+		if !event.AllDay && !event.Free && !event.StartAt.After(t) && event.EndAt.After(t) {
 			return event, true
 		}
 	}

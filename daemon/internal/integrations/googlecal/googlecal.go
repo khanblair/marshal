@@ -130,6 +130,9 @@ type Event struct {
 	URL string
 	// JoinURL is the video call link, when the event has one.
 	JoinURL string
+	// Free says the event does not make the person busy: they marked it as available, or it only
+	// says where they work. Quiet hours skip such an event.
+	Free bool
 }
 
 // Ref names a calendar to read, by id, with the name to show on its events.
@@ -208,7 +211,7 @@ func declined(item *calendar.Event) bool {
 func eventOf(item *calendar.Event, ref Ref) Event {
 	event := Event{
 		ID: item.Id, CalendarID: ref.ID, CalendarName: ref.Name, Title: item.Summary,
-		Location: item.Location, URL: item.HtmlLink, JoinURL: joinURL(item),
+		Location: item.Location, URL: item.HtmlLink, JoinURL: joinURL(item), Free: isFree(item),
 	}
 	if item.Start == nil {
 		return event
@@ -226,6 +229,12 @@ func eventOf(item *calendar.Event, ref Ref) Event {
 		event.EndAt, _ = time.Parse(time.RFC3339, item.End.DateTime)
 	}
 	return event
+}
+
+// isFree says the event leaves the person available: Google's "show me as available" setting, or a
+// working-location marker, which is a note about where they are and not a commitment.
+func isFree(item *calendar.Event) bool {
+	return item.Transparency == "transparent" || item.EventType == "workingLocation"
 }
 
 // joinURL is the event's video call link: the one in its conference data, or the older Meet link.
