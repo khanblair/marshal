@@ -1,5 +1,37 @@
 import type { AuthorizeURL } from "@marshal/protocol";
+import { onCleanup } from "solid-js";
 import { platform } from "~/platform";
+
+/** How often a row is asked whether Google has been granted, while the person is on Google's page. */
+const WAIT_MS = 2000;
+/** How long it keeps asking. A person who has not finished by then reads the row again by hand. */
+const WAIT_LIMIT_MS = 120_000;
+
+/**
+ * Asks the connection list again every couple of seconds after Google's page was opened, because
+ * nothing tells this page when the grant lands in the other tab. It stops when the row reads
+ * connected, after two minutes, or when the component goes away. Call it while the component is set up.
+ */
+export function createGrantWatcher(
+  isConnected: () => boolean,
+  refresh: () => Promise<void>,
+): { start: () => void; stop: () => void } {
+  let timer: ReturnType<typeof setInterval> | undefined;
+  const stop = (): void => {
+    if (timer) clearInterval(timer);
+    timer = undefined;
+  };
+  onCleanup(stop);
+  const start = (): void => {
+    stop();
+    const started = Date.now();
+    timer = setInterval(() => {
+      void refresh();
+      if (isConnected() || Date.now() - started > WAIT_LIMIT_MS) stop();
+    }, WAIT_MS);
+  };
+  return { start, stop };
+}
 
 /**
  * A tab opened inside the click, before anything is awaited, so the browser does not take it for a
