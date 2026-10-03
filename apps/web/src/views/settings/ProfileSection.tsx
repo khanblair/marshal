@@ -39,9 +39,11 @@ function TailnetIdentity() {
       <h3 class={SUBHEADING}>Tailnet identity</h3>
       <div class="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1.5 text-body">
         <span class="text-secondary">Account</span>
-        <span>{node()?.identity || M.S.profile.tailnet}</span>
+        <span>{node()?.identity || M.S.profile.tailnet || "Not signed in"}</span>
         <span class="text-secondary">This machine</span>
-        <code class="font-mono text-small">{node()?.dnsName || M.S.profile.node}</code>
+        <Show when={node()?.dnsName || M.S.profile.node} fallback={<span>Not on a tailnet</span>}>
+          {(name) => <code class="font-mono text-small">{name()}</code>}
+        </Show>
         <span class="text-secondary">Reachable</span>
         <span>{REACHABLE[node()?.state ?? "off"] ?? REACHABLE.off}</span>
         {/* Funnel says what was asked for, not what Tailscale has allowed: the tailnet itself has to
@@ -61,6 +63,15 @@ function TailnetIdentity() {
           </a>
         </Show>
       </div>
+      {/* Only the daemon's own "off" says this: a mock has no daemon to start differently. */}
+      <Show when={node()?.state === "off"}>
+        <p class="m-0 text-small leading-4.5 text-secondary max-w-prose">
+          Your phone cannot reach this computer yet. Start Marshal with{" "}
+          <code class="font-mono">--tailnet</code> (or set{" "}
+          <code class="font-mono">MARSHAL_TAILNET=1</code>), then sign in to Tailscale here. The
+          phone needs the Tailscale app, signed in to the same account.
+        </p>
+      </Show>
     </>
   );
 }

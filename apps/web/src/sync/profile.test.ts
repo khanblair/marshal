@@ -59,7 +59,7 @@ describe("the profile section", () => {
 });
 
 describe("loading the person", () => {
-  it("puts the daemon's profile in the store, with its initials, and keeps the tailnet and devices", async () => {
+  it("puts the daemon's profile in the store, with its initials, and no made-up tailnet account or machine", async () => {
     const d = open({ profile: wireProfile({ avatarUrl: null }) });
     const { M } = await synced(d);
     expect(M.S.profile).toMatchObject({
@@ -69,8 +69,8 @@ describe("loading the person", () => {
       tz: "Europe/London",
       initials: "AO",
       avatar: null,
-      tailnet: "ada@kolaborate.co",
-      node: "marshal-laptop.tail3f2a.ts.net",
+      tailnet: "",
+      node: "",
     });
     expect(M.S.profile.devices.map((device) => device.name)).toEqual(["Pixel 8", "iPad Air"]);
   });
@@ -95,7 +95,7 @@ describe("loading the person", () => {
     const M = createTestMarshal({ sections: DAEMON_PERSON, data: null });
     expect(M.S.people).toEqual([]);
     expect(M.S.profile).toMatchObject({ name: "", email: "", tz: "", avatar: null });
-    expect(M.S.profile.tailnet).toBe("ada@kolaborate.co");
+    expect(M.S.profile).toMatchObject({ tailnet: "", node: "" });
   });
 
   it("keeps the prototype's people and profile while the section is on the mock", () => {

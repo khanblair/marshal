@@ -125,10 +125,23 @@ export function createContext(env: Env): Ctx {
     // an empty list until the first snapshot lands, and `ready` gates drawing until it has.
     ...(isDaemon("S27", table) ? { roles: [] } : {}),
     // The person is the daemon's once S2a is switched: the prototype's Ada, Blair, and the rest are
-    // its own, and the profile's name, email, and time zone are filled by `sync/profile.ts`. The
-    // tailnet, the node, and the devices stay the mock's until Phase 9.
+    // its own, and the profile's name, email, and time zone are filled by `sync/profile.ts`. So are
+    // the tailnet account and the node's name, from what the daemon's node says; until it does, the
+    // prototype's made-up account and machine must not show as if they were real. The devices are
+    // the devices syncer's.
     ...(isDaemon("S2a", table)
-      ? { people: [], profile: { ...seed.profile, name: "", email: "", tz: "", avatar: null } }
+      ? {
+          people: [],
+          profile: {
+            ...seed.profile,
+            name: "",
+            email: "",
+            tz: "",
+            avatar: null,
+            tailnet: "",
+            node: "",
+          },
+        }
       : {}),
   };
   // A project appears only when the daemon has it, and its mock records come out of the reservoir with it.

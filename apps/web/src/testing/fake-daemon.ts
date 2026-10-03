@@ -461,6 +461,7 @@ function answerDeviceRoute(router: Router, request: FakeRequest): Response | nul
       hostname: "",
       dnsName: "",
       ips: [],
+      port: 47800,
       identity: "",
       loginUrl: "",
       funnel: false,

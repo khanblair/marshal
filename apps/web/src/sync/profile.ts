@@ -4,6 +4,7 @@ import {
   type Timestamp,
   type Event as WireEvent,
   type Profile as WireProfile,
+  type TailnetStatus as WireTailnetStatus,
   type User as WireUser,
 } from "@marshal/protocol";
 import { batch } from "solid-js";
@@ -17,8 +18,8 @@ import type { Syncer } from "./syncer";
 /**
  * Section S2a: the person. Their profile (name, email, time zone, initials, avatar) is `S.profile`,
  * and everyone who can be put on a card is `S.people`. Solo use lists the owner only (decision D10).
- * The tailnet, the node, and the paired devices are not the daemon's until Phase 9, so they are
- * left as they are.
+ * The tailnet account and the node's name come from the daemon's own node (`GET /v1/tailnet`), and
+ * are empty when this daemon never joined a tailnet, so nothing made up is shown in their place.
  *
  * The profile changes as `me.updated`, which carries the whole profile, so applying it twice
  * changes nothing.
@@ -27,6 +28,8 @@ import type { Syncer } from "./syncer";
 interface PersonSnapshot {
   profile: WireProfile;
   users: WireUser[];
+  /** What the node says about itself, or null when it could not be asked. */
+  tailnet: WireTailnetStatus | null;
 }
 
 /** The picture of each store that follows the daemon, so an event can change it. */
@@ -77,13 +80,21 @@ export const profileSyncer: Syncer<PersonSnapshot> = {
   section: "S2a",
   topics: [MeTopic],
   async load(api: ApiClient) {
-    const [profile, users] = await Promise.all([api.me(), api.users()]);
-    return { profile, users: users.users };
+    const [profile, users, tailnet] = await Promise.all([
+      api.me(),
+      api.users(),
+      api.tailnetStatus().catch(() => null),
+    ]);
+    return { profile, users: users.users, tailnet };
   },
   apply(ctx, snapshot) {
     batch(() => {
       applyPeople(ctx, snapshot.users);
       applyProfile(ctx, snapshot.profile, true);
+      Object.assign(ctx.S.profile, {
+        tailnet: snapshot.tailnet?.identity ?? "",
+        node: snapshot.tailnet?.dnsName ?? "",
+      });
     });
   },
   onEvent: onProfileEvent,
