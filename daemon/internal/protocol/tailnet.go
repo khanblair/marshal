@@ -26,6 +26,9 @@ type TailnetStatus struct {
 	DNSName string `json:"dnsName"`
 	// IPs are the node's tailnet addresses, IPv4 first. Empty until the node is online.
 	IPs []string `json:"ips"`
+	// Port is the port this daemon serves on, here and on the tailnet alike, so a phone reaches the
+	// node at DNSName:Port. It is on every answer, whether or not the node is online.
+	Port int `json:"port"`
 	// Identity is the Tailscale account this machine is signed in as, such as
 	// "blair@example.com". Empty until the node is online.
 	Identity string `json:"identity"`

@@ -287,7 +287,7 @@ func TestADaemonWithNoTailnetAddsNoOrigin(t *testing.T) {
 // GET /v1/tailnet answers at once with "off" on a daemon that was not started to join one, so the
 // status screen never waits on a node that does not exist.
 func TestTheTailnetStatusSaysOffWhenThereIsNoNode(t *testing.T) {
-	st := newStack(t)
+	st := newStack(t, withPort(47811))
 	status := decode[protocol.TailnetStatus](t,
 		st.do(http.MethodGet, "/v1/tailnet", nil).want(t, http.StatusOK))
 	if status.Enabled || status.State != "off" || status.Funnel {
@@ -296,14 +296,20 @@ func TestTheTailnetStatusSaysOffWhenThereIsNoNode(t *testing.T) {
 	if status.ServerTime.Time().IsZero() {
 		t.Error("the answer carries no server time")
 	}
+	if status.Port != 47811 {
+		t.Errorf("port = %d, want the port the daemon serves on, even with no node", status.Port)
+	}
 }
 
 // With a node the answer is the node's own, plus whether Funnel was asked for - which is what the
 // tailnet and Funnel status screens draw (build-plan task 9.9).
 func TestTheTailnetStatusReportsTheNode(t *testing.T) {
-	st := newStack(t, withTailnet(newFakeTailnet()), withFunnel())
+	st := newStack(t, withTailnet(newFakeTailnet()), withFunnel(), withPort(47811))
 	status := decode[protocol.TailnetStatus](t,
 		st.do(http.MethodGet, "/v1/tailnet", nil).want(t, http.StatusOK))
+	if status.Port != 47811 {
+		t.Errorf("port = %d, want the port a phone reaches the node on", status.Port)
+	}
 	if !status.Enabled || !status.Funnel || status.State != "online" {
 		t.Errorf("status = %+v, want an enabled node with Funnel asked for", status)
 	}

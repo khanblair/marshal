@@ -102,6 +102,7 @@ func (s *Server) tailnetStatus(w http.ResponseWriter, _ *http.Request) {
 		status = s.tailnet.Status()
 		status.Funnel = s.funnel
 	}
+	status.Port = s.settings.Port
 	s.writeJSON(w, http.StatusOK, protocol.NewTailnetStatus(status, s.now()))
 }
 

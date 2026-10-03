@@ -44,6 +44,7 @@ import (
 type stackConfig struct {
 	normal     bool // a normal daemon: the token comes from the owner token file and the database
 	limits     api.Limits
+	port       int            // the port the daemon reports serving on; zero is the test default
 	agent      agents.Factory // replaces the stub agent behind claude
 	catalog    catalog.Source
 	noProjects bool
@@ -203,6 +204,9 @@ type stackOption func(*stackConfig)
 
 func normalDaemon() stackOption           { return func(c *stackConfig) { c.normal = true } }
 func withLimits(l api.Limits) stackOption { return func(c *stackConfig) { c.limits = l } }
+
+// withPort gives the daemon a port to serve on, which the tailnet status reports.
+func withPort(port int) stackOption { return func(c *stackConfig) { c.port = port } }
 func withAgent(f agents.Factory) stackOption {
 	return func(c *stackConfig) { c.agent = f }
 }
@@ -365,7 +369,7 @@ func newStack(t *testing.T, opts ...stackOption) *stack {
 	st.stateDir = filepath.Join(st.dataDir, "dev-agent-state")
 	st.vault = filepath.Join(st.dataDir, "vault")
 	st.log = slog.New(slog.NewTextHandler(st.logs, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	st.settings = config.Settings{Mode: platform.ModeDev, Port: 0, Agent: config.AgentStub}
+	st.settings = config.Settings{Mode: platform.ModeDev, Port: cfg.port, Agent: config.AgentStub}
 	if cfg.normal {
 		st.settings.Mode = platform.ModeNormal
 		st.settings.Agent = config.AgentReal

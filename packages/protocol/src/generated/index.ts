@@ -5772,6 +5772,11 @@ export interface TailnetStatus {
   /** IPs are the node's tailnet addresses, IPv4 first. Empty until the node is online. */
   ips: string[];
   /**
+   * Port is the port this daemon serves on, here and on the tailnet alike, so a phone reaches the
+   * node at DNSName:Port. It is on every answer, whether or not the node is online.
+   */
+  port: number /* int */;
+  /**
    * Identity is the Tailscale account this machine is signed in as, such as
    * "blair@example.com". Empty until the node is online.
    */
