@@ -643,7 +643,9 @@ apps/web/
       settings/
         SettingsView.tsx        Settings sections
         profile/
-          ProfilePage.tsx       Name, avatar, email, time zone, devices, tailnet identity
+          ProfilePage.tsx       Name, avatar, email, time zone
+        remote/
+          RemotePage.tsx        How a phone reaches this computer, pairing, paired devices, phones on the tailnet
         projects/
           ProjectsSettings.tsx  Project settings and remove
         roles/

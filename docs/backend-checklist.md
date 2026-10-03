@@ -53,7 +53,7 @@ A section is one part of the screens that can switch from mock data to the daemo
 |---|---|---|---|
 | S1 Connection and sign-in | Boot, token or pairing, "Can't reach the daemon", reconnect | 1: 1.12, 1.13 | Daemon |
 | S2a Profile | Avatar menu, name, email, time zone, avatar | 2: 2.15 | Daemon |
-| S2b Devices and Tailscale identity | Paired devices, tailnet name and node on the profile | 9: 9.1, 9.2 | Daemon |
+| S2b Devices and Tailscale identity | Paired devices, and the tailnet account, machine and phones, on the Remote control page | 9: 9.1, 9.2 | Daemon |
 | S2c Team and people | Member pickers and people beyond the owner | 12: 12.9 | Mock |
 | S3 Projects | Sidebar list and badges, create, rename, remove, project settings | 1: 1.4, 2.14 | Daemon |
 | S4 Agents and models | Agent, model, and thinking pickers everywhere | 1: 1.8 | Daemon |
