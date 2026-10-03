@@ -1,7 +1,7 @@
 // Makes the Android project Tauri generates fit this app, since `src-tauri/gen/` is generated and
 // never committed. Run with --init to make the project first when it does not exist yet.
 //
-// Four changes:
+// Six changes:
 //  1. Allow plain http. The daemon is reached at a tailnet address such as
 //     http://marshal-laptop.tail1234.ts.net:47800, and Android refuses cleartext traffic in a
 //     release build by default. The traffic never leaves the person's own tailnet, where WireGuard
@@ -14,9 +14,14 @@
 //  4. Reach the Tauri CLI from Gradle. Gradle runs `pnpm tauri ...` inside src-tauri, which is not a
 //     pnpm package, and pnpm 11 answers "Command tauri not found" from there. It is run through the
 //     workspace's own filter instead, which finds the CLI from any folder.
+//  6. Optionally leave the release Java and Kotlin code unshrunk, for finding a crash that only the
+//     shrunk build has: MARSHAL_ANDROID_MINIFY=0. The default is shrunk, which is smaller.
+//  5. Use Marshal's own launcher icons. `tauri android init` always makes the project with Tauri's
+//     default icon and never reads src-tauri/icons/android, so the icons committed there were
+//     never applied; they are copied over the generated ones, adaptive icon and all.
 
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -83,8 +88,9 @@ const SIGNING = `    val keystoreFile = rootProject.file("keystore.properties")
  * Turns cleartext traffic on in every build type, by the placeholder the manifest reads, and signs
  * the release build with the key in keystore.properties when there is one.
  */
-export function patchGradle(kts) {
-  let patched = kts.replace(
+export function patchGradle(kts, { minify = true } = {}) {
+  let patched = kts.replace(/(optimization\s*\{\s*enable\s*=\s*)(?:true|false)/, `$1${minify}`);
+  patched = patched.replace(
     /manifestPlaceholders\["usesCleartextTraffic"\] = "false"/,
     'manifestPlaceholders["usesCleartextTraffic"] = "true"',
   );
@@ -110,6 +116,18 @@ export function patchBuildTask(kotlin) {
   );
 }
 
+/**
+ * Copies the app's own launcher icons (src-tauri/icons/android) over the generated project's, folder
+ * by folder: the PNGs of every density, the adaptive icon, and the color it sits on.
+ */
+export function copyLauncherIcons(iconsDir, resDir) {
+  if (!existsSync(iconsDir)) {
+    console.error(`Missing ${iconsDir}. The launcher icons are committed there.`);
+    process.exit(1);
+  }
+  cpSync(iconsDir, resDir, { recursive: true, force: true });
+}
+
 function patchFile(path, patch) {
   if (!existsSync(path)) {
     console.error(
@@ -132,7 +150,8 @@ function main() {
   }
   const app = join(project, "app");
   patchFile(join(app, "src", "main", "AndroidManifest.xml"), patchManifest);
-  patchFile(join(app, "build.gradle.kts"), patchGradle);
+  const minify = process.env.MARSHAL_ANDROID_MINIFY !== "0";
+  patchFile(join(app, "build.gradle.kts"), (kts) => patchGradle(kts, { minify }));
   patchFile(
     join(app, "src", "main", "java", "com", "marshal", "mobile", "MainActivity.kt"),
     patchMainActivity,
@@ -152,7 +171,10 @@ function main() {
     ),
     patchBuildTask,
   );
-  console.log("The Android project allows the tailnet's plain-http address and takes shared text.");
+  copyLauncherIcons(join(root, "src-tauri", "icons", "android"), join(app, "src", "main", "res"));
+  console.log(
+    "The Android project allows the tailnet's plain-http address, takes shared text, and has Marshal's icons.",
+  );
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) main();

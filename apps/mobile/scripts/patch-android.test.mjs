@@ -1,7 +1,15 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { test } from "node:test";
-import { patchBuildTask, patchGradle, patchMainActivity, patchManifest } from "./patch-android.mjs";
+import {
+  copyLauncherIcons,
+  patchBuildTask,
+  patchGradle,
+  patchMainActivity,
+  patchManifest,
+} from "./patch-android.mjs";
 
 const MANIFEST = `<manifest>
     <application android:usesCleartextTraffic="\${usesCleartextTraffic}">
@@ -46,6 +54,24 @@ test("cleartext is on for every build type, by the placeholder the manifest read
   assert.doesNotMatch(patched, /"false"/);
 });
 
+const SHRINK = `android {
+    buildTypes {
+        getByName("release") {
+            optimization {
+               enable = true
+            }
+        }
+    }
+}`;
+
+test("the release build is shrunk by default, and can be left unshrunk to find a crash", () => {
+  assert.match(patchGradle(SHRINK), /enable = true/);
+  const off = patchGradle(SHRINK, { minify: false });
+  assert.match(off, /enable = false/);
+  assert.match(patchGradle(off, { minify: true }), /enable = true/);
+  assert.equal(patchGradle(off, { minify: false }), off);
+});
+
 test("a release build is signed with keystore.properties when the file is there, and only then", () => {
   const patched = patchGradle(GRADLE);
   assert.match(patched, /rootProject\.file\("keystore\.properties"\)/);
@@ -84,6 +110,46 @@ test("the real generated project, when one exists, takes every patch", {
   assert.match(
     patchGradle(readFileSync(`${app}/build.gradle.kts`, "utf8")),
     /"usesCleartextTraffic"\] = "true"/,
+  );
+});
+
+const ICONS = join(import.meta.dirname, "..", "src-tauri", "icons", "android");
+const DENSITIES = ["mdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi"];
+
+function write(root, path, text) {
+  mkdirSync(join(root, path, ".."), { recursive: true });
+  writeFileSync(join(root, path), text);
+}
+
+test("Marshal's launcher icons replace the ones Tauri generates, and nothing else is touched", () => {
+  const source = mkdtempSync(join(tmpdir(), "icons-"));
+  const res = mkdtempSync(join(tmpdir(), "res-"));
+  write(source, "mipmap-xxxhdpi/ic_launcher.png", "marshal");
+  write(source, "mipmap-anydpi-v26/ic_launcher.xml", "adaptive");
+  write(source, "values/ic_launcher_background.xml", "white");
+  write(res, "mipmap-xxxhdpi/ic_launcher.png", "tauri");
+  write(res, "values/strings.xml", "kept");
+  copyLauncherIcons(source, res);
+  assert.equal(readFileSync(join(res, "mipmap-xxxhdpi/ic_launcher.png"), "utf8"), "marshal");
+  assert.equal(readFileSync(join(res, "mipmap-anydpi-v26/ic_launcher.xml"), "utf8"), "adaptive");
+  assert.equal(readFileSync(join(res, "values/ic_launcher_background.xml"), "utf8"), "white");
+  assert.equal(readFileSync(join(res, "values/strings.xml"), "utf8"), "kept");
+  copyLauncherIcons(source, res);
+  assert.equal(readFileSync(join(res, "mipmap-xxxhdpi/ic_launcher.png"), "utf8"), "marshal");
+});
+
+test("the committed icons are a whole launcher icon: every density, and the adaptive icon with its color", () => {
+  for (const density of DENSITIES) {
+    for (const name of ["ic_launcher", "ic_launcher_round", "ic_launcher_foreground"]) {
+      assert.ok(existsSync(join(ICONS, `mipmap-${density}`, `${name}.png`)), `${density} ${name}`);
+    }
+  }
+  const adaptive = readFileSync(join(ICONS, "mipmap-anydpi-v26", "ic_launcher.xml"), "utf8");
+  assert.match(adaptive, /@mipmap\/ic_launcher_foreground/);
+  assert.match(adaptive, /@color\/ic_launcher_background/);
+  assert.match(
+    readFileSync(join(ICONS, "values", "ic_launcher_background.xml"), "utf8"),
+    /name="ic_launcher_background"/,
   );
 });
 
