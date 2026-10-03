@@ -466,6 +466,19 @@ function answerDeviceRoute(router: Router, request: FakeRequest): Response | nul
       loginUrl: "",
       funnel: false,
       error: "",
+      host: {
+        found: false,
+        state: "",
+        dnsName: "",
+        ips: [],
+        account: "",
+        tailnet: "",
+        servePort: 0,
+        secureServePort: 0,
+        takenPorts: [],
+        reachable: false,
+        phones: [],
+      },
       serverTime: router.now(),
     });
   }
