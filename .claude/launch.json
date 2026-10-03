@@ -9,8 +9,15 @@
     },
     {
       "name": "daemon",
-      "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "daemon", "dev"],
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "MARSHAL_TAILNET=1",
+        "MARSHAL_TAILNET_HOSTNAME=marshal-dev",
+        "pnpm",
+        "--filter",
+        "daemon",
+        "dev"
+      ],
       "port": 47801,
       "url": "http://127.0.0.1:47801"
     }
