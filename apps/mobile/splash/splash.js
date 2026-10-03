@@ -1,9 +1,12 @@
-import { daemonUrl, normalizeAddress, parseScan } from "./address.js";
+import { daemonUrl, normalizeAddress, pairingFrom, parseScan, permissionState } from "./address.js";
 
 const KEY = "marshal-address";
 const REACH_MS = 6000;
+const INTRO =
+  "Marshal runs on your computer. This app is its remote control, so your agents keep working while you are away.";
 const $ = (id) => document.getElementById(id);
-const invoke = (command, args) => window.__TAURI_INTERNALS__.invoke(command, args);
+const tauri = window.__TAURI_INTERNALS__;
+const invoke = (command, args) => tauri.invoke(command, args);
 
 function show(part) {
   $("form").hidden = part !== "form";
@@ -48,13 +51,20 @@ async function open(address, code) {
   show("retry");
 }
 
+/** Asks for the camera if it has not been allowed. False means it will not be. */
+async function cameraAllowed() {
+  if (permissionState(await invoke("plugin:barcode-scanner|check_permissions")) === "granted")
+    return true;
+  return permissionState(await invoke("plugin:barcode-scanner|request_permissions")) === "granted";
+}
+
 async function scan() {
   try {
-    if ((await invoke("plugin:barcode-scanner|check_permissions")) !== "granted") {
-      if ((await invoke("plugin:barcode-scanner|request_permissions")) !== "granted") {
-        say("Marshal needs the camera to scan the code. You can type the address instead.");
-        return;
-      }
+    if (!(await cameraAllowed())) {
+      say(
+        "Marshal needs the camera to scan the code. Allow it in the phone's settings, or type the address instead.",
+      );
+      return;
     }
     const scanned = await invoke("plugin:barcode-scanner|scan", { formats: ["QR_CODE"] });
     const pairing = parseScan(scanned?.content);
@@ -65,23 +75,56 @@ async function scan() {
   }
 }
 
+/** The pairing link the app was opened with, when the phone's own camera or a message opened it. */
+async function openedWithLink() {
+  try {
+    return pairingFrom(await invoke("plugin:deep-link|get_current"));
+  } catch {
+    return null;
+  }
+}
+
+/** A pairing link opened while the app is already showing this screen. */
+function listenForLinks() {
+  try {
+    void invoke("plugin:event|listen", {
+      event: "deep-link://new-url",
+      target: { kind: "Any" },
+      handler: tauri.transformCallback((event) => {
+        const pairing = pairingFrom(event?.payload);
+        if (pairing) void open(pairing.address, pairing.code);
+      }),
+    });
+  } catch {
+    // Without the event bridge the link is still read when the app starts.
+  }
+}
+
 $("form").addEventListener("submit", (event) => {
   event.preventDefault();
   const answer = normalizeAddress($("address").value);
   if (answer.ok) {
     $("error").hidden = true;
+    $("address").removeAttribute("aria-invalid");
     void open(answer.address);
   } else {
+    $("address").setAttribute("aria-invalid", "true");
     say(answer.reason, true);
   }
 });
 $("scan").addEventListener("click", () => void scan());
 $("again").addEventListener("click", () => void open(localStorage.getItem(KEY) ?? ""));
 $("change").addEventListener("click", () => {
-  say("Control your agents from your phone. They keep running on your computer.");
+  say(INTRO);
   show("form");
 });
 
+// A page opened in a browser has no camera, so it offers only the typed address.
+if (!tauri) $("alt").hidden = true;
+else listenForLinks();
+
+const link = tauri ? await openedWithLink() : null;
 const known = localStorage.getItem(KEY);
-if (known) void open(known);
+if (link) void open(link.address, link.code);
+else if (known) void open(known);
 else show("form");

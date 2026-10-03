@@ -47,3 +47,22 @@ export function parseScan(text) {
 export function daemonUrl(address, code) {
   return `http://${address}/${code ? `?pair=${encodeURIComponent(code)}` : ""}`;
 }
+
+/**
+ * What a camera permission answer says. The plugin answers `{ camera: "granted" }`, not the bare word,
+ * so comparing the whole answer to "granted" is never true; a bare word is read as it is.
+ */
+export function permissionState(answer) {
+  if (typeof answer === "string") return answer;
+  if (answer && typeof answer === "object") return String(answer.camera ?? "");
+  return "";
+}
+
+/** The first Marshal pairing link among the links the phone handed over, or null. */
+export function pairingFrom(urls) {
+  for (const url of Array.isArray(urls) ? urls : []) {
+    const pairing = parseScan(url);
+    if (pairing) return pairing;
+  }
+  return null;
+}

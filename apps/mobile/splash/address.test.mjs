@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { daemonUrl, normalizeAddress, parseScan } from "./address.js";
+import { daemonUrl, normalizeAddress, pairingFrom, parseScan, permissionState } from "./address.js";
 
 test("a typed address gets the default port, lower case, and no scheme or path", () => {
   assert.deepEqual(normalizeAddress(" HTTP://Marshal-Laptop.tail1.ts.net/some/path?x=1 "), {
@@ -38,4 +38,29 @@ test("the QR code carries the address and the code, and nothing else is accepted
 test("the daemon's page is opened with the code only when there is one", () => {
   assert.equal(daemonUrl("a:47800"), "http://a:47800/");
   assert.equal(daemonUrl("a:47800", "7QX-2LD"), "http://a:47800/?pair=7QX-2LD");
+});
+
+test("a camera permission answer is read from its camera field, as the plugin sends it", () => {
+  assert.equal(permissionState({ camera: "granted" }), "granted");
+  assert.equal(permissionState({ camera: "prompt" }), "prompt");
+  assert.equal(permissionState({ camera: "denied" }), "denied");
+  assert.equal(permissionState("granted"), "granted");
+  for (const nothing of [null, undefined, {}, []])
+    assert.equal(permissionState(nothing), "", String(nothing));
+  // The bug this guards: the whole answer is an object, and an object is never the word "granted".
+  assert.notEqual({ camera: "granted" }, "granted");
+});
+
+test("the first Marshal pairing link in what the phone handed over is the one used", () => {
+  assert.deepEqual(
+    pairingFrom([
+      "https://example.com",
+      "marshal://pair?host=a.tail1.ts.net&code=7QX-2LD",
+      "marshal://pair?host=b&code=2",
+    ]),
+    { address: "a.tail1.ts.net:47800", code: "7QX-2LD" },
+  );
+  for (const none of [[], null, undefined, "marshal://pair?host=a&code=1", ["marshal://card/1"]]) {
+    assert.equal(pairingFrom(none), null, String(none));
+  }
 });
