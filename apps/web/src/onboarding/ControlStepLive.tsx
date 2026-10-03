@@ -2,7 +2,7 @@ import { Button, Icon } from "@marshal/ui";
 import { createResource, createSignal, For, onMount, Show } from "solid-js";
 import { M } from "~/mock";
 import { platform } from "~/platform";
-import { pairingPayload, tailnetHost } from "~/platform/pairing";
+import { pairingQrText } from "~/platform/pairing";
 import { DiscordForm } from "~/views/settings/DiscordForm";
 import { createEditState } from "~/views/settings/edit-state";
 import { NtfyForm } from "~/views/settings/NtfyForm";
@@ -44,12 +44,7 @@ function PairAPhone() {
   const [node] = createResource(async () => await M.tailnetStatus());
   onMount(() => void M.createPairingCode());
   const code = () => M.pairingCode();
-  const qr = () => {
-    const status = node();
-    const live = code();
-    if (!live || status?.state !== "online" || !status.dnsName) return null;
-    return pairingPayload(tailnetHost(status.dnsName, window.location.port), live.code);
-  };
+  const qr = () => pairingQrText(node(), code()?.code);
   return (
     <div class="flex flex-wrap gap-4 items-center py-3.5 border-t border-b border-border">
       <div class="flex-[1_1_220px] flex flex-col gap-1">

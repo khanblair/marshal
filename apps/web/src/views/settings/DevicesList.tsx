@@ -1,7 +1,7 @@
 import { Button, Icon, ItemText } from "@marshal/ui";
 import { createResource, For, Show } from "solid-js";
 import { M, type Profile } from "~/mock";
-import { pairingPayload, tailnetHost } from "~/platform/pairing";
+import { pairingQrText } from "~/platform/pairing";
 import { PairingQr } from "./PairingQr";
 import type { ProfileDraft } from "./use-profile-draft";
 
@@ -88,11 +88,11 @@ export function DevicesList(props: { profile: ProfileDraft }) {
   // The QR carries the address a phone reaches this daemon at, which only a node that is online
   // has. Without one the text code still works for a device that already knows the address.
   const [node] = createResource(async () => await M.tailnetStatus());
-  const qr = () => {
-    const status = node();
-    const live = code();
-    if (!live || status?.state !== "online" || !status.dnsName) return null;
-    return pairingPayload(tailnetHost(status.dnsName, window.location.port), live.code);
+  const qr = () => pairingQrText(node(), code()?.code);
+  // The daemon says it is not on a tailnet: say why there is no QR code, instead of showing none.
+  const noQr = () => {
+    const state = node()?.state;
+    return Boolean(state && state !== "online");
   };
   return (
     <div class="flex flex-col border-t border-border">
@@ -111,6 +111,12 @@ export function DevicesList(props: { profile: ProfileDraft }) {
           </span>
         </Show>
       </div>
+      <Show when={props.profile.pairing() && code() && !qr() && noQr()}>
+        <p class="m-0 pb-3 text-small leading-4.5 text-secondary max-w-prose">
+          A QR code appears once this computer is on your tailnet. Until then, type the code on a
+          device that already knows this computer's address.
+        </p>
+      </Show>
       <Show when={props.profile.pairing() && qr()}>
         {(payload) => (
           <div class="flex flex-wrap items-center gap-3 pb-3">

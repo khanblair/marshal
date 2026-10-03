@@ -10,9 +10,23 @@ export function pairingPayload(host: string, code: string): string {
   return `marshal://pair?host=${encodeURIComponent(host)}&code=${encodeURIComponent(code)}`;
 }
 
-/** The address a phone reaches this daemon at: its tailnet name, on the port the page came from. */
-export function tailnetHost(dnsName: string, pagePort: string): string {
-  return `${dnsName}:${pagePort || DEFAULT_PORT}`;
+/** The address a phone reaches this daemon at: its tailnet name, on the port the daemon serves on. */
+export function tailnetHost(dnsName: string, port: string | number): string {
+  return `${dnsName}:${port || DEFAULT_PORT}`;
+}
+
+/**
+ * The text of the QR code for a live pairing code, or null while a phone cannot reach this computer:
+ * the node has to be online for there to be an address to put in it. The port is the daemon's own,
+ * from its answer. The page's port is only the fallback for a daemon that does not say, because a
+ * page opened through a dev server is on that server's port and not the daemon's.
+ */
+export function pairingQrText(
+  status: { state: string; dnsName: string; port?: number } | null | undefined,
+  code: string | undefined,
+): string | null {
+  if (!code || status?.state !== "online" || !status.dnsName) return null;
+  return pairingPayload(tailnetHost(status.dnsName, status.port || window.location.port), code);
 }
 
 /**
