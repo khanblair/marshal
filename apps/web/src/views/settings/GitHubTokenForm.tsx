@@ -1,7 +1,7 @@
 import { Button, Field, Input } from "@marshal/ui";
 import { createSignal, Show } from "solid-js";
 import type { Integration, ProviderTest } from "~/mock";
-import { GitHubStored } from "./GitHubStored";
+import { ConnectionStored } from "./ConnectionStored";
 import type { GitHubConnectController } from "./github-connect";
 import { saveGitHubToken, testGitHubToken } from "./integration-actions";
 import { TestChecks } from "./TestChecks";
@@ -78,7 +78,7 @@ export function GitHubTokenForm(props: {
             ? `Connected as @${connection()?.login} with a personal access token`
             : "Connected with a personal access token"}
         </p>
-        <GitHubStored
+        <ConnectionStored
           integration={props.integration}
           onDisconnected={() => void props.github.refresh()}
         />

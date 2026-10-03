@@ -6,7 +6,7 @@ import type {
   GitHubConnectState,
 } from "~/data/mappers/integrations";
 import type { Integration } from "~/mock";
-import { GitHubStored } from "./GitHubStored";
+import { ConnectionStored } from "./ConnectionStored";
 import type { GitHubConnectController } from "./github-connect";
 
 /** What a sign-in that ended without connecting says when the daemon gave no sentence of its own. */
@@ -153,7 +153,7 @@ export function GitHubSignIn(props: { integration: Integration; github: GitHubCo
                   </For>
                 </ul>
               </Show>
-              <GitHubStored
+              <ConnectionStored
                 integration={props.integration}
                 onDisconnected={() => void github().refresh()}
               >
@@ -164,7 +164,7 @@ export function GitHubSignIn(props: { integration: Integration; github: GitHubCo
                     </Button>
                   )}
                 </Show>
-              </GitHubStored>
+              </ConnectionStored>
               <Note>Saving a token on the other tab replaces this sign-in.</Note>
               <WrongAccount
                 login={connection().login}

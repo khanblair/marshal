@@ -5,10 +5,11 @@ import { disconnectConnection, testConnection } from "./integration-actions";
 import { TestChecks } from "./TestChecks";
 
 /**
- * What a connected GitHub offers on either tab: the stored connection's own test, shown with the
- * checks the daemon's test found, and Disconnect. `children` are the buttons that go before them.
+ * What a connected connection offers on either tab of its dialog: the stored connection's own test,
+ * shown with the checks the daemon's test found, and Disconnect. `children` are the buttons that go
+ * before them.
  */
-export function GitHubStored(props: {
+export function ConnectionStored(props: {
   integration: Integration;
   /** Called once the daemon has forgotten the connection. */
   onDisconnected: () => void;
