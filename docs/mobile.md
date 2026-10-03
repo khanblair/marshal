@@ -50,12 +50,13 @@ flowchart LR
 ### 2.1 Tailscale
 
 - For v1, the phone uses the **Tailscale app** to join the user's tailnet. Marshal's app then reaches the daemon at its tailnet address.
+- The computer does not need the Tailscale app. The daemon joins the tailnet itself when it is started with `--tailnet` (or `MARSHAL_TAILNET=1`), as its own node. Until it is, it listens on this computer only and a phone cannot reach it. Settings, Profile, Tailnet identity says which of these it is, and shows the address to type.
 - The app checks that Tailscale is running. If not, it says so and offers to open the Tailscale app.
 - Building Tailscale into the Marshal app itself is possible later, but it is harder on mobile, so it is not in v1.
 
 ### 2.2 Pairing
 
-1. On the desktop app, the user opens Settings, then Profile, then "Pair a device". A pairing code appears as a QR code and as text.
+1. On the desktop app, the user opens Settings, then Profile, then "Pair a device". A pairing code appears as text, and as a QR code once the computer is on the tailnet, because the code holds the address the phone reaches it at.
 2. On the phone, the user scans the QR code with the app, or types the text code.
 3. The daemon issues a device token. The app stores it in the phone's secure storage (Android Keystore, and the iOS Keychain later).
 4. The device appears in the profile's paired devices list, where it can be removed at any time. Removing it revokes the token at once.
