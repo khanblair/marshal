@@ -1,5 +1,6 @@
-/** The port the daemon serves on when the page's own address does not say. */
-const DEFAULT_PORT = "47800";
+import type { TailnetStatus } from "@marshal/protocol";
+import { phoneAccess } from "./phone-access";
+
 const BARE_CODE = /^[A-Z0-9]{3,}-?[A-Z0-9]{3,}$/i;
 
 /**
@@ -10,23 +11,18 @@ export function pairingPayload(host: string, code: string): string {
   return `marshal://pair?host=${encodeURIComponent(host)}&code=${encodeURIComponent(code)}`;
 }
 
-/** The address a phone reaches this daemon at: its tailnet name, on the port the daemon serves on. */
-export function tailnetHost(dnsName: string, port: string | number): string {
-  return `${dnsName}:${port || DEFAULT_PORT}`;
-}
-
 /**
- * The text of the QR code for a live pairing code, or null while a phone cannot reach this computer:
- * the node has to be online for there to be an address to put in it. The port is the daemon's own,
- * from its answer. The page's port is only the fallback for a daemon that does not say, because a
- * page opened through a dev server is on that server's port and not the daemon's.
+ * The text of the QR code for a live pairing code, or null while there is no address a phone can use:
+ * the daemon's own node has to be online, or Tailscale on this computer has to hand the daemon a port
+ * and have been seen to answer there (see `phoneAccess`).
  */
 export function pairingQrText(
-  status: { state: string; dnsName: string; port?: number } | null | undefined,
+  status: TailnetStatus | null | undefined,
   code: string | undefined,
 ): string | null {
-  if (!code || status?.state !== "online" || !status.dnsName) return null;
-  return pairingPayload(tailnetHost(status.dnsName, status.port || window.location.port), code);
+  const access = phoneAccess(status);
+  if (!code || !access?.address || access.next) return null;
+  return pairingPayload(access.address, code);
 }
 
 /**

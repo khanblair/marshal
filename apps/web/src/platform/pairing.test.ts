@@ -1,5 +1,6 @@
+import type { TailnetHost, TailnetStatus } from "@marshal/protocol";
 import { describe, expect, it } from "vitest";
-import { pairingPayload, pairingQrText, parsePairingScan, tailnetHost } from "./pairing";
+import { pairingPayload, pairingQrText, parsePairingScan } from "./pairing";
 
 describe("the pairing QR code", () => {
   it("carries the address and the code, and reads back as the code", () => {
@@ -21,32 +22,61 @@ describe("the pairing QR code", () => {
       expect(parsePairingScan(other)).toBeNull();
     }
   });
+});
 
-  it("uses the port it is given, or the daemon's usual one when there is none", () => {
-    expect(tailnetHost("laptop.tail1.ts.net", "5000")).toBe("laptop.tail1.ts.net:5000");
-    expect(tailnetHost("laptop.tail1.ts.net", 47811)).toBe("laptop.tail1.ts.net:47811");
-    expect(tailnetHost("laptop.tail1.ts.net", "")).toBe("laptop.tail1.ts.net:47800");
-  });
+const host = (over: Partial<TailnetHost> = {}): TailnetHost => ({
+  found: true,
+  state: "running",
+  dnsName: "laptop.tail1.ts.net",
+  ips: [],
+  account: "",
+  tailnet: "",
+  servePort: 0,
+  secureServePort: 0,
+  takenPorts: [],
+  reachable: false,
+  phones: [],
+  ...over,
+});
+
+const status = (
+  over: Partial<TailnetStatus> = {},
+  hostOver: Partial<TailnetHost> = {},
+): TailnetStatus => ({
+  enabled: false,
+  state: "off",
+  hostname: "",
+  dnsName: "",
+  ips: [],
+  port: 47811,
+  identity: "",
+  loginUrl: "",
+  funnel: false,
+  error: "",
+  host: host(hostOver),
+  serverTime: "2026-10-03T10:00:00.000Z",
+  ...over,
 });
 
 describe("the text of the QR code for a pairing", () => {
-  const online = { state: "online", dnsName: "laptop.tail1.ts.net", port: 47811 };
-
-  it("is the node's address on the daemon's port, with the code", () => {
+  it("is the daemon's own node's address on the daemon's port, with the code", () => {
+    const online = status({ state: "online", dnsName: "marshal-dev.tail1.ts.net" });
     expect(pairingQrText(online, "7QX-2LD")).toBe(
-      "marshal://pair?host=laptop.tail1.ts.net%3A47811&code=7QX-2LD",
+      "marshal://pair?host=marshal-dev.tail1.ts.net%3A47811&code=7QX-2LD",
     );
   });
 
-  it("falls back to the page's port for a daemon that does not say", () => {
-    const pagePort = window.location.port || "47800";
-    expect(pairingQrText({ ...online, port: 0 }, "7QX-2LD")).toContain(`%3A${pagePort}`);
+  it("is the tailnet port Tailscale Serve hands to the daemon, once this computer has reached it", () => {
+    const served = status({}, { servePort: 47800, reachable: true });
+    expect(pairingQrText(served, "7QX-2LD")).toBe(
+      "marshal://pair?host=laptop.tail1.ts.net%3A47800&code=7QX-2LD",
+    );
   });
 
-  it("is null until a phone can reach this computer, and until there is a code", () => {
-    expect(pairingQrText({ ...online, state: "signing-in" }, "7QX-2LD")).toBeNull();
-    expect(pairingQrText({ ...online, state: "off", dnsName: "" }, "7QX-2LD")).toBeNull();
+  it("is null while the rule has not been seen to answer, while there is no address, and with no code", () => {
+    expect(pairingQrText(status({}, { servePort: 47800, reachable: false }), "7QX-2LD")).toBeNull();
+    expect(pairingQrText(status(), "7QX-2LD")).toBeNull();
     expect(pairingQrText(null, "7QX-2LD")).toBeNull();
-    expect(pairingQrText(online, undefined)).toBeNull();
+    expect(pairingQrText(status({ state: "online", dnsName: "x.ts.net" }), undefined)).toBeNull();
   });
 });
