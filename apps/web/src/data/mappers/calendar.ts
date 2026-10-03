@@ -20,6 +20,8 @@ export interface CalEvent {
   calendar?: string;
   days?: number[];
   dayOffset?: number;
+  /** The last day the event covers, as an offset from today. Absent when it is on one day only. */
+  lastDayOffset?: number;
 }
 
 /**
@@ -50,6 +52,17 @@ function clockOf(date: Date): string {
 }
 
 /**
+ * The last day an event covers, as an offset from today, or undefined when it stays on its first day.
+ * An all-day event's end is the first day it no longer covers, and a timed one ends at its end time,
+ * so one that ends at midnight is not on the next day either: both look at the moment before the end.
+ */
+function lastDayOffsetOf(start: Date, end: Date | null, firstOffset: number, today: number) {
+  if (!end || end.getTime() <= start.getTime()) return undefined;
+  const last = Math.round((startOfDay(end.getTime() - 1) - today) / DAY_MS);
+  return last > firstOffset ? last : undefined;
+}
+
+/**
  * One event, with its wire `start` (an absolute moment) turned into `time` and `dayOffset` - the
  * relative shape every screen that draws a calendar already reads (`~/views/calendar/calendar-
  * items.ts`, `~/views/home/today.ts`). today is midnight of the day the events are being read for.
@@ -59,6 +72,8 @@ function toCalEvent(wire: WireCalendarEvent, today: number): CalEvent {
   const end = wire.end ? new Date(wire.end) : null;
   const sameDay =
     end !== null && !wire.allDay && startOfDay(end.getTime()) === startOfDay(start.getTime());
+  const dayOffset = Math.round((startOfDay(start.getTime()) - today) / DAY_MS);
+  const lastDayOffset = lastDayOffsetOf(start, end, dayOffset, today);
   return {
     id: wire.id,
     title: wire.title,
@@ -69,7 +84,8 @@ function toCalEvent(wire: WireCalendarEvent, today: number): CalEvent {
     ...(wire.url ? { url: wire.url } : {}),
     ...(wire.joinUrl ? { joinUrl: wire.joinUrl } : {}),
     ...(wire.calendar ? { calendar: wire.calendar } : {}),
-    dayOffset: Math.round((startOfDay(start.getTime()) - today) / DAY_MS),
+    dayOffset,
+    ...(lastDayOffset === undefined ? {} : { lastDayOffset }),
   };
 }
 

@@ -1,4 +1,5 @@
 import { M } from "~/mock";
+import { continuesOn, coversDay } from "../calendar/event-days";
 
 /* The "Coming up today" list: schedules, calendar events, and cards due today. */
 
@@ -33,9 +34,9 @@ function scheduleItems(weekday: number): TodayItem[] {
 
 function eventItems(weekday: number): TodayItem[] {
   return M.S.calEvents
-    .filter((e) => e.days?.includes(weekday) || e.dayOffset === 0)
+    .filter((e) => coversDay(e, weekday, 0))
     .map((e) => ({
-      time: e.allDay ? "All day" : e.time,
+      time: e.allDay ? "All day" : continuesOn(e, 0) ? "Continues" : e.time,
       icon: "calendar",
       iconColor: QUIET,
       label: e.title,

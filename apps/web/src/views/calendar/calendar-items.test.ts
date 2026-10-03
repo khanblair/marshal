@@ -98,6 +98,37 @@ describe("itemsForDay: events and due cards", () => {
     expect(itemsForDay(at(2), src)).toEqual([]);
   });
 
+  it("shows an event that runs over several days on each of them", () => {
+    const src = source({
+      events: [
+        event({
+          id: "trip",
+          title: "Offsite",
+          allDay: true,
+          time: "",
+          dayOffset: 1,
+          lastDayOffset: 3,
+        }),
+      ],
+    });
+    expect(itemsForDay(at(0), src)).toEqual([]);
+    for (const day of [1, 2, 3])
+      expect(itemsForDay(at(day), src).map((i) => i.label)).toEqual(["Offsite"]);
+    expect(itemsForDay(at(4), src)).toEqual([]);
+  });
+
+  it("gives a later day of an overnight event no start time, and says it continues", () => {
+    const src = source({
+      events: [
+        event({ id: "late", title: "Deploy", time: "22:00", dayOffset: 1, lastDayOffset: 2 }),
+      ],
+    });
+    expect(itemsForDay(at(1), src)[0]).toMatchObject({ time: "22:00" });
+    const [next] = itemsForDay(at(2), src);
+    expect(next?.time).toBe("");
+    expect(next?.tip).toContain("continues from an earlier day");
+  });
+
   it("describes an event as coming from Google Calendar", () => {
     const [item] = itemsForDay(
       at(1),

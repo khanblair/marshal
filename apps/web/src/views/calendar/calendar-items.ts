@@ -6,6 +6,7 @@
 import type { CalEvent, Card, Schedule } from "~/mock";
 import { cardLabel } from "~/mock/card-key";
 import { fullDate } from "./calendar-dates";
+import { continuesOn, coversDay } from "./event-days";
 
 /** Which entry an item came from, so the view knows what a click opens. */
 type CalTarget =
@@ -84,13 +85,13 @@ function eventTip(e: CalEvent): string {
 
 function eventItems(src: CalSource, t: number, dow: number, off: number): CalItem[] {
   return src.events
-    .filter((e) => e.days?.includes(dow) || e.dayOffset === off)
+    .filter((e) => coversDay(e, dow, off))
     .map((e) => ({
       kind: "event",
       icon: "calendar",
-      time: e.time,
+      time: continuesOn(e, off) ? "" : e.time,
       label: e.title,
-      tip: eventTip(e),
+      tip: continuesOn(e, off) ? `${eventTip(e)}, continues from an earlier day` : eventTip(e),
       target: { kind: "event", event: e, day: t },
     }));
 }
