@@ -66,3 +66,49 @@ export function pairingFrom(urls) {
   }
   return null;
 }
+
+/** How many computers the first screen remembers. */
+export const RECENT_LIMIT = 5;
+
+/**
+ * The recent computers a saved list holds, newest first. Anything that cannot be read, or holds an
+ * address that is not one, is left out, so a damaged list is an empty one and never a failure.
+ */
+export function readRecent(text) {
+  let saved;
+  try {
+    saved = JSON.parse(String(text ?? "[]"));
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(saved)) return [];
+  const seen = new Set();
+  const list = [];
+  for (const entry of saved) {
+    const answer = normalizeAddress(entry?.address);
+    const lastUsed = Number(entry?.lastUsed);
+    if (!answer.ok || !Number.isFinite(lastUsed) || seen.has(answer.address)) continue;
+    seen.add(answer.address);
+    list.push({ address: answer.address, lastUsed });
+  }
+  return list.sort((a, b) => b.lastUsed - a.lastUsed).slice(0, RECENT_LIMIT);
+}
+
+/** The list with this address first, as just used, and at most RECENT_LIMIT kept. */
+export function remember(list, address, now) {
+  return [{ address, lastUsed: now }, ...list.filter((entry) => entry.address !== address)].slice(
+    0,
+    RECENT_LIMIT,
+  );
+}
+
+/** The list without this address. */
+export function forget(list, address) {
+  return list.filter((entry) => entry.address !== address);
+}
+
+/** The short name of a computer: the first part of its name on the tailnet, or its address. */
+export function hostLabel(address) {
+  const host = String(address ?? "").split(":")[0] ?? "";
+  return /^\d+\.\d+\.\d+\.\d+$/.test(host) ? host : (host.split(".")[0] ?? host);
+}

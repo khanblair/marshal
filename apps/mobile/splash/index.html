@@ -2,8 +2,8 @@
 <!--
   The first screen of the phone app. It knows nothing of Marshal but the address of the computer it
   should open: the page the daemon serves is the real app, and this hands the window to it once an
-  address is known (docs/mobile.md section 2). Scanning the QR code shown in Settings > Profile >
-  Pair a device fills in the address and the pairing code together, and so does opening that code
+  address is known (docs/mobile.md section 2). Scanning the QR code shown in Settings > Remote
+  control > Pair a device fills in the address and the pairing code together, and so does opening that code
   from the phone's own camera. The look comes from theme.css and splash.css, which copy the design
   tokens (scripts/build-splash-theme.mjs).
 -->
@@ -26,6 +26,10 @@
           while you are away.
         </p>
         <form id="form" class="stack" aria-labelledby="title" hidden>
+          <section id="recent" class="stack" aria-labelledby="recent-title" hidden>
+            <h2 id="recent-title">Recent computers</h2>
+            <ul id="recent-list" class="recent"></ul>
+          </section>
           <div class="tight">
             <label class="field">
               <span class="label">Your computer's address</span>
@@ -40,16 +44,32 @@
                 aria-describedby="address-hint error"
               />
               <span id="address-hint" class="hint">
-                Shown on your computer under Settings, Profile, Tailnet identity.
+                Shown on your computer under Settings, Remote control.
               </span>
             </label>
             <p id="error" class="error" role="alert" hidden></p>
           </div>
+          <label class="field">
+            <span class="label">Pairing code, if you have one</span>
+            <input
+              id="code"
+              class="input"
+              autocapitalize="characters"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="7QX-2LD"
+              aria-describedby="code-hint"
+            />
+            <span id="code-hint" class="hint">
+              From Settings, Remote control, Pair a device, on your computer. Leave it empty if this
+              phone is already paired.
+            </span>
+          </label>
           <button type="submit" id="connect" class="btn primary">Connect</button>
           <div id="alt" class="stack alt">
             <h2>Or scan the code</h2>
             <p class="secondary">
-              On your computer, open Settings, then Profile, then Pair a device, and scan the code it shows.
+              On your computer, open Settings, then Remote control, then Pair a device, and scan the code it shows.
             </p>
             <button type="button" id="scan" class="btn">Scan the QR code</button>
           </div>
