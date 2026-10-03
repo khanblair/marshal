@@ -41,8 +41,61 @@ type TailnetStatus struct {
 	Funnel bool `json:"funnel"`
 	// Error is what went wrong, while State is "error". Empty at every other time.
 	Error string `json:"error"`
+	// Host is what the Tailscale app on this computer says, which is how a phone reaches the daemon
+	// when the daemon has no node of its own: Tailscale Serve hands a tailnet port to it.
+	Host TailnetHost `json:"host"`
 	// ServerTime is the daemon's clock when the answer was made.
 	ServerTime Timestamp `json:"serverTime"`
+}
+
+// TailnetHost is the Tailscale app on this computer, as the daemon sees it by asking Tailscale's own
+// command. It is facts and nothing else: whether Tailscale is here and running, who it is signed in
+// as, what this computer is called on the tailnet, which tailnet ports Serve already uses and whether
+// one of them hands plain http to this daemon, and which phones the tailnet has and whether they are
+// online. A screen builds the phone's address and the next step from it.
+type TailnetHost struct {
+	// Found is true when Tailscale's command is installed on this computer, so it could be asked.
+	Found bool `json:"found"`
+	// State is "running", "starting", "needs-login", "needs-approval", "stopped", "not-running" (the
+	// command could not reach the Tailscale app), or "unknown". Empty when Found is false.
+	State string `json:"state"`
+	// DNSName is this computer's full MagicDNS name on the tailnet, without the trailing dot.
+	DNSName string `json:"dnsName"`
+	// IPs are this computer's tailnet addresses.
+	IPs []string `json:"ips"`
+	// Account is the Tailscale account signed in on this computer.
+	Account string `json:"account"`
+	// Tailnet is the name of the tailnet.
+	Tailnet string `json:"tailnet"`
+	// ServePort is the tailnet port on which Tailscale Serve hands plain http, or raw TCP, to this
+	// daemon. Zero when no rule does. The phone app speaks plain http, so only such a rule counts.
+	ServePort int `json:"servePort"`
+	// SecureServePort is a tailnet port on which Serve hands this daemon https only, which the phone
+	// app cannot use. Zero when there is none, or when ServePort is set.
+	SecureServePort int `json:"secureServePort"`
+	// TakenPorts are the tailnet ports other Serve rules use, so a suggested command can avoid them.
+	TakenPorts []int `json:"takenPorts"`
+	// Reachable is true when this computer fetched the daemon's health through ServePort and got an
+	// answer. It says what was checked from here, not that a phone can get through: the tailnet's
+	// access rules and the phone's own state are not visible from this computer.
+	Reachable bool `json:"reachable"`
+	// Phones are the Android and iOS devices on the tailnet and whether Tailscale says they are online.
+	Phones []TailnetPhone `json:"phones"`
+}
+
+// TailnetPhone is one phone or tablet on the tailnet.
+type TailnetPhone struct {
+	Name   string `json:"name"`
+	OS     string `json:"os"`
+	Online bool   `json:"online"`
+	// LastSeen is when Tailscale last saw it. Absent when it never says.
+	LastSeen *Timestamp `json:"lastSeen,omitempty"`
+}
+
+// EmptyTailnetHost is a host that Tailscale was not asked about: nothing found, with the lists empty
+// rather than null so a screen can read them without a check.
+func EmptyTailnetHost() TailnetHost {
+	return TailnetHost{IPs: []string{}, TakenPorts: []int{}, Phones: []TailnetPhone{}}
 }
 
 // NewTailnetStatus makes an answer stamped with the daemon's time.
