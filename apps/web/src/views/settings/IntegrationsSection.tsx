@@ -22,11 +22,11 @@ import {
   TRELLO_ID,
 } from "~/sync/integrations";
 import { GRID_MIN_240 } from "./auto-fit-grid";
-import { DiscordForm } from "./DiscordForm";
+import { DiscordConnectDialog } from "./DiscordConnectDialog";
 import { createEditState, type EditState } from "./edit-state";
 import { GitHubConnectDialog } from "./GitHubConnectDialog";
-import { GmailForm } from "./GmailForm";
-import { GoogleCalendarForm } from "./GoogleCalendarForm";
+import { GmailConnectDialog } from "./GmailConnectDialog";
+import { GoogleConnectDialog } from "./GoogleConnectDialog";
 import { testConnection } from "./integration-actions";
 import {
   type IntegrationsView,
@@ -35,11 +35,11 @@ import {
   writeExpandedIntegrations,
   writeIntegrationsView,
 } from "./integrations-view";
-import { NtfyForm } from "./NtfyForm";
+import { NtfyConnectDialog } from "./NtfyConnectDialog";
 import { ObsidianPanel } from "./ObsidianPanel";
-import { TelegramForm } from "./TelegramForm";
+import { TelegramConnectDialog } from "./TelegramConnectDialog";
 import { TestChecks } from "./TestChecks";
-import { TrelloForm } from "./TrelloForm";
+import { TrelloConnectDialog } from "./TrelloConnectDialog";
 
 interface StatusSpec {
   label: string;
@@ -172,22 +172,22 @@ function IntegrationForm(props: { integration: Integration; edit: EditState }) {
         <ObsidianPanel integration={props.integration} />
       </Match>
       <Match when={props.integration.id === TRELLO_ID}>
-        <TrelloForm integration={props.integration} edit={props.edit} />
+        <TrelloConnectDialog integration={props.integration} edit={props.edit} />
       </Match>
       <Match when={props.integration.id === GCAL_ID}>
-        <GoogleCalendarForm integration={props.integration} edit={props.edit} />
+        <GoogleConnectDialog integration={props.integration} edit={props.edit} />
       </Match>
       <Match when={props.integration.id === GMAIL_ID}>
-        <GmailForm integration={props.integration} edit={props.edit} />
+        <GmailConnectDialog integration={props.integration} edit={props.edit} />
       </Match>
       <Match when={props.integration.id === TELEGRAM_ID}>
-        <TelegramForm integration={props.integration} edit={props.edit} />
+        <TelegramConnectDialog integration={props.integration} edit={props.edit} />
       </Match>
       <Match when={props.integration.id === DISCORD_ID}>
-        <DiscordForm integration={props.integration} edit={props.edit} />
+        <DiscordConnectDialog integration={props.integration} edit={props.edit} />
       </Match>
       <Match when={props.integration.id === NTFY_ID}>
-        <NtfyForm integration={props.integration} edit={props.edit} />
+        <NtfyConnectDialog integration={props.integration} edit={props.edit} />
       </Match>
     </Switch>
   );
