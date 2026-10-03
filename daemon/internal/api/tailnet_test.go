@@ -329,3 +329,48 @@ func serve(handler http.Handler, method, target string, body []byte) *httptest.R
 	handler.ServeHTTP(rec, req)
 	return rec
 }
+
+// fakeHost answers for the Tailscale app on this computer, and remembers the port it was asked for.
+type fakeHost struct {
+	host protocol.TailnetHost
+	port int
+}
+
+func (f *fakeHost) Status(_ context.Context, port int) protocol.TailnetHost {
+	f.port = port
+	return f.host
+}
+
+// With no Tailscale to ask the answer still carries a host, found nowhere and with empty lists, so a
+// screen reads it without a check.
+func TestTheTailnetStatusCarriesAnEmptyHostWhenTailscaleIsNotAsked(t *testing.T) {
+	st := newStack(t)
+	raw := decode[map[string]any](t, st.do(http.MethodGet, "/v1/tailnet", nil).want(t, http.StatusOK))
+	host, _ := raw["host"].(map[string]any)
+	if host == nil || host["found"] != false {
+		t.Fatalf("host = %v, want found false", raw["host"])
+	}
+	for _, list := range []string{"ips", "takenPorts", "phones"} {
+		if _, ok := host[list].([]any); !ok {
+			t.Errorf("%s = %v, want an empty list and not null", list, host[list])
+		}
+	}
+}
+
+// The Tailscale app on this computer is asked for the daemon's own port, and its answer is the status's
+// host, next to the node's.
+func TestTheTailnetStatusReportsTheTailscaleAppOnThisComputer(t *testing.T) {
+	host := &fakeHost{host: protocol.TailnetHost{
+		Found: true, State: "running", DNSName: "laptop.example.ts.net", ServePort: 47800, Reachable: true,
+		IPs: []string{"100.64.0.1"}, TakenPorts: []int{3200}, Phones: []protocol.TailnetPhone{{Name: "Pixel", OS: "android"}},
+	}}
+	st := newStack(t, withHostTailscale(host), withPort(47811))
+	status := decode[protocol.TailnetStatus](t, st.do(http.MethodGet, "/v1/tailnet", nil).want(t, http.StatusOK))
+	if host.port != 47811 {
+		t.Errorf("Tailscale was asked about port %d, want the daemon's own", host.port)
+	}
+	got := status.Host
+	if !got.Found || got.DNSName != "laptop.example.ts.net" || got.ServePort != 47800 || !got.Reachable || len(got.Phones) != 1 {
+		t.Errorf("host = %+v, want what Tailscale said", got)
+	}
+}

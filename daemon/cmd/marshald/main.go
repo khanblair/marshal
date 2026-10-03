@@ -247,6 +247,7 @@ func serve(ctx context.Context, settings config.Settings, env platform.Env, log 
 	deps := moduleDeps(mods)
 	deps.Store, deps.Bus, deps.Dev, deps.Alerts = st, bus, dev, alerts
 	deps.Devices, deps.Tailnet, deps.Funnel, deps.WebUI = pairedDevices, tailnetNode, settings.Funnel, webUIFS()
+	deps.HostTailscale = tailnet.NewHost()
 	return api.New(settings, log, time.Now, deps).Run(ctx)
 }
 

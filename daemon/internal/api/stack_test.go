@@ -159,6 +159,8 @@ type stackConfig struct {
 	// listener, the tailnet origin rule, and the Funnel handler with no Tailscale anywhere. Nil,
 	// which is the default, is a daemon reachable on this machine only.
 	tailnet api.TailnetNode
+	// hostTailscale is the Tailscale app on this computer, which the tailnet status reports on.
+	hostTailscale api.HostTailscale
 	// funnel asks the server to expose /hooks/* to the public internet through Funnel. It does
 	// nothing without a node above it, exactly as in a real daemon.
 	funnel bool
@@ -252,6 +254,11 @@ func withoutDevices() stackOption { return func(c *stackConfig) { c.noDevices = 
 // withTailnet hands the server a node on a tailnet.
 func withTailnet(node api.TailnetNode) stackOption {
 	return func(c *stackConfig) { c.tailnet = node }
+}
+
+// withHostTailscale gives the daemon a Tailscale app to ask, with no Tailscale anywhere.
+func withHostTailscale(host api.HostTailscale) stackOption {
+	return func(c *stackConfig) { c.hostTailscale = host }
 }
 
 // withFunnel asks for /hooks/* to be exposed publicly, which needs withTailnet to mean anything.

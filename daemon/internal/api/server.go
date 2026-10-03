@@ -215,6 +215,9 @@ type Deps struct {
 	// path is opened to the public internet. Set, it is a second listener beside loopback, never
 	// instead of it (docs/architecture.md section 13).
 	Tailnet TailnetNode
+	// HostTailscale is the Tailscale app on this computer, asked for the tailnet status so a screen can
+	// say how a phone reaches the daemon without a node of its own. Nil says nothing about it.
+	HostTailscale HostTailscale
 	// Funnel asks Tailscale to expose this daemon to the public internet. Only /hooks/* is served
 	// on it, and every request there is still signature-verified the way Phase 8 built it. It does
 	// nothing without a Tailnet: there is no node to expose.
@@ -274,6 +277,8 @@ type Server struct {
 	devices *devices.Service
 	// tailnet is the node on the person's tailnet (B9.1). Nil is a daemon on this machine only.
 	tailnet TailnetNode
+	// hostTailscale is the Tailscale app on this computer. Nil says nothing about it.
+	hostTailscale HostTailscale
 	// funnel is whether /hooks/* was asked to be exposed to the public internet.
 	funnel bool
 	// mcp is the daemon's internal MCP server endpoint (docs/architecture.md section 11.4): one
@@ -310,6 +315,7 @@ func New(settings config.Settings, log *slog.Logger, now func() time.Time, deps 
 		webUI:           deps.WebUI,
 		devices:         deps.Devices,
 		tailnet:         deps.Tailnet,
+		hostTailscale:   deps.HostTailscale,
 		funnel:          deps.Funnel && deps.Tailnet != nil,
 		mcp:             deps.MCP,
 	}

@@ -38,6 +38,13 @@ type TailnetNode interface {
 	Close() error
 }
 
+// HostTailscale is the Tailscale app on this computer, asked from outside it. The API defines it, as
+// it does TailnetNode, so it is served and tested with no Tailscale anywhere. port is the port this
+// daemon serves on, which a Serve rule has to hand to it to count.
+type HostTailscale interface {
+	Status(ctx context.Context, port int) protocol.TailnetHost
+}
+
 // TailnetPeers is the part of a node that can list the other machines on the tailnet (B9.5). It
 // is a separate interface rather than a method on TailnetNode so that a node which does not
 // answer peers still satisfies the status interface: a test fake and an unsigned-in node both
@@ -92,7 +99,7 @@ func (s *Server) FunnelHandler() http.Handler {
 // tailnetStatus answers GET /v1/tailnet (B9.1, build-plan task 9.9): whether this daemon was
 // started to join a tailnet, what its node is doing, and whether /hooks/* was asked to be public.
 // It answers at once with "off" on a daemon that was not, so the status screen never waits.
-func (s *Server) tailnetStatus(w http.ResponseWriter, _ *http.Request) {
+func (s *Server) tailnetStatus(w http.ResponseWriter, r *http.Request) {
 	status := protocol.TailnetStatus{
 		Enabled: s.tailnet != nil,
 		State:   "off",
@@ -103,6 +110,10 @@ func (s *Server) tailnetStatus(w http.ResponseWriter, _ *http.Request) {
 		status.Funnel = s.funnel
 	}
 	status.Port = s.settings.Port
+	status.Host = protocol.EmptyTailnetHost()
+	if s.hostTailscale != nil {
+		status.Host = s.hostTailscale.Status(r.Context(), s.settings.Port)
+	}
 	s.writeJSON(w, http.StatusOK, protocol.NewTailnetStatus(status, s.now()))
 }
 

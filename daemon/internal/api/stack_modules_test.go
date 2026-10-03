@@ -48,7 +48,7 @@ func (st *stack) startModules() {
 	t := st.t
 	t.Helper()
 	deps := api.Deps{Store: st.store, Bus: st.bus, Dev: st.dev, Limits: st.cfg.limits,
-		Tailnet: st.cfg.tailnet, Funnel: st.cfg.funnel}
+		Tailnet: st.cfg.tailnet, HostTailscale: st.cfg.hostTailscale, Funnel: st.cfg.funnel}
 	if !st.cfg.noIntegrations {
 		// The connections Marshal is set up with apart from model providers, built the way
 		// cmd/marshald builds it. Its receiver is the stack's webhook route, and its sink is the

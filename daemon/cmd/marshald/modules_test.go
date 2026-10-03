@@ -193,7 +193,7 @@ func TestEveryModuleIsHandedToTheServer(t *testing.T) {
 	mods, _, _, _ := buildTestModules(t, stub)
 	setByServe := map[string]bool{
 		"Store": true, "Bus": true, "Dev": true, "Alerts": true, "Devices": true,
-		"Tailnet": true, "Funnel": true, "WebUI": true,
+		"Tailnet": true, "HostTailscale": true, "Funnel": true, "WebUI": true,
 		// Nil on purpose until a GitHub token is saved (modules.go).
 		"PullRequests": true, "Review": true,
 	}
