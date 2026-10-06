@@ -10,7 +10,7 @@ export interface NewChatFormProps {
 const DESKTOP_POPOVER =
   "absolute top-9.5 right-0 left-0 z-[60] flex flex-col gap-3 rounded-lg border border-border bg-surface-raised p-3.5 shadow-e1";
 const PHONE_SHEET =
-  "fixed right-0 bottom-0 left-0 z-sheet flex flex-col gap-3 rounded-t-xl bg-surface-raised px-4 pt-5 pb-[calc(20px+env(safe-area-inset-bottom))] shadow-e2";
+  "fixed right-0 bottom-0 left-0 z-sheet flex flex-col gap-3 rounded-t-xl bg-surface-raised px-4 pt-5 pb-[calc(20px+var(--safe-bottom))] shadow-e2";
 
 const closeForm = () => M.set({ newChatOpen: false });
 

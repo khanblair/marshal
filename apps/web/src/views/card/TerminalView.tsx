@@ -57,7 +57,7 @@ function KeyBar(props: {
     <div
       role="toolbar"
       aria-label="Terminal keys"
-      class="flex-none flex gap-1.5 overflow-x-auto pt-2 px-3 pb-[calc(8px+env(safe-area-inset-bottom))] border-t border-border bg-surface"
+      class="flex-none flex gap-1.5 overflow-x-auto pt-2 px-3 pb-2 border-t border-border bg-surface"
     >
       <Index each={TERM_KEYS}>
         {(item) => {
@@ -73,7 +73,7 @@ function KeyBar(props: {
                 if (wireKey) props.onWireKey?.(wireKey);
                 props.focusInput();
               }}
-              class={`flex-none min-w-13 h-11 px-3 inline-flex items-center justify-center rounded-sm border border-border-strong font-mono text-small font-semibold ${
+              class={`flex-none min-w-13 h-(--control-h) px-3 inline-flex items-center justify-center rounded-sm border border-border-strong font-mono text-small font-semibold ${
                 active() ? "bg-ink text-on-ink" : "bg-surface-sunken text-primary"
               }`}
             >

@@ -13,7 +13,7 @@ export interface OnboardingFooterProps {
  */
 export function OnboardingFooter(props: OnboardingFooterProps) {
   return (
-    <div class="flex items-center gap-2 mt-1 pb-[env(safe-area-inset-bottom)]">
+    <div class="flex items-center gap-2 mt-1 pb-[var(--safe-bottom)]">
       <Show when={props.flow.canBack()}>
         <Button size={36} class="hover:bg-surface!" onClick={props.flow.back}>
           Back

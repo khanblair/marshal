@@ -11,8 +11,7 @@ export interface TourPopoverProps {
 
 const BASE = "absolute pointer-events-auto flex flex-col gap-1.5 bg-surface-raised shadow-e2";
 /** On phones the popover is a sheet along the bottom edge, padded for the home indicator. */
-const SHEET =
-  "inset-x-0 bottom-0 px-4 pt-4 pb-[calc(16px+env(safe-area-inset-bottom))] rounded-t-xl";
+const SHEET = "inset-x-0 bottom-0 px-4 pt-4 pb-[calc(16px+var(--safe-bottom))] rounded-t-xl";
 const PANEL = "p-4 rounded-lg border border-border";
 
 /** The step's card: on phones a bottom sheet, elsewhere placed next to the target. */
