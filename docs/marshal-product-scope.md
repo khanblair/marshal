@@ -1080,6 +1080,30 @@ If the machine was asleep when a job should have run, each job has a setting: **
 
 In-app, the chat view, Telegram, Discord, email, and saved to the Obsidian vault as a daily note.
 
+**Built so far (2026-10-06):** every brief is kept in its schedule's run history (the in-app copy), and can also be sent to Telegram, Discord, and ntfy, each ticked on the schedule. A chat that is not set up is skipped and the run says so. The chat view, email, and the Obsidian daily note are not built.
+
+### 18.6 Starter schedules, parts, and who sets the time
+
+The first time a daemon runs it makes seven schedules, all switched off, so a person turns on the ones they want and edits them at will. They can be added back from New schedule if deleted.
+
+| Starter | Suggested time | Parts |
+|---|---|---|
+| Morning brief | Weekdays 8:00 | Calendar (today), Needs you, Still working, In review, Main branch CI, Finished |
+| Evening wind-down | Weekdays 18:00 | Finished, Still working, Needs you, Card CI failures, Calendar (tomorrow) |
+| Weekly review | Sunday 18:00 | Finished, In review, Needs you, Stale cards, Main branch CI, Calendar (coming week) |
+| Before my first meeting | 30 minutes before the first calendar event | Calendar, Needs you, Main branch CI |
+| CI and PR watch | Weekdays 13:00 | Main branch CI, Card CI failures, In review. Says nothing when all is well. |
+| Needs-you digest | Weekdays 14:00 | Needs you. Says nothing when nothing waits. |
+| Stale cards | Mondays 9:00 | Stale cards. Says nothing when there are none. |
+
+- **The person sets the time.** The times are only suggestions, and nothing runs until a schedule is switched on. The editor has a time picker and day buttons for a Cron schedule, a number and unit for an Interval one, and words for One-time and Event. The sentence, the time, and the days are written together, so what a schedule says and what the cron runs cannot differ.
+- **A brief is made of parts.** Each part is listed in the editor with a tick. The brief reads back at most four days (eight for the weekly review and stale cards), so a new schedule's first brief does not report on weeks.
+- **Main branch CI** reads GitHub's runs for each project's default branch, which the daemon now asks about every five minutes, so it works without a public webhook address.
+- **Run now** runs a schedule once, sends it to its chats (it asks first when a chat is set up), and shows the run in the history. A run by hand does not move the point the next scheduled brief reads from.
+- **Preview** shows the exact message a chat would get from the saved schedule, without sending it or recording a run.
+- **Where it is edited:** each schedule is a row with its switch and its actions as icons (preview, run now, history, edit, delete). Edit, history, and the preview open in a sheet, which is a bottom sheet on a phone.
+- **A job does nothing yet.** Only briefs can run. A schedule of the job kind records a run marked "unsupported" and says nothing was done.
+
 ### 18.4 Interactive
 
 You can reply to a brief (in the app or in chat) to create cards or ask questions.
