@@ -1,6 +1,6 @@
 import { expect, type Page } from "@playwright/test";
 
-/** The three sizes the design defines: phone under 640, tablet 640 to 1199, desktop 1200 up. */
+/** The three layouts: phone under 640, tablet 640 to 1279, desktop 1280 up. 1100 is the lg band, 1280 the first desktop width. */
 export const SIZES = [
   { name: "phone", width: 390, height: 844 },
   { name: "tablet", width: 820, height: 1180 },
@@ -8,6 +8,8 @@ export const SIZES = [
   // The smallest phone and a small tablet, where labels used to wrap and headers overflowed.
   { name: "phone", width: 320, height: 640 },
   { name: "tablet", width: 700, height: 900 },
+  { name: "tablet", width: 1100, height: 800 },
+  { name: "desktop", width: 1280, height: 800 },
 ] as const;
 
 export type Size = (typeof SIZES)[number];
