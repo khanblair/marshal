@@ -34,6 +34,9 @@ type fakeGoogle struct {
 	revokeFails atomic.Bool
 	// workBody, when set, is what the Work calendar answers with instead of its usual one event.
 	workBody atomic.Value
+	// scope, when set, is the scope list the token endpoint reports as granted. Google leaves it out
+	// when nothing was unticked, and so does the fake until a test sets it.
+	scope atomic.Value
 }
 
 func newFakeGoogle(t *testing.T) *fakeGoogle {
@@ -52,7 +55,11 @@ func newFakeGoogle(t *testing.T) *fakeGoogle {
 		if r.Form.Get("grant_type") == "authorization_code" {
 			g.lastVerifier.Store(r.Form.Get("code_verifier"))
 		}
-		_, _ = w.Write([]byte(`{"access_token":"access-` + r.Form.Get("grant_type") + `","refresh_token":"refresh-1","token_type":"Bearer","expires_in":1}`))
+		granted := ""
+		if scope, _ := g.scope.Load().(string); scope != "" {
+			granted = `,"scope":"` + scope + `"`
+		}
+		_, _ = w.Write([]byte(`{"access_token":"access-` + r.Form.Get("grant_type") + `","refresh_token":"refresh-1","token_type":"Bearer","expires_in":1` + granted + `}`))
 	})
 	mux.HandleFunc("/revoke", func(w http.ResponseWriter, r *http.Request) {
 		g.revokeCalls.Add(1)

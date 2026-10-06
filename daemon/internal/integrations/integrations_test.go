@@ -108,10 +108,12 @@ func TestListShowsEveryConnectionAndOnlyGitHubCanBeSetUp(t *testing.T) {
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}
-	if len(list) != 8 {
-		t.Fatalf("List answered %d connections, want the 8 the settings screen shows", len(list))
+	want := []string{
+		"github", "trello", "gcal", "gmail", "gdrive", "gdocs", "gsheets", "gslides", "telegram", "discord", "ntfy", "obsidian",
 	}
-	want := []string{"github", "trello", "gcal", "gmail", "telegram", "discord", "ntfy", "obsidian"}
+	if len(list) != len(want) {
+		t.Fatalf("List answered %d connections, want the %d the settings screen shows", len(list), len(want))
+	}
 	for i, id := range want {
 		if list[i].ID != id {
 			t.Fatalf("connection %d is %q, want %q", i, list[i].ID, id)
