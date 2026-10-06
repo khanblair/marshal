@@ -550,7 +550,11 @@ func buildLateModules(st *store.Store, bus *events.Bus, settings config.Settings
 	// view uses, and leaves the part out when Google is not connected.
 	briefSvc := briefs.New(core.proj)
 	briefSvc.SetEvents(integrationSvc)
+	// A brief's main-branch part reads the CI health, and a brief is sent to the chats it names.
+	briefSvc.SetCI(ciSvc)
+	briefSvc.SetDeliverer(chatDeliverer{integrationSvc})
 	schedSvc.RegisterHandler("brief", briefSvc.Handle)
+	schedSvc.SetPreviewer(briefSvc.Preview)
 	// An Event schedule waits on Google Calendar: smart brief times, and a brief or job that starts
 	// with an event. The scheduler reads the calendar through the same cached read as the screens.
 	schedSvc.SetCalendar(scheduleCalendar{integrationSvc})

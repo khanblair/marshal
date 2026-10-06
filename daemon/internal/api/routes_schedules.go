@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/khanblair/marshal/daemon/internal/briefs"
 	"github.com/khanblair/marshal/daemon/internal/protocol"
 	"github.com/khanblair/marshal/daemon/internal/schedules"
 )
@@ -39,6 +40,13 @@ func (s *Server) listSchedules(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusOK, protocol.NewScheduleList(list, s.now()))
 }
 
+// scheduleCatalog is GET /v1/schedules/catalog: the starter templates, the parts a brief can have, and
+// the chats it can go to. It is what the editor and the New schedule menu draw, so a part or a starter
+// is added in one place and both screens show it.
+func (s *Server) scheduleCatalog(w http.ResponseWriter, _ *http.Request) {
+	s.writeJSON(w, http.StatusOK, briefs.Catalog(s.now()))
+}
+
 // scheduleRuns is GET /v1/schedules/{id}/runs: a schedule's own run history, newest first. A
 // brief's own composed text is a run's details, and this is how a person reads one back until a
 // real delivery channel exists (B8.5).
@@ -54,6 +62,38 @@ func (s *Server) scheduleRuns(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.writeJSON(w, http.StatusOK, protocol.NewScheduleRunList(runs, s.now()))
+}
+
+// runSchedule is POST /v1/schedules/{id}/run: run one schedule now and answer the run it recorded. A
+// brief is composed and sent to its chats exactly as when its time comes.
+func (s *Server) runSchedule(w http.ResponseWriter, r *http.Request) {
+	id, err := scheduleIDOf(r)
+	if err != nil {
+		s.writeError(w, err)
+		return
+	}
+	run, err := s.schedules.RunNow(r.Context(), id)
+	if err != nil {
+		s.writeError(w, scheduleError(err, id))
+		return
+	}
+	s.writeJSON(w, http.StatusOK, run)
+}
+
+// previewSchedule is GET /v1/schedules/{id}/preview: the message a chat would get from the schedule
+// now. Nothing is sent and no run is recorded, so a person can read a brief before turning it on.
+func (s *Server) previewSchedule(w http.ResponseWriter, r *http.Request) {
+	id, err := scheduleIDOf(r)
+	if err != nil {
+		s.writeError(w, err)
+		return
+	}
+	preview, err := s.schedules.Preview(r.Context(), id)
+	if err != nil {
+		s.writeError(w, scheduleError(err, id))
+		return
+	}
+	s.writeJSON(w, http.StatusOK, preview)
 }
 
 // createSchedule is POST /v1/schedules: make a new schedule. The id is the daemon's to make, so an
@@ -133,6 +173,27 @@ func validateSchedule(req protocol.SaveScheduleRequest) error {
 	if !contains(scheduleTriggers(), req.Trigger) {
 		return protocol.InvalidArgument("A schedule's trigger is Cron, Interval, One-time, or Event.").
 			With("trigger", req.Trigger)
+	}
+	return validateBriefParts(req)
+}
+
+// validateBriefParts checks the starter, the parts, and the chats a schedule names against the
+// catalog, so a mistyped id is refused rather than stored and never drawn.
+func validateBriefParts(req protocol.SaveScheduleRequest) error {
+	if req.Template != "" {
+		if _, ok := briefs.TemplateByKey(req.Template); !ok {
+			return protocol.InvalidArgument("That starter schedule does not exist.").With("template", req.Template)
+		}
+	}
+	for _, id := range req.Sections {
+		if !briefs.ValidSection(id) {
+			return protocol.InvalidArgument("A brief has no such part.").With("section", id)
+		}
+	}
+	for _, id := range req.Deliver {
+		if !briefs.ValidChannel(id) {
+			return protocol.InvalidArgument("A brief cannot be sent to that chat.").With("channel", id)
+		}
 	}
 	return nil
 }

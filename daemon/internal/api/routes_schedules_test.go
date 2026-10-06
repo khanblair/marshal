@@ -2,6 +2,7 @@ package api_test
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/khanblair/marshal/daemon/internal/protocol"
@@ -129,5 +130,67 @@ func TestScheduleRoutesRefuseNonsense(t *testing.T) {
 	st.do(http.MethodPut, route+"/"+unknown, morningBrief()).
 		apiError(t, http.StatusNotFound, protocol.ErrorCodeNotFound)
 	st.do(http.MethodPut, route+"/s1", morningBrief()).
+		apiError(t, http.StatusNotFound, protocol.ErrorCodeNotFound)
+}
+
+func TestTheScheduleCatalogListsStartersPartsAndChats(t *testing.T) {
+	st := newStack(t)
+	catalog := decode[protocol.ScheduleCatalog](t, st.do(http.MethodGet, "/v1/schedules/catalog", nil).want(t, http.StatusOK))
+	if len(catalog.Templates) != 7 || len(catalog.Sections) == 0 || len(catalog.Channels) != 3 {
+		t.Fatalf("the catalog = %d templates, %d sections, %d channels", len(catalog.Templates), len(catalog.Sections), len(catalog.Channels))
+	}
+	if catalog.Templates[0].Key != "morning" || len(catalog.Templates[0].Sections) == 0 {
+		t.Errorf("the first starter is %+v", catalog.Templates[0])
+	}
+	if catalog.ServerTime.Time().IsZero() {
+		t.Error("the catalog came back without the daemon's time")
+	}
+}
+
+func TestAScheduleKeepsItsStarterPartsAndChatsOverHTTP(t *testing.T) {
+	st := newStack(t)
+	req := morningBrief()
+	req.Template, req.Sections, req.Deliver, req.QuietWhenEmpty = "morning", []string{"calendar", "needs-you"}, []string{"telegram"}, true
+	created := decode[protocol.Schedule](t, st.do(http.MethodPost, "/v1/schedules", req).want(t, http.StatusOK))
+	if created.Template != "morning" || len(created.Sections) != 2 || len(created.Deliver) != 1 || !created.QuietWhenEmpty {
+		t.Fatalf("the created schedule lost a brief field: %+v", created)
+	}
+}
+
+func TestAScheduleNamingAnUnknownStarterPartOrChatIsRefused(t *testing.T) {
+	st := newStack(t)
+	for name, mutate := range map[string]func(*protocol.SaveScheduleRequest){
+		"template": func(r *protocol.SaveScheduleRequest) { r.Template = "nope" },
+		"section":  func(r *protocol.SaveScheduleRequest) { r.Sections = []string{"calendar", "nope"} },
+		"channel":  func(r *protocol.SaveScheduleRequest) { r.Deliver = []string{"fax"} },
+	} {
+		req := morningBrief()
+		mutate(&req)
+		st.do(http.MethodPost, "/v1/schedules", req).want(t, http.StatusBadRequest)
+		t.Log("refused an unknown", name)
+	}
+}
+
+func TestRunningAScheduleNowRecordsAndAnswersTheRun(t *testing.T) {
+	st := newStack(t)
+	made := decode[protocol.Schedule](t, st.do(http.MethodPost, "/v1/schedules", morningBrief()).want(t, http.StatusOK))
+	run := decode[protocol.ScheduleRun](t, st.do(http.MethodPost, "/v1/schedules/"+made.ID+"/run", nil).want(t, http.StatusOK))
+	if run.ID == "" || run.Status == "" || !strings.Contains(run.Details, "Run by hand.") {
+		t.Fatalf("the run answered = %+v", run)
+	}
+	runs := decode[protocol.ScheduleRunList](t, st.do(http.MethodGet, "/v1/schedules/"+made.ID+"/runs", nil).want(t, http.StatusOK))
+	if len(runs.Runs) != 1 || runs.Runs[0].ID != run.ID {
+		t.Fatalf("the history = %+v, want the one run just made", runs.Runs)
+	}
+	st.do(http.MethodPost, "/v1/schedules/01H1234567890ABCDEFGHJKMNP/run", nil).
+		apiError(t, http.StatusNotFound, protocol.ErrorCodeNotFound)
+}
+
+func TestPreviewingAScheduleNothingCanPreviewIsRefused(t *testing.T) {
+	st := newStack(t)
+	made := decode[protocol.Schedule](t, st.do(http.MethodPost, "/v1/schedules", morningBrief()).want(t, http.StatusOK))
+	st.do(http.MethodGet, "/v1/schedules/"+made.ID+"/preview", nil).
+		apiError(t, http.StatusUnprocessableEntity, protocol.ErrorCodeRefused)
+	st.do(http.MethodGet, "/v1/schedules/01H1234567890ABCDEFGHJKMNP/preview", nil).
 		apiError(t, http.StatusNotFound, protocol.ErrorCodeNotFound)
 }

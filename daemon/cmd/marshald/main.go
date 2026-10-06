@@ -346,6 +346,10 @@ func (d *daemonState) Close() error {
 // starts first and stops last, the same "last started, first stopped" order the modules it depends
 // on already follow.
 func startAutomationWatchers(ctx context.Context, mods daemonModules) (func() error, error) {
+	// The starter schedules are made once, switched off. A daemon that cannot make them still runs.
+	if err := mods.schedules.EnsureStarters(ctx); err != nil {
+		slog.Warn("the starter schedules could not be made", "error", err)
+	}
 	if err := mods.schedules.Start(ctx); err != nil {
 		return nil, fmt.Errorf("start the scheduler: %w", err)
 	}

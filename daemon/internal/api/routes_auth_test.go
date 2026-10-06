@@ -251,8 +251,8 @@ func TestARouteIsRegisteredOnlyWhenItsServiceIsThere(t *testing.T) {
 	// The schedule routes are their own service's: a schedule outlives any one project, so they
 	// follow the scheduler rather than the projects service.
 	scheduleRoutes := []string{
-		"GET /v1/schedules", "POST /v1/schedules", "PUT /v1/schedules/{id}", "DELETE /v1/schedules/{id}",
-		"GET /v1/schedules/{id}/runs",
+		"GET /v1/schedules", "GET /v1/schedules/catalog", "POST /v1/schedules", "PUT /v1/schedules/{id}", "DELETE /v1/schedules/{id}",
+		"GET /v1/schedules/{id}/runs", "POST /v1/schedules/{id}/run", "GET /v1/schedules/{id}/preview",
 	}
 	// The calendar route needs both the scheduler and the projects service, for the schedules and
 	// the due cards; Google Calendar's own events are read only when integrations is also there.

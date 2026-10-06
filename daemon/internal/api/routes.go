@@ -355,10 +355,13 @@ func ciPreviewAndIntegrationRoutes() []routeSpec {
 func schedulesAndCalendarRoutes() []routeSpec {
 	return []routeSpec{
 		{"GET /v1/schedules", needsSchedules, (*Server).listSchedules},
+		{"GET /v1/schedules/catalog", needsSchedules, (*Server).scheduleCatalog},
 		{"POST /v1/schedules", needsSchedules, (*Server).createSchedule},
 		{"PUT /v1/schedules/{id}", needsSchedules, (*Server).saveSchedule},
 		{"DELETE /v1/schedules/{id}", needsSchedules, (*Server).deleteSchedule},
 		{"GET /v1/schedules/{id}/runs", needsSchedules, (*Server).scheduleRuns},
+		{"POST /v1/schedules/{id}/run", needsSchedules, (*Server).runSchedule},
+		{"GET /v1/schedules/{id}/preview", needsSchedules, (*Server).previewSchedule},
 		{"GET /v1/calendar", needsSchedules | needsProjects, (*Server).calendarRange},
 	}
 }
