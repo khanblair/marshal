@@ -18,7 +18,7 @@ export function ToastRegion(props: ToastRegionProps) {
       {...others}
       class={cx(
         "absolute right-4 left-4 z-toast flex flex-col gap-2 items-end pointer-events-none",
-        local.phone ? "bottom-[calc(72px+env(safe-area-inset-bottom))]" : "bottom-4",
+        local.phone ? "bottom-[calc(72px+var(--safe-bottom))]" : "bottom-4",
         local.class,
       )}
     />

@@ -74,10 +74,14 @@ describe("ConnectionLost", () => {
     expect(container.querySelector("svg")).toHaveAttribute("width", "20");
   });
 
-  it("uses the phone layout: 16 px sides and room for the home bar", () => {
+  it("uses the phone layout: 16 px sides and room for the status bar and home bar", () => {
     const { container } = render(() => <ConnectionLost onRetry={() => {}} phone />);
     const root = container.firstElementChild as HTMLElement;
-    expect(root).toHaveClass("px-4", "pt-4", "pb-[calc(16px+env(safe-area-inset-bottom))]");
+    expect(root).toHaveClass(
+      "px-4",
+      "pt-[calc(16px+var(--safe-top))]",
+      "pb-[calc(16px+var(--safe-bottom))]",
+    );
     expect(root).not.toHaveClass("p-6");
   });
 

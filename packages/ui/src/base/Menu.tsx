@@ -89,7 +89,7 @@ export function Menu(props: MenuProps) {
         onKeyDown={onKeyDown}
         class={cx(
           local.sheet
-            ? "fixed left-0 right-0 bottom-0 z-sheet max-h-[75%] overflow-auto pt-2 px-2 pb-[calc(12px+env(safe-area-inset-bottom))] rounded-t-xl bg-surface-raised shadow-e2"
+            ? "fixed left-0 right-0 bottom-0 z-sheet max-h-[75%] overflow-auto pt-2 px-2 pb-[calc(12px+var(--safe-bottom))] rounded-t-xl bg-surface-raised shadow-e2"
             : "p-1.5 rounded-lg border border-border bg-surface-raised shadow-e1",
           local.class,
         )}

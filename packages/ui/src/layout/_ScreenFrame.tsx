@@ -4,7 +4,7 @@ import { cx } from "../base/cx";
 /* Private: the centered full-screen shell of ConnectionLost and SignIn. */
 
 interface ScreenFrameProps extends JSX.HTMLAttributes<HTMLDivElement> {
-  /** Phone layout: 16 px sides and room for the home bar. */
+  /** Phone layout: 16 px sides and room for the status bar and home bar. */
   phone?: boolean;
 }
 
@@ -20,7 +20,9 @@ export function ScreenFrame(props: ScreenFrameProps) {
       {...others}
       class={cx(
         "flex-1 flex flex-col w-full h-full min-h-0 overflow-auto",
-        local.phone ? "pt-4 px-4 pb-[calc(16px+env(safe-area-inset-bottom))]" : "p-6",
+        local.phone
+          ? "pt-[calc(16px+var(--safe-top))] px-4 pb-[calc(16px+var(--safe-bottom))]"
+          : "p-6",
         local.class,
       )}
     >

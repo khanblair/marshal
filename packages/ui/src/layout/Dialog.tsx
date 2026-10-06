@@ -84,7 +84,7 @@ export function Dialog(props: DialogProps) {
         class={cx(
           "fixed z-dialog overflow-auto flex flex-col gap-3.5 border border-border bg-surface-raised shadow-e2",
           local.phone
-            ? "left-0 right-0 bottom-0 max-h-[92%] rounded-t-xl pt-5 px-4 pb-[calc(20px+env(safe-area-inset-bottom))]"
+            ? "left-0 right-0 bottom-0 max-h-[92%] rounded-t-xl pt-5 px-4 pb-[calc(20px+var(--safe-bottom))]"
             : cx(
                 "left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 max-h-[90%] rounded-xl p-5",
                 WIDTHS[local.width ?? DEFAULT_WIDTH],

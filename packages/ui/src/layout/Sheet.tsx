@@ -30,7 +30,7 @@ export function Sheet(props: SheetProps) {
         aria-label={local.title}
         {...others}
         class={cx(
-          "fixed left-0 right-0 bottom-0 z-sheet max-h-[85%] overflow-auto pt-2 px-3 pb-[calc(16px+env(safe-area-inset-bottom))] rounded-t-xl bg-surface-raised shadow-e2",
+          "fixed left-0 right-0 bottom-0 z-sheet max-h-[85%] overflow-auto pt-2 px-3 pb-[calc(16px+var(--safe-bottom))] rounded-t-xl bg-surface-raised shadow-e2",
           local.class,
         )}
       >

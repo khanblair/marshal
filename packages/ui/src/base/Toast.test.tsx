@@ -47,8 +47,6 @@ describe("ToastRegion", () => {
       "items-end",
     );
     const phone = render(() => <ToastRegion phone />);
-    expect(phone.container.firstElementChild).toHaveClass(
-      "bottom-[calc(72px+env(safe-area-inset-bottom))]",
-    );
+    expect(phone.container.firstElementChild).toHaveClass("bottom-[calc(72px+var(--safe-bottom))]");
   });
 });

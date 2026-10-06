@@ -86,7 +86,7 @@ describe("Toasts", () => {
     cleanup();
     M.setViewport(PHONE_PX, HEIGHT_PX);
     render(() => <Toasts />);
-    expect(region()).toHaveClass("bottom-[calc(72px+env(safe-area-inset-bottom))]");
+    expect(region()).toHaveClass("bottom-[calc(72px+var(--safe-bottom))]");
   });
 
   it("announces state changes in a visually hidden live region", () => {

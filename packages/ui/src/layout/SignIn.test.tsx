@@ -149,7 +149,10 @@ describe("SignIn", () => {
     expect(root).toHaveClass("flex-1", "w-full", "h-full", "overflow-auto", "p-6");
     unmount();
     const phone = render(() => <SignIn onSubmit={() => {}} phone />);
-    expect(phone.container.firstElementChild).toHaveClass("px-4", "pt-4");
+    expect(phone.container.firstElementChild).toHaveClass(
+      "px-4",
+      "pt-[calc(16px+var(--safe-top))]",
+    );
     expect(phone.container.firstElementChild).not.toHaveClass("p-6");
   });
 
