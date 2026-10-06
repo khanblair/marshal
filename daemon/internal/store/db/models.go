@@ -359,22 +359,26 @@ type SavedView struct {
 }
 
 type Schedule struct {
-	ID           string
-	ProjectID    string
-	Name         string
-	Kind         string
-	Icon         string
-	TriggerType  string
-	WhenText     string
-	CronExpr     string
-	TimeStr      string
-	DaysJSON     string
-	Action       string
-	Enabled      int64
-	MissedPolicy string
-	CreatedAt    int64
-	UpdatedAt    int64
-	LastRunAt    int64
+	ID             string
+	ProjectID      string
+	Name           string
+	Kind           string
+	Icon           string
+	TriggerType    string
+	WhenText       string
+	CronExpr       string
+	TimeStr        string
+	DaysJSON       string
+	Action         string
+	Enabled        int64
+	MissedPolicy   string
+	CreatedAt      int64
+	UpdatedAt      int64
+	LastRunAt      int64
+	Template       string
+	SectionsJSON   string
+	DeliverJSON    string
+	QuietWhenEmpty int64
 }
 
 type ScheduleRun struct {

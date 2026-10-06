@@ -9,14 +9,16 @@ SELECT * FROM schedules WHERE id = ? LIMIT 1;
 
 -- name: CreateSchedule :one
 INSERT INTO schedules (
-    id, project_id, name, kind, icon, trigger_type, when_text, cron_expr, time_str, days_json, action, enabled, missed_policy, created_at, updated_at, last_run_at
+    id, project_id, name, kind, icon, trigger_type, when_text, cron_expr, time_str, days_json, action, enabled, missed_policy, created_at, updated_at, last_run_at,
+    template, sections_json, deliver_json, quiet_when_empty
 ) VALUES (
-    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
 ) RETURNING *;
 
 -- name: UpdateSchedule :one
 UPDATE schedules SET
     name = ?,
+    trigger_type = ?,
     when_text = ?,
     cron_expr = ?,
     time_str = ?,
@@ -24,6 +26,9 @@ UPDATE schedules SET
     action = ?,
     enabled = ?,
     missed_policy = ?,
+    sections_json = ?,
+    deliver_json = ?,
+    quiet_when_empty = ?,
     updated_at = ?
 WHERE id = ?
 RETURNING *;

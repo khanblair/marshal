@@ -11,29 +11,34 @@ import (
 
 const createSchedule = `-- name: CreateSchedule :one
 INSERT INTO schedules (
-    id, project_id, name, kind, icon, trigger_type, when_text, cron_expr, time_str, days_json, action, enabled, missed_policy, created_at, updated_at, last_run_at
+    id, project_id, name, kind, icon, trigger_type, when_text, cron_expr, time_str, days_json, action, enabled, missed_policy, created_at, updated_at, last_run_at,
+    template, sections_json, deliver_json, quiet_when_empty
 ) VALUES (
-    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
-) RETURNING id, project_id, name, kind, icon, trigger_type, when_text, cron_expr, time_str, days_json, "action", enabled, missed_policy, created_at, updated_at, last_run_at
+    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+) RETURNING id, project_id, name, kind, icon, trigger_type, when_text, cron_expr, time_str, days_json, "action", enabled, missed_policy, created_at, updated_at, last_run_at, template, sections_json, deliver_json, quiet_when_empty
 `
 
 type CreateScheduleParams struct {
-	ID           string
-	ProjectID    string
-	Name         string
-	Kind         string
-	Icon         string
-	TriggerType  string
-	WhenText     string
-	CronExpr     string
-	TimeStr      string
-	DaysJSON     string
-	Action       string
-	Enabled      int64
-	MissedPolicy string
-	CreatedAt    int64
-	UpdatedAt    int64
-	LastRunAt    int64
+	ID             string
+	ProjectID      string
+	Name           string
+	Kind           string
+	Icon           string
+	TriggerType    string
+	WhenText       string
+	CronExpr       string
+	TimeStr        string
+	DaysJSON       string
+	Action         string
+	Enabled        int64
+	MissedPolicy   string
+	CreatedAt      int64
+	UpdatedAt      int64
+	LastRunAt      int64
+	Template       string
+	SectionsJSON   string
+	DeliverJSON    string
+	QuietWhenEmpty int64
 }
 
 func (q *Queries) CreateSchedule(ctx context.Context, arg CreateScheduleParams) (Schedule, error) {
@@ -54,6 +59,10 @@ func (q *Queries) CreateSchedule(ctx context.Context, arg CreateScheduleParams) 
 		arg.CreatedAt,
 		arg.UpdatedAt,
 		arg.LastRunAt,
+		arg.Template,
+		arg.SectionsJSON,
+		arg.DeliverJSON,
+		arg.QuietWhenEmpty,
 	)
 	var i Schedule
 	err := row.Scan(
@@ -73,6 +82,10 @@ func (q *Queries) CreateSchedule(ctx context.Context, arg CreateScheduleParams) 
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.LastRunAt,
+		&i.Template,
+		&i.SectionsJSON,
+		&i.DeliverJSON,
+		&i.QuietWhenEmpty,
 	)
 	return i, err
 }
@@ -136,7 +149,7 @@ func (q *Queries) DisableSchedule(ctx context.Context, arg DisableScheduleParams
 }
 
 const getSchedule = `-- name: GetSchedule :one
-SELECT id, project_id, name, kind, icon, trigger_type, when_text, cron_expr, time_str, days_json, "action", enabled, missed_policy, created_at, updated_at, last_run_at FROM schedules WHERE id = ? LIMIT 1
+SELECT id, project_id, name, kind, icon, trigger_type, when_text, cron_expr, time_str, days_json, "action", enabled, missed_policy, created_at, updated_at, last_run_at, template, sections_json, deliver_json, quiet_when_empty FROM schedules WHERE id = ? LIMIT 1
 `
 
 func (q *Queries) GetSchedule(ctx context.Context, id string) (Schedule, error) {
@@ -159,6 +172,10 @@ func (q *Queries) GetSchedule(ctx context.Context, id string) (Schedule, error) 
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.LastRunAt,
+		&i.Template,
+		&i.SectionsJSON,
+		&i.DeliverJSON,
+		&i.QuietWhenEmpty,
 	)
 	return i, err
 }
@@ -202,7 +219,7 @@ func (q *Queries) ListScheduleRuns(ctx context.Context, arg ListScheduleRunsPara
 }
 
 const listSchedules = `-- name: ListSchedules :many
-SELECT id, project_id, name, kind, icon, trigger_type, when_text, cron_expr, time_str, days_json, "action", enabled, missed_policy, created_at, updated_at, last_run_at FROM schedules ORDER BY created_at ASC
+SELECT id, project_id, name, kind, icon, trigger_type, when_text, cron_expr, time_str, days_json, "action", enabled, missed_policy, created_at, updated_at, last_run_at, template, sections_json, deliver_json, quiet_when_empty FROM schedules ORDER BY created_at ASC
 `
 
 func (q *Queries) ListSchedules(ctx context.Context) ([]Schedule, error) {
@@ -231,6 +248,10 @@ func (q *Queries) ListSchedules(ctx context.Context) ([]Schedule, error) {
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.LastRunAt,
+			&i.Template,
+			&i.SectionsJSON,
+			&i.DeliverJSON,
+			&i.QuietWhenEmpty,
 		); err != nil {
 			return nil, err
 		}
@@ -246,7 +267,7 @@ func (q *Queries) ListSchedules(ctx context.Context) ([]Schedule, error) {
 }
 
 const listSchedulesByProject = `-- name: ListSchedulesByProject :many
-SELECT id, project_id, name, kind, icon, trigger_type, when_text, cron_expr, time_str, days_json, "action", enabled, missed_policy, created_at, updated_at, last_run_at FROM schedules WHERE project_id = ? ORDER BY created_at ASC
+SELECT id, project_id, name, kind, icon, trigger_type, when_text, cron_expr, time_str, days_json, "action", enabled, missed_policy, created_at, updated_at, last_run_at, template, sections_json, deliver_json, quiet_when_empty FROM schedules WHERE project_id = ? ORDER BY created_at ASC
 `
 
 func (q *Queries) ListSchedulesByProject(ctx context.Context, projectID string) ([]Schedule, error) {
@@ -275,6 +296,10 @@ func (q *Queries) ListSchedulesByProject(ctx context.Context, projectID string) 
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.LastRunAt,
+			&i.Template,
+			&i.SectionsJSON,
+			&i.DeliverJSON,
+			&i.QuietWhenEmpty,
 		); err != nil {
 			return nil, err
 		}
@@ -292,6 +317,7 @@ func (q *Queries) ListSchedulesByProject(ctx context.Context, projectID string) 
 const updateSchedule = `-- name: UpdateSchedule :one
 UPDATE schedules SET
     name = ?,
+    trigger_type = ?,
     when_text = ?,
     cron_expr = ?,
     time_str = ?,
@@ -299,27 +325,35 @@ UPDATE schedules SET
     action = ?,
     enabled = ?,
     missed_policy = ?,
+    sections_json = ?,
+    deliver_json = ?,
+    quiet_when_empty = ?,
     updated_at = ?
 WHERE id = ?
-RETURNING id, project_id, name, kind, icon, trigger_type, when_text, cron_expr, time_str, days_json, "action", enabled, missed_policy, created_at, updated_at, last_run_at
+RETURNING id, project_id, name, kind, icon, trigger_type, when_text, cron_expr, time_str, days_json, "action", enabled, missed_policy, created_at, updated_at, last_run_at, template, sections_json, deliver_json, quiet_when_empty
 `
 
 type UpdateScheduleParams struct {
-	Name         string
-	WhenText     string
-	CronExpr     string
-	TimeStr      string
-	DaysJSON     string
-	Action       string
-	Enabled      int64
-	MissedPolicy string
-	UpdatedAt    int64
-	ID           string
+	Name           string
+	TriggerType    string
+	WhenText       string
+	CronExpr       string
+	TimeStr        string
+	DaysJSON       string
+	Action         string
+	Enabled        int64
+	MissedPolicy   string
+	SectionsJSON   string
+	DeliverJSON    string
+	QuietWhenEmpty int64
+	UpdatedAt      int64
+	ID             string
 }
 
 func (q *Queries) UpdateSchedule(ctx context.Context, arg UpdateScheduleParams) (Schedule, error) {
 	row := q.db.QueryRowContext(ctx, updateSchedule,
 		arg.Name,
+		arg.TriggerType,
 		arg.WhenText,
 		arg.CronExpr,
 		arg.TimeStr,
@@ -327,6 +361,9 @@ func (q *Queries) UpdateSchedule(ctx context.Context, arg UpdateScheduleParams) 
 		arg.Action,
 		arg.Enabled,
 		arg.MissedPolicy,
+		arg.SectionsJSON,
+		arg.DeliverJSON,
+		arg.QuietWhenEmpty,
 		arg.UpdatedAt,
 		arg.ID,
 	)
@@ -348,6 +385,10 @@ func (q *Queries) UpdateSchedule(ctx context.Context, arg UpdateScheduleParams) 
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.LastRunAt,
+		&i.Template,
+		&i.SectionsJSON,
+		&i.DeliverJSON,
+		&i.QuietWhenEmpty,
 	)
 	return i, err
 }
