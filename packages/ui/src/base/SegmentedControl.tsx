@@ -12,7 +12,7 @@ export interface SegmentOption<T extends string> {
 }
 
 /** Segment height in px, as in the design. */
-export type SegmentSize = 24 | 26 | 30 | 40;
+export type SegmentSize = 24 | 26 | 30 | 32 | 36 | 40;
 
 export interface SegmentedControlProps<T extends string>
   extends Omit<JSX.HTMLAttributes<HTMLDivElement>, "onChange" | "role"> {
@@ -23,7 +23,7 @@ export interface SegmentedControlProps<T extends string>
   label: string;
   /** `radio` (default): radiogroup of radios. `tabs`: tablist of tabs. */
   kind?: "radio" | "tabs";
-  /** 24, 26 (default), 30, or 40 (touch screens). */
+  /** 24, 26 (default), 30, 32, 36 (touch tablets), or 40. */
   size?: SegmentSize;
   /** Segments share the width and center their content. */
   fill?: boolean;
@@ -35,7 +35,14 @@ export interface SegmentedControlProps<T extends string>
   segmentClass?: string;
 }
 
-const SIZES: Record<SegmentSize, string> = { 24: "h-6", 26: "h-6.5", 30: "h-7.5", 40: "h-10" };
+const SIZES: Record<SegmentSize, string> = {
+  24: "h-6 phone:h-(--control-h)",
+  26: "h-6.5 phone:h-(--control-h)",
+  30: "h-7.5 phone:h-(--control-h)",
+  32: "h-8 phone:h-(--control-h)",
+  36: "h-9 phone:h-(--control-h)",
+  40: "h-10 phone:h-(--control-h)",
+};
 const DEFAULT_SIZE: SegmentSize = 26;
 const ICON_PX = 14;
 const NEXT_KEYS = new Set(["ArrowRight", "ArrowDown"]);

@@ -35,16 +35,16 @@ const ICON_PX = 16;
 
 /**
  * The corner radius of every button comes from its size, here and nowhere else: 7 px up to
- * 32 and 10 px at 36. On touch screens, where buttons grow to 44 px, all sizes use 10 px.
+ * 32 and 10 px at 36. On touch screens, where buttons grow to 36 to 40 px, all sizes use 10 px.
  * (The design draws 5 px; a larger radius suits the taller buttons and was requested.)
  */
 const SIZES: Record<ButtonSize, string> = {
-  28: "h-7 px-2.5 text-small rounded-md",
-  32: "h-8 px-3 rounded-md",
-  36: "h-9 px-3.5 rounded-lg",
+  28: "h-7 px-2.5 text-small rounded-md phone:h-(--control-h)",
+  32: "h-8 px-3 rounded-md phone:h-(--control-h)",
+  36: "h-9 px-3.5 rounded-lg phone:h-(--control-h)",
 };
 
-/** Touch screens: `[data-touch="1"]` is set on the app root, and buttons grow to 44 px. */
+/** Touch screens: `[data-touch="1"]` is set on the app root, and buttons grow to `--control-min`. */
 const TOUCH_RADIUS = "[[data-touch='1']_&]:rounded-lg";
 
 const VARIANTS: Record<ButtonVariant, string> = {

@@ -37,11 +37,11 @@ const ICON_PX = 16;
 
 /** The same radii as `Button`: 7 px up to 32, 10 px at 36 and above and on touch screens. */
 const SIZES: Record<IconButtonSize, string> = {
-  24: "size-6 rounded-xs",
-  28: "size-7 rounded-md",
-  32: "size-8 rounded-md",
-  36: "size-9 rounded-lg",
-  44: "size-11 rounded-lg",
+  24: "size-6 rounded-xs phone:size-(--control-h)",
+  28: "size-7 rounded-md phone:size-(--control-h)",
+  32: "size-8 rounded-md phone:size-(--control-h)",
+  36: "size-9 rounded-lg phone:size-(--control-h)",
+  44: "size-11 rounded-lg phone:size-(--control-h)",
 };
 
 const TOUCH_RADIUS = "[[data-touch='1']_&]:rounded-lg";

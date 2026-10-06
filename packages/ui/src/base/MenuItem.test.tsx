@@ -75,7 +75,13 @@ describe("MenuItem", () => {
     const row = screen.getByRole("button", { name: "Home" });
     expect(row).not.toHaveAttribute("role");
     expect(row).toHaveAttribute("aria-current", "page");
-    expect(row).toHaveClass("min-h-12", "gap-3", "rounded-md", "text-lead", "bg-surface-selected");
+    expect(row).toHaveClass(
+      "min-h-[var(--row-h,48px)]",
+      "gap-3",
+      "rounded-md",
+      "text-lead",
+      "bg-surface-selected",
+    );
     expect(row.querySelector("svg")).toHaveAttribute("width", "18");
     expect(row.querySelector("svg")?.parentElement).toHaveClass("text-muted");
   });

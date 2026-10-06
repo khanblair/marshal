@@ -30,7 +30,7 @@ export function Select(props: SelectProps) {
     <select
       {...others}
       class={cx(
-        "h-8 px-2 rounded-sm border bg-surface",
+        "h-8 px-2 rounded-sm border bg-surface phone:h-(--control-h)",
         local.danger
           ? "border-status-danger-solid text-status-danger-text font-semibold"
           : "border-border-strong text-primary",

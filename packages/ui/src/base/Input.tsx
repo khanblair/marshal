@@ -20,7 +20,7 @@ export function Input(props: InputProps) {
       aria-invalid={local.invalid ? "true" : undefined}
       {...others}
       class={cx(
-        "h-8 px-2.5 rounded-sm border bg-surface",
+        "h-8 px-2.5 rounded-sm border bg-surface phone:h-(--control-h)",
         local.invalid ? "border-status-danger-solid" : "border-border-strong",
         local.mono && "font-mono text-small",
         local.class,

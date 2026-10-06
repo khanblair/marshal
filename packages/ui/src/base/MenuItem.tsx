@@ -37,7 +37,7 @@ const SIZES: Record<MenuItemSize, string> = {
   32: "h-8 gap-2 px-2 rounded-sm text-small",
   34: "h-8.5 gap-2 px-2 rounded-sm text-small",
   36: "min-h-9 gap-2.5 px-2.5 rounded-sm",
-  48: "min-h-12 gap-3 px-2 rounded-md text-lead",
+  48: "min-h-[var(--row-h,48px)] gap-3 px-2 rounded-md text-lead",
 };
 
 const ICON_PX: Record<MenuItemSize, number> = { 30: 14, 32: 14, 34: 14, 36: 16, 48: 18 };
