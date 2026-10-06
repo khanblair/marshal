@@ -2,9 +2,13 @@ package schedules
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
+
+	"github.com/khanblair/marshal/daemon/internal/protocol"
 )
 
 // defaultHour is the hour a schedule runs at when neither its `when` text nor its `time` names one,
@@ -172,4 +176,84 @@ func daysOfWeek(when string, days []int) string {
 	default:
 		return "*"
 	}
+}
+
+// Reconcile makes the time and days a schedule stores agree with the words it was typed as. ParseCron
+// lets `time` and `days` win over the sentence, so a schedule edited from "Every weekday at 9:00" to
+// "Every Monday at 7:30" kept running on weekdays at 9:00 while it read as Monday at 7:30. The
+// person's words win here: a clock time in them becomes the time, and the days they name (weekday,
+// weekend, every day, or day names) become the days. Words that name neither leave what was sent.
+func Reconcile(req protocol.SaveScheduleRequest) (string, []int) {
+	when := strings.ToLower(strings.TrimSpace(req.When))
+	timeStr, days := req.Time, req.Days
+	if req.Trigger == triggerEvent {
+		return timeStr, days
+	}
+	if _, isInterval := intervalCron(when); isInterval {
+		return timeStr, days
+	}
+	if h, m, ok := clockIn(when); ok {
+		timeStr = fmt.Sprintf("%02d:%02d", h, m)
+	}
+	if req.Trigger == "Cron" {
+		if named, ok := daysIn(when); ok {
+			days = named
+		}
+	}
+	return timeStr, days
+}
+
+// clockIn reads the first H:MM or HH:MM in a sentence.
+func clockIn(when string) (hour, minute int, ok bool) {
+	for _, field := range strings.Fields(when) {
+		field = strings.Trim(field, ".,;")
+		parts := strings.Split(field, ":")
+		if len(parts) != 2 {
+			continue
+		}
+		h, errH := strconv.Atoi(parts[0])
+		m, errM := strconv.Atoi(parts[1])
+		if errH == nil && errM == nil && h >= 0 && h < 24 && m >= 0 && m < 60 {
+			return h, m, true
+		}
+	}
+	return 0, 0, false
+}
+
+// dayNames maps a day's name or abbreviation (lowercase) to its cron number.
+func dayNames() map[string]int {
+	return map[string]int{
+		"sunday": 0, "sun": 0, "monday": 1, "mon": 1, "tuesday": 2, "tue": 2, "tues": 2,
+		"wednesday": 3, "wed": 3, "thursday": 4, "thu": 4, "thur": 4, "thurs": 4,
+		"friday": 5, "fri": 5, "saturday": 6, "sat": 6,
+	}
+}
+
+// daysIn reads which days a sentence names. An empty list means every day, which is what "every day"
+// and "daily" say. It reports false when the sentence names no days at all.
+func daysIn(when string) ([]int, bool) {
+	switch {
+	case strings.Contains(when, "weekday"):
+		return []int{1, 2, 3, 4, 5}, true
+	case strings.Contains(when, "weekend"):
+		return []int{0, 6}, true
+	case strings.Contains(when, "every day"), strings.Contains(when, "everyday"), strings.Contains(when, "daily"):
+		return []int{}, true
+	}
+	seen := map[int]bool{}
+	names := dayNames()
+	for _, field := range strings.FieldsFunc(when, func(r rune) bool { return !unicode.IsLetter(r) }) {
+		if day, ok := names[field]; ok {
+			seen[day] = true
+		}
+	}
+	if len(seen) == 0 {
+		return nil, false
+	}
+	out := make([]int, 0, len(seen))
+	for day := range seen {
+		out = append(out, day)
+	}
+	sort.Ints(out)
+	return out, true
 }

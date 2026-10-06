@@ -156,7 +156,7 @@ func (s *Service) CheckCalendar(ctx context.Context) {
 	for _, firing := range s.owed(rows, wanted, events, now) {
 		s.logger.Info("a calendar event made a schedule due", "id", firing.row.ID, "event", firing.event.Title)
 		cause := fmt.Sprintf("Started by the event %q at %s.", firing.event.Title, firing.event.Start.In(now.Location()).Format("15:04"))
-		s.runBecause(ctx, toProtocolSchedule(firing.row), cause)
+		s.runBecause(ctx, toProtocolSchedule(firing.row), cause, false)
 	}
 }
 

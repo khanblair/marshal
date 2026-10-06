@@ -19,10 +19,44 @@ import (
 
 	"github.com/robfig/cron/v3"
 
+	"github.com/khanblair/marshal/daemon/internal/briefs"
 	"github.com/khanblair/marshal/daemon/internal/protocol"
 	"github.com/khanblair/marshal/daemon/internal/store"
 	"github.com/khanblair/marshal/daemon/internal/store/db"
 )
+
+// Previewer writes the message a brief would send now, without sending it or recording a run.
+type Previewer func(ctx context.Context, s protocol.Schedule, since time.Time) (string, error)
+
+// SetPreviewer says how a brief is previewed. The daemon gives it the brief composer.
+func (s *Service) SetPreviewer(p Previewer) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.preview = p
+}
+
+// Preview answers what a chat would get from the schedule now, reading from where its last scheduled
+// run stopped, as its next run will. Only a brief can be previewed.
+func (s *Service) Preview(ctx context.Context, id string) (protocol.SchedulePreview, error) {
+	sched, err := s.Get(ctx, id)
+	if err != nil {
+		return protocol.SchedulePreview{}, err
+	}
+	s.mu.Lock()
+	preview := s.preview
+	s.mu.Unlock()
+	if sched.Kind != "brief" || preview == nil {
+		return protocol.SchedulePreview{}, protocol.Refused("Only a brief can be previewed. This kind of schedule cannot run yet.")
+	}
+	text, err := preview(ctx, sched, s.sinceOf(ctx, id))
+	if err != nil {
+		return protocol.SchedulePreview{}, err
+	}
+	return protocol.SchedulePreview{Text: text, ServerTime: protocol.NewTimestamp(s.now())}, nil
+}
+
+// StatusUnsupported is the status of a run that had no handler: it did nothing, and says so.
+const StatusUnsupported = "unsupported"
 
 // ErrNotFound is what reading or updating a schedule Marshal has no row for answers. It is the
 // ordinary state of an id that was deleted, and the route turns it into the same not-found answer a
@@ -47,8 +81,8 @@ const missedRunOnWake = "Run once on wake"
 // Action first (a job's own action, once actions are structured - see the package doc), and by its
 // Kind when nothing more specific is registered (every brief, since a brief's Action is a person's
 // free-text sentence describing what happens, not a dispatchable key). since is the boundary a
-// handler gathers "what changed" from: the schedule's last run, or its creation if it has never
-// run - read fresh at every fire, not from a closure captured when the cron entry was made, so a
+// handler gathers "what changed" from: the schedule's last scheduled run, or the zero time if it
+// has never run (the handler then reads back as far as it chooses) - read fresh at every fire, not from a closure captured when the cron entry was made, so a
 // schedule's second firing sees its first firing's own time. The returned string becomes the
 // run's own recorded details, on success as much as on failure, so what a handler did - a brief's
 // own text, say - is readable back through the run history even before any delivery channel exists.
@@ -66,6 +100,8 @@ type Service struct {
 	entries  map[string]cron.EntryID
 	// calendar is where an Event schedule waits for its event. Nil means none does.
 	calendar CalendarSource
+	// preview writes what a brief would say now, without sending it. Nil means nothing can.
+	preview Previewer
 	// stopWatch ends the calendar watcher. Nil when it is not running.
 	stopWatch context.CancelFunc
 }
@@ -202,12 +238,12 @@ func scheduledByCron(trigger string) bool {
 }
 
 func (s *Service) executeSchedule(ctx context.Context, sched protocol.Schedule) {
-	s.runBecause(ctx, sched, "")
+	s.runBecause(ctx, sched, "", false)
 }
 
 // runBecause runs one schedule. cause, when it is not empty, is what started it, and heads the run's
 // details so the history says why a calendar-driven run happened.
-func (s *Service) runBecause(ctx context.Context, sched protocol.Schedule, cause string) {
+func (s *Service) runBecause(ctx context.Context, sched protocol.Schedule, cause string, manual bool) {
 	s.logger.Info("executing schedule", "id", sched.ID, "name", sched.Name, "action", sched.Action)
 	since := s.sinceOf(ctx, sched.ID)
 
@@ -220,12 +256,20 @@ func (s *Service) runBecause(ctx context.Context, sched protocol.Schedule, cause
 
 	status := "success"
 	details := ""
-	if handler != nil {
+	if handler == nil {
+		// Nothing here knows how to do this action. Saying "success" for a run that did nothing would
+		// be a lie a person reads weeks later in the history.
+		status = StatusUnsupported
+		details = "This kind of schedule cannot run yet, so nothing was done. Briefs can."
+	} else {
 		result, err := handler(ctx, sched, since)
 		details = result
 		if err != nil {
 			status = "failed"
-			details = err.Error()
+			if details != "" {
+				details += "\n\n"
+			}
+			details += err.Error()
 			s.logger.Error("schedule execution failed", "id", sched.ID, "error", err)
 		}
 	}
@@ -233,17 +277,29 @@ func (s *Service) runBecause(ctx context.Context, sched protocol.Schedule, cause
 	if cause != "" {
 		details = cause + "\n" + details
 	}
-	now := s.now().UnixMilli()
-	_ = s.store.Write(ctx, func(q *db.Queries) error {
-		if err := q.UpdateScheduleLastRun(ctx, db.UpdateScheduleLastRunParams{
-			ID:        sched.ID,
-			LastRunAt: now,
-			UpdatedAt: now,
-		}); err != nil {
-			return err
-		}
+	s.recordRun(ctx, sched, status, details, manual)
+}
 
-		runID := fmt.Sprintf("run_%d_%s", now, sched.ID)
+// recordRun stores one run in the history. A run by hand does not move the last-run time, so the next
+// scheduled brief still reads from where the last scheduled one stopped and a missed run is still
+// caught up. A failure to store is logged, not swallowed: a run nobody can read back is a lie.
+func (s *Service) recordRun(ctx context.Context, sched protocol.Schedule, status, details string, manual bool) {
+	now := s.now().UnixMilli()
+	// Two runs can land in one millisecond, so the id is its own, not made from the time.
+	runID, err := protocol.NewID(s.now(), s.entropy)
+	if err != nil {
+		runID = fmt.Sprintf("run_%d_%s", now, sched.ID)
+	}
+	err = s.store.Write(ctx, func(q *db.Queries) error {
+		if !manual {
+			if err := q.UpdateScheduleLastRun(ctx, db.UpdateScheduleLastRunParams{
+				ID:        sched.ID,
+				LastRunAt: now,
+				UpdatedAt: now,
+			}); err != nil {
+				return err
+			}
+		}
 		_, err := q.CreateScheduleRun(ctx, db.CreateScheduleRunParams{
 			ID:         runID,
 			ScheduleID: sched.ID,
@@ -253,7 +309,10 @@ func (s *Service) runBecause(ctx context.Context, sched protocol.Schedule, cause
 		})
 		return err
 	})
-	if sched.Trigger == triggerOneTime {
+	if err != nil {
+		s.logger.Error("could not record a schedule run", "id", sched.ID, "error", err)
+	}
+	if sched.Trigger == triggerOneTime && !manual {
 		// A one-time job's spec carries no year, so left enabled it would fire again next year on
 		// the same date - the opposite of "once". Disabling it here, right after its one real run,
 		// is what makes cron.AddFunc's ordinary machinery serve a job that never repeats.
@@ -263,7 +322,27 @@ func (s *Service) runBecause(ctx context.Context, sched protocol.Schedule, cause
 	}
 }
 
-// sinceOf is a schedule's last run, or its creation when it has never run, read fresh from the
+// RunNow runs a schedule once, now, and answers the run it recorded. It is how a person tries a brief,
+// and the chats it goes to, without waiting for the clock. It reads from where the last scheduled run
+// stopped, as the next one will, and it does not move that point. A schedule that is switched off can
+// be run: switching it on is about when it runs by itself.
+func (s *Service) RunNow(ctx context.Context, id string) (protocol.ScheduleRun, error) {
+	sched, err := s.Get(ctx, id)
+	if err != nil {
+		return protocol.ScheduleRun{}, err
+	}
+	s.runBecause(ctx, sched, "Run by hand.", true)
+	runs, err := s.Runs(ctx, id)
+	if err != nil {
+		return protocol.ScheduleRun{}, err
+	}
+	if len(runs) == 0 {
+		return protocol.ScheduleRun{}, fmt.Errorf("the run of schedule %s was not recorded", id)
+	}
+	return runs[0], nil
+}
+
+// sinceOf is a schedule's last run, or the zero time when it has never run, read fresh from the
 // store at fire time. It is what a handler gathers "what changed" since - the cron closure that
 // calls executeSchedule was made once, at reload, and would answer the same stale moment on every
 // tick if the value were captured there instead.
@@ -275,7 +354,9 @@ func (s *Service) sinceOf(ctx context.Context, id string) time.Time {
 	if row.LastRunAt > 0 {
 		return time.UnixMilli(row.LastRunAt)
 	}
-	return time.UnixMilli(row.CreatedAt)
+	// A schedule that has never run has no "since": a handler reads back as far as it chooses, and a
+	// brief reads back as far as its template allows, not from the moment the schedule was made.
+	return time.Time{}
 }
 
 // checkMissedRuns fires each schedule the daemon's own downtime cost a run (docs/marshal-product-
@@ -349,6 +430,7 @@ func (s *Service) Save(ctx context.Context, req protocol.SaveScheduleRequest) (p
 
 	nowTime := s.now()
 	now := nowTime.UnixMilli()
+	req.Time, req.Days = Reconcile(req)
 	cronExpr := cronExprFor(req, nowTime)
 
 	daysJSONBytes, _ := json.Marshal(req.Days)
@@ -378,37 +460,45 @@ func (s *Service) Save(ctx context.Context, req protocol.SaveScheduleRequest) (p
 		var wErr error
 		if req.ID == "" {
 			savedRow, wErr = q.CreateSchedule(ctx, db.CreateScheduleParams{
-				ID:           id,
-				ProjectID:    req.Project,
-				Name:         req.Name,
-				Kind:         req.Kind,
-				Icon:         req.Icon,
-				TriggerType:  req.Trigger,
-				WhenText:     req.When,
-				CronExpr:     cronExpr,
-				TimeStr:      req.Time,
-				DaysJSON:     string(daysJSONBytes),
-				Action:       req.Action,
-				Enabled:      enabledInt,
-				MissedPolicy: req.Missed,
-				CreatedAt:    now,
-				UpdatedAt:    now,
-				LastRunAt:    0,
+				ID:             id,
+				ProjectID:      req.Project,
+				Name:           req.Name,
+				Kind:           req.Kind,
+				Icon:           req.Icon,
+				TriggerType:    req.Trigger,
+				WhenText:       req.When,
+				CronExpr:       cronExpr,
+				TimeStr:        req.Time,
+				DaysJSON:       string(daysJSONBytes),
+				Action:         req.Action,
+				Enabled:        enabledInt,
+				MissedPolicy:   req.Missed,
+				CreatedAt:      now,
+				UpdatedAt:      now,
+				LastRunAt:      0,
+				Template:       req.Template,
+				SectionsJSON:   listJSON(req.Sections),
+				DeliverJSON:    listJSON(req.Deliver),
+				QuietWhenEmpty: boolInt(req.QuietWhenEmpty),
 			})
 			return wErr
 		}
 
 		savedRow, wErr = q.UpdateSchedule(ctx, db.UpdateScheduleParams{
-			ID:           id,
-			Name:         req.Name,
-			WhenText:     req.When,
-			CronExpr:     cronExpr,
-			TimeStr:      req.Time,
-			DaysJSON:     string(daysJSONBytes),
-			Action:       req.Action,
-			Enabled:      enabledInt,
-			MissedPolicy: req.Missed,
-			UpdatedAt:    now,
+			ID:             id,
+			Name:           req.Name,
+			TriggerType:    req.Trigger,
+			WhenText:       req.When,
+			CronExpr:       cronExpr,
+			TimeStr:        req.Time,
+			DaysJSON:       string(daysJSONBytes),
+			Action:         req.Action,
+			Enabled:        enabledInt,
+			MissedPolicy:   req.Missed,
+			SectionsJSON:   listJSON(req.Sections),
+			DeliverJSON:    listJSON(req.Deliver),
+			QuietWhenEmpty: boolInt(req.QuietWhenEmpty),
+			UpdatedAt:      now,
 		})
 		if errors.Is(wErr, sql.ErrNoRows) {
 			// Updating a schedule that is not there is not an internal failure: it is an id the
@@ -473,17 +563,95 @@ func toProtocolSchedule(r db.Schedule) protocol.Schedule {
 		days = []int{}
 	}
 	return protocol.Schedule{
-		ID:      r.ID,
-		Name:    r.Name,
-		Kind:    r.Kind,
-		Icon:    r.Icon,
-		Trigger: r.TriggerType,
-		When:    r.WhenText,
-		Time:    r.TimeStr,
-		Days:    days,
-		Action:  r.Action,
-		Project: r.ProjectID,
-		Enabled: r.Enabled == 1,
-		Missed:  r.MissedPolicy,
+		Template:       r.Template,
+		Sections:       decodeList(r.SectionsJSON),
+		Deliver:        decodeList(r.DeliverJSON),
+		QuietWhenEmpty: r.QuietWhenEmpty == 1,
+		ID:             r.ID,
+		Name:           r.Name,
+		Kind:           r.Kind,
+		Icon:           r.Icon,
+		Trigger:        r.TriggerType,
+		When:           r.WhenText,
+		Time:           r.TimeStr,
+		Days:           days,
+		Action:         r.Action,
+		Project:        r.ProjectID,
+		Enabled:        r.Enabled == 1,
+		Missed:         r.MissedPolicy,
 	}
+}
+
+// listJSON stores a list of ids. A missing list is stored as an empty one.
+func listJSON(list []string) string {
+	if list == nil {
+		return "[]"
+	}
+	raw, err := json.Marshal(list)
+	if err != nil {
+		return "[]"
+	}
+	return string(raw)
+}
+
+// decodeList reads a stored list of ids. It is never nil, so the wire never carries null.
+func decodeList(raw string) []string {
+	var list []string
+	if raw != "" {
+		_ = json.Unmarshal([]byte(raw), &list)
+	}
+	if list == nil {
+		return []string{}
+	}
+	return list
+}
+
+func boolInt(b bool) int64 {
+	if b {
+		return 1
+	}
+	return 0
+}
+
+// startersKey is the setting that says the starter schedules were made. It is set once, so a starter
+// a person deletes is not made again.
+const startersKey = "schedules.starters.v1"
+
+// EnsureStarters makes one schedule from each starter template the first time a daemon runs, all
+// switched off, delivering to every chat (a chat that is not connected is skipped when a brief goes
+// out). The person turns the ones they want on and changes the rest. It is called once while the daemon
+// starts, and does nothing after that, even if every starter was deleted.
+func (s *Service) EnsureStarters(ctx context.Context) error {
+	if _, err := s.store.Queries().GetSetting(ctx, startersKey); err == nil {
+		return nil
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("read whether the starter schedules were made: %w", err)
+	}
+	existing, err := s.store.Queries().ListSchedules(ctx)
+	if err != nil {
+		return fmt.Errorf("list the schedules before making the starters: %w", err)
+	}
+	have := map[string]bool{}
+	for _, row := range existing {
+		have[row.Template] = true
+	}
+	var channels []string
+	for _, channel := range briefs.Channels() {
+		channels = append(channels, channel.ID)
+	}
+	for _, t := range briefs.Templates() {
+		if have[t.Key] {
+			continue
+		}
+		if _, err := s.Save(ctx, protocol.SaveScheduleRequest{
+			Name: t.Name, Kind: "brief", Icon: t.Icon, Trigger: t.Trigger, When: t.When, Time: t.Time,
+			Days: t.Days, Action: t.Summary, Enabled: false, Missed: t.Missed, Template: t.Key,
+			Sections: t.Sections, Deliver: channels, QuietWhenEmpty: t.QuietWhenEmpty,
+		}); err != nil {
+			return fmt.Errorf("make the %s starter schedule: %w", t.Name, err)
+		}
+	}
+	return s.store.Write(ctx, func(q *db.Queries) error {
+		return q.SetSetting(ctx, db.SetSettingParams{Key: startersKey, ValueJSON: "true"})
+	})
 }

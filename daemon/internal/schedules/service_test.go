@@ -113,6 +113,7 @@ func TestStartCatchesUpAScheduleMissedOnWake(t *testing.T) {
 	// asks "did we miss anything"), the same way a real gap between a save and the next start does.
 	clock := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
 	svc := schedules.NewService(st, nil, schedules.WithClock(func() time.Time { return clock }))
+	svc.RegisterHandler("noop", func(context.Context, protocol.Schedule, time.Time) (string, error) { return "", nil })
 	ctx := context.Background()
 
 	created, err := svc.Save(ctx, protocol.SaveScheduleRequest{
@@ -137,7 +138,7 @@ func TestStartCatchesUpAScheduleMissedOnWake(t *testing.T) {
 		t.Fatalf("recorded %d runs, want 1 catch-up run", len(runs))
 	}
 	if runs[0].Status != "success" {
-		t.Errorf("the catch-up run's status = %q, want success (no handler registered)", runs[0].Status)
+		t.Errorf("the catch-up run's status = %q, want success", runs[0].Status)
 	}
 
 	row, err := st.Queries().GetSchedule(ctx, created.ID)
