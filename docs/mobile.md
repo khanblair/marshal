@@ -154,9 +154,9 @@ After pairing, the tutorial tour from `ui-rules.md` section 12.2 runs on the Hom
 
 ### 5.5 Design rules
 
-Everything in `ui-tokens.md` and `ui-rules.md` applies, including sentence case, color only for status, and 44 px touch targets. In addition:
+Everything in `ui-tokens.md` and `ui-rules.md` applies, including sentence case, color only for status, and 44 px tap areas. In addition:
 
-- Respect the phone's safe areas, status bar, and gesture bar.
+- Respect the phone's safe areas, status bar, and gesture bar. The page sets `viewport-fit=cover` and pads through the `--safe-*` variables (`ui-tokens.md`). If a phone reports a zero inset anyway, `MainActivity` pads the WebView instead, which needs an app rebuild.
 - Follow the phone's light or dark setting by default.
 - Follow the phone's text size setting. Layouts must hold up at larger text sizes.
 - Use the phone's own back gesture and back button to go back one screen.

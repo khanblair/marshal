@@ -54,7 +54,7 @@ The goal: a calm, fast, readable tool where a person can glance at the screen an
 
 ### 2.3 Split view
 
-- Split view opens from 900 px wide (`bp-md`) with up to two panes. It allows three from 1200 px (`bp-lg`) and four from 1600 px (`bp-xl`).
+- Split view holds one pane beside the main view in the tablet layout (`bp-sm` to `bp-lg`) and up to three in the desktop layout (`bp-xl`, 1280 px, and up). A fourth pane at `bp-2xl` is not built.
 - Any pane can hold a view or a card.
 - Panes are resized by dragging their dividers, and closed from their header.
 
@@ -335,7 +335,7 @@ Rules:
 - Status changes on the board are announced to screen readers politely, grouped, without flooding.
 - Dialogs trap focus and return it to where it was when closed.
 - Motion follows the OS reduced motion setting.
-- Touch targets on mobile are at least 44 px.
+- Tap areas on touch screens are at least 44 px where there is room, and never below 24 px. A control may look smaller than its tap area (see Density in `ui-tokens.md`).
 
 ---
 
@@ -357,11 +357,13 @@ Marshal must work fully on desktop, tablet, and phone. This is essential for rem
 
 ### 9.1 Sizes
 
-| Size | Width | Layout |
+| Size | Width (bands) | Layout |
 |---|---|---|
-| Phone | Under 640 px | One pane at a time. Top bar and bottom navigation. |
-| Tablet | 640 to 1199 px | Collapsed sidebar. Panels open as overlays. |
-| Desktop | 1200 px and up | Full sidebar, detail panel beside the view, split view on large screens. |
+| Phone | Under 640 px (base) | One pane at a time. Top bar and bottom navigation. |
+| Tablet | 640 to 1279 px (`sm`, `md`, `lg`) | Collapsed sidebar. Panels open as overlays. |
+| Desktop | 1280 px and up (`xl`, `2xl`) | Full sidebar, detail panel beside the view, split view on large screens. |
+
+The six bands and what changes inside each layout are in `ui-tokens.md` (Breakpoints and Density).
 
 ### 9.2 How each part adapts
 
@@ -377,17 +379,17 @@ Marshal must work fully on desktop, tablet, and phone. This is essential for rem
 | Timeline | Horizontal time bars | Horizontal time bars, scrollable | Vertical day-by-day list with dependencies shown as "waits for" links |
 | Calendar | Month and week | Month and week | Agenda list, with a month picker |
 | Terminal | In the detail panel | Full overlay | Full screen, with a key bar for Esc, Tab, Ctrl, and arrow keys |
-| Split view | Up to three panes, four from 1600 px | Up to two panes from 900 px wide, one pane below that | Not used. One pane at a time. |
+| Split view | Up to three panes | One pane | Not used. One pane at a time. |
 | Command palette | Centered dialog | Centered dialog | Full screen sheet |
 | Dialogs | Centered | Centered | Bottom sheets |
 
 ### 9.3 Touch and visibility
 
-- Touch targets are at least 44 px on tablets and phones.
+- Tap areas are at least 44 px on tablets and phones, through the density variables and the tap-area extension in `ui-tokens.md`. Controls are sized for the layout (36 px on phones, 40 px on touch tablets), not all stretched to 44 px.
 - Drag and drop has a touch-friendly option on every size: a "Move to" action in the card menu.
 - Approvals, plan review, merges, sleep and wake, and bypass controls are always reachable within two taps from the notice or the card.
 - Text never drops below 13 px on phones. Nothing is hidden only because the screen is small. If something does not fit, it moves into a menu or a scrollable row.
-- The layout respects safe areas on phones with notches and home bars.
+- The layout respects safe areas: the status bar, display cutouts, and the home bar. Surfaces use the `--safe-*` variables (see Safe areas in `ui-tokens.md`).
 - Pages never scroll sideways, except inside the board and timeline, which are built to scroll.
 
 ### 9.4 Testing

@@ -304,10 +304,8 @@ Rules:
 | `size-detail-min` | 480 px | Card detail panel minimum width |
 | `size-detail-max` | 760 px | Card detail panel maximum width |
 | `size-measure` | 72ch | Maximum width of chat and long text |
-| `size-control-sm` | 28 px | Small button and input height |
-| `size-control-md` | 32 px | Default button and input height |
-| `size-control-lg` | 40 px | Large buttons, mobile touch targets |
-| `size-touch-min` | 44 px | Minimum touch target on tablets and phones |
+| `size-control-sm` | 28 px | Small button and input height on desktop. Touch heights come from the density variables below. |
+| `size-control-md` | 32 px | Default button and input height on desktop |
 | `size-topbar` | 48 px | App top bar: project name, search, notices, and profile avatar. Same on every size. |
 | `size-mobile-nav` | 56 px | Bottom navigation height on phones, plus the safe area |
 | `size-chat-list` | 280 px | Chat list width on desktop |
@@ -317,12 +315,52 @@ Rules:
 
 ### Breakpoints
 
-| Token | Width | Layout |
+Six size bands, Tailwind's defaults, written once in `packages/tokens/src/tokens.ts` (`breakpoints`). A band runs from its width to the next one. Nobody writes these numbers anywhere else: `shell-layout.ts` imports them, and Tailwind gets them as `sm:` to `2xl:`.
+
+| Band | From | Typical screens |
 |---|---|---|
-| `bp-sm` | 640 px | Below this is a phone: single pane, top bar and bottom navigation. From here up, tablet layouts: icon sidebar, panels as overlays. |
-| `bp-md` | 900 px | Tablet in landscape and small laptops. Split view becomes available, with up to two panes. Layouts stay tablet layouts. |
-| `bp-lg` | 1200 px | Desktop from here: full sidebar, board with detail panel, split view with up to three panes |
-| `bp-xl` | 1600 px | Large screens: split view with up to four panes |
+| base | 0 | Phones in portrait |
+| `bp-sm` | 640 px | Large phones in landscape, small tablets |
+| `bp-md` | 768 px | Portrait tablets |
+| `bp-lg` | 1024 px | Landscape tablets, laptops |
+| `bp-xl` | 1280 px | Desktop monitors |
+| `bp-2xl` | 1536 px | Large and wide monitors |
+
+The shell groups the bands into three layouts. The layout changes structure (navigation, panels, split view):
+
+| Layout | Bands | What it is |
+|---|---|---|
+| Phone | base | Single pane, top bar and bottom navigation, full-screen cards, bottom sheets |
+| Tablet | sm, md, lg | Collapsed or overlay sidebar, card panel over the content, one split pane |
+| Desktop | xl, 2xl | Full sidebar, board with the card panel beside it, up to three split panes |
+
+Rules:
+
+- Write base styles for the smallest band and add structure as the band grows (mobile first).
+- The layout comes from the viewport width in `M.S.vw` (see `design-port.md`). The app root sets `data-size` (`phone`, `tablet`, `desktop`) and `data-bp` (the band), so CSS can follow either without a media query.
+- Spacing steps and column counts follow the band. A component inside a sidebar or panel follows its own width with `@container`, because the same viewport can give it very different room.
+- Add a breakpoint only where content breaks. If a component needs one, use a container query, not a seventh viewport band.
+- The desktop layout starts at 1280 px. A window from 1024 to 1279 px keeps the tablet layout, because the sidebar plus the 480 px card panel needs about 1280 px to leave the board room. (Before 2026-10-06 it started at 1200 px.)
+
+### Density
+
+Control sizes are variables on the app root. Components read them and never set a fixed height. The set depends on the layout and on the pointer: the phone layout always uses the phone column, the tablet layout uses the tablet column only on a touch screen (a mouse in a tablet-sized window gets the desktop column), and the desktop layout uses the desktop column.
+
+| Variable | Used by | Desktop | Tablet (touch) | Phone |
+|---|---|---|---|---|
+| `--control-h` | Button, Input, Select | 32 px | 40 px | 36 px |
+| `--icon-btn` | IconButton | 28 px | 40 px | 36 px |
+| `--tab-h` | Tabs, SegmentedControl | 26 px | 36 px | 32 px |
+| `--row-h` | Menu and list rows | 36 px | 44 px | 40 px |
+| `--gutter` | Screen side padding | 16 px | 16 px | 12 px |
+
+A control can look smaller than its tap area. On touch screens an invisible extension brings the tap area to 44 px where the neighbours leave room, and never below 24 px (WCAG 2.2 AA). `compact` opts a control out and keeps its own `size`.
+
+### Safe areas
+
+The page sets `viewport-fit=cover`, and `--safe-top`, `--safe-right`, `--safe-bottom`, and `--safe-left` are defined once on the root from `env(safe-area-inset-*)`. Components use these variables and never `env()` directly. The top bar is `size-topbar` plus `--safe-top`, the bottom navigation is `size-mobile-nav` plus `--safe-bottom`, and every full-screen surface (card panel, command palette, sheets, dialogs, toasts) adds the inset on the edge it touches. The root pads `--safe-left` and `--safe-right` for landscape cutouts.
+
+Rollout is in `progress-tracker.md` (2026-10-06): bands and safe areas first, then density.
 
 ---
 

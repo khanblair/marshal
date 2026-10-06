@@ -201,7 +201,7 @@ Rules:
 - Use Tailwind classes that map to tokens from `packages/tokens`. **No raw hex colors, pixel values, or font names in components.**
 - No inline `style` except for values that are truly dynamic, such as a drag position.
 - Never use `text-transform: uppercase` or all-caps strings. See `ui-rules.md`.
-- **Responsive by default.** Every view and component must work at phone, tablet, and desktop sizes, using the breakpoint tokens. A pull request that adds a view includes screenshots at all three sizes.
+- **Responsive by default.** Every view and component works from 320 px up in all six size bands, written mobile first, with no sideways scroll at 320 px (except the board and timeline). Sizes come from the breakpoint tokens and the density variables: no typed breakpoint numbers, no fixed control heights, no `min-height: 44px` rule. A pull request that adds a view includes screenshots at phone, tablet, and desktop.
 
 ### 4.4 Performance
 
