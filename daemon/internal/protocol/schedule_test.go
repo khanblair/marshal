@@ -19,18 +19,19 @@ import (
 // (apps/web/src/mock/seed/calendar.ts), so the golden file is a real row and not a made-up one.
 func sampleSchedule() protocol.Schedule {
 	return protocol.Schedule{
-		ID:      "01H1234567890ABCDEFGHJKMNP",
-		Name:    "Morning brief",
-		Kind:    "brief",
-		Icon:    "sun",
-		Trigger: "Cron",
-		When:    "Every weekday at 09:00",
-		Time:    "09:00",
-		Days:    []int{1, 2, 3, 4, 5},
-		Action:  "morning_brief",
-		Project: "small-repo",
-		Enabled: true,
-		Missed:  "run_now",
+		ID:       "01H1234567890ABCDEFGHJKMNP",
+		Name:     "Morning brief",
+		Kind:     "brief",
+		Icon:     "sun",
+		Trigger:  "Cron",
+		When:     "Every weekday at 09:00",
+		Time:     "09:00",
+		Days:     []int{1, 2, 3, 4, 5},
+		Action:   "morning_brief",
+		Project:  "small-repo",
+		Enabled:  true,
+		Missed:   "run_now",
+		Template: "morning", Sections: []string{"calendar", "needs-you"}, Deliver: []string{"telegram"},
 	}
 }
 
@@ -51,10 +52,24 @@ func TestScheduleListGolden(t *testing.T) {
 			ID: "01H1234567890ABCDEFGHJKMNPQ", Name: "Evening brief", Kind: "brief", Icon: "sunset",
 			Trigger: "Cron", When: "Every weekday at 18:00", Time: "18:00", Days: []int{1, 2, 3, 4, 5},
 			Action: "Send the brief to the app and Obsidian", Project: "All projects", Enabled: true,
-			Missed: "Skip",
+			Missed: "Skip", Sections: []string{}, Deliver: []string{}, QuietWhenEmpty: true,
 		},
 	}, scheduleNow)
 	testutil.Golden(t, "schedule-list", list)
+}
+
+// The answer to GET /v1/schedules/catalog: what the editor offers, with the daemon's own time.
+func TestScheduleCatalogGolden(t *testing.T) {
+	testutil.Golden(t, "schedule-catalog", protocol.ScheduleCatalog{
+		Templates: []protocol.ScheduleTemplate{{
+			Key: "morning", Name: "Morning brief", Summary: "Today's calendar and what waits on you.", Icon: "sunrise",
+			Trigger: "Cron", When: "Every weekday at 8:00", Time: "08:00", Days: []int{1, 2, 3, 4, 5}, Missed: "Skip",
+			Sections: []string{"calendar", "needs-you"}, QuietWhenEmpty: false,
+		}},
+		Sections:   []protocol.ScheduleSection{{ID: "calendar", Label: "Calendar", Hint: "Your Google Calendar events."}},
+		Channels:   []protocol.ScheduleChannel{{ID: "telegram", Label: "Telegram"}},
+		ServerTime: protocol.NewTimestamp(scheduleNow),
+	})
 }
 
 // A list carries the daemon's own time beside the schedules, so a screen can tell a stale answer

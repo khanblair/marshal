@@ -1,0 +1,40 @@
+{
+  "templates": [
+    {
+      "key": "morning",
+      "name": "Morning brief",
+      "summary": "Today's calendar and what waits on you.",
+      "icon": "sunrise",
+      "trigger": "Cron",
+      "when": "Every weekday at 8:00",
+      "time": "08:00",
+      "days": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "missed": "Skip",
+      "sections": [
+        "calendar",
+        "needs-you"
+      ],
+      "quietWhenEmpty": false
+    }
+  ],
+  "sections": [
+    {
+      "id": "calendar",
+      "label": "Calendar",
+      "hint": "Your Google Calendar events."
+    }
+  ],
+  "channels": [
+    {
+      "id": "telegram",
+      "label": "Telegram"
+    }
+  ],
+  "serverTime": "2026-09-28T12:00:00.000Z"
+}

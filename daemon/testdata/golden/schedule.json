@@ -16,5 +16,14 @@
   "action": "morning_brief",
   "project": "small-repo",
   "enabled": true,
-  "missed": "run_now"
+  "missed": "run_now",
+  "template": "morning",
+  "sections": [
+    "calendar",
+    "needs-you"
+  ],
+  "deliver": [
+    "telegram"
+  ],
+  "quietWhenEmpty": false
 }

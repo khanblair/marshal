@@ -18,7 +18,16 @@
       "action": "morning_brief",
       "project": "small-repo",
       "enabled": true,
-      "missed": "run_now"
+      "missed": "run_now",
+      "template": "morning",
+      "sections": [
+        "calendar",
+        "needs-you"
+      ],
+      "deliver": [
+        "telegram"
+      ],
+      "quietWhenEmpty": false
     },
     {
       "id": "01H1234567890ABCDEFGHJKMNPQ",
@@ -38,7 +47,11 @@
       "action": "Send the brief to the app and Obsidian",
       "project": "All projects",
       "enabled": true,
-      "missed": "Skip"
+      "missed": "Skip",
+      "template": "",
+      "sections": [],
+      "deliver": [],
+      "quietWhenEmpty": true
     }
   ],
   "serverTime": "2026-09-28T12:00:00.000Z"

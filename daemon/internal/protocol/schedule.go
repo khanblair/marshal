@@ -16,6 +16,17 @@ type Schedule struct {
 	Project string `json:"project"`
 	Enabled bool   `json:"enabled"`
 	Missed  string `json:"missed"`
+	// Template names the starter this schedule began as, such as "morning", or is empty for one made
+	// from nothing. It never changes after the schedule is made.
+	Template string `json:"template"`
+	// Sections are the parts a brief is built from, by the ids GET /v1/schedules/catalog lists. Never
+	// null. A schedule with none is a brief made the way briefs were before sections existed.
+	Sections []string `json:"sections"`
+	// Deliver are the chat channels the brief is sent to, besides being kept in the run history. Never
+	// null. Channels that are not connected when the brief is sent are skipped.
+	Deliver []string `json:"deliver"`
+	// QuietWhenEmpty keeps a brief with nothing to report from being sent. The run is still recorded.
+	QuietWhenEmpty bool `json:"quietWhenEmpty"`
 }
 
 // ScheduleList is the response to GET /v1/schedules.
@@ -67,6 +78,64 @@ type SaveScheduleRequest struct {
 	Action  string `json:"action"`
 	Enabled bool   `json:"enabled"`
 	Missed  string `json:"missed"`
+	// Template is the starter a new schedule began as. It is read when a schedule is created and
+	// ignored when one is edited.
+	Template string `json:"template"`
+	// Sections are the parts of a brief, by id. Each must be one the catalog lists.
+	Sections []string `json:"sections"`
+	// Deliver are the chat channels to send the brief to. Each must be one the catalog lists.
+	Deliver []string `json:"deliver"`
+	// QuietWhenEmpty keeps a brief with nothing to report from being sent.
+	QuietWhenEmpty bool `json:"quietWhenEmpty"`
+}
+
+// SchedulePreview is the answer to GET /v1/schedules/{id}/preview: the message a chat would get if the
+// brief were sent now. Nothing is sent and no run is recorded.
+type SchedulePreview struct {
+	// Text is the title, a blank line, and the body as a chat shows it.
+	Text       string    `json:"text"`
+	ServerTime Timestamp `json:"serverTime"`
+}
+
+// ScheduleSection is one part a brief can be built from.
+type ScheduleSection struct {
+	ID    string `json:"id"`
+	Label string `json:"label"`
+	// Hint is one line on what the section lists, for the editor.
+	Hint string `json:"hint"`
+}
+
+// ScheduleChannel is one chat a brief can be sent to.
+type ScheduleChannel struct {
+	ID    string `json:"id"`
+	Label string `json:"label"`
+}
+
+// ScheduleTemplate is a starter schedule: every field a new schedule needs, filled in. The daemon
+// seeds one schedule per template, switched off, the first time it runs, and New schedule offers them
+// again so one that was deleted can be added back.
+type ScheduleTemplate struct {
+	Key     string `json:"key"`
+	Name    string `json:"name"`
+	Summary string `json:"summary"`
+	Icon    string `json:"icon"`
+	Trigger string `json:"trigger"`
+	When    string `json:"when"`
+	Time    string `json:"time"`
+	Days    []int  `json:"days"`
+	Missed  string `json:"missed"`
+	// Sections are the parts the template is built from.
+	Sections []string `json:"sections"`
+	// QuietWhenEmpty is true for a template that should say nothing when there is nothing to say.
+	QuietWhenEmpty bool `json:"quietWhenEmpty"`
+}
+
+// ScheduleCatalog is the answer to GET /v1/schedules/catalog: what the editor offers.
+type ScheduleCatalog struct {
+	Templates  []ScheduleTemplate `json:"templates"`
+	Sections   []ScheduleSection  `json:"sections"`
+	Channels   []ScheduleChannel  `json:"channels"`
+	ServerTime Timestamp          `json:"serverTime"`
 }
 
 // CalendarEvent is one Google Calendar item (coming up / calendar view). It is only ever populated
