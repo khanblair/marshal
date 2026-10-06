@@ -99,6 +99,10 @@ A section is one part of the screens that can switch from mock data to the daemo
 | S29f Integration: Telegram | Telegram row | 9: 9.5 | Daemon |
 | S29g Integration: Discord | Discord row | 9: 9.6 | Daemon |
 | S29h Integration: ntfy | ntfy row | 9: 9.17 | Daemon |
+| S29i Integration: Google Drive | Google Drive row | 8: 8.5 | Daemon |
+| S29j Integration: Google Docs | Google Docs row | 8: 8.5 | Daemon |
+| S29k Integration: Google Sheets | Google Sheets row | 8: 8.5 | Daemon |
+| S29l Integration: Google Slides | Google Slides row | 8: 8.5 | Daemon |
 | S30 Settings: Schedules | Briefs and jobs | 8: 8.1 | Daemon |
 | S31a Onboarding and tour | Welcome, agents, project, and the Home tour | 2: 2.16, 2.17 | Daemon |
 | S31b Onboarding: connect from anywhere | The pairing and chat apps step | 9: 9.2 | Daemon |

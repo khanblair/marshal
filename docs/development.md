@@ -156,14 +156,14 @@ You have two options:
 
 - **Real webhooks through Funnel.** Start the daemon with `--tailnet --funnel` (or `MARSHAL_TAILNET=1 MARSHAL_FUNNEL=1`), sign in to Tailscale from Settings, Remote control, and allow Funnel for the tailnet in the Tailscale admin console. Only `/hooks/*` is public, and every request is still signed. Replay recorded webhooks when you do not want a public address.
 
-### 3.7a Connecting Google Calendar and Gmail
+### 3.7a Connecting Google Calendar, Gmail, Drive, Docs, Sheets, and Slides
 
-Marshal reads your Google Calendar (and, if you want, a Gmail label) with read-only access. A person connects it with one button, **Connect with Google**, and pastes nothing. That works when the build has **Marshal's own Google client**; without one, Settings asks the person to make a client of their own (see "Without Marshal's client" below).
+Marshal reads your Google Calendar (and, if you want, a Gmail label) with read-only access, and can make files in Google Drive, Docs, Sheets, and Slides and read a doc, sheet, or deck from a link. Each of the six is its own row with its own consent, and the person pastes nothing. That works when the build has **Marshal's own Google client**; without one, Settings asks the person to make a client of their own (see "Without Marshal's client" below).
 
 **Making Marshal's own Google client (once, by whoever publishes Marshal)**
 
-1. In the Google Cloud console, make a project for Marshal and turn on the **Google Calendar API** and the **Gmail API**.
-2. Under **OAuth consent screen**, choose **External**. Give it Marshal's name, a homepage, a privacy policy address, and your contact address. Add the scopes `calendar.readonly` and `gmail.readonly`.
+1. In the Google Cloud console, make a project for Marshal and turn on six APIs: the **Google Calendar API**, the **Gmail API**, the **Google Drive API**, the **Google Docs API**, the **Google Sheets API**, and the **Google Slides API**. Marshal's tests say which one is off ("Turn on the Google Docs API in the Google Cloud project Marshal signs in with").
+2. Under **OAuth consent screen**, choose **External**. Give it Marshal's name, a homepage, a privacy policy address, and your contact address. On the **Data access** page add six scopes: `calendar.readonly`, `gmail.readonly`, `drive.file`, `documents.readonly`, `spreadsheets.readonly`, and `presentations.readonly`.
 3. Under **Credentials**, make an **OAuth client ID** of type **Desktop app**. Google accepts any `http://127.0.0.1:<port>` return address for that type, so the dev daemon (47801) and the installed app (47800) both work. A Desktop app's secret is not confidential to Google, which is why it is allowed to ship inside the app.
 4. Hand the client to the build:
    - **Release builds:** add the repository secrets `MARSHAL_GOOGLE_CLIENT_ID` and `MARSHAL_GOOGLE_CLIENT_SECRET`. `release.yml` writes them to `daemon/internal/integrations/googleclient/files/client.json` (which is not in git) before the daemon is compiled.
@@ -173,6 +173,7 @@ Marshal reads your Google Calendar (and, if you want, a Gmail label) with read-o
 
 - While the app's publishing status is **Testing**, only the test users you list can connect, and Google expires their access after about a week (Marshal then says "Reconnect Google Calendar").
 - Set the status to **In production** so anyone can connect. Until Google **verifies** the app, each person sees an "unverified app" warning, and Google caps unverified apps at 100 users. `calendar.readonly` is a sensitive scope: verification asks for the privacy policy, the homepage, and a short demo video of the consent and what it is used for.
+- `documents.readonly`, `spreadsheets.readonly`, and `presentations.readonly` are sensitive scopes, like `calendar.readonly`: they need Google verification, but no yearly security assessment. `drive.file` is non-sensitive. It lets Marshal make files and see only the ones it made. Marshal never edits or deletes a file you already had.
 - `gmail.readonly` is a restricted scope. Letting other people use it through Marshal's client needs Google's yearly security assessment. Until then Gmail works for you and your test users only, and anyone else can use Gmail with a client of their own.
 
 **Without Marshal's client (a build with none, or a person who prefers their own)**
@@ -182,11 +183,12 @@ Settings, Integrations, Google Calendar shows the four steps and a form: make a 
 **Using it**
 
 - Grant access in your own browser on the computer that runs Marshal, because Google sends the browser back to that computer's own daemon. A phone cannot finish it, and then says so; it shows the events once connected.
-- Calendar asks for `calendar.readonly` only. **Gmail** is a separate row with its own **Grant access**, asking for `gmail.readonly` alone.
+- Calendar asks for `calendar.readonly` only. **Gmail** is a separate row with its own **Grant access**, asking for `gmail.readonly` alone. **Google Drive** asks for `drive.file`; **Google Docs**, **Sheets**, and **Slides** each ask for their own `.readonly` scope and `drive.file`. If a person unticks a box on Google's page, Marshal refuses the grant, stores nothing, and asks them to connect again with every box ticked.
+- Marshal puts what it makes in one Drive folder, named "Marshal" until the person names another on the Google Drive row. All four file connections share it, whether or not Drive itself is connected, and Marshal makes the folder when it saves the first file. The tests for these four never make a file or a folder.
 - Once connected, the row lists every calendar you have, with a tick for each one Marshal reads. Until you choose, the ticks follow what is ticked in Google Calendar itself.
 - Marshal uses the calendar for the calendar view and Home's "Coming up today", the calendar part of the morning and evening briefs, schedules with the **Event** trigger (for example "When 30 minutes before my first calendar event", or "When a calendar event named "Morning brief" starts"), and **Stay quiet during calendar events** under Settings, Alerts. An event you marked as available, and a working-location marker, does not count as busy. An event that runs over several days shows on each of them. Events are read at most once a minute and kept for that minute; if Google cannot be reached, the last events read are shown and marked as old.
 - **Gmail's row** reads connected once it has a label and its own grant, in either order, and it asks again while you grant access in the other tab.
-- **Disconnect** removes Marshal's stored access. When it is the last Google connection holding a token, Marshal also asks Google to end the access. While Calendar or Gmail is still connected it leaves Google's grant alone, because Google ends every scope when one token is revoked. If Google cannot be reached, the access stays until it is removed at myaccount.google.com/permissions.
+- **Disconnect** removes Marshal's stored access. When it is the last Google connection holding a token, Marshal also asks Google to end the access. While any other Google connection is still connected it leaves Google's grant alone, because Google ends every scope when one token is revoked. If Google cannot be reached, the access stays until it is removed at myaccount.google.com/permissions.
 
 ### 3.8 Testing on phones and tablets
 
