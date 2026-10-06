@@ -1,6 +1,8 @@
 import { batch } from "solid-js";
 import { type ApprovalMsg, type Card, type Column, M, type PlanMsg } from "~/mock";
 import type { CardKey } from "~/mock/card-key";
+import { exportCardToDoc, exportKey, saveNoteToDrive } from "~/views/google-export/export-actions";
+import { isExporting } from "~/views/google-export/export-run";
 
 /** One button in the card's action row. */
 export interface CardAction {
@@ -19,6 +21,10 @@ export interface MoreItem {
   icon: string;
   danger: boolean;
   run: () => void;
+  /** True while the item's work is already running. */
+  disabled?: boolean;
+  /** Muted words after the label. */
+  hint?: string;
 }
 
 type Pending = ApprovalMsg | PlanMsg | undefined;
@@ -123,8 +129,43 @@ function simulateItems(card: Card, run: (fn: () => void) => () => void): MoreIte
   return M.ciOnDaemon(card) ? [] : [mockItem];
 }
 
-/** Items of the More actions menu: a move to every other column, then the fixed ones. */
-export function moreItems(card: Card, close: () => void): MoreItem[] {
+/** The three ways to move a card's words to and from Google. One that already runs shows as working. */
+function googleItems(
+  card: Card,
+  run: (fn: () => void) => () => void,
+  openImport: () => void,
+): MoreItem[] {
+  const work = (label: string, icon: string, key: string, fn: () => void): MoreItem => {
+    const busy = isExporting(key);
+    return {
+      label,
+      icon,
+      danger: false,
+      run: run(fn),
+      disabled: busy,
+      hint: busy ? "Working…" : undefined,
+    };
+  };
+  return [
+    work("Export to Google Doc", "file-text", exportKey("doc", card.id), () => {
+      void exportCardToDoc(card);
+    }),
+    work("Save note to Google Drive", "upload", exportKey("note", card.id), () => {
+      void saveNoteToDrive(card);
+    }),
+    { label: "Import from Google link…", icon: "link", danger: false, run: run(openImport) },
+  ];
+}
+
+/**
+ * Items of the More actions menu: a move to every other column, then the Google ones, then the
+ * fixed ones. `openImport` opens the Import from Google link dialog.
+ */
+export function moreItems(
+  card: Card,
+  close: () => void,
+  openImport: () => void = () => undefined,
+): MoreItem[] {
   const id = card.id;
   const run = (fn: () => void) => () => {
     close();
@@ -138,6 +179,7 @@ export function moreItems(card: Card, close: () => void): MoreItem[] {
   }));
   return [
     ...moves,
+    ...googleItems(card, run, openImport),
     {
       label: "Restore a checkpoint",
       icon: "history",

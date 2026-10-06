@@ -138,6 +138,46 @@ describe("moreItems", () => {
     ]);
   });
 
+  it("puts the three Google items after the moves and before the fixed ones", () => {
+    const labels = moreItems(cardOf("api#41"), () => undefined).map((item) => item.label);
+    const first = M.COLUMNS.length - 1;
+    expect(labels.slice(first, first + 4)).toEqual([
+      "Export to Google Doc",
+      "Save note to Google Drive",
+      "Import from Google link…",
+      "Restore a checkpoint",
+    ]);
+  });
+
+  it("closes the menu before an export, and says to connect when the connection is not made", () => {
+    const close = vi.fn();
+    const items = moreItems(cardOf("api#41"), close);
+    items.find((item) => item.label === "Export to Google Doc")?.run();
+    expect(close).toHaveBeenCalledOnce();
+    expect(M.S.toasts.at(-1)?.msg).toBe("Connect Google Docs in Settings, under Integrations.");
+    items.find((item) => item.label === "Save note to Google Drive")?.run();
+    expect(M.S.toasts.at(-1)?.msg).toBe("Connect Google Drive in Settings, under Integrations.");
+  });
+
+  it("closes the menu and opens the import dialog, whichever service is connected", () => {
+    const close = vi.fn();
+    const openImport = vi.fn();
+    moreItems(cardOf("api#41"), close, openImport)
+      .find((item) => item.label === "Import from Google link…")
+      ?.run();
+    expect(close).toHaveBeenCalledOnce();
+    expect(openImport).toHaveBeenCalledOnce();
+    expect(M.S.toasts).toEqual([]);
+  });
+
+  it("shows no Google item as working or disabled while nothing runs", () => {
+    const google = moreItems(cardOf("api#41"), () => undefined).filter((item) =>
+      /Google/.test(item.label),
+    );
+    expect(google).toHaveLength(3);
+    expect(google.every((item) => !item.disabled && item.hint === undefined)).toBe(true);
+  });
+
   it("leaves both items out for a daemon card on a daemon that is not in dev mode", () => {
     const card = cardOf("api#41");
     card.daemonId = "card-41";

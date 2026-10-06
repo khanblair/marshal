@@ -1,6 +1,7 @@
 import { Icon, IconButton, Kbd, Menu, MenuItem } from "@marshal/ui";
 import { For, Index, Show } from "solid-js";
 import { type Card, M } from "~/mock";
+import { GoogleImportDialog } from "~/views/google-export/GoogleImportDialog";
 import { type CardAction, cardActions, moreItems } from "./card-actions";
 import { controlSize } from "./control-size";
 import type { Panel } from "./panel-state";
@@ -36,7 +37,12 @@ function ActionButton(props: { action: CardAction }) {
 }
 
 function MoreMenu(props: CardActionsProps) {
-  const items = () => moreItems(props.card, () => props.panel.set({ more: false }));
+  const items = () =>
+    moreItems(
+      props.card,
+      () => props.panel.set({ more: false }),
+      () => props.panel.set({ importOpen: true }),
+    );
   return (
     <Menu class="absolute top-[calc(100%+4px)] right-0 w-60 max-h-90 overflow-auto z-menu">
       <Index each={items()}>
@@ -44,6 +50,8 @@ function MoreMenu(props: CardActionsProps) {
           <MenuItem
             icon={item().icon}
             class={item().danger ? "text-status-danger-text!" : undefined}
+            disabled={item().disabled}
+            hint={item().hint}
             onClick={() => item().run()}
           >
             {item().label}
@@ -54,7 +62,7 @@ function MoreMenu(props: CardActionsProps) {
   );
 }
 
-/** Approve, start or pause, sleep, pin, fork, merge, and the More actions menu. */
+/** Approve, start or pause, sleep, pin, fork, merge, the More actions menu, and its Google import dialog. */
 export function CardActions(props: CardActionsProps) {
   const actions = () => cardActions(props.card, M.mobile);
   return (
@@ -73,6 +81,7 @@ export function CardActions(props: CardActionsProps) {
           <MoreMenu card={props.card} panel={props.panel} />
         </Show>
       </div>
+      <GoogleImportDialog card={props.card} panel={props.panel} />
     </div>
   );
 }

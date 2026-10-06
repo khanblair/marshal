@@ -41,7 +41,9 @@ const ESCAPES: Record<string, string> = {
   '"': "&quot;",
   "'": "&#39;",
 };
-const escapeHtml = (text: string): string => text.replace(/[&<>"']/g, (c) => ESCAPES[c] ?? c);
+/** Text with the five characters that mean something in HTML written as plain text. */
+export const escapeHtml = (text: string): string =>
+  text.replace(/[&<>"']/g, (c) => ESCAPES[c] ?? c);
 
 /**
  * Agent output is untrusted, so the parser is told not to pass HTML through (a tag an agent writes
