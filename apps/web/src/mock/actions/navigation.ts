@@ -1,14 +1,24 @@
+import { writeKey } from "~/data/storage";
 import type { CardKey } from "../card-key";
 import type { Ctx } from "../context";
 import { later, set } from "../engine";
 import { card, isMobile } from "../selectors";
+import { LAST_PROJECT_KEY } from "../storage";
 import type { CardTab, Mode, Page, ViewKey } from "../types";
+
+/** Remembers the project on this device, so the next start opens on it and not on the first one. */
+function rememberProject(ctx: Ctx, pid: string): void {
+  writeKey(ctx.env.storage, LAST_PROJECT_KEY, pid);
+}
 
 /** Opens a page. For "project", the view defaults to the one last used in that project. */
 export function go(ctx: Ctx, page: Page, pid?: string | null, view?: ViewKey): void {
   const { S } = ctx;
   const route = { ...S.route, page };
-  if (pid) route.pid = pid;
+  if (pid) {
+    route.pid = pid;
+    rememberProject(ctx, pid);
+  }
   if (page === "project") {
     route.view = view || (route.pid && S.lastView[route.pid]) || "board";
     if (route.pid) S.lastView[route.pid] = route.view;
@@ -50,6 +60,7 @@ export function openCard(ctx: Ctx, id: CardKey, tab?: CardTab): void {
   S.palette = false;
   if (S.route.page === "project" && S.route.pid !== c.p) {
     S.route = { ...S.route, pid: c.p, view: S.lastView[c.p] ?? S.route.view };
+    rememberProject(ctx, c.p);
   }
 }
 

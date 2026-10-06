@@ -3,8 +3,11 @@ import { createEffect, createRoot } from "solid-js";
 import { describe, expect, it } from "vitest";
 import { toDaemonProject } from "~/data/mappers/project";
 import { golden } from "~/data/testing/golden";
+import { memoryStorage } from "~/data/testing/memory-storage";
+import { go, openCard } from "~/mock/actions/navigation";
 import { createContext } from "~/mock/context";
 import { feed, notice } from "~/mock/engine";
+import { LAST_PROJECT_KEY } from "~/mock/storage";
 import { daemonProject, PROTOTYPE_PROJECTS } from "~/testing/projects";
 import { MOCK_CARDS, MOCK_PERSON_SECTIONS, testEnv } from "~/testing/test-store";
 import {
@@ -40,6 +43,15 @@ const daemonLimitsStore = () =>
         S20: "mock",
         S26b: "daemon",
       },
+    }),
+  );
+/** The same empty store, with a storage the app can remember things in. */
+const storeWith = (storage: ReturnType<typeof memoryStorage>) =>
+  createContext(
+    testEnv({
+      hash: "#nosim",
+      storage,
+      sections: { ...MOCK_CARDS, ...MOCK_PERSON_SECTIONS, S17: "mock", S20: "mock", S26b: "mock" },
     }),
   );
 const prototype = PROTOTYPE_PROJECTS.map(toDaemonProject);
@@ -193,6 +205,37 @@ describe("applyProjectSnapshot", () => {
     expect(ctx.S.route).toEqual({ page: "home", pid: "api", view: "board" });
     applyProjectSnapshot(ctx, []);
     expect(ctx.S.route.pid).toBeNull();
+  });
+
+  it("opens on the project the person last used on this device, not the first one", () => {
+    const storage = memoryStorage({ [LAST_PROJECT_KEY]: "web" });
+    const ctx = storeWith(storage);
+    applyProjectSnapshot(ctx, prototype);
+    expect(ctx.S.route.pid).toBe("web");
+  });
+
+  it("opens on the first project when none was saved, or the saved one is gone", () => {
+    const fresh = storeWith(memoryStorage());
+    applyProjectSnapshot(fresh, prototype);
+    expect(fresh.S.route.pid).toBe("api");
+    const gone = storeWith(memoryStorage({ [LAST_PROJECT_KEY]: "deleted" }));
+    applyProjectSnapshot(gone, prototype);
+    expect(gone.S.route.pid).toBe("api");
+  });
+
+  it("saves the project the person opens, by the picker or by opening one of its cards", () => {
+    const storage = memoryStorage();
+    const ctx = storeWith(storage);
+    applyProjectSnapshot(ctx, prototype);
+    go(ctx, "project", "mobile");
+    expect(storage.values.get(LAST_PROJECT_KEY)).toBe("mobile");
+    go(ctx, "home");
+    expect(storage.values.get(LAST_PROJECT_KEY)).toBe("mobile");
+    go(ctx, "project");
+    const web = ctx.S.cards.find((card) => card.p === "web");
+    if (!web) throw new Error("the prototype has a web card");
+    openCard(ctx, web.id);
+    expect(storage.values.get(LAST_PROJECT_KEY)).toBe("web");
   });
 
   it("closes the open card when its project goes", () => {

@@ -10,9 +10,11 @@ import type { ApiClient } from "~/data/api-client";
 import { isRecord } from "~/data/guards";
 import { type DaemonProject, toDaemonProject } from "~/data/mappers/project";
 import { isDaemon } from "~/data/sections";
+import { readKey } from "~/data/storage";
 import { type Ctx, sectionsOf } from "~/mock/context";
 import { feed } from "~/mock/engine";
 import type { State } from "~/mock/state-types";
+import { LAST_PROJECT_KEY } from "~/mock/storage";
 import type { Project } from "~/mock/types";
 import { dropMock, reconcileMock } from "./reservoir";
 import type { Syncer } from "./syncer";
@@ -89,10 +91,16 @@ export function ensureProjectState(
   if (!limitsOnDaemon && !(id in S.limits)) S.limits[id] = { ...NEW_PROJECT_LIMITS };
 }
 
-/** The project shown on Home and in the settings must be one that exists. */
-function repairRoute(S: State): void {
+/**
+ * The project shown on Home and in the settings must be one that exists: the one the person last
+ * opened on this device if it is still there, else the first.
+ */
+function repairRoute(ctx: Ctx): void {
+  const { S } = ctx;
   if (S.route.pid && S.projects.some((project) => project.id === S.route.pid)) return;
-  S.route.pid = S.projects[0]?.id ?? null;
+  const saved = readKey(ctx.env.storage, LAST_PROJECT_KEY);
+  const last = S.projects.find((project) => project.id === saved);
+  S.route.pid = last?.id ?? S.projects[0]?.id ?? null;
 }
 
 /** After the project list changed: its mock records, its per-project state, and where the screen points. */
@@ -100,7 +108,7 @@ function settle(ctx: Ctx): void {
   reconcileMock(ctx);
   const limitsOnDaemon = isDaemon("S26b", sectionsOf(ctx.env));
   for (const project of ctx.S.projects) ensureProjectState(ctx.S, project, limitsOnDaemon);
-  repairRoute(ctx.S);
+  repairRoute(ctx);
 }
 
 /**
