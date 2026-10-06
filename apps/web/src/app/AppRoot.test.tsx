@@ -45,6 +45,18 @@ describe("AppRoot layout", () => {
     expect(screen.queryByRole("toolbar", { name: "Prototype controls" })).toBeNull();
   });
 
+  it("tags the root with the size band as the window is resized", () => {
+    render(() => <AppRoot />);
+    resizeTo(PHONE_PX);
+    expect(appRoot()).toHaveAttribute("data-bp", "base");
+    resizeTo(1100);
+    expect(appRoot()).toHaveAttribute("data-bp", "lg");
+    expect(appRoot()).toHaveAttribute("data-size", "tablet");
+    resizeTo(1280);
+    expect(appRoot()).toHaveAttribute("data-bp", "xl");
+    expect(appRoot()).toHaveAttribute("data-size", "desktop");
+  });
+
   it("draws the sidebar and the main column, but no bottom navigation, on a desktop window", () => {
     render(() => <AppRoot />);
     resizeTo(DESKTOP_PX);

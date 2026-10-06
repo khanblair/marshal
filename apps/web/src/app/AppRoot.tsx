@@ -20,7 +20,7 @@ import { PhoneNav } from "./PhoneNav";
 import { PhoneSheet } from "./PhoneSheet";
 import { CommandPalette } from "./palette/CommandPalette";
 import { Sidebar } from "./Sidebar";
-import { isPhone, isTouch, sizeName } from "./shell-layout";
+import { band, isPhone, isTouch, sizeName } from "./shell-layout";
 import { TopBar } from "./TopBar";
 import { Toasts } from "./toasts/Toasts";
 import { useWindowViewport } from "./use-window-viewport";
@@ -34,7 +34,10 @@ function AppFrame() {
       <Show when={!isPhone()}>
         <Sidebar />
       </Show>
-      <div class="flex-1 min-w-0 flex flex-col relative">
+      <div
+        class="flex-1 min-w-0 flex flex-col relative"
+        classList={{ "pb-[var(--safe-bottom)]": !isPhone() }}
+      >
         <Show when={M.S.connection?.state === "reconnecting"}>
           <OfflineNotice />
         </Show>
@@ -52,7 +55,7 @@ function AppFrame() {
       <NewProjectDialog />
       <RemoveProjectDialog />
       <Show when={M.S.onboarding}>
-        <div class="absolute inset-0 z-onboarding">
+        <div class="absolute inset-0 z-onboarding bg-canvas pt-[var(--safe-top)]">
           <Onboarding />
         </div>
       </Show>
@@ -82,9 +85,10 @@ export function AppRoot() {
       <div
         data-app-root="1"
         data-size={sizeName()}
+        data-bp={band()}
         data-touch={isTouch() ? "1" : "0"}
         data-connection={connection()}
-        class="absolute inset-0 flex bg-canvas text-primary font-sans text-body leading-5 overflow-hidden"
+        class="absolute inset-0 flex bg-canvas text-primary font-sans text-body leading-5 overflow-hidden pl-[var(--safe-left)] pr-[var(--safe-right)]"
       >
         <Switch>
           <Match when={connection() === "unreachable"}>

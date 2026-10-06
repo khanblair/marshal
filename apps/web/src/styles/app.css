@@ -10,6 +10,8 @@
 @import "@marshal/tokens/tokens.css";
 @import "tailwindcss/utilities.css" layer(utilities);
 @source "../../../../packages/ui/src";
+/* `phone:` styles an element on the phone layout, unless it opted out with data-compact. */
+@custom-variant phone ([data-size="phone"] &:not([data-compact]));
 
 @layer base {
   *,
@@ -61,6 +63,33 @@
   ::placeholder {
     color: var(--color-text-muted);
   }
+  :root {
+    /* Safe areas, defined once. A native shell sets --native-safe-* when its WebView reports 0. */
+    --safe-top: var(--native-safe-top, env(safe-area-inset-top, 0px));
+    --safe-right: var(--native-safe-right, env(safe-area-inset-right, 0px));
+    --safe-bottom: var(--native-safe-bottom, env(safe-area-inset-bottom, 0px));
+    --safe-left: var(--native-safe-left, env(safe-area-inset-left, 0px));
+  }
+  /* Density: the least height a control gets, by layout. 0 leaves the control at its own size. */
+  [data-app-root] {
+    --control-h: 32px;
+    --control-min: 0px;
+    --tab-min: 0px;
+    --row-h: 36px;
+  }
+  [data-size="phone"] {
+    --control-h: 30px;
+    --control-min: var(--control-h);
+    --tab-min: var(--control-h);
+    --row-h: 36px;
+  }
+  @media (pointer: coarse) {
+    [data-size="tablet"] {
+      --control-min: 40px;
+      --tab-min: 36px;
+      --row-h: 44px;
+    }
+  }
   [data-size="phone"] .text-badge,
   [data-size="phone"] .text-caption {
     /* biome-ignore lint/complexity/noImportantStyles: overrides the design's text-badge and text-caption sizes, as the design's phone rule does */
@@ -70,12 +99,14 @@
   }
   [data-touch="1"] button:not([data-compact]),
   [data-touch="1"] select,
-  [data-touch="1"] input:not([type="checkbox"]),
-  [data-touch="1"] [role="tab"] {
-    min-height: 44px;
+  [data-touch="1"] input:not([type="checkbox"]) {
+    min-height: var(--control-min);
+  }
+  [data-touch="1"] [role="tab"]:not([data-compact]) {
+    min-height: var(--tab-min);
   }
   [data-touch="1"] button[aria-label]:not([data-compact]) {
-    min-width: 44px;
+    min-width: var(--control-min);
   }
   @media (prefers-reduced-motion: reduce) {
     *,
