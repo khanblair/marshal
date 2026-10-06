@@ -113,7 +113,7 @@ export function SessionSettings(props: SessionSettingsProps) {
                   onChange={(e) =>
                     M.setSetting(props.card.id, setting().key, e.currentTarget.value)
                   }
-                  class={`${M.mobile ? "h-11!" : "h-7!"} px-1.5! text-small min-w-0`}
+                  class={`h-7! phone:h-(--control-h)! px-1.5! text-small min-w-0`}
                 />
               </Field>
             )}

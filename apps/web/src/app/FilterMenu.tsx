@@ -15,7 +15,7 @@ export function FilterMenu() {
         type="button"
         onClick={() => toggleMenu(MENU)}
         aria-expanded={M.S.menu === MENU}
-        class="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-sm border border-dashed border-border-strong bg-transparent text-secondary text-small font-medium whitespace-nowrap hover:text-primary hover:bg-surface-hover"
+        class="inline-flex items-center gap-1.5 h-8 phone:h-(--control-h) px-2.5 rounded-sm border border-dashed border-border-strong bg-transparent text-secondary text-small font-medium whitespace-nowrap hover:text-primary hover:bg-surface-hover"
       >
         <Icon name="list-filter" size={14} />
         Add filter

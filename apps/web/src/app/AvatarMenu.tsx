@@ -40,7 +40,7 @@ export function AvatarMenu() {
         onClick={() => M.set({ menu: open() ? null : MENU_NAME, noticesOpen: false })}
         aria-label="Profile and settings"
         aria-expanded={open()}
-        class="size-9 inline-flex items-center justify-center border-none rounded-full bg-transparent p-0 hover:bg-surface-hover"
+        class="size-9 phone:size-(--control-h) inline-flex items-center justify-center border-none rounded-full bg-transparent p-0 hover:bg-surface-hover"
       >
         <Avatar
           size={28}

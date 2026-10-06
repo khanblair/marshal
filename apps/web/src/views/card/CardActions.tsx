@@ -23,7 +23,7 @@ function ActionButton(props: { action: CardAction }) {
       onClick={() => props.action.run()}
       disabled={props.action.disabled}
       title={props.action.label}
-      class={`${BASE} ${M.mobile ? "h-11" : "h-7"} ${props.action.primary ? PRIMARY : SECONDARY}`}
+      class={`${BASE} h-7 phone:h-(--control-h) ${props.action.primary ? PRIMARY : SECONDARY}`}
     >
       <Icon name={props.action.icon} size={14} />
       {props.action.label}

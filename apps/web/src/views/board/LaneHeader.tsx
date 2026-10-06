@@ -19,7 +19,7 @@ export function LaneHeader(props: LaneHeaderProps) {
       type="button"
       onClick={toggle}
       aria-expanded={!props.lane.collapsed}
-      class="sticky left-0 self-start inline-flex items-center gap-2 h-8 mt-3 mb-1.5 px-2 border-none rounded-sm bg-transparent font-semibold hover:bg-surface-hover"
+      class="sticky left-0 self-start inline-flex items-center gap-2 h-8 phone:h-(--control-h) mt-3 mb-1.5 px-2 border-none rounded-sm bg-transparent font-semibold hover:bg-surface-hover"
     >
       <Icon name={props.lane.collapsed ? "chevron-right" : "chevron-down"} />
       <span class={mono() ? "font-mono text-small" : undefined}>{props.lane.key}</span>

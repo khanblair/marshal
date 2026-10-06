@@ -41,7 +41,7 @@ export function CardTabs(props: CardTabsProps) {
               aria-selected={selected()}
               tabindex={selected() ? "0" : "-1"}
               onClick={() => M.setTab(tab().key)}
-              class={`${TAB} ${M.mobile ? "h-11" : "h-9"} ${
+              class={`${TAB} h-9 phone:h-(--control-h) ${
                 selected()
                   ? "border-b-ink font-semibold text-primary"
                   : "border-b-transparent font-medium text-secondary"

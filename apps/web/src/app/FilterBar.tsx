@@ -103,7 +103,7 @@ export function FilterBar() {
           <button
             type="button"
             onClick={() => M.clearFilters()}
-            class="flex-none h-8 px-2 border-none rounded-sm bg-transparent text-secondary text-small whitespace-nowrap hover:bg-surface-hover"
+            class="flex-none h-8 phone:h-(--control-h) px-2 border-none rounded-sm bg-transparent text-secondary text-small whitespace-nowrap hover:bg-surface-hover"
           >
             Clear filters
           </button>

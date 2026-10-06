@@ -11,7 +11,7 @@ export interface CommentComposerProps {
 }
 
 const ATTACH_LABEL =
-  "inline-flex items-center gap-1.5 h-8 px-2 rounded-sm text-secondary text-small cursor-pointer hover:bg-surface-hover";
+  "inline-flex items-center gap-1.5 h-8 phone:h-(--control-h) px-2 rounded-sm text-secondary text-small cursor-pointer hover:bg-surface-hover";
 const HIDDEN_INPUT = "absolute w-px h-px opacity-0";
 
 const attachmentIcon = (kind: string): string => {
@@ -97,7 +97,7 @@ export function CommentComposer(props: CommentComposerProps) {
           <button
             type="button"
             onClick={takePhoto}
-            class="inline-flex items-center gap-1.5 h-8 px-2 border-none rounded-sm bg-transparent text-secondary text-small hover:bg-surface-hover"
+            class="inline-flex items-center gap-1.5 h-8 phone:h-(--control-h) px-2 border-none rounded-sm bg-transparent text-secondary text-small hover:bg-surface-hover"
           >
             <Icon name="image" size={14} />
             Take photo
@@ -106,7 +106,7 @@ export function CommentComposer(props: CommentComposerProps) {
         <button
           type="button"
           onClick={toggleLink}
-          class="inline-flex items-center gap-1.5 h-8 px-2 border-none rounded-sm bg-transparent text-secondary text-small hover:bg-surface-hover"
+          class="inline-flex items-center gap-1.5 h-8 phone:h-(--control-h) px-2 border-none rounded-sm bg-transparent text-secondary text-small hover:bg-surface-hover"
         >
           <Icon name="link" size={14} />
           Add link

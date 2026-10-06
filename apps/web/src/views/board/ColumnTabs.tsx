@@ -27,7 +27,7 @@ export function ColumnTabs(props: ColumnTabsProps) {
               aria-selected={selected()}
               onClick={() => M.set({ mobileCol: col })}
               class={cx(
-                "inline-flex flex-none items-center gap-1.5 h-11 px-3 rounded-sm border text-small font-semibold text-primary",
+                "inline-flex flex-none items-center gap-1.5 h-(--control-h) px-3 rounded-sm border text-small font-semibold text-primary",
                 selected() ? "border-ink bg-surface-selected" : "border-border bg-surface",
               )}
             >
