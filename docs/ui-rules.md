@@ -335,7 +335,7 @@ Rules:
 - Status changes on the board are announced to screen readers politely, grouped, without flooding.
 - Dialogs trap focus and return it to where it was when closed.
 - Motion follows the OS reduced motion setting.
-- Tap areas on touch screens are at least 44 px where there is room, and never below 24 px. A control may look smaller than its tap area (see Density in `ui-tokens.md`).
+- Controls on a phone are 30 px, and at least 40 px on touch tablets, never below 24 px. See Density in `ui-tokens.md`.
 
 ---
 
@@ -385,7 +385,7 @@ The six bands and what changes inside each layout are in `ui-tokens.md` (Breakpo
 
 ### 9.3 Touch and visibility
 
-- Tap areas are at least 44 px on tablets and phones, through the density variables and the tap-area extension in `ui-tokens.md`. Controls are sized for the layout (36 px on phones, 40 px on touch tablets), not all stretched to 44 px.
+- Controls are sized for the layout: 30 px on phones (`--control-h`), at least 40 px on touch tablets, and their own size with a mouse (`ui-tokens.md`). This is above WCAG 2.2 AA's 24 px minimum.
 - Drag and drop has a touch-friendly option on every size: a "Move to" action in the card menu.
 - Approvals, plan review, merges, sleep and wake, and bypass controls are always reachable within two taps from the notice or the card.
 - Text never drops below 13 px on phones. Nothing is hidden only because the screen is small. If something does not fit, it moves into a menu or a scrollable row.

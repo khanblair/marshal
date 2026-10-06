@@ -344,23 +344,45 @@ Rules:
 
 ### Density
 
-Control sizes are variables on the app root. Components read them and never set a fixed height. The set depends on the layout and on the pointer: the phone layout always uses the phone column, the tablet layout uses the tablet column only on a touch screen (a mouse in a tablet-sized window gets the desktop column), and the desktop layout uses the desktop column.
+On a phone every text button, icon button, input, select, and non-compact tab or segment is one height: `--control-h`, 30 px. Components keep their own sizes for desktop (Button 28, 32, or 36, Input 32); the `phone:` variant in `apps/web/src/styles/app.css` swaps in `--control-h` when the app root has `data-size="phone"` and the element has not opted out with `data-compact`. A raw `<button>` or `<input>` that sets its own height does the same: `h-8 phone:h-(--control-h)`.
 
-| Variable | Used by | Desktop | Tablet (touch) | Phone |
+| Variable | Used by | Desktop | Tablet (touch screen) | Phone |
 |---|---|---|---|---|
-| `--control-h` | Button, Input, Select | 32 px | 40 px | 36 px |
-| `--icon-btn` | IconButton | 28 px | 40 px | 36 px |
-| `--tab-h` | Tabs, SegmentedControl | 26 px | 36 px | 32 px |
-| `--row-h` | Menu and list rows | 36 px | 44 px | 40 px |
-| `--gutter` | Screen side padding | 16 px | 16 px | 12 px |
+| `--control-h` | Button, IconButton, Input, Select, segments (via `phone:`); raw controls | 32 px | 32 px | 30 px |
+| `--control-min` | Least height of any button, select, or input (min width too for icon buttons) | 0 (own size) | 40 px | 30 px |
+| `--tab-min` | Tabs and segments (`role="tab"`) | 0 | 36 px | 30 px |
+| `--row-h` | Rows in bottom sheets, menus, and list rows | 36 px | 44 px | 36 px |
 
-A control can look smaller than its tap area. On touch screens an invisible extension brings the tap area to 44 px where the neighbours leave room, and never below 24 px (WCAG 2.2 AA). `compact` opts a control out and keeps its own `size`.
+- The tablet column applies only when the pointer is coarse (`@media (pointer: coarse)`). A mouse in a tablet-sized window gets the desktop column, so a small laptop window stays compact.
+- `compact` (`data-compact="1"`) keeps a control at its own size on every layout. Use it only for a control that must stay small on a phone. No tab filter uses it now.
+- Tab filters: the view tabs, chart range, calendar layout, chat or terminal, theme, new project source, and the two connect dialogs (`SegmentedControl`, every size including 24 and 26), the card panel tabs, and the board column tabs all follow `--control-h` on a phone and `--tab-min` on a touch tablet. None sets its own touch size.
+- Change the phone size in one place: `--control-h` in `app.css`. Nothing sets a phone control height by hand: a test fails on `M.mobile ? "h-11" : ...` style ternaries.
+- There is no 44 px rule. 30 px clears WCAG 2.2 AA's 24 px minimum. Dense rows (filter bar, tabs) are not given invisible extensions, because CSS cannot tell whether the neighbours leave room and the tap areas would overlap.
+
+### Type by band
+
+Body, small, and the 13 px phone floor are the same in every band. Only headings and big numbers shrink, from `textSizesByBand` in `tokens.ts`, which `build-css.ts` writes as `[data-bp="..."]` blocks in `tokens.css`. The app root carries `data-bp`, so every size below it follows.
+
+| Token | base (<640) | sm (640) | md and up (768+) |
+|---|---|---|---|
+| `text-tile` | 24 | 26 | 28 |
+| `text-display` | 22 | 24 | 24 |
+| `text-view-title` | 20 | 22 | 22 |
+| `text-title` | 17 | 18 | 18 |
+| `text-subtitle` and smaller | unchanged | unchanged | unchanged |
+
+On phones `text-caption` and `text-badge` are forced to 13 px with an 18 px line (the existing rule in `app.css`).
 
 ### Safe areas
 
-The page sets `viewport-fit=cover`, and `--safe-top`, `--safe-right`, `--safe-bottom`, and `--safe-left` are defined once on the root from `env(safe-area-inset-*)`. Components use these variables and never `env()` directly. The top bar is `size-topbar` plus `--safe-top`, the bottom navigation is `size-mobile-nav` plus `--safe-bottom`, and every full-screen surface (card panel, command palette, sheets, dialogs, toasts) adds the inset on the edge it touches. The root pads `--safe-left` and `--safe-right` for landscape cutouts.
+The page sets `viewport-fit=cover`. `--safe-top`, `--safe-right`, `--safe-bottom`, and `--safe-left` are defined once on `:root` as `var(--native-safe-*, env(safe-area-inset-*, 0px))`. A native shell can set `--native-safe-*` if its WebView reports 0, with no web change. Components use these variables and never `env()` directly (a test enforces it).
 
-Rollout is in `progress-tracker.md` (2026-10-06): bands and safe areas first, then density.
+- Top bar, sidebar header, and the loading skeleton: `size-topbar` plus `--safe-top`.
+- Bottom navigation, sheets, dialogs, toasts, tour popover, new-chat form, onboarding footer: `--safe-bottom`.
+- The full-screen card panel, command palette, sign-in and connection screens, notices panel, and onboarding: the top inset, and the bottom one where they reach the bottom.
+- The app root pads `--safe-left` and `--safe-right` for landscape cutouts. On tablet and desktop the main column pads `--safe-bottom`.
+
+Built 2026-10-06; see the decision of that date in `progress-tracker.md`.
 
 ---
 
