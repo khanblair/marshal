@@ -38,7 +38,7 @@ export function RenameInput(props: RenameInputProps) {
       value={initial}
       onBlur={(event) => finish(event.currentTarget.value)}
       aria-label="Chat name"
-      class="m-1 h-9! min-w-0 flex-1 px-2! py-0 font-semibold"
+      class="m-1 h-9! phone:h-(--control-h)! min-w-0 flex-1 px-2! py-0 font-semibold"
     />
   );
 }

@@ -20,7 +20,7 @@ function KindPill(props: { label: string; selected: boolean; onSelect: () => voi
       type="button"
       aria-pressed={props.selected}
       onClick={() => props.onSelect()}
-      class={`h-8 px-3 rounded-full border text-small font-medium ${
+      class={`h-8 phone:h-(--control-h) px-3 rounded-full border text-small font-medium ${
         props.selected
           ? "border-ink bg-ink text-on-ink"
           : "border-border-strong bg-surface text-primary"
@@ -111,7 +111,7 @@ export function ActivityPage(props: ActivityPageProps) {
           type="button"
           disabled={loadingMore()}
           onClick={() => void loadMore()}
-          class="h-8 self-start px-3 text-small font-medium text-secondary hover:text-primary disabled:opacity-60"
+          class="h-8 phone:h-(--control-h) self-start px-3 text-small font-medium text-secondary hover:text-primary disabled:opacity-60"
         >
           {loadingMore() ? "Loading…" : "Load more"}
         </button>

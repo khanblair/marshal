@@ -22,7 +22,7 @@ export function PhoneActionButtons(props: PhoneActionButtonsProps) {
               e.stopPropagation();
               action().run();
             }}
-            class="min-h-11 px-3 rounded-sm border border-border-strong bg-surface text-small inline-flex items-center gap-1.5"
+            class="min-h-(--control-h) px-3 rounded-sm border border-border-strong bg-surface text-small inline-flex items-center gap-1.5"
           >
             <Icon name={action().icon} size={ICON_PX} />
             {action().label}

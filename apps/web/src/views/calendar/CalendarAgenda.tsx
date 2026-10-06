@@ -13,7 +13,7 @@ function AgendaItem(props: { item: CalItem }) {
     <button
       type="button"
       onClick={() => openCalItem(props.item)}
-      class="w-full flex items-center gap-2.5 min-h-11 p-0 border-0 border-b border-border bg-transparent text-left"
+      class="w-full flex items-center gap-2.5 min-h-(--row-h) p-0 border-0 border-b border-border bg-transparent text-left"
     >
       <span class="w-12 flex-none text-small text-secondary tabular-nums">
         {props.item.time || "Due"}

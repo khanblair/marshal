@@ -58,11 +58,14 @@ describe("SettingsView shell", () => {
     expect(within(nav()).getAllByRole("button")).toHaveLength(SECTIONS.length);
   });
 
-  it("puts the list on top as a row on phones, with taller buttons", () => {
+  it("puts the list on top as a row on phones, with row-height buttons", () => {
     const { container } = showSettings("general", {}, PHONE_WIDTH_PX);
     expect(container.firstElementChild).toHaveClass("flex-col");
     expect(nav()).toHaveClass("flex-row", "border-b");
-    expect(within(nav()).getByRole("button", { name: "General" })).toHaveClass("min-h-11");
+    expect(within(nav()).getByRole("button", { name: "General" })).toHaveClass(
+      "min-h-8",
+      "phone:min-h-(--row-h)",
+    );
   });
 
   it("puts the list in a 232 px rail beside the page on larger screens", () => {

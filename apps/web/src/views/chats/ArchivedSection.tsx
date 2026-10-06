@@ -27,7 +27,7 @@ export function ArchivedSection(props: ArchivedSectionProps) {
           M.S.archOpen[pid()] = !M.S.archOpen[pid()];
         }}
         aria-expanded={open()}
-        class="mt-2 flex h-8 w-full items-center gap-1.5 border-0 border-t border-border bg-transparent px-2 py-0 text-left text-small font-medium text-secondary"
+        class="mt-2 flex h-8 phone:h-(--control-h) w-full items-center gap-1.5 border-0 border-t border-border bg-transparent px-2 py-0 text-left text-small font-medium text-secondary"
       >
         <Icon name={open() ? "chevron-down" : "chevron-right"} size={CHEVRON_PX} />
         Archived

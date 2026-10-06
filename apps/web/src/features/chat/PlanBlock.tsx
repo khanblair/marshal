@@ -85,7 +85,7 @@ function PlanActions(props: PlanBlockProps) {
       <button
         type="button"
         onClick={() => props.item.reject?.()}
-        class="h-8 px-3 rounded-sm border border-transparent bg-transparent text-status-danger-text font-medium hover:bg-status-danger-subtle"
+        class="h-8 phone:h-(--control-h) px-3 rounded-sm border border-transparent bg-transparent text-status-danger-text font-medium hover:bg-status-danger-subtle"
       >
         Reject
       </button>

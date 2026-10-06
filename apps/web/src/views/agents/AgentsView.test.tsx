@@ -318,11 +318,11 @@ describe("AgentsView phone list", () => {
     );
   });
 
-  it("has 44 px action buttons that do not open the card", () => {
+  it("has action buttons at the phone control height that do not open the card", () => {
     render(() => <AgentsView />);
     const pin = screen.getByRole("button", { name: "Pin #209" });
     expect(pin).toHaveAttribute("data-compact", "1");
-    expect(pin).toHaveClass("min-h-11");
+    expect(pin).toHaveClass("min-h-(--control-h)");
     fireEvent.click(pin);
     expect(M.card("mobile#209")?.pinned).toBe(true);
     expect(M.S.openId).toBeNull();

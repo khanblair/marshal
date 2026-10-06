@@ -29,7 +29,7 @@ export function SettingsNav() {
               onClick={() => M.set({ settingsSection: section.key })}
               class={cx(
                 "flex-none flex items-center gap-2 py-0 px-2.5 border-none rounded-sm text-left whitespace-nowrap hover:bg-surface-hover",
-                M.mobile ? "min-h-11" : "min-h-8",
+                "min-h-8 phone:min-h-(--row-h)",
                 current() ? "bg-surface-selected font-semibold" : "bg-transparent font-medium",
               )}
             >
