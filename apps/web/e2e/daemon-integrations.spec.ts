@@ -16,8 +16,13 @@ const CONNECTIONS = [
   "Trello",
   "Google Calendar",
   "Gmail",
+  "Google Drive",
+  "Google Docs",
+  "Google Sheets",
+  "Google Slides",
   "Telegram",
   "Discord",
+  "ntfy",
   "Obsidian",
 ];
 /** The prototype's own sentence for the GitHub row, which nothing on the daemon answers. */
@@ -65,8 +70,13 @@ test.describe("the connections the daemon owns", () => {
       "trello",
       "gcal",
       "gmail",
+      "gdrive",
+      "gdocs",
+      "gsheets",
+      "gslides",
       "telegram",
       "discord",
+      "ntfy",
       "obsidian",
     ]);
     expect(wire.find((row) => row.id === "github")).toMatchObject({ st: "none", detail: "" });

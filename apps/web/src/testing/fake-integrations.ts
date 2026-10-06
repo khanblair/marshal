@@ -41,6 +41,7 @@ const MS_PER_SECOND = 1000;
 const GITHUB = "github";
 const OBSIDIAN = "obsidian";
 const NTFY = "ntfy";
+const GDRIVE = "gdrive";
 const BAD_REQUEST = 400;
 const SAVE_PATH = /^\/v1\/integrations\/([^/]+)$/;
 const CONNECT_PATH = "/v1/integrations/github/connect";
@@ -68,6 +69,18 @@ const UNTESTED_DETAIL = "Connected. Run the test to check it.";
  */
 const OBSIDIAN_DETAIL = "Vault at ~/fake/vault.";
 
+/** The four Google file connections: the name each one is shown by, and what its test is filed under. */
+export const GOOGLE_FILE_SERVICES: Readonly<Record<string, { name: string; kind: string }>> = {
+  gdrive: { name: "Google Drive", kind: "drive" },
+  gdocs: { name: "Google Docs", kind: "docs" },
+  gsheets: { name: "Google Sheets", kind: "sheets" },
+  gslides: { name: "Google Slides", kind: "slides" },
+};
+
+/** The folder Marshal puts the files it makes in, until Google Drive's own setting says another. */
+export const DEFAULT_DRIVE_FOLDER = "Marshal";
+const FOLDER_NAME = /^[^\p{Cc}]{1,100}$/u;
+
 /**
  * Every connection the daemon knows, in the order the settings screen shows them, with the kind each
  * one's test is filed under. It mirrors `daemon/internal/integrations/integrations.go`'s `known()`.
@@ -77,6 +90,7 @@ const KNOWN: readonly { id: string; kind: string }[] = [
   { id: "trello", kind: "trello" },
   { id: "gcal", kind: "calendar" },
   { id: "gmail", kind: "gmail" },
+  ...Object.entries(GOOGLE_FILE_SERVICES).map(([id, { kind }]) => ({ id, kind })),
   { id: "telegram", kind: "telegram" },
   { id: "discord", kind: "discord" },
   { id: "ntfy", kind: "ntfy" },
@@ -110,6 +124,10 @@ export interface IntegrationStore {
    * and a secret stored, and its sentence is what it shows until a test replaces it.
    */
   rows: Integration[];
+  /** The name of the Drive folder Marshal puts the files it makes in. */
+  driveFolder: string;
+  /** Connections with a saved setting and no access from Google yet: the row says to grant it. */
+  ungranted: string[];
   /** When each connection was last tested, in ms. No entry means it was never tested. */
   testedAt: Record<string, number>;
   /** The last test's own result, by connection id. */
@@ -177,6 +195,8 @@ export function createIntegrationStore(options: FakeIntegrationOptions = {}): In
       userCode: "WDJB-MJHT",
     },
     rows: structuredClone([...(options.integrations ?? knownRows())]),
+    driveFolder: DEFAULT_DRIVE_FOLDER,
+    ungranted: [],
     testedAt: {},
     lastTest: {},
     detectedChat: options.detectedChat ?? {
@@ -253,7 +273,11 @@ function listAnswer(store: IntegrationStore): Response {
  * saved one carries what its last test decided (`integrations.go`'s `rowToWire`).
  */
 function wireRow(store: IntegrationStore, row: Integration): Integration {
-  if (row.st === "none") return { id: row.id, kind: row.kind, st: "none", detail: "" };
+  if (row.st === "none") {
+    const name = GOOGLE_FILE_SERVICES[row.id]?.name;
+    const detail = name && store.ungranted.includes(row.id) ? grantDetail(name) : "";
+    return { id: row.id, kind: row.kind, st: "none", detail };
+  }
   const last = store.lastTest[row.id];
   return {
     id: row.id,
@@ -285,9 +309,31 @@ function detailFor(row: Integration, last: TestResult | undefined): string {
   return summary ? summary.message : "Connected.";
 }
 
+/** What a Google connection says while its settings are saved and Google has not been asked yet. */
+const grantDetail = (name: string): string => `Grant access to finish connecting ${name}.`;
+
+/** The Drive folder's name: one to a hundred characters, none of them a control character. */
+function folderRefusal(folder: unknown): string | undefined {
+  return typeof folder === "string" && FOLDER_NAME.test(folder)
+    ? undefined
+    : "The folder name must be 1 to 100 characters, with no control characters.";
+}
+
+/** Google Drive's one setting, the folder. It is saved whether or not Google was asked yet. */
+function saveDrive(store: IntegrationStore, request: FakeRequest): Response {
+  const { folder } = bodyOf(request);
+  const refusal = folderRefusal(folder);
+  if (refusal) return errorAnswer(STATUS.badRequest, "invalid_argument", refusal);
+  store.driveFolder = String(folder);
+  const row = find(store, GDRIVE);
+  if (row?.st === "none" && !store.ungranted.includes(GDRIVE)) store.ungranted.push(GDRIVE);
+  return listAnswer(store);
+}
+
 function saveConnection(store: IntegrationStore, id: string, request: FakeRequest): Response {
-  // Only ntfy has a generic save shape here (GitHub's is the token route), and an id with none is
-  // refused rather than silently accepted, exactly as the daemon's `saveIntegration` refuses it.
+  // Only ntfy and Google Drive have a generic save shape here (GitHub's is the token route), and an
+  // id with none is refused rather than silently accepted, as the daemon's `saveIntegration` does.
+  if (id === GDRIVE) return saveDrive(store, request);
   if (id !== NTFY) return notFound();
   const row = find(store, id);
   if (!row) return notFound();
@@ -305,6 +351,7 @@ function removeConnection(store: IntegrationStore, id: string): Response {
   if (!row) return notFound();
   delete store.testedAt[id];
   delete store.lastTest[id];
+  store.ungranted = store.ungranted.filter((entry) => entry !== id);
   if (id === GITHUB) store.github.flow = null;
   row.st = "none";
   row.detail = "";
@@ -379,9 +426,28 @@ function obsidianChecks(_row: Integration): TestCheck[] {
   ];
 }
 
+/** The Google file connections' own checks: access, Drive, and the one API each is for. */
+function googleFileChecks(row: Integration): TestCheck[] {
+  const name = GOOGLE_FILE_SERVICES[row.id]?.name ?? "";
+  const folder = `“${DEFAULT_DRIVE_FOLDER}”`;
+  const summary =
+    row.id === GDRIVE
+      ? `${name} works. Files go in the folder ${folder}.`
+      : `${name} works. Marshal makes documents in the folder ${folder} and reads any you share by link.`;
+  return [
+    { name: SUMMARY, state: "passed", message: summary },
+    { name: "Access", state: "passed", message: "Google accepted Marshal's access." },
+    { name: "Drive", state: "passed", message: "Google Drive answered." },
+    row.id === GDRIVE
+      ? { name: "Folder", state: "passed", message: `The folder ${folder} is there.` }
+      : { name: name.replace("Google ", ""), state: "passed", message: `${name} answered.` },
+  ];
+}
+
 /** Which connection's checks to run, by id, so testing one connection never answers another's shape. */
 function defaultChecksFor(row: Integration): TestCheck[] {
   if (row.id === NTFY) return ntfyChecks();
+  if (GOOGLE_FILE_SERVICES[row.id]) return googleFileChecks(row);
   return row.id === OBSIDIAN ? obsidianChecks(row) : githubChecks(row);
 }
 

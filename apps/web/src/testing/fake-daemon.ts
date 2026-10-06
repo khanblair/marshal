@@ -13,6 +13,7 @@ import type {
   Chat,
   Checkpoint,
   FeedEntry,
+  GoogleFile,
   Health,
   Integration,
   IntegrationState,
@@ -48,6 +49,11 @@ import { answerCardPanelRoute, type CardPanelStore, createCardPanelStore } from 
 import { answerCardRoute, type CardStore, type FakeCardDiff, type HistoryRow } from "./fake-cards";
 import { answerChatRoute, type ChatMessageRow, type ChatStore } from "./fake-chats";
 import { answerCIRoute, type CIStore, createCIStore } from "./fake-ci";
+import {
+  answerGoogleFilesRoute,
+  createGoogleFilesStore,
+  type GoogleFilesStore,
+} from "./fake-google-files";
 import {
   answerIntegrationRoute,
   createIntegrationStore,
@@ -134,6 +140,8 @@ export interface FakeDaemonOptions {
   integrations?: readonly Integration[];
   /** The checks a connection's test answers with. A passing GitHub test by default. */
   integrationChecks?: (row: Integration) => TestCheck[];
+  /** The files Marshal made in Google it starts with (sections S29i to S29l), newest first. None by default. */
+  googleFiles?: readonly GoogleFile[];
   /** Refuses a pasted GitHub token with its own sentence, the way GitHub's own check does. */
   integrationSaveRefused?: (id: string, body: Record<string, unknown>) => string | undefined;
   /** The cost and awake ceilings it starts with (sections S19b and S26b). The golden list by default. */
@@ -198,6 +206,8 @@ export interface FakeDaemon {
   providers: ProviderStore;
   /** The connection rows it holds now and their stored tests (section S29a, B6.1 and B6.7). */
   integrations: IntegrationStore;
+  /** The files Marshal made in Google it holds now (sections S29i to S29l). */
+  googleFiles: GoogleFilesStore;
   /** The cost and awake ceilings it holds now (sections S19b and S26b). */
   limits: LimitsStore;
   /** The role templates and the projects that keep their own version of them it holds now (S27). */
@@ -398,6 +408,7 @@ interface Router {
   me: MeStore;
   providers: ProviderStore;
   integrations: IntegrationStore;
+  googleFiles: GoogleFilesStore;
   limits: LimitsStore;
   roles: RolesStore;
   notices: NoticesStore;
@@ -590,6 +601,7 @@ function answerSettingsRoutes(
   return (
     answerProviderRoute(router.providers, request) ??
     answerIntegrationRoute(router.integrations, request) ??
+    answerGoogleFilesRoute(router.googleFiles, router.integrations, request) ??
     answerLimitRoute(router.limits, request) ??
     answerRoleRoute(router.roles, request, projectExists) ??
     answerNoticeRoute(router.notices, request) ??
@@ -797,6 +809,7 @@ interface Slices {
   me: MeStore;
   providers: ProviderStore;
   integrations: IntegrationStore;
+  googleFiles: GoogleFilesStore;
   limits: LimitsStore;
   roles: RolesStore;
   notices: NoticesStore;
@@ -852,6 +865,7 @@ function createSlices(
       refuseSave: options.integrationSaveRefused,
       nowMs: () => Date.now() + (options.clockSkewMs ?? 0),
     }),
+    googleFiles: createGoogleFilesStore({ files: options.googleFiles, now }),
     limits: createLimitsStore({ limits: options.limits }),
     roles: createRolesStore({ roles: options.roles, now }),
     notices: createNoticesStore({ notices: options.notices, publish: emit, now }),
@@ -994,6 +1008,7 @@ export function createFakeDaemon(options: FakeDaemonOptions = {}): FakeDaemon {
     me: slices.me,
     providers: slices.providers,
     integrations: slices.integrations,
+    googleFiles: slices.googleFiles,
     limits: slices.limits,
     roles: slices.roles,
     notices: slices.notices,

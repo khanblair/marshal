@@ -38,6 +38,14 @@ const API = [
   "archiveChat",
   "authorizeGmail",
   "authorizeGoogleCalendar",
+  "authorizeGoogleService",
+  "createGoogleDoc",
+  "createGoogleSheet",
+  "createGoogleSlides",
+  "googleFiles",
+  "readGoogleLink",
+  "saveGoogleDrive",
+  "uploadGoogleFile",
   "awake",
   "card",
   "cardLabelOf",
@@ -384,6 +392,17 @@ describe("index.ts boot", () => {
       "setGoogleCalendars",
       "saveQuietDuringEvents",
       "connectGmail",
+      // Google Drive, Docs, Sheets and Slides (S29i to S29l) are the daemon's own too: each asks
+      // Google for its own consent, keeps a folder, and makes or reads files, none of which the
+      // prototype has.
+      "authorizeGoogleService",
+      "googleFiles",
+      "saveGoogleDrive",
+      "createGoogleDoc",
+      "createGoogleSheet",
+      "createGoogleSlides",
+      "uploadGoogleFile",
+      "readGoogleLink",
       // Schedules (S30, B8.1): the daemon's own scheduler, so the prototype's array in the store has
       // no member for adding, editing, removing, or reading one's run history.
       "createSchedule",
