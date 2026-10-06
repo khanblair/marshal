@@ -1,10 +1,9 @@
 package integrations
 
 // This file owns the Google connections: the OAuth client, the consent flow, and the stored tokens
-// (B8.3). Google Calendar and Gmail share one OAuth client, saved under Calendar, but each asks for
-// its own consent and keeps its own token, so a person who only wants the calendar is never asked for
-// Gmail's restricted scope. The calendar's events, and the choice of which calendars to read, are in
-// google_events.go.
+// (B8.3). All six share one client, saved under Calendar, and each asks for its own consent and keeps
+// its own token, so a person who only wants the calendar is never asked for Gmail's restricted scope.
+// googleConnections is the table of them. Events are in google_events.go, files in google_files.go.
 
 import (
 	"context"
@@ -16,6 +15,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -26,6 +26,7 @@ import (
 	"github.com/khanblair/marshal/daemon/internal/integrations/gmailread"
 	"github.com/khanblair/marshal/daemon/internal/integrations/googlecal"
 	"github.com/khanblair/marshal/daemon/internal/integrations/googleclient"
+	"github.com/khanblair/marshal/daemon/internal/integrations/googlefiles"
 	"github.com/khanblair/marshal/daemon/internal/protocol"
 	"github.com/khanblair/marshal/daemon/internal/security"
 	"github.com/khanblair/marshal/daemon/internal/store/db"
@@ -70,9 +71,54 @@ type gcalSecrets struct {
 	Token        *oauth2.Token `json:"token,omitempty"`
 }
 
-// gmailSecrets is Gmail's own keychain entry: its token, granted by its own consent.
-type gmailSecrets struct {
+// googleTokenSecrets is the keychain entry of every Google connection but Calendar: its own token,
+// granted by its own consent, filed under the connection's own id.
+type googleTokenSecrets struct {
 	Token *oauth2.Token `json:"token,omitempty"`
+}
+
+// googleConnection is one Google connection: its id, the kind its row and its test are filed under,
+// the name a person reads, and the scopes its consent asks for and nothing more.
+type googleConnection struct {
+	ID     string
+	Kind   string
+	Name   string
+	Scopes []string
+}
+
+// googleConnections is every Google connection, in the order the settings screen shows them. It is
+// the one place that says which connections share the OAuth client: the consent, the stored token,
+// the scope check, the revoke, and the callback's words all read it.
+func googleConnections() []googleConnection {
+	return []googleConnection{
+		{GCalID, KindGCal, "Google Calendar", []string{googlecal.Scope}},
+		{GmailID, KindGmail, "Gmail", []string{gmailread.Scope}},
+		{GDriveID, KindGDrive, "Google Drive", []string{googlefiles.ScopeDriveFile}},
+		{GDocsID, KindGDocs, "Google Docs", []string{googlefiles.ScopeDocsReadonly, googlefiles.ScopeDriveFile}},
+		{GSheetsID, KindGSheets, "Google Sheets", []string{googlefiles.ScopeSheetsReadonly, googlefiles.ScopeDriveFile}},
+		{GSlidesID, KindGSlides, "Google Slides", []string{googlefiles.ScopeSlidesReadonly, googlefiles.ScopeDriveFile}},
+	}
+}
+
+// googleConnectionOf finds one Google connection by id.
+func googleConnectionOf(id string) (googleConnection, bool) {
+	for _, conn := range googleConnections() {
+		if conn.ID == id {
+			return conn, true
+		}
+	}
+	return googleConnection{}, false
+}
+
+// GoogleName is the name a person reads for a Google connection, or "" when id is not one.
+func GoogleName(id string) string {
+	conn, _ := googleConnectionOf(id)
+	return conn.Name
+}
+
+// IsGoogleFile says id is one of the four file connections: Drive, Docs, Sheets and Slides.
+func IsGoogleFile(id string) bool {
+	return id == GDriveID || id == GDocsID || id == GSheetsID || id == GSlidesID
 }
 
 // pendingConsent is one consent flow that has been started and not finished.
@@ -95,6 +141,11 @@ type googleState struct {
 	mu       sync.Mutex
 	consents map[string]pendingConsent
 	read     readCache
+
+	// folderMu keeps two saves from both making Marshal's folder. folders holds the ids found so far,
+	// by grant and folder name, until a connection changes.
+	folderMu sync.Mutex
+	folders  map[string]string
 }
 
 // configure reads Marshal's own Google client and, for a test, points Google's endpoints elsewhere.
@@ -137,25 +188,14 @@ func (s *Service) GoogleClientInfo(ctx context.Context) (protocol.GoogleClientIn
 	return protocol.GoogleClientInfo{Bundled: s.google.bundled.Valid(), Own: own}, nil
 }
 
-// oauthConfig builds the OAuth2 config for one Google connection, asking for its scope and nothing
+// oauthConfig builds the OAuth2 config for one Google connection, asking for its scopes and nothing
 // else.
 func (s *Service) oauthConfig(id, clientID, clientSecret string) (oauth2.Config, error) {
-	scope, err := googleScope(id)
-	if err != nil {
-		return oauth2.Config{}, err
+	conn, ok := googleConnectionOf(id)
+	if !ok {
+		return oauth2.Config{}, protocol.NotFound("connection").With("id", id)
 	}
-	return googlecal.Config(clientID, clientSecret, s.gcalRedirectURL, s.google.endpoint, scope), nil
-}
-
-// googleScope is the one scope a Google connection asks for.
-func googleScope(id string) (string, error) {
-	switch id {
-	case GCalID:
-		return googlecal.Scope, nil
-	case GmailID:
-		return gmailread.Scope, nil
-	}
-	return "", protocol.NotFound("connection").With("id", id)
+	return googlecal.Config(clientID, clientSecret, s.gcalRedirectURL, s.google.endpoint, conn.Scopes...), nil
 }
 
 // SaveGoogleCalendar stores the OAuth client. It does not connect anything yet - the owner still
@@ -173,8 +213,8 @@ func (s *Service) SaveGoogleCalendar(ctx context.Context, req protocol.SaveGoogl
 	sameClient := before.ClientID == req.ClientID && beforeSecrets.ClientSecret == req.ClientSecret
 	if sameClient {
 		secrets.Token = beforeSecrets.Token
-	} else if err := s.keys.Remove(GmailID); err != nil && !errors.Is(err, security.ErrNoKey) {
-		return fmt.Errorf("drop Gmail's token, which belonged to the old client: %w", err)
+	} else if err := s.dropOtherGoogleTokens(); err != nil {
+		return err
 	}
 	raw, err := json.Marshal(secrets)
 	if err != nil {
@@ -187,6 +227,20 @@ func (s *Service) SaveGoogleCalendar(ctx context.Context, req protocol.SaveGoogl
 	config.ClientID = req.ClientID
 	s.forgetGoogleReads()
 	return s.writeGCal(ctx, config)
+}
+
+// dropOtherGoogleTokens forgets the token of every Google connection but Calendar. They were granted
+// to the old client, and Google will not honor them for a new one.
+func (s *Service) dropOtherGoogleTokens() error {
+	for _, conn := range googleConnections() {
+		if conn.ID == GCalID {
+			continue
+		}
+		if err := s.keys.Remove(conn.ID); err != nil && !errors.Is(err, security.ErrNoKey) {
+			return fmt.Errorf("drop %s's token, which belonged to the old client: %w", conn.Name, err)
+		}
+	}
+	return nil
 }
 
 // writeGCal stores Calendar's settings.
@@ -217,6 +271,9 @@ func (s *Service) AuthorizeGmail(ctx context.Context) (string, error) {
 // to grant access. The flow is kept in memory, with a single-use state and a PKCE verifier; a restart
 // mid-flow just means starting over.
 func (s *Service) AuthorizeGoogle(ctx context.Context, id string) (string, error) {
+	if _, ok := googleConnectionOf(id); !ok {
+		return "", protocol.NotFound("connection").With("id", id)
+	}
 	config, secrets, err := s.readGCal(ctx)
 	if err != nil {
 		return "", err
@@ -282,10 +339,19 @@ func (s *Service) FinishGoogle(ctx context.Context, code, state string) (string,
 	if token.RefreshToken == "" {
 		return "", protocol.InvalidArgument("Google gave no lasting access. Remove Marshal at myaccount.google.com/permissions, then connect again.")
 	}
-	// A person who never saved a client of their own has no Google Calendar row yet. The grant makes
-	// it, so the row reads connected: its settings say only that Marshal's own client is in use.
-	if err := s.ensureGCalRow(ctx); err != nil {
-		return "", err
+	conn, _ := googleConnectionOf(pending.id)
+	if missingScope(token, conn) {
+		// Google lets a person untick a box on its consent page. Nothing is stored, and the access
+		// is not revoked either: Google would end every scope this client holds, not only this one.
+		return "", protocol.InvalidArgument(partialGrantSentence)
+	}
+	// A grant makes its own row when there is none, so the row reads connected. A person who never
+	// saved a client of their own has no Google Calendar row, and the row's settings say only that
+	// Marshal's own client is in use. Gmail's row is made by saving its label, which a grant is not.
+	if conn.ID != GmailID {
+		if err := s.ensureGoogleRow(ctx, conn); err != nil {
+			return "", err
+		}
 	}
 	if err := s.saveGoogleToken(ctx, pending.id, secrets, token); err != nil {
 		return "", err
@@ -294,24 +360,67 @@ func (s *Service) FinishGoogle(ctx context.Context, code, state string) (string,
 	return pending.id, nil
 }
 
-// ensureGCalRow makes Google Calendar's row when there is none, with no client of its own saved.
-func (s *Service) ensureGCalRow(ctx context.Context) error {
-	_, found, err := s.row(ctx, GCalID)
-	if err != nil || found {
-		return err
+// partialGrantSentence is what a person reads when Google's consent page was left with a box unticked.
+const partialGrantSentence = "Google did not give Marshal every permission it asked for. Connect again and leave every box ticked."
+
+// missingScope says Google reported what it granted and left out a scope the connection needs. A
+// token that carries no scope list is taken as granted in full, which is how Google answers when
+// nothing was left out.
+func missingScope(token *oauth2.Token, conn googleConnection) bool {
+	granted, _ := token.Extra("scope").(string)
+	have := strings.Fields(granted)
+	if len(have) == 0 {
+		return false
 	}
-	return s.writeGCal(ctx, gcalConfig{})
+	for _, want := range conn.Scopes {
+		if !slices.Contains(have, want) {
+			return true
+		}
+	}
+	return false
 }
 
-// saveGoogleToken stores a token as the connection's own.
+// ensureGoogleRow makes a connection's row when it has none, and fills one that is empty. Running a
+// test before any grant leaves a row with no settings and no keychain name, which is not a row a
+// grant can leave alone. A settings value a person already saved is never replaced.
+func (s *Service) ensureGoogleRow(ctx context.Context, conn googleConnection) error {
+	row, found, err := s.row(ctx, conn.ID)
+	if err != nil {
+		return err
+	}
+	if found && row.saved() {
+		return nil
+	}
+	config := row.config
+	if strings.TrimSpace(config) == "" {
+		config = defaultGoogleConfig(conn.ID)
+	}
+	return s.store.Write(ctx, func(q *db.Queries) error {
+		return q.UpsertIntegration(ctx, db.UpsertIntegrationParams{
+			ID: conn.ID, Kind: conn.Kind, ConfigJSON: config, KeychainRef: conn.ID,
+		})
+	})
+}
+
+// defaultGoogleConfig is the settings a connection starts with: none, except that Drive names its
+// folder.
+func defaultGoogleConfig(id string) string {
+	if id == GDriveID {
+		return `{"folder":"` + defaultFolder + `"}`
+	}
+	return "{}"
+}
+
+// saveGoogleToken stores a token as the connection's own. Calendar's keeps the client secret beside
+// it, and every other connection's holds the token alone.
 func (s *Service) saveGoogleToken(_ context.Context, id string, calendar gcalSecrets, token *oauth2.Token) error {
 	var raw []byte
 	var err error
-	if id == GmailID {
-		raw, err = json.Marshal(gmailSecrets{Token: token})
-	} else {
+	if id == GCalID {
 		calendar.Token = token
 		raw, err = json.Marshal(calendar)
+	} else {
+		raw, err = json.Marshal(googleTokenSecrets{Token: token})
 	}
 	if err != nil {
 		return fmt.Errorf("write the %s connection's token: %w", id, err)
@@ -336,13 +445,16 @@ func (s *Service) GoogleCalendarClient(ctx context.Context) (*googlecal.Client, 
 // freshGoogleToken is the stored token of one Google connection, refreshed when it has expired and
 // saved back when it was. ErrNotConnected means no consent has completed for it yet.
 func (s *Service) freshGoogleToken(ctx context.Context, id string) (*oauth2.Token, error) {
+	if _, ok := googleConnectionOf(id); !ok {
+		return nil, protocol.NotFound("connection").With("id", id)
+	}
 	config, secrets, err := s.readGCal(ctx)
 	if err != nil {
 		return nil, err
 	}
 	token := secrets.Token
-	if id == GmailID {
-		token, err = s.readGmailToken()
+	if id != GCalID {
+		token, err = s.readGoogleToken(id)
 		if err != nil {
 			return nil, err
 		}
@@ -457,18 +569,19 @@ func (s *Service) readGCal(ctx context.Context) (gcalConfig, gcalSecrets, error)
 	return config, secrets, nil
 }
 
-// readGmailToken reads Gmail's own token. Nil means Gmail's consent has not completed.
-func (s *Service) readGmailToken() (*oauth2.Token, error) {
-	raw, err := s.keys.Get(GmailID)
+// readGoogleToken reads the token of a Google connection that keeps its own secret entry: every one
+// but Calendar. Nil means its consent has not completed.
+func (s *Service) readGoogleToken(id string) (*oauth2.Token, error) {
+	raw, err := s.keys.Get(id)
 	if errors.Is(err, security.ErrNoKey) {
 		return nil, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("read the Gmail connection's secrets: %w", err)
+		return nil, fmt.Errorf("read the %s connection's secrets: %w", GoogleName(id), err)
 	}
-	var secrets gmailSecrets
+	var secrets googleTokenSecrets
 	if err := json.Unmarshal([]byte(raw), &secrets); err != nil {
-		return nil, fmt.Errorf("read the Gmail connection's secrets: %w", err)
+		return nil, fmt.Errorf("read the %s connection's secrets: %w", GoogleName(id), err)
 	}
 	return secrets.Token, nil
 }
@@ -482,37 +595,41 @@ func randomToken() (string, error) {
 	return hex.EncodeToString(buf), nil
 }
 
+// storedGrant is the token one Google connection holds, or nil when it holds none.
+func (s *Service) storedGrant(ctx context.Context, id string) (*oauth2.Token, error) {
+	if id != GCalID {
+		return s.readGoogleToken(id)
+	}
+	_, secrets, err := s.readGCal(ctx)
+	return secrets.Token, err
+}
+
 // grantToken is the token one Google connection holds, or nil when it holds none or its secrets
 // cannot be read.
 func (s *Service) grantToken(ctx context.Context, id string) *oauth2.Token {
-	if id == GmailID {
-		token, err := s.readGmailToken()
-		if err != nil {
-			s.log.Warn("Gmail's token could not be read", "err", err)
-		}
-		return token
-	}
-	_, secrets, err := s.readGCal(ctx)
+	token, err := s.storedGrant(ctx, id)
 	if err != nil {
-		s.log.Warn("Google Calendar's token could not be read", "err", err)
-		return nil
+		s.log.Warn("a Google connection's token could not be read", "connection", id, "err", err)
 	}
-	return secrets.Token
+	return token
 }
 
-// dropGoogleAccess runs when a Google connection is removed, before its secrets go. It forgets what
-// was read with the access. When this was the last Google connection holding a token, it also asks
-// Google to end the access. Google ends every scope a client was granted when it revokes one token,
-// so removing Calendar while Gmail is still connected, or the reverse, must leave the grant alone.
+// dropGoogleAccess runs when a Google connection is removed, before its secrets go. When it was the
+// last one holding a token, Google is asked to end the access. Google ends every scope when one token
+// is revoked, so the grant is left alone while any other holds one. An unreadable token counts as held.
 func (s *Service) dropGoogleAccess(ctx context.Context, id string) {
 	token := s.grantToken(ctx, id)
-	other := GmailID
-	if id == GmailID {
-		other = GCalID
-	}
 	s.forgetGoogleReads()
-	if token == nil || s.grantToken(ctx, other) != nil {
+	if token == nil {
 		return
+	}
+	for _, other := range googleConnections() {
+		if other.ID == id {
+			continue
+		}
+		if held, err := s.storedGrant(ctx, other.ID); err != nil || held != nil {
+			return
+		}
 	}
 	s.revokeAtGoogle(ctx, token)
 }

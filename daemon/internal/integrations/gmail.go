@@ -70,7 +70,7 @@ func (s *Service) gmailUnfinished(ctx context.Context) string {
 		s.log.Warn("Gmail's settings could not be read", "err", err)
 		return ""
 	}
-	token, err := s.readGmailToken()
+	token, err := s.readGoogleToken(GmailID)
 	switch {
 	case err != nil:
 		return ""

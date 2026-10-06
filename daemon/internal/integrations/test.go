@@ -97,6 +97,8 @@ func (s *Service) testFor(ctx context.Context, info Info) (protocol.TestResult, 
 		return s.testGCal(ctx, info)
 	case KindGmail:
 		return s.testGmail(ctx, info)
+	case KindGDrive, KindGDocs, KindGSheets, KindGSlides:
+		return s.testGoogleFiles(ctx, info)
 	case KindTelegram, KindDiscord, KindNtfy:
 		return s.testChat(ctx, info)
 	default:

@@ -71,6 +71,10 @@ func known() []Info {
 		{ID: TrelloID, Kind: KindTrello, Wired: true},
 		{ID: GCalID, Kind: KindGCal, Wired: true},
 		{ID: GmailID, Kind: KindGmail, Wired: true},
+		{ID: GDriveID, Kind: KindGDrive, Wired: true},
+		{ID: GDocsID, Kind: KindGDocs, Wired: true},
+		{ID: GSheetsID, Kind: KindGSheets, Wired: true},
+		{ID: GSlidesID, Kind: KindGSlides, Wired: true},
 		{ID: TelegramID, Kind: KindTelegram, Wired: true},
 		{ID: DiscordID, Kind: KindDiscord, Wired: true},
 		{ID: NtfyID, Kind: KindNtfy, Wired: true},
@@ -118,6 +122,9 @@ type Options struct {
 	GCalBaseURL string
 	// GmailBaseURL overrides where the Gmail API is reached, for a test. Empty uses the real API.
 	GmailBaseURL string
+	// GoogleFilesBaseURL overrides where the Drive, Docs, Sheets and Slides APIs are reached, for a
+	// test: one address for all four, which the paths tell apart. Empty uses the real hosts.
+	GoogleFilesBaseURL string
 	// GoogleAuthURL and GoogleTokenURL point Google's consent page and its token endpoint at a fake
 	// in a test. Empty uses Google's own, which is what the daemon does.
 	GoogleAuthURL  string
@@ -170,6 +177,7 @@ type Service struct {
 	gcalRedirectURL string
 	gcalBase        string
 	gmailBase       string
+	filesBase       string
 
 	// telegramBase overrides where the Telegram Bot API is reached, for a test.
 	// discordClient overrides how Discord's REST API is reached, for the same reason.
@@ -219,6 +227,7 @@ func New(st *store.Store, keys security.Keychain, opts Options) (*Service, error
 		trelloBase: opts.TrelloBaseURL,
 		test:       opts.Tester, appFn: opts.App,
 		gcalRedirectURL: opts.GCalRedirectURL, gcalBase: opts.GCalBaseURL, gmailBase: opts.GmailBaseURL,
+		filesBase:    opts.GoogleFilesBaseURL,
 		telegramBase: opts.TelegramBaseURL, discordClient: opts.DiscordHTTPClient,
 		ntfyClient: opts.NtfyHTTPClient,
 	}
@@ -320,11 +329,9 @@ func (s *Service) rowToWire(ctx context.Context, info Info, row integrationRow, 
 		wire.Status, wire.LastTest = protocol.IntegrationStatusNone, nil
 		return wire
 	}
-	if info.ID == GmailID {
-		if sentence := s.gmailUnfinished(ctx); sentence != "" {
-			wire.Status, wire.Detail, wire.LastTest = protocol.IntegrationStatusNone, sentence, nil
-			return wire
-		}
+	if sentence := s.googleUnfinished(ctx, info.ID); sentence != "" {
+		wire.Status, wire.Detail, wire.LastTest = protocol.IntegrationStatusNone, sentence, nil
+		return wire
 	}
 	wire.Status = statusFor(last, tested)
 	wire.Detail = detailFor(last, tested)
@@ -332,6 +339,19 @@ func (s *Service) rowToWire(ctx context.Context, info Info, row integrationRow, 
 		wire.Status, wire.Detail = protocol.IntegrationStatusError, reconnectSentence
 	}
 	return wire
+}
+
+// googleUnfinished says what is still missing before a Google connection is connected, or "" when
+// nothing is. Gmail needs a label and a grant. Drive, Docs, Sheets and Slides need a grant, which
+// can come after Drive's folder is saved.
+func (s *Service) googleUnfinished(ctx context.Context, id string) string {
+	switch {
+	case id == GmailID:
+		return s.gmailUnfinished(ctx)
+	case IsGoogleFile(id) && s.grantToken(ctx, id) == nil:
+		return "Grant access to finish connecting " + GoogleName(id) + "."
+	}
+	return ""
 }
 
 // selfOwned reports whether Marshal owns a connection itself rather than a person setting it up. The

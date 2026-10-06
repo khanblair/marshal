@@ -119,7 +119,7 @@ func (s *Service) Remove(ctx context.Context, id string) error {
 	if !ok {
 		return protocol.NotFound("connection").With("id", id)
 	}
-	if id == GCalID || id == GmailID {
+	if _, google := googleConnectionOf(id); google {
 		s.dropGoogleAccess(ctx, id)
 	}
 	if info.Wired {

@@ -60,6 +60,7 @@ type cachedEvents struct {
 
 // forgetGoogleReads drops everything read from Google, after a connection changes.
 func (s *Service) forgetGoogleReads() {
+	s.forgetFolders()
 	s.google.read.mu.Lock()
 	defer s.google.read.mu.Unlock()
 	s.google.read.grant = ""
