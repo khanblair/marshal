@@ -175,6 +175,10 @@ export const seedIntegrations = (): Integration[] => [
     st: "none",
     detail: "Turn labeled emails into cards",
   },
+  { id: "gdrive", name: "Google Drive", icon: "folder-open", st: "none", detail: "" },
+  { id: "gdocs", name: "Google Docs", icon: "file-text", st: "none", detail: "" },
+  { id: "gsheets", name: "Google Sheets", icon: "columns-3", st: "none", detail: "" },
+  { id: "gslides", name: "Google Slides", icon: "monitor", st: "none", detail: "" },
   {
     id: "telegram",
     name: "Telegram",

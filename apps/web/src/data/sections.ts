@@ -51,6 +51,10 @@ export type SectionId =
   | "S29f"
   | "S29g"
   | "S29h"
+  | "S29i"
+  | "S29j"
+  | "S29k"
+  | "S29l"
   | "S30"
   | "S31a"
   | "S31b"
@@ -112,6 +116,10 @@ export const sectionStatus: Readonly<Record<SectionId, SectionStatus>> = {
   S29f: "daemon",
   S29g: "daemon",
   S29h: "daemon",
+  S29i: "daemon",
+  S29j: "daemon",
+  S29k: "daemon",
+  S29l: "daemon",
   S30: "daemon",
   S31a: "daemon",
   S31b: "daemon",

@@ -15,6 +15,7 @@ import * as devices from "~/sync/devices";
 import { loadCardDiff, loadFileHunks } from "~/sync/diff";
 import { browseFolders } from "~/sync/folder-actions";
 import * as googleWrites from "~/sync/google-actions";
+import * as googleFileWrites from "~/sync/google-files-actions";
 import { homeActivityPage } from "~/sync/home-feed";
 import * as integrationWrites from "~/sync/integration-actions";
 import * as integrations from "~/sync/integrations";
@@ -309,6 +310,23 @@ function calendarActions(ctx: Ctx) {
   });
 }
 
+/**
+ * Google Drive, Docs, Sheets and Slides (S29i to S29l): each one's consent, the files Marshal made,
+ * the Drive folder, and the creates and the read. The daemon's alone: the prototype has none of them.
+ */
+function googleFileActions(ctx: Ctx) {
+  return bindActions(ctx, {
+    authorizeGoogleService: googleFileWrites.authorizeGoogleService,
+    googleFiles: googleFileWrites.googleFiles,
+    saveGoogleDrive: googleFileWrites.saveGoogleDrive,
+    createGoogleDoc: googleFileWrites.createGoogleDoc,
+    createGoogleSheet: googleFileWrites.createGoogleSheet,
+    createGoogleSlides: googleFileWrites.createGoogleSlides,
+    uploadGoogleFile: googleFileWrites.uploadGoogleFile,
+    readGoogleLink: googleFileWrites.readGoogleLink,
+  });
+}
+
 function cardActions(ctx: Ctx) {
   // The cards are the daemon's once section S5a is switched, so these writes go to it; while the
   // section is still on the mock they are the mock's own. The phase that deletes the mock removes
@@ -476,6 +494,7 @@ export function createMarshalIn(ctx: Ctx) {
     ...queries(ctx),
     ...appActions(ctx),
     ...calendarActions(ctx),
+    ...googleFileActions(ctx),
     ...cardActions(ctx),
     ...chatActions(ctx),
   };

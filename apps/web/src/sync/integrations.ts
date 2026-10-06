@@ -31,6 +31,10 @@ const CONNECTION_SECTIONS: Readonly<Record<string, SectionId>> = {
   telegram: "S29f",
   discord: "S29g",
   ntfy: "S29h",
+  gdrive: "S29i",
+  gdocs: "S29j",
+  gsheets: "S29k",
+  gslides: "S29l",
 };
 
 /** The GitHub App connection's own id, the one its row, its keychain entry, and its test are filed under. */
@@ -60,6 +64,18 @@ export const DISCORD_ID = "discord";
 
 /** The ntfy connection's own id (section S29h). */
 export const NTFY_ID = "ntfy";
+
+/** The Google Drive connection's own id (section S29i). */
+export const GDRIVE_ID = "gdrive";
+
+/** The Google Docs connection's own id (section S29j). */
+export const GDOCS_ID = "gdocs";
+
+/** The Google Sheets connection's own id (section S29k). */
+export const GSHEETS_ID = "gsheets";
+
+/** The Google Slides connection's own id (section S29l). */
+export const GSLIDES_ID = "gslides";
 
 export const integrationsSyncer: Syncer<IntegrationState[]> = {
   section: "S29a",

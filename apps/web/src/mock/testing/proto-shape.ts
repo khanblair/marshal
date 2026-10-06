@@ -25,7 +25,7 @@ const DAEMON_PROJECT_FIELDS = ["branch", "integrationBranch", "dev", "lockBypass
 /** A schedule's own project id, which round-trips a save to the daemon; the prototype has no such
  * field, since it never saves a schedule anywhere. */
 /** Connections the port lists that the prototype never drew, so its seed has no row for them. */
-const PORT_ONLY_INTEGRATIONS = ["ntfy"];
+const PORT_ONLY_INTEGRATIONS = ["ntfy", "gdrive", "gdocs", "gsheets", "gslides"];
 const DAEMON_SCHEDULE_FIELDS = ["projectId"] as const;
 /** Fake pull request number of a card moved to review by hand: this plus the card number. */
 const FAKE_PR_BASE = 300;

@@ -188,6 +188,11 @@ function homeActivityQuery(page: HomeActivityOptions = {}): string {
   return text ? `?${text}` : "";
 }
 
+/** The kind of file a Google files list is narrowed to, as a query string. Left out, every kind is listed. */
+function googleFilesQuery(kind: string | undefined): string {
+  return kind ? `?${new URLSearchParams({ kind })}` : "";
+}
+
 /** The text of a search as a query string. `URLSearchParams` writes `#` as `%23`, so `#41` reaches the daemon whole. */
 function searchQuery(text: string): string {
   return `?${new URLSearchParams({ q: text })}`;
@@ -558,7 +563,14 @@ type SettingsRoute =
   | "authorizeGmail"
   | "googleClient"
   | "googleCalendars"
-  | "setGoogleCalendars";
+  | "setGoogleCalendars"
+  | "authorizeGoogleService"
+  | "googleFiles"
+  | "createGoogleDoc"
+  | "createGoogleSheet"
+  | "createGoogleSlides"
+  | "uploadGoogleFile"
+  | "readGoogleLink";
 
 /** The routes of the limits, the roles, the notices, and the sleep and alert settings. */
 function settingsMethods({
@@ -599,5 +611,14 @@ function settingsMethods({
     googleCalendars: (o) => request("GET", "/v1/integrations/gcal/calendars", o),
     setGoogleCalendars: (body, o) =>
       request("PUT", "/v1/integrations/gcal/calendars", { ...slow(o), body }),
+    // Google Drive, Docs, Sheets and Slides (S29i to S29l): each asks for its own consent. The
+    // creates and the read call Google, and a slide deck takes several calls, so they are slow.
+    authorizeGoogleService: (iid, o) => request("GET", `/v1/integrations/${id(iid)}/authorize`, o),
+    googleFiles: (kind, o) => request("GET", `/v1/google/files${googleFilesQuery(kind)}`, o),
+    createGoogleDoc: (body, o) => request("POST", "/v1/google/docs", { ...slow(o), body }),
+    createGoogleSheet: (body, o) => request("POST", "/v1/google/sheets", { ...slow(o), body }),
+    createGoogleSlides: (body, o) => request("POST", "/v1/google/slides", { ...slow(o), body }),
+    uploadGoogleFile: (body, o) => request("POST", "/v1/google/drive/files", { ...slow(o), body }),
+    readGoogleLink: (body, o) => request("POST", "/v1/google/read", { ...slow(o), body }),
   };
 }

@@ -9,13 +9,14 @@ import { applyIntegrationList } from "./integrations";
  * as "Google Calendar is not connected yet" is already a sentence a person can act on.
  */
 
-const NO_DAEMON = "Marshal is not connected to its daemon.";
+export const NO_DAEMON = "Marshal is not connected to its daemon.";
 const FAILED = "Marshal could not reach Google. Try again.";
 
 /** The calendars Google lists, or the sentence that says why they could not be read. */
 export type GoogleCalendarsAnswer = { choices: GoogleCalendarChoices } | { error: string };
 
-function sentence(error: unknown): string {
+/** The daemon's own sentence for a refusal, or the plain one when Google could not be reached. */
+export function sentence(error: unknown): string {
   return error instanceof ApiError ? error.message : FAILED;
 }
 

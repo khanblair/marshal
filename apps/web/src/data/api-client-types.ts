@@ -24,6 +24,9 @@ import type {
   CreateCardRequest,
   CreateChatRequest,
   CreateChecklistRequest,
+  CreateGoogleDocRequest,
+  CreateGoogleSheetRequest,
+  CreateGoogleSlidesRequest,
   CreateLabelRequest,
   CreateProjectRequest,
   CreateRoleRequest,
@@ -39,6 +42,10 @@ import type {
   GitHubConnect,
   GoogleCalendarChoices,
   GoogleClientInfo,
+  GoogleFile,
+  GoogleFileKind,
+  GoogleFiles,
+  GoogleLinkContent,
   Health,
   HomeSnapshot,
   IntegrationList,
@@ -67,6 +74,7 @@ import type {
   Project,
   ProjectListSnapshot,
   ProviderList,
+  ReadGoogleLinkRequest,
   RemoveProjectRequest,
   RestoreCheckpointRequest,
   Role,
@@ -79,6 +87,7 @@ import type {
   SaveGitHubTokenRequest,
   SaveGmailRequest,
   SaveGoogleCalendarRequest,
+  SaveGoogleDriveRequest,
   SaveLessonRequest,
   SaveNoteRequest,
   SaveNtfyRequest,
@@ -111,6 +120,7 @@ import type {
   UpdateProjectRequest,
   UpdateRoleRequest,
   UpdateSavedViewRequest,
+  UploadGoogleFileRequest,
   UserListSnapshot,
   WhoAmI,
 } from "@marshal/protocol";
@@ -595,6 +605,7 @@ export interface ApiClient {
     body:
       | SaveTrelloRequest
       | SaveGoogleCalendarRequest
+      | SaveGoogleDriveRequest
       | SaveGmailRequest
       | SaveTelegramRequest
       | SaveDiscordRequest
@@ -632,6 +643,20 @@ export interface ApiClient {
   googleClient(options?: CallOptions): Promise<GoogleClientInfo>;
   /** Gmail's own consent URL: Gmail asks for its scope separately from Calendar's. */
   authorizeGmail(options?: CallOptions): Promise<AuthorizeURL>;
+  /** The consent URL of Google Drive, Docs, Sheets or Slides: each asks for its own access. */
+  authorizeGoogleService(id: string, options?: CallOptions): Promise<AuthorizeURL>;
+  /** The files Marshal made in Google, newest first. No kind means every kind except folders. */
+  googleFiles(kind?: GoogleFileKind, options?: CallOptions): Promise<GoogleFiles>;
+  /** Makes a Google Doc in Marshal's Drive folder. */
+  createGoogleDoc(body: CreateGoogleDocRequest, options?: CallOptions): Promise<GoogleFile>;
+  /** Makes a Google Sheet in Marshal's Drive folder. */
+  createGoogleSheet(body: CreateGoogleSheetRequest, options?: CallOptions): Promise<GoogleFile>;
+  /** Makes a Google Slides presentation in Marshal's Drive folder. */
+  createGoogleSlides(body: CreateGoogleSlidesRequest, options?: CallOptions): Promise<GoogleFile>;
+  /** Saves a plain file to Marshal's Drive folder, as it is. */
+  uploadGoogleFile(body: UploadGoogleFileRequest, options?: CallOptions): Promise<GoogleFile>;
+  /** Reads a Google Doc, Sheet or Slides presentation from its link, as markdown. */
+  readGoogleLink(body: ReadGoogleLinkRequest, options?: CallOptions): Promise<GoogleLinkContent>;
   /** Every calendar the owner has in Google, with whether Marshal reads it. */
   googleCalendars(options?: CallOptions): Promise<GoogleCalendarChoices>;
   /** Chooses which of the owner's Google calendars Marshal reads. */
