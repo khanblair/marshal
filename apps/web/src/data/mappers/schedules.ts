@@ -27,6 +27,14 @@ export interface ScheduleRow {
   projectId: string;
   enabled: boolean;
   missed: string;
+  /** The starter this schedule began as ("morning", "weekly", and so on), or empty. Absent on the mock's own rows. */
+  template?: string;
+  /** The parts of a brief, by the ids the catalog lists, in the order they are written. */
+  sections?: string[];
+  /** The chats the brief is sent to, besides the run history. */
+  deliver?: string[];
+  /** Keeps a brief with nothing to report from being sent. */
+  quietWhenEmpty?: boolean;
 }
 
 /** One schedule, with its project id turned into the name projectName resolves it to. */
@@ -48,6 +56,10 @@ export function toScheduleRow(
     projectId: wire.project,
     enabled: wire.enabled,
     missed: wire.missed,
+    template: wire.template,
+    sections: wire.sections,
+    deliver: wire.deliver,
+    quietWhenEmpty: wire.quietWhenEmpty,
   };
 }
 

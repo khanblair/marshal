@@ -1,4 +1,4 @@
-import type { SaveScheduleRequest, ScheduleRun } from "@marshal/protocol";
+import type { SaveScheduleRequest, ScheduleCatalog, ScheduleRun } from "@marshal/protocol";
 import { type ScheduleRow, toScheduleRow } from "~/data/mappers/schedules";
 import type { Ctx } from "~/mock/context";
 import { proj } from "~/mock/selectors";
@@ -80,6 +80,10 @@ export function requestFrom(
     action: row.action,
     enabled: row.enabled,
     missed: row.missed,
+    template: row.template ?? "",
+    sections: row.sections ?? [],
+    deliver: row.deliver ?? [],
+    quietWhenEmpty: row.quietWhenEmpty ?? false,
     ...changes,
   };
 }
@@ -116,5 +120,47 @@ export async function scheduleRuns(ctx: Ctx, id: string): Promise<ScheduleRun[]>
     return (await api.scheduleRuns(id)).runs;
   } catch {
     return [];
+  }
+}
+
+const catalogs = new WeakMap<Ctx, Promise<ScheduleCatalog | null>>();
+
+/**
+ * What the editor offers: the starter templates, the parts of a brief, and the chats it can go to. The
+ * daemon's own list, read once and kept, because it only changes with a new version. Null when there is
+ * no daemon or it could not be read, and then the next call asks again.
+ */
+export function scheduleCatalog(ctx: Ctx): Promise<ScheduleCatalog | null> {
+  const api = ctx.env.data?.api;
+  if (!api) return Promise.resolve(null);
+  const kept = catalogs.get(ctx);
+  if (kept) return kept;
+  const asked = api.scheduleCatalog().catch(() => {
+    catalogs.delete(ctx);
+    return null;
+  });
+  catalogs.set(ctx, asked);
+  return asked;
+}
+
+/** Runs one schedule now, and answers the run it recorded, or null when it could not be run. */
+export async function runSchedule(ctx: Ctx, id: string): Promise<ScheduleRun | null> {
+  const api = ctx.env.data?.api;
+  if (!api) return null;
+  try {
+    return await api.runSchedule(id);
+  } catch {
+    return null;
+  }
+}
+
+/** The message a chat would get from a brief now, or null when it cannot be previewed. Nothing is sent. */
+export async function previewSchedule(ctx: Ctx, id: string): Promise<string | null> {
+  const api = ctx.env.data?.api;
+  if (!api) return null;
+  try {
+    return (await api.previewSchedule(id)).text;
+  } catch {
+    return null;
   }
 }

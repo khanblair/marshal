@@ -260,10 +260,7 @@ function appActions(ctx: Ctx) {
     // Schedules (S30) and Google Calendar's events (S25/S22): the daemon's once their sections are
     // switched. A schedule's own save/delete already exist through the daemon; the screen's local
     // push/splice fallback stays for a store still on the mock.
-    createSchedule: scheduleWrites.createSchedule,
-    saveSchedule: scheduleWrites.saveSchedule,
-    deleteSchedule: scheduleWrites.deleteSchedule,
-    scheduleRuns: scheduleWrites.scheduleRuns,
+    ...scheduleActions,
     // The limits (S26b) are the daemon's once the section is switched: the save compares the form
     // with the store and PUTs or DELETEs one ceiling at a time. The mock's own save lives in the
     // form itself, which picks this or that by `limitsOnDaemon`.
@@ -438,6 +435,17 @@ function chatActions(ctx: Ctx) {
  * mock (unless the hash turns it off), and the link with the daemon for what is not. The browser
  * app uses the single instance from `index.ts`; tests create their own.
  */
+/** What the Schedules screen asks of the daemon, each bound to the store like every other action. */
+const scheduleActions = {
+  createSchedule: scheduleWrites.createSchedule,
+  saveSchedule: scheduleWrites.saveSchedule,
+  deleteSchedule: scheduleWrites.deleteSchedule,
+  scheduleRuns: scheduleWrites.scheduleRuns,
+  scheduleCatalog: scheduleWrites.scheduleCatalog,
+  runSchedule: scheduleWrites.runSchedule,
+  previewSchedule: scheduleWrites.previewSchedule,
+};
+
 export function createMarshal(env: Env) {
   return createMarshalIn(createContext(env));
 }

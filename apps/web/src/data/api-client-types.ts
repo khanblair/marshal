@@ -96,7 +96,10 @@ import type {
   SaveTelegramRequest,
   SaveTrelloRequest,
   Schedule,
+  ScheduleCatalog,
   ScheduleList,
+  SchedulePreview,
+  ScheduleRun,
   ScheduleRunList,
   SearchSnapshot,
   SendMessageRequest,
@@ -675,6 +678,12 @@ export interface ApiClient {
   deleteSchedule(id: string, options?: CallOptions): Promise<void>;
   /** A schedule's own run history, newest first - a brief's own composed text is a run's details. */
   scheduleRuns(id: string, options?: CallOptions): Promise<ScheduleRunList>;
+  /** The starter schedules, the parts a brief can have, and the chats it can go to. */
+  scheduleCatalog(options?: CallOptions): Promise<ScheduleCatalog>;
+  /** Runs a schedule once, now, and answers the run it recorded. */
+  runSchedule(id: string, options?: CallOptions): Promise<ScheduleRun>;
+  /** The message a chat would get from a brief now. Nothing is sent and no run is recorded. */
+  previewSchedule(id: string, options?: CallOptions): Promise<SchedulePreview>;
   /**
    * The schedules, the due cards, and Google Calendar's events for one date range (start and end,
    * both epoch milliseconds) - the calendar view and Home's coming-up list's one call.

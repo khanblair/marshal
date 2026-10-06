@@ -328,14 +328,7 @@ function routeMethods({
     testGitHubToken: (body, o) =>
       request("POST", "/v1/integrations/github/token/test", { ...slow(o), body }),
     authorizeGoogleCalendar: (o) => request("GET", "/v1/integrations/gcal/authorize", o),
-    // Schedules and the calendar (B8.1, B8.4, N21): the Schedules screen's own list, add, edit, and
-    // delete, and the one call the calendar view and Home's coming-up list read.
-    listSchedules: (project, o) => request("GET", `/v1/schedules${scheduleQuery(project)}`, o),
-    createSchedule: (body, o) => request("POST", "/v1/schedules", { ...o, body }),
-    saveSchedule: (sid, body, o) => request("PUT", `/v1/schedules/${id(sid)}`, { ...o, body }),
-    deleteSchedule: (sid, o) => command("DELETE", `/v1/schedules/${id(sid)}`, o),
-    scheduleRuns: (sid, o) => request("GET", `/v1/schedules/${id(sid)}/runs`, o),
-    getCalendar: (start, end, o) => request("GET", `/v1/calendar?start=${start}&end=${end}`, o),
+    ...scheduleMethods({ request, command }),
   };
 }
 
@@ -620,5 +613,39 @@ function settingsMethods({
     createGoogleSlides: (body, o) => request("POST", "/v1/google/slides", { ...slow(o), body }),
     uploadGoogleFile: (body, o) => request("POST", "/v1/google/drive/files", { ...slow(o), body }),
     readGoogleLink: (body, o) => request("POST", "/v1/google/read", { ...slow(o), body }),
+  };
+}
+
+type ScheduleRoute =
+  | "listSchedules"
+  | "createSchedule"
+  | "saveSchedule"
+  | "deleteSchedule"
+  | "scheduleRuns"
+  | "scheduleCatalog"
+  | "runSchedule"
+  | "previewSchedule"
+  | "getCalendar";
+
+/**
+ * The routes of the schedules and the calendar (B8.1, B8.4, N21): the Schedules screen's own list,
+ * add, edit, delete, run now, and history, what its editor offers, and the one call the calendar view
+ * and Home's coming-up list read.
+ */
+function scheduleMethods({
+  request,
+  command,
+}: Pick<Transport, "request" | "command">): Pick<ApiClient, ScheduleRoute> {
+  const id = encodeURIComponent;
+  return {
+    listSchedules: (project, o) => request("GET", `/v1/schedules${scheduleQuery(project)}`, o),
+    createSchedule: (body, o) => request("POST", "/v1/schedules", { ...o, body }),
+    saveSchedule: (sid, body, o) => request("PUT", `/v1/schedules/${id(sid)}`, { ...o, body }),
+    deleteSchedule: (sid, o) => command("DELETE", `/v1/schedules/${id(sid)}`, o),
+    scheduleRuns: (sid, o) => request("GET", `/v1/schedules/${id(sid)}/runs`, o),
+    scheduleCatalog: (o) => request("GET", "/v1/schedules/catalog", o),
+    runSchedule: (sid, o) => request("POST", `/v1/schedules/${id(sid)}/run`, slow(o)),
+    previewSchedule: (sid, o) => request("GET", `/v1/schedules/${id(sid)}/preview`, slow(o)),
+    getCalendar: (start, end, o) => request("GET", `/v1/calendar?start=${start}&end=${end}`, o),
   };
 }

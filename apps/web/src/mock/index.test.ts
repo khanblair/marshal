@@ -174,7 +174,10 @@ const API = [
   "saveAlertChannels",
   "saveQuietDuringEvents",
   "saveView",
+  "scheduleCatalog",
   "scheduleRuns",
+  "runSchedule",
+  "previewSchedule",
   "send",
   "set",
   "setGoogleCalendars",
@@ -409,6 +412,9 @@ describe("index.ts boot", () => {
       "saveSchedule",
       "deleteSchedule",
       "scheduleRuns",
+      "scheduleCatalog",
+      "runSchedule",
+      "previewSchedule",
     ];
     const proto = loadPrototype("#nosim").keys.filter((k) => !dropped.includes(k));
     expect([...proto, ...added].sort()).toEqual([...API].sort());
