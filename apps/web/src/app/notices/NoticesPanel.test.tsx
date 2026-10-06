@@ -42,7 +42,12 @@ describe("NoticesPanel", () => {
 
   it("is a card at the top right on desktop, with one article per notice", () => {
     render(() => <NoticesPanel />);
-    expect(panel()).toHaveClass("right-2", "top-13", "rounded-lg", "bg-surface-raised");
+    expect(panel()).toHaveClass(
+      "right-2",
+      "top-[calc(52px+var(--safe-top))]",
+      "rounded-lg",
+      "bg-surface-raised",
+    );
     expect(within(panel()).getByRole("heading", { name: "Notices" })).toBeInTheDocument();
     expect(within(panel()).getAllByRole("article")).toHaveLength(4);
     expect(article("4 cards need you")).toHaveTextContent("Across 3 projects");
@@ -54,7 +59,13 @@ describe("NoticesPanel", () => {
   it("fills the space under the top bar on a phone", () => {
     M.setViewport(PHONE_PX, HEIGHT_PX);
     render(() => <NoticesPanel />);
-    expect(panel()).toHaveClass("left-0", "right-0", "top-12", "bottom-0", "bg-canvas");
+    expect(panel()).toHaveClass(
+      "left-0",
+      "right-0",
+      "top-[calc(48px+var(--safe-top))]",
+      "bottom-0",
+      "bg-canvas",
+    );
     expect(panel()).not.toHaveClass("rounded-lg");
   });
 

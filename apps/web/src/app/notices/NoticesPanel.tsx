@@ -20,8 +20,8 @@ export function NoticesPanel() {
         class={cx(
           "absolute z-menu flex flex-col",
           M.mobile
-            ? "left-0 right-0 top-12 bottom-0 bg-canvas"
-            : "right-2 top-13 w-[min(420px,calc(100%-16px))] max-h-[calc(100%-60px)] rounded-lg border border-border bg-surface-raised shadow-e1",
+            ? "left-0 right-0 top-[calc(48px+var(--safe-top))] bottom-0 bg-canvas"
+            : "right-2 top-[calc(52px+var(--safe-top))] w-[min(420px,calc(100%-16px))] max-h-[calc(100%-60px)] rounded-lg border border-border bg-surface-raised shadow-e1",
         )}
       >
         <div class="flex items-center gap-2 py-2.5 px-4 border-b border-border">

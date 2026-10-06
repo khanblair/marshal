@@ -25,7 +25,7 @@ export function Sidebar() {
           sideOverlay() ? "left-0 top-0 bottom-0 w-sidebar z-side shadow-e2" : "inset-0",
         )}
       >
-        <div class="h-12 flex-none flex items-center gap-2 pl-4 pr-2 border-b border-border">
+        <div class="h-[calc(48px+var(--safe-top))] pt-[var(--safe-top)] flex-none flex items-center gap-2 pl-4 pr-2 border-b border-border">
           <Icon name="st-done" size={20} />
           <Show when={sidebarOpen()}>
             <span class="font-bold text-subtitle leading-5.5 flex-1">Marshal</span>

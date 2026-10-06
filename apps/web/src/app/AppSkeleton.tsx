@@ -16,7 +16,7 @@ function SidebarSkeleton() {
     <div
       class={`flex-none flex flex-col border-r border-border ${isDesktop() ? "w-sidebar" : "w-sidebar-collapsed"}`}
     >
-      <div class="h-12 flex-none flex items-center gap-2 pl-4 pr-2 border-b border-border">
+      <div class="h-[calc(48px+var(--safe-top))] pt-[var(--safe-top)] flex-none flex items-center gap-2 pl-4 pr-2 border-b border-border">
         <Skeleton circle width={LOGO_PX} height={LOGO_PX} />
       </div>
       <div class="flex flex-col gap-0.5 p-2">
@@ -62,7 +62,7 @@ export function AppSkeleton() {
         <SidebarSkeleton />
       </Show>
       <div class="flex-1 min-w-0 flex flex-col">
-        <div class="h-12 flex-none flex items-center px-4 border-b border-border">
+        <div class="h-[calc(48px+var(--safe-top))] pt-[var(--safe-top)] flex-none flex items-center px-4 border-b border-border">
           <Skeleton width={TITLE_WIDTH_PX} />
         </div>
         <BoardSkeleton />

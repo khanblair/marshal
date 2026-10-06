@@ -75,7 +75,7 @@ function PaletteBody() {
         class={cx(
           "absolute z-palette flex flex-col bg-surface-raised",
           M.mobile
-            ? "inset-0 pt-[env(safe-area-inset-top)]"
+            ? "inset-0 pt-[var(--safe-top)] pb-[var(--safe-bottom)]"
             : "left-1/2 top-[12%] -translate-x-1/2 w-[min(640px,calc(100%-24px))] max-h-[70%] rounded-xl border border-border shadow-e2 overflow-hidden",
         )}
       >

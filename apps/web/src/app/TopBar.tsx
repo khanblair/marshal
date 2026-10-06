@@ -26,7 +26,7 @@ function PickerButton() {
       data-tour="projects-phone"
       onClick={openPicker}
       aria-haspopup="dialog"
-      class="min-w-0 flex-1 flex items-center gap-1.5 h-11 px-1 border-none bg-transparent text-left"
+      class="min-w-0 flex-1 flex items-center gap-1.5 h-(--control-h) px-1 border-none bg-transparent text-left"
     >
       <span class="min-w-0 truncate text-subtitle leading-5.5 font-semibold">{pageTitle()}</span>
       <Icon name="chevron-down" size={16} />
@@ -63,7 +63,7 @@ function SearchButton() {
       aria-label="Search"
       title="Search or run a command"
       class={cx(
-        "flex items-center gap-2 h-8 px-2 rounded-sm border border-border bg-surface-sunken text-muted text-small text-left hover:border-border-strong",
+        "flex items-center gap-2 h-8 phone:h-(--control-h) px-2 rounded-sm border border-border bg-surface-sunken text-muted text-small text-left hover:border-border-strong",
         isDesktop() ? "w-[220px] justify-start" : "w-10 justify-center",
       )}
     >
@@ -90,7 +90,7 @@ function NoticesButton() {
       aria-expanded={M.S.noticesOpen}
       title="Notices"
       class={cx(
-        "relative size-9 flex-none inline-flex items-center justify-center border-none rounded-sm text-primary hover:bg-surface-hover",
+        "relative size-9 phone:size-(--control-h) flex-none inline-flex items-center justify-center border-none rounded-sm text-primary hover:bg-surface-hover",
         M.S.noticesOpen ? "bg-surface-selected" : "bg-transparent",
       )}
     >
@@ -107,7 +107,7 @@ export function TopBar() {
   return (
     <header
       class={cx(
-        "h-12 flex-none flex items-center gap-2 pt-[env(safe-area-inset-top)] border-b border-border bg-surface relative z-bar",
+        "h-[calc(48px+var(--safe-top))] flex-none flex items-center gap-2 pt-[var(--safe-top)] border-b border-border bg-surface relative z-bar",
         isPhone() ? "px-2" : "px-4",
       )}
     >

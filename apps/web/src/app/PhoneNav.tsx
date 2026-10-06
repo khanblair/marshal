@@ -44,7 +44,7 @@ export function PhoneNav() {
       <nav
         aria-label="Main"
         data-tour="views-phone"
-        class="flex-none flex border-t border-border bg-surface pb-[env(safe-area-inset-bottom)] relative z-bar"
+        class="flex-none flex border-t border-border bg-surface pb-[var(--safe-bottom)] relative z-bar"
       >
         <For each={TABS}>
           {(tab) => (

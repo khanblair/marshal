@@ -7,7 +7,8 @@ import { detailOpen, detailWidth, isDesktop, isPhone, isTablet } from "./shell-l
 
 /** How the card panel sits: full screen on phones, over the content on tablets, beside it on desktop. */
 function asideClass(): string {
-  if (isPhone()) return "fixed inset-0 z-[250] bg-surface";
+  if (isPhone())
+    return "fixed inset-0 z-[250] bg-surface pt-[var(--safe-top)] pb-[var(--safe-bottom)]";
   if (isTablet()) {
     return "absolute top-0 right-0 bottom-0 w-[min(640px,94%)] z-detail bg-surface shadow-e2";
   }
