@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/khanblair/marshal/daemon/internal/integrations/googlecal"
-	"github.com/khanblair/marshal/daemon/internal/projects"
 	"github.com/khanblair/marshal/daemon/internal/protocol"
 )
 
@@ -25,15 +24,24 @@ type EventSource interface {
 	GoogleEvents(ctx context.Context, start, end time.Time) ([]googlecal.Event, protocol.GoogleReading)
 }
 
+// Projects is what a brief reads of the board: the projects and each one's cards. The daemon's is the
+// projects service every card route reads.
+type Projects interface {
+	List(ctx context.Context) (protocol.ProjectListSnapshot, error)
+	Cards(ctx context.Context, projectID string) ([]protocol.Card, error)
+}
+
 // Service composes a brief.
 type Service struct {
-	projects *projects.Service
+	projects Projects
 	events   EventSource
+	ci       CISource
+	deliver  Deliverer
 	now      func() time.Time
 }
 
 // New builds the service. projects is required.
-func New(projects *projects.Service) *Service {
+func New(projects Projects) *Service {
 	return &Service{projects: projects, now: time.Now}
 }
 
@@ -48,12 +56,38 @@ func (s *Service) SetClock(now func() time.Time) {
 	}
 }
 
-// Handle is a schedules.ActionHandler for a brief: compose it and return it as the run's own
-// details, so a person can read what a brief said through the schedule's run history
-// (ListScheduleRuns) even before any delivery channel exists. sched.Name carries the brief's own
-// title ("Morning brief", "Evening brief" - whatever a person named it), and heads the text.
+// Handle is a schedules.ActionHandler for a brief: compose it, send it to the channels the schedule
+// names, and return it as the run's own details, so a person can read what a brief said through the
+// schedule's run history (ListScheduleRuns), whether or not a chat got it. sched.Name carries the
+// brief's own title ("Morning brief", "Evening wind-down" - whatever a person named it), and heads the
+// text.
+//
+// A schedule with no sections is a brief made the way briefs were before sections: cards grouped by
+// project, and the calendar. It is kept for the schedules that already exist.
 func (s *Service) Handle(ctx context.Context, sched protocol.Schedule, since time.Time) (string, error) {
-	content, err := s.Compose(ctx, since)
+	if len(sched.Sections) == 0 {
+		return s.handleLegacy(ctx, sched, since)
+	}
+	brief, err := s.Build(ctx, sched, since)
+	if err != nil {
+		return "", err
+	}
+	text := fmt.Sprintf("# %s\n\n%s", brief.Title, brief.Body)
+	if sched.QuietWhenEmpty && brief.Empty {
+		return text + "\n\n---\nNothing to report, so nothing was sent.", nil
+	}
+	lines, failed := s.send(ctx, sched, brief)
+	if len(lines) > 0 {
+		text += "\n\n---\n" + strings.Join(lines, "\n")
+	}
+	if failed {
+		return text, errDelivery
+	}
+	return text, nil
+}
+
+func (s *Service) handleLegacy(ctx context.Context, sched protocol.Schedule, since time.Time) (string, error) {
+	content, err := s.Compose(ctx, boundedSince(since, s.now(), sched.Template))
 	if err != nil {
 		return "", err
 	}
