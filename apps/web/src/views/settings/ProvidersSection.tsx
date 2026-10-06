@@ -53,7 +53,7 @@ function ProviderRow(props: { provider: Provider; edit: EditState }) {
           <code class="font-mono text-caption text-secondary">{props.provider.masked}</code>
         </Show>
         <Show when={!editing()}>
-          <div class="flex gap-2">
+          <div class="ml-auto flex gap-2">
             <Button size={28} onClick={() => props.edit.open(props.provider.id)}>
               {editLabel(props.provider)}
             </Button>

@@ -102,6 +102,22 @@ describe("the Integrations layout toggle", () => {
   });
 });
 
+describe("where a connection's buttons sit", () => {
+  it("right-aligns them on their own line in the list, and beside the state from 640 px of row width", () => {
+    showSettings("integrations");
+    const buttons = within(githubPanel()).getByRole("button", { name: "Manage" }).parentElement;
+    expect(buttons).toHaveClass("col-span-4", "justify-end", "@min-[640px]:col-span-1");
+  });
+
+  it("right-aligns them under the header in the cards too", () => {
+    window.localStorage.setItem(INTEGRATIONS_VIEW_KEY, "cards");
+    showSettings("integrations");
+    const buttons = within(githubPanel()).getByRole("button", { name: "Manage" }).parentElement;
+    expect(buttons).toHaveClass("justify-end");
+    expect(buttons).not.toHaveClass("self-start");
+  });
+});
+
 describe("folding a connection", () => {
   const detail = "GitHub App installed on 3 repositories";
   const inGithub = () => within(githubPanel());

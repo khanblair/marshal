@@ -54,7 +54,9 @@ export function GeneralSection() {
           title="Custom theme"
           description="Override neutrals, ink, and status colors. A custom theme must pass the contrast checks before you can save it."
         />
-        <Button onClick={() => M.toast("Custom theme editor opened")}>Create custom theme</Button>
+        <Button class="ml-auto" onClick={() => M.toast("Custom theme editor opened")}>
+          Create custom theme
+        </Button>
       </SettingsPanel>
       <h2 class="mt-2 mb-0 text-view-title leading-7 font-bold">Sessions</h2>
       <SessionSettings />

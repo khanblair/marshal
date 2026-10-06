@@ -90,23 +90,25 @@ function ScheduleItem(props: { schedule: Schedule; edit: EditState }) {
           detail={props.schedule.action}
         />
         <span class="text-small text-secondary">{props.schedule.project}</span>
-        <label class="inline-flex items-center gap-2 cursor-pointer text-small">
-          <Switch
-            checked={props.schedule.enabled}
-            label={`${props.schedule.enabled ? "Turn off " : "Turn on "}${props.schedule.name}`}
-            onCheckedChange={(enabled) => toggleSchedule(props.schedule, enabled)}
-          />
-          {props.schedule.enabled ? "On" : "Off"}
-        </label>
-        <Button size={28} onClick={toggleHistory}>
-          {runs() !== null ? "Hide history" : "History"}
-        </Button>
-        <Button size={28} onClick={() => props.edit.toggle(props.schedule.id)}>
-          {editing() ? "Close" : "Edit"}
-        </Button>
-        <Button size={28} variant="destructive" onClick={() => removeSchedule(props.schedule)}>
-          Delete
-        </Button>
+        <div class="ml-auto flex flex-wrap items-center justify-end gap-x-3 gap-y-2">
+          <label class="inline-flex items-center gap-2 cursor-pointer text-small">
+            <Switch
+              checked={props.schedule.enabled}
+              label={`${props.schedule.enabled ? "Turn off " : "Turn on "}${props.schedule.name}`}
+              onCheckedChange={(enabled) => toggleSchedule(props.schedule, enabled)}
+            />
+            {props.schedule.enabled ? "On" : "Off"}
+          </label>
+          <Button size={28} onClick={toggleHistory}>
+            {runs() !== null ? "Hide history" : "History"}
+          </Button>
+          <Button size={28} onClick={() => props.edit.toggle(props.schedule.id)}>
+            {editing() ? "Close" : "Edit"}
+          </Button>
+          <Button size={28} variant="destructive" onClick={() => removeSchedule(props.schedule)}>
+            Delete
+          </Button>
+        </div>
       </div>
       <Show when={runs()}>
         {(list) => (

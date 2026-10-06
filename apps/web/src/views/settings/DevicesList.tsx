@@ -62,7 +62,7 @@ function DeviceRow(props: { device: Device }) {
         }
       />
       <Show when={!revoked()}>
-        <Button tone="danger" onClick={() => confirmRemove(props.device)}>
+        <Button tone="danger" class="ml-auto" onClick={() => confirmRemove(props.device)}>
           Remove device
         </Button>
       </Show>

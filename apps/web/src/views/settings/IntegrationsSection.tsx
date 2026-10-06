@@ -242,7 +242,7 @@ function IntegrationCard(props: ItemProps) {
           {props.integration.detail}
         </span>
       </Show>
-      <div class="flex flex-wrap gap-2 self-start">
+      <div class="flex flex-wrap justify-end gap-2">
         <Button
           size={28}
           variant={row.connected() ? "secondary" : "primary"}
@@ -275,9 +275,9 @@ function IntegrationRow(props: ItemProps) {
   return (
     <div
       data-integration={props.integration.id}
-      class="flex flex-col gap-2 py-3.5 px-4 border-b border-border last:border-b-0"
+      class="@container flex flex-col gap-2 py-3.5 px-4 border-b border-border last:border-b-0"
     >
-      <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+      <div class="grid grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-x-2.5 gap-y-2 @min-[640px]:grid-cols-[auto_auto_minmax(0,1fr)_8rem_11rem] @min-[640px]:gap-x-3">
         <FoldToggle
           name={props.integration.name}
           open={row.open()}
@@ -288,6 +288,7 @@ function IntegrationRow(props: ItemProps) {
         <ItemText
           basis={220}
           tight
+          class="min-w-0"
           title={props.integration.name}
           description={
             <Show when={row.open() && props.integration.detail}>
@@ -297,7 +298,7 @@ function IntegrationRow(props: ItemProps) {
             </Show>
           }
         />
-        <span class="w-32 flex-none">
+        <span class="flex-none">
           <IconLabel
             icon={row.status().icon}
             size={12}
@@ -306,7 +307,7 @@ function IntegrationRow(props: ItemProps) {
             {row.status().label}
           </IconLabel>
         </span>
-        <span class="w-44 flex-none flex justify-end gap-2">
+        <span class="col-span-4 flex justify-end gap-2 @min-[640px]:col-span-1">
           <Show when={row.testable()}>
             <TestButton integration={props.integration} fold={props.fold} />
           </Show>
@@ -321,7 +322,7 @@ function IntegrationRow(props: ItemProps) {
         </span>
       </div>
       <Show when={row.open() && (props.integration.lastTest || row.showForm())}>
-        <div id={bodyId} class="flex flex-col gap-2 pl-14">
+        <div id={bodyId} class="flex flex-col gap-2 @min-[640px]:pl-14">
           <Show when={props.integration.lastTest}>{(test) => <TestChecks test={test()} />}</Show>
           <Show when={row.showForm()}>
             <IntegrationForm integration={props.integration} edit={props.edit} />
