@@ -27,6 +27,8 @@ import { createEditState, type EditState } from "./edit-state";
 import { GitHubConnectDialog } from "./GitHubConnectDialog";
 import { GmailConnectDialog } from "./GmailConnectDialog";
 import { GoogleConnectDialog } from "./GoogleConnectDialog";
+import { GoogleFilesDialog } from "./GoogleFilesDialog";
+import { googleFileSpec } from "./google-files-spec";
 import { testConnection } from "./integration-actions";
 import {
   type IntegrationsView,
@@ -179,6 +181,11 @@ function IntegrationForm(props: { integration: Integration; edit: EditState }) {
       </Match>
       <Match when={props.integration.id === GMAIL_ID}>
         <GmailConnectDialog integration={props.integration} edit={props.edit} />
+      </Match>
+      <Match when={googleFileSpec(props.integration.id)}>
+        {(spec) => (
+          <GoogleFilesDialog spec={spec()} integration={props.integration} edit={props.edit} />
+        )}
       </Match>
       <Match when={props.integration.id === TELEGRAM_ID}>
         <TelegramConnectDialog integration={props.integration} edit={props.edit} />
