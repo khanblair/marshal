@@ -41,7 +41,7 @@ export function TailnetFacts(props: { status: TailnetStatus | null | undefined }
   return (
     <>
       <h3 class={SUBHEADING}>This computer</h3>
-      <div class="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1.5 text-body">
+      <div class="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-body [overflow-wrap:anywhere]">
         <span class="text-secondary">Account</span>
         <span>{account()}</span>
         <span class="text-secondary">This machine</span>

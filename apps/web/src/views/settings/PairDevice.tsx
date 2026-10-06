@@ -41,7 +41,7 @@ export function PairDevice(props: {
         </Show>
       </div>
       <Show when={props.draft.pairing() && code() && noQr()}>
-        <p class="m-0 text-small leading-4.5 text-secondary max-w-prose">
+        <p class="m-0 text-small leading-4.5 text-secondary max-w-[65ch]">
           A QR code appears once the phone address above works. Until then, type the code on a
           device that already knows this computer's address.
         </p>

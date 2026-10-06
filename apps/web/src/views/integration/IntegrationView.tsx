@@ -68,7 +68,7 @@ export function IntegrationView() {
   const slot = () => M.S.integration?.[projectId()];
   return (
     <div data-view="integration" class="@container absolute inset-0 overflow-auto bg-canvas">
-      <div class="mx-auto flex min-h-full w-full max-w-4xl flex-col gap-5 p-4 @lg:p-6">
+      <div class="mx-auto flex min-h-full w-full max-w-[896px] flex-col gap-5 p-4 @min-[512px]:p-6">
         <Switch fallback={<Nothing />}>
           <Match when={slot()?.flow}>
             {(flow) => <Flow projectId={projectId()} flow={flow()} error={slot()?.error ?? ""} />}

@@ -103,7 +103,7 @@ function Lane(props: { title: string; icon: string; count: number; children: JSX
           {props.count}
         </Badge>
       </div>
-      <div class="grid gap-2 @lg:grid-cols-2">{props.children}</div>
+      <div class="grid gap-2 @min-[512px]:grid-cols-2">{props.children}</div>
     </section>
   );
 }

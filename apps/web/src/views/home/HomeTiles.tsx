@@ -1,8 +1,9 @@
+import { breakpoints } from "@marshal/tokens/tokens";
 import { SummaryTile } from "@marshal/ui";
 import { M } from "~/mock";
 import { mergedTodayCount, openCostLimits, openStatusList } from "./home-actions";
 
-/** The four numbers at the top of Home, two by two on phones; each opens the cards or the limits behind it. */
+/** The four numbers at the top of Home, two by two below the md band; each opens the cards or the limits behind it. */
 export function HomeTiles() {
   const needs = () => M.needs().length;
   const cost = () => M.costs();
@@ -15,7 +16,7 @@ export function HomeTiles() {
     return tone === "near" ? "needs-you" : "default";
   };
   return (
-    <div class={`grid gap-3 ${M.mobile ? "grid-cols-2" : "grid-cols-4"}`}>
+    <div class={`grid gap-3 ${M.S.vw < breakpoints.md ? "grid-cols-2" : "grid-cols-4"}`}>
       <SummaryTile
         value={needs()}
         label="Need you"
