@@ -24,6 +24,15 @@ export const textSizes = {
   tile: 28,
 } as const;
 
+/**
+ * Heading sizes that change with the size band, in px. A band not listed here, or a size not
+ * listed for it, uses the value in `textSizes`. Body and small text never change.
+ */
+export const textSizesByBand = {
+  base: { tile: 24, display: 22, "view-title": 20, title: 17 },
+  sm: { tile: 26 },
+} as const;
+
 /** One step of the spacing scale in px. `p-3` is 12 px, `gap-1.5` is 6 px. */
 export const spacingStep = 4;
 
@@ -51,7 +60,11 @@ export const sizes = {
   "touch-min": 44,
 } as const;
 
-export const breakpoints = { sm: 640, md: 900, lg: 1200, xl: 1600 } as const;
+/**
+ * The six size bands, as min widths in px: base below 640, then sm, md, lg, xl, and 2xl.
+ * These are Tailwind's defaults. The shell groups them into three layouts (see shell-layout.ts).
+ */
+export const breakpoints = { sm: 640, md: 768, lg: 1024, xl: 1280, "2xl": 1536 } as const;
 
 export const durations = { instant: 80, fast: 140, base: 200, slow: 280 } as const;
 
@@ -89,6 +102,9 @@ export const staticColors = {
   "scrim-dialog": "rgb(10 12 14 / 0.45)",
   "scrim-shadow": "rgb(0 0 0 / 0.25)",
   "tour-dim": "rgb(10 12 14 / 0.38)",
+  /* A QR code is black on white in both themes, or a phone camera cannot read it. */
+  "qr-light": "#FFFFFF",
+  "qr-dark": "#000000",
   /* Settings theme cards draw a small light or dark board, whatever the current theme. */
   "theme-preview-light-bg": "#F5F6F7",
   "theme-preview-light-line": "#C9CED4",

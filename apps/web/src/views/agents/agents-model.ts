@@ -3,7 +3,7 @@ import { compareSortValues, type TableSort } from "@marshal/ui";
 import { type Card, M } from "~/mock";
 
 /** From this window width the Thinking, Permission mode, and Session columns show. */
-export const DESKTOP_MIN_WIDTH_PX = breakpoints.lg;
+export const DESKTOP_MIN_WIDTH_PX = breakpoints.xl;
 
 /** Table minimum widths in px: the wide table has three more columns. */
 export const WIDE_TABLE_MIN_WIDTH_PX = 1180;

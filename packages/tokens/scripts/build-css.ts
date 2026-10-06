@@ -18,6 +18,7 @@ import {
   spacingStep,
   staticColors,
   textSizes,
+  textSizesByBand,
 } from "../src/tokens.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -45,9 +46,22 @@ function themeBlock(selector: string, theme: keyof typeof themes): string {
   return `${selector} {\n${lines(entries)}\n  color-scheme: ${theme};\n}\n`;
 }
 
+/** Heading sizes that differ in a size band. The app root carries `data-bp`, so children inherit them. */
+function bandTextBlocks(): string {
+  return Object.entries(textSizesByBand)
+    .map(([band, sizes]) => {
+      const entries = Object.entries(sizes).map(([n, px]): [string, string] => [
+        `text-${n}`,
+        `${px}px`,
+      ]);
+      return `[data-bp="${band}"] {\n${lines(entries)}\n}\n`;
+    })
+    .join("\n");
+}
+
 /** Runtime variables. Light values live in the Tailwind theme, so only dark overrides go here. */
 function tokensCss(): string {
-  return [banner, themeBlock('[data-theme="dark"]', "dark")].join("\n");
+  return [banner, themeBlock('[data-theme="dark"]', "dark"), bandTextBlocks()].join("\n");
 }
 
 function colorTheme(): string {

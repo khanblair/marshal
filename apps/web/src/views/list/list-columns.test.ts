@@ -50,7 +50,7 @@ describe("visibleColumns", () => {
     ]);
   });
 
-  it("hides Model, Thinking, Package, and Updated below 1200 px", () => {
+  it("hides Model, Thinking, Package, and Updated below 1280 px", () => {
     expect(keys({ ...DEFAULT_COLS, think: true, pkg: true }, TABLET_PX)).toEqual([
       "id",
       "title",

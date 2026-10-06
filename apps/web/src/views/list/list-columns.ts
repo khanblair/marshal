@@ -3,7 +3,7 @@ import { compareSortValues, type TableSort } from "@marshal/ui";
 import { type Card, M } from "~/mock";
 
 /** From this window width the wide columns show. */
-const DESKTOP_MIN_WIDTH_PX = breakpoints.lg;
+const DESKTOP_MIN_WIDTH_PX = breakpoints.xl;
 
 /** Each shown column adds this much to the table's minimum width. */
 export const MIN_COLUMN_WIDTH_PX = 110;

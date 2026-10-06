@@ -1,3 +1,4 @@
+import { breakpoints } from "@marshal/tokens/tokens";
 import { hasLiveSession } from "~/data/mappers/card";
 import type { Card, CiState, Column, Status, ToneKind, ViewKey } from "./types";
 
@@ -5,7 +6,7 @@ export const MINUTE_MS = 60_000;
 export const HOUR_MS = 3_600_000;
 export const DAY_MS = 86_400_000;
 /** Viewports narrower than this use the phone layout. */
-export const PHONE_MAX_WIDTH_PX = 640;
+export const PHONE_MAX_WIDTH_PX: number = breakpoints.sm;
 
 export interface StatusInfo {
   label: string;

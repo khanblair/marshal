@@ -2,12 +2,13 @@
  * Layout facts the shell reads from the store, as the design's `renderVals` computes
  * them. They are plain functions over `M.S`, so JSX and memos that call them track it.
  */
+import { breakpoints } from "@marshal/tokens/tokens";
 import { M, type Project, type ViewKey } from "~/mock";
 
-/** Narrower viewports use the phone layout. */
-const PHONE_MAX_PX = 640;
-/** Viewports this wide and wider use the desktop layout. */
-const DESKTOP_MIN_PX = 1200;
+/** Narrower viewports use the phone layout: the base band, below `sm`. */
+const PHONE_MAX_PX = breakpoints.sm;
+/** Viewports this wide and wider use the desktop layout: the `xl` band and up. */
+const DESKTOP_MIN_PX = breakpoints.xl;
 /** The card panel's width limits on desktop. */
 export const DETAIL_MIN_PX = 480;
 export const DETAIL_MAX_PX = 760;
@@ -22,6 +23,18 @@ export const sizeName = (): "phone" | "tablet" | "desktop" => {
   if (isPhone()) return "phone";
   return isTablet() ? "tablet" : "desktop";
 };
+
+/** The six size bands: base below 640, then sm, md, lg, xl, and 2xl, from the token breakpoints. */
+export type Band = "base" | keyof typeof breakpoints;
+
+const BANDS_DOWN = (Object.keys(breakpoints) as (keyof typeof breakpoints)[]).reverse();
+
+/** The band a width falls in. Layout switches (phone, tablet, desktop) group these bands. */
+export function bandFor(width: number): Band {
+  return BANDS_DOWN.find((name) => width >= breakpoints[name]) ?? "base";
+}
+
+export const band = (): Band => bandFor(M.S.vw);
 
 /** A project page whose project still exists. */
 export const isProject = (): boolean => M.S.route.page === "project" && !!M.proj(M.S.route.pid);

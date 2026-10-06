@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { M } from "~/mock";
 import {
+  band,
+  bandFor,
   clampDetailWidth,
   currentProject,
   DETAIL_MAX_PX,
@@ -42,15 +44,39 @@ describe("size classes", () => {
     expect([isPhone(), isTablet(), isDesktop()].filter(Boolean)).toHaveLength(1);
   });
 
-  it("switches exactly at 640 and 1200", () => {
+  it("switches exactly at 640 and 1280", () => {
     M.setViewport(639, 900);
     expect(isPhone()).toBe(true);
     M.setViewport(640, 900);
     expect(isTablet()).toBe(true);
-    M.setViewport(1199, 900);
+    M.setViewport(1279, 900);
     expect(isTablet()).toBe(true);
-    M.setViewport(1200, 900);
+    M.setViewport(1280, 900);
     expect(isDesktop()).toBe(true);
+  });
+});
+
+describe("size bands", () => {
+  it.each([
+    [320, "base"],
+    [639, "base"],
+    [640, "sm"],
+    [767, "sm"],
+    [768, "md"],
+    [1023, "md"],
+    [1024, "lg"],
+    [1279, "lg"],
+    [1280, "xl"],
+    [1535, "xl"],
+    [1536, "2xl"],
+    [2560, "2xl"],
+  ] as const)("width %i is the %s band", (width, name) => {
+    expect(bandFor(width)).toBe(name);
+  });
+
+  it("follows the viewport", () => {
+    M.setViewport(820, 900);
+    expect(band()).toBe("md");
   });
 });
 
