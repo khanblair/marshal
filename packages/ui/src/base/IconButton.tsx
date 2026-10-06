@@ -23,9 +23,9 @@ export interface IconButtonProps
   variant?: IconButtonVariant;
   /**
    * Text color of a ghost button. `secondary` (default), `muted` (row menus,
-   * which hover to the selected fill), or `default` (inherits).
+   * which hover to the selected fill), `default` (inherits), or `danger` (delete and remove).
    */
-  tone?: "secondary" | "muted" | "default";
+  tone?: "secondary" | "muted" | "default" | "danger";
   /** Sets `data-compact="1"`, which keeps the button small on touch screens. */
   compact?: boolean;
 }
@@ -50,11 +50,16 @@ const GHOST_TONES = {
   secondary: "text-secondary hover:bg-surface-hover",
   muted: "text-muted hover:bg-surface-selected hover:text-primary",
   default: "hover:bg-surface-hover",
+  danger: "text-status-danger-text hover:bg-status-danger-subtle",
 } as const;
 
 function variantClass(variant: IconButtonVariant, tone: keyof typeof GHOST_TONES): string {
   if (variant === "outline") {
-    return "border border-border-strong bg-surface hover:bg-surface-hover disabled:opacity-50";
+    const base = "border border-border-strong bg-surface disabled:opacity-50";
+    // A danger outline button keeps its border and surface, and turns its icon red.
+    return tone === "danger"
+      ? `${base} text-status-danger-text hover:bg-status-danger-subtle`
+      : `${base} hover:bg-surface-hover`;
   }
   if (variant === "primary") return "border border-ink bg-ink text-on-ink disabled:opacity-40";
   return `border-none bg-transparent disabled:opacity-50 ${GHOST_TONES[tone]}`;

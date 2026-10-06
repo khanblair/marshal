@@ -3,14 +3,15 @@ import { Toast } from "./Toast";
 import { ToastRegion } from "./ToastRegion";
 
 describe("Toast", () => {
-  it("shows a message on ink with a dismiss button", () => {
+  it("shows a message on a themed raised surface with a dismiss button", () => {
     const onDismiss = vi.fn();
     render(() => <Toast onDismiss={onDismiss}>Card started</Toast>);
     const toast = screen.getByRole("status");
     expect(toast).toHaveTextContent("Card started");
     expect(toast).toHaveClass(
-      "bg-ink",
-      "text-on-ink",
+      "bg-surface-raised",
+      "text-primary",
+      "border-border",
       "rounded-md",
       "min-h-10",
       "max-w-[440px]",
@@ -29,7 +30,7 @@ describe("Toast", () => {
       </Toast>
     ));
     const undo = screen.getByRole("button", { name: "Undo" });
-    expect(undo).toHaveClass("h-7", "border-current", "bg-transparent", "font-semibold");
+    expect(undo).toHaveClass("h-7", "border-border-strong", "bg-surface", "font-semibold");
     fireEvent.click(undo);
     expect(onAction).toHaveBeenCalledOnce();
     expect(screen.getByRole("button", { name: "Close" })).toBeInTheDocument();

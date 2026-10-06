@@ -96,4 +96,21 @@ describe("IconButton", () => {
     fireEvent.click(button);
     expect(onClick).toHaveBeenCalledOnce();
   });
+
+  it("can be a danger button, for delete and remove", () => {
+    render(() => <IconButton label="Delete" icon="trash-2" tone="danger" />);
+    expect(screen.getByRole("button", { name: "Delete" })).toHaveClass(
+      "text-status-danger-text",
+      "hover:bg-status-danger-subtle",
+    );
+  });
+
+  it("can be a danger outline button too", () => {
+    render(() => <IconButton label="Delete" icon="trash-2" variant="outline" tone="danger" />);
+    expect(screen.getByRole("button", { name: "Delete" })).toHaveClass(
+      "border-border-strong",
+      "text-status-danger-text",
+      "hover:bg-status-danger-subtle",
+    );
+  });
 });

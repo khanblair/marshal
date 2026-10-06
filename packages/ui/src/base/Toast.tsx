@@ -14,8 +14,9 @@ export interface ToastProps extends JSX.HTMLAttributes<HTMLDivElement> {
 const DISMISS_ICON_PX = 14;
 
 /**
- * The result of an action, on ink: a message, an optional action, and a
- * dismiss button. Stack toasts in a `ToastRegion`.
+ * The result of an action, on a raised surface like a menu or a dialog, so it follows the theme: a
+ * message, an optional action, and a dismiss button. Stack toasts in a `ToastRegion`. (The design draws
+ * it on ink, which turns black on a light page; the owner asked for it to follow the theme.)
  */
 export function Toast(props: ToastProps) {
   const [local, others] = splitProps(props, [
@@ -31,7 +32,7 @@ export function Toast(props: ToastProps) {
       role="status"
       {...others}
       class={cx(
-        "pointer-events-auto flex items-center gap-3 max-w-[440px] min-h-10 py-1.5 pr-1.5 pl-3.5 rounded-md bg-ink text-on-ink shadow-e1 text-body",
+        "pointer-events-auto flex items-center gap-3 max-w-[440px] min-h-10 py-1.5 pr-1.5 pl-3.5 rounded-md border border-border bg-surface-raised text-primary shadow-e2 text-body",
         local.class,
       )}
     >
@@ -40,7 +41,7 @@ export function Toast(props: ToastProps) {
         <button
           type="button"
           onClick={() => local.onAction?.()}
-          class="h-7 px-2.5 rounded-sm border border-current bg-transparent text-inherit font-semibold"
+          class="h-7 phone:h-(--control-h) px-2.5 rounded-sm border border-border-strong bg-surface text-primary font-semibold hover:bg-surface-hover"
         >
           {local.actionLabel}
         </button>
@@ -49,7 +50,7 @@ export function Toast(props: ToastProps) {
         type="button"
         aria-label={local.dismissLabel ?? "Dismiss"}
         onClick={() => local.onDismiss()}
-        class="size-7 inline-flex items-center justify-center p-0 border-none rounded-sm bg-transparent text-inherit"
+        class="size-7 phone:size-(--control-h) inline-flex items-center justify-center p-0 border-none rounded-sm bg-transparent text-secondary hover:bg-surface-hover"
       >
         <Icon name="x" size={DISMISS_ICON_PX} />
       </button>

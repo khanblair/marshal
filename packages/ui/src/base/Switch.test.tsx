@@ -21,6 +21,7 @@ describe("Switch", () => {
     render(() => <Harness />);
     const toggle = screen.getByRole("switch", { name: "Turn off Morning brief" });
     expect(toggle).toHaveAttribute("aria-checked", "true");
+    expect(toggle).toHaveAttribute("data-compact", "1");
     expect(toggle).toHaveClass("w-9", "h-5", "rounded-full", "justify-end", "bg-ink");
     expect(toggle.firstElementChild).toHaveClass("bg-on-ink");
     fireEvent.click(toggle);

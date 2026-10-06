@@ -34,12 +34,12 @@ describe("Toasts", () => {
     expect(document.querySelectorAll('[aria-live="polite"]')).toHaveLength(2);
   });
 
-  it("shows a toast on ink with a dismiss button, and removes it after four seconds", () => {
+  it("shows a toast on a themed surface with a dismiss button, and removes it after four seconds", () => {
     render(() => <Toasts />);
     M.toast("Card started");
     const toast = screen.getByRole("status");
     expect(toast).toHaveTextContent("Card started");
-    expect(toast).toHaveClass("bg-ink", "text-on-ink");
+    expect(toast).toHaveClass("bg-surface-raised", "text-primary");
     expect(screen.getByRole("button", { name: "Dismiss" })).toBeInTheDocument();
     vi.advanceTimersByTime(TOAST_MS);
     expect(screen.queryByRole("status")).toBeNull();

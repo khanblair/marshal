@@ -9,7 +9,11 @@ export interface SwitchProps
   label: string;
 }
 
-/** An on and off switch (`role="switch"`), ink when on. Used for schedules. */
+/**
+ * An on and off switch (`role="switch"`), ink when on. Used for schedules. It keeps its own 36 by
+ * 20 px size on every layout (`data-compact`): a phone's minimum control height would stretch the
+ * track and leave the knob at its top. Put it in a label, which is the tap area.
+ */
 export function Switch(props: SwitchProps) {
   const [local, others] = splitProps(props, ["checked", "onCheckedChange", "label", "class"]);
   return (
@@ -18,6 +22,7 @@ export function Switch(props: SwitchProps) {
       role="switch"
       aria-checked={local.checked}
       aria-label={local.label}
+      data-compact="1"
       {...others}
       onClick={() => local.onCheckedChange(!local.checked)}
       class={cx(
