@@ -322,7 +322,28 @@ describe("CI health", { timeout: SLOW_TEST_MS }, () => {
     expect(within(section("CI health")).queryByText(/queued/i)).toBeNull();
   });
 
+  const setGitHub = (st: "connected" | "none" | "error") => {
+    const row = M.S.integrations.find((one) => one.id === "github");
+    if (!row) throw new Error("seed has no GitHub integration");
+    row.st = st;
+  };
+
+  it("says GitHub is connected, not missing, when it is connected and no project has CI data yet", () => {
+    setGitHub("connected");
+    for (const project of M.S.projects) withoutCi(project);
+    render(() => <HomeView />);
+    const ci = section("CI health");
+    expect(within(ci).queryByText(/is not connected/)).toBeNull();
+    expect(within(ci).queryByRole("button", { name: "Connect GitHub" })).toBeNull();
+    expect(
+      within(ci).getByText(/GitHub is connected, but no CI run has been reported yet/),
+    ).toBeInTheDocument();
+    fireEvent.click(within(ci).getByRole("button", { name: "Open GitHub settings" }));
+    expect(M.S).toMatchObject({ settingsSection: "integrations", route: { page: "settings" } });
+  });
+
   it("says GitHub is not connected, and shows no row, when no project has CI data", () => {
+    setGitHub("none");
     for (const project of M.S.projects) withoutCi(project);
     render(() => <HomeView />);
     const ci = section("CI health");

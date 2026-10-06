@@ -253,10 +253,20 @@ describe("CI health page", () => {
     ]);
     unmount();
     for (const project of M.S.projects) strip(project);
-    render(() => <HomeAllView />);
+    const github = M.S.integrations.find((row) => row.id === "github");
+    if (!github) throw new Error("seed has no GitHub integration");
+    github.st = "none";
+    const none = render(() => <HomeAllView />);
     expect(screen.queryAllByRole("heading", { level: 3 })).toHaveLength(0);
     expect(
       screen.getByText("GitHub is not connected. CI runs appear here once GitHub is connected."),
+    ).toBeInTheDocument();
+    none.unmount();
+    github.st = "connected";
+    render(() => <HomeAllView />);
+    expect(screen.queryByText(/is not connected/)).toBeNull();
+    expect(
+      screen.getByText(/GitHub is connected, but no CI run has been reported yet/),
     ).toBeInTheDocument();
   });
 });

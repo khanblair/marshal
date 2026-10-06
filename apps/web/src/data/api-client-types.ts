@@ -351,7 +351,8 @@ export interface ApiClient {
   /**
    * Every project's CI health, and the moment the daemon answered, so ages are counted from the
    * daemon's own clock (section S21, docs/backend-checklist.md B6.2 to B6.4). A project Marshal has
-   * no run for is left out on purpose, which is what Home draws as "GitHub is not connected".
+   * no run for is left out on purpose. When none has any, Home says GitHub is not connected, or that it
+   * is connected and no run has been reported yet, by the state of the GitHub connection.
    */
   ciSnapshot(options?: CallOptions): Promise<CISnapshot>;
   /**

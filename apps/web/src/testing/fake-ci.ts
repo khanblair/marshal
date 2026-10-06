@@ -2,8 +2,8 @@
  * The CI health route of the fake daemon (docs/backend-checklist.md B6.2 to B6.4, section S21,
  * docs/architecture.md 9 and 11.2). One call answers every project's CI at once, so there is one
  * route and one answer: `GET /v1/ci` is the whole snapshot, and a project with no run of its own is
- * left out of it, the way the daemon leaves it out, so a screen shows "GitHub is not connected"
- * rather than an empty list.
+ * left out of it, the way the daemon leaves it out, so a screen says there is no CI data (and, when
+ * GitHub is connected, that no run has been reported yet) rather than draw an empty list.
  *
  * The snapshot is what a test seeds and the store hands back, and it carries the daemon's own time,
  * which is what every age on the screens is counted from. A run on a card's own branch is kept in

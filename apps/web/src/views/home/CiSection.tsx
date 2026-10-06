@@ -1,7 +1,7 @@
 import { CiStatus, ShowMoreFooter } from "@marshal/ui";
 import { createMemo, For, Show } from "solid-js";
 import { M } from "~/mock";
-import { CiNotConnected } from "./CiNotConnected";
+import { CiEmpty } from "./CiEmpty";
 import { ciInfo, hasCi, homeCiAgo, type ProjectWithCi } from "./ci-rows";
 import { viewAllCi } from "./home-actions";
 import { createShowAll } from "./use-show-all";
@@ -31,7 +31,7 @@ export function CiSection() {
       <h2 id="h-ci" class="m-0 mb-2 text-subtitle leading-5.5 font-semibold">
         CI health
       </h2>
-      <Show when={withCi().length > 0} fallback={<CiNotConnected />}>
+      <Show when={withCi().length > 0} fallback={<CiEmpty />}>
         <For each={rows.visible()}>{(project) => <CiRow project={project} />}</For>
         <ShowMoreFooter
           total={withCi().length}

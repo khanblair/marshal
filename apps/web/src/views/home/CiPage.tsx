@@ -1,7 +1,7 @@
 import { Button, CiStatus, ciAppearance, Icon } from "@marshal/ui";
 import { createMemo, For, Index, Show } from "solid-js";
 import { M } from "~/mock";
-import { CiNotConnected } from "./CiNotConnected";
+import { CiEmpty } from "./CiEmpty";
 import { type CiRun, ciInfo, hasCi, type ProjectWithCi, runAgo, runsOf } from "./ci-rows";
 
 function RunRow(props: { run: CiRun }) {
@@ -56,7 +56,7 @@ export function CiPage(props: { projectId: string }) {
     M.S.projects.filter(hasCi).filter((p) => props.projectId === "all" || p.id === props.projectId),
   );
   return (
-    <Show when={projects().length > 0} fallback={<CiNotConnected />}>
+    <Show when={projects().length > 0} fallback={<CiEmpty />}>
       <For each={projects()}>{(project) => <ProjectRuns project={project} />}</For>
     </Show>
   );
