@@ -47,10 +47,11 @@ describe("ViewHeader tabs", () => {
     expect(screen.getByRole("tab", { name: "List" })).toHaveAttribute("aria-selected", "true");
   });
 
-  it("uses taller tabs on touch screens", () => {
+  it("sizes the tabs the same on every layout, and lets the base CSS raise them on touch tablets", () => {
     showProject("board", TABLET_PX);
     render(() => <ViewHeader />);
-    expect(screen.getByRole("tab", { name: "Board" })).toHaveClass("h-10");
+    expect(screen.getByRole("tab", { name: "Board" })).toHaveClass("h-6.5");
+    expect(screen.getByRole("tab", { name: "Board" })).not.toHaveAttribute("data-compact");
     cleanup();
     showProject("board", DESKTOP_PX);
     render(() => <ViewHeader />);
@@ -141,10 +142,11 @@ describe("ViewHeader More menu", () => {
     expect(M.S.toasts.at(-1)?.msg).toBe("Connect Google Slides in Settings, under Integrations.");
   });
 
-  it("uses a taller button on touch screens", () => {
+  it("is the same size on every layout, and lets the base CSS raise it on touch tablets", () => {
     showProject("board", TABLET_PX);
     render(() => <ViewHeader />);
-    expect(more()).toHaveClass("size-9");
+    expect(more()).toHaveClass("size-7");
+    expect(more()).not.toHaveAttribute("data-compact");
   });
 });
 

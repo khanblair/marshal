@@ -20,7 +20,7 @@ import {
   finishedPerDay,
 } from "./chart-data";
 import { mergedTodayCount } from "./home-actions";
-import { chartColumns, rangeControlSize } from "./home-layout";
+import { chartColumns } from "./home-layout";
 import { useChartWidth } from "./use-chart-width";
 
 /** Charts never get narrower than this, however small the column. */
@@ -76,8 +76,6 @@ export function HomeCharts() {
         <h2 class="m-0 flex-1 text-subtitle leading-5.5 font-semibold">How it's going</h2>
         <SegmentedControl
           label="Chart range"
-          compact
-          size={rangeControlSize()}
           options={RANGE_OPTIONS}
           value={String(M.S.dashRange)}
           onValueChange={(value) => M.set({ dashRange: Number(value) })}

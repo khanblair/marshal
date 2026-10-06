@@ -226,14 +226,16 @@ describe("charts", { timeout: SLOW_TEST_MS }, () => {
     expect(bars.querySelectorAll("path")).toHaveLength(90);
   });
 
-  it("makes the range segments 40 px high under 1200 px", () => {
-    M.setViewport(1000, 900);
+  it("makes the range segments the phone control height on a phone, and not compact", () => {
+    M.setViewport(390, 844);
     render(() => <HomeView />);
-    for (const radio of screen.getAllByRole("radio")) expect(radio).toHaveClass("h-10");
-    expect(screen.getAllByRole("radio")[0]).toHaveAttribute("data-compact", "1");
+    for (const radio of screen.getAllByRole("radio")) {
+      expect(radio).toHaveClass("phone:h-(--control-h)");
+      expect(radio).not.toHaveAttribute("data-compact");
+    }
   });
 
-  it("keeps them 26 px high on wide windows", () => {
+  it("keeps them 26 px high on desktop", () => {
     render(() => <HomeView />);
     expect(screen.getAllByRole("radio")[0]).toHaveClass("h-6.5");
   });

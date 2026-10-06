@@ -3,10 +3,9 @@ import { Index, Show } from "solid-js";
 import { M, type ViewKey } from "~/mock";
 import { projectExportItems } from "~/views/google-export/project-export-items";
 import { closeMenu, toggleMenu } from "./shell-actions";
-import { isDesktop, isPhone, isProject, isTouch, maxPanes, modKey } from "./shell-layout";
+import { isDesktop, isPhone, isProject, maxPanes, modKey } from "./shell-layout";
 
-/** Tab heights in px: touch screens get larger tabs. */
-const TAB_TOUCH_PX = 40;
+/** Tab height in px. Touch tablets raise it through `--tab-min`, in the base CSS. */
 const TAB_PX = 26;
 /** The views whose header offers New card. */
 const NEW_CARD_VIEWS: readonly ViewKey[] = ["board", "list", "timeline", "agents"];
@@ -54,7 +53,6 @@ function MergeTarget() {
 }
 
 const MORE_MENU = "project-more";
-const MORE_TOUCH_PX = 36;
 const MORE_PX = 28;
 
 /** The project's More menu: its board sent to Google. Every project view shares this header. */
@@ -67,7 +65,7 @@ function ProjectMore(props: { pid: string }) {
         title="More project actions"
         icon="ellipsis"
         variant="outline"
-        size={isTouch() ? MORE_TOUCH_PX : MORE_PX}
+        size={MORE_PX}
         aria-expanded={M.S.menu === MORE_MENU}
         onClick={() => toggleMenu(MORE_MENU)}
       />
@@ -111,8 +109,7 @@ export function ViewHeader() {
           kind="tabs"
           label="Views"
           data-tour="views"
-          size={isTouch() ? TAB_TOUCH_PX : TAB_PX}
-          compact
+          size={TAB_PX}
           class="overflow-x-auto min-w-0"
           options={options}
           value={M.S.route.view}
