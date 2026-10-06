@@ -330,6 +330,7 @@ func ciPreviewAndIntegrationRoutes() []routeSpec {
 		{"POST /v1/integrations/{id}/test", needsIntegrations | needsConnectionTests, (*Server).testIntegration},
 		{"GET /v1/integrations/gcal/authorize", needsIntegrations, (*Server).authorizeGoogleCalendar},
 		{"GET /v1/integrations/gmail/authorize", needsIntegrations, (*Server).authorizeGmail},
+		{"GET /v1/integrations/{id}/authorize", needsIntegrations, (*Server).authorizeGoogleFile},
 		{"GET /v1/integrations/gcal/client", needsIntegrations, (*Server).googleClientInfo},
 		{"GET /v1/integrations/gcal/calendars", needsIntegrations, (*Server).listGoogleCalendars},
 		{"PUT /v1/integrations/gcal/calendars", needsIntegrations, (*Server).setGoogleCalendars},
@@ -338,6 +339,12 @@ func ciPreviewAndIntegrationRoutes() []routeSpec {
 		{"DELETE /v1/integrations/github/connect", needsIntegrations, (*Server).cancelGitHubConnect},
 		{"PUT /v1/integrations/github/token", needsIntegrations, (*Server).saveGitHubToken},
 		{"POST /v1/integrations/github/token/test", needsIntegrations, (*Server).testGitHubToken},
+		{"GET /v1/google/files", needsIntegrations, (*Server).listGoogleFiles},
+		{"POST /v1/google/docs", needsIntegrations, (*Server).createGoogleDoc},
+		{"POST /v1/google/sheets", needsIntegrations, (*Server).createGoogleSheet},
+		{"POST /v1/google/slides", needsIntegrations, (*Server).createGoogleSlides},
+		{"POST /v1/google/drive/files", needsIntegrations, (*Server).uploadGoogleFile},
+		{"POST /v1/google/read", needsIntegrations, (*Server).readGoogleLink},
 	}
 }
 

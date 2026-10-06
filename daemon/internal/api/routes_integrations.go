@@ -104,6 +104,12 @@ func (s *Server) saveOneIntegration(r *http.Request, id string) error {
 			return err
 		}
 		return s.integrations.SaveGmail(r.Context(), req)
+	case integrations.GDriveID:
+		var req protocol.SaveGoogleDriveRequest
+		if err := s.decodeJSON(r, &req); err != nil {
+			return err
+		}
+		return s.integrations.SaveGoogleDrive(r.Context(), req)
 	case integrations.TelegramID:
 		var req protocol.SaveTelegramRequest
 		if err := s.decodeJSON(r, &req); err != nil {
@@ -220,8 +226,29 @@ func (s *Server) authorizeGmail(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusOK, protocol.AuthorizeURL{URL: url})
 }
 
+// authorizeGoogleFile is GET /v1/integrations/{id}/authorize for Drive, Docs, Sheets and Slides: the
+// consent URL of that connection, for the owner's own browser. Any other id is not found. It also
+// answers not-found until the Google OAuth client is available, like Gmail's.
+func (s *Server) authorizeGoogleFile(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if !integrations.IsGoogleFile(id) {
+		s.writeError(w, protocol.NotFound("connection").With("id", id))
+		return
+	}
+	url, err := s.integrations.AuthorizeGoogle(r.Context(), id)
+	if errors.Is(err, integrations.ErrNoGoogleClient) {
+		s.writeError(w, protocol.NotFound("connection").With("id", id))
+		return
+	}
+	if err != nil {
+		s.writeError(w, translate(err))
+		return
+	}
+	s.writeJSON(w, http.StatusOK, protocol.AuthorizeURL{URL: url})
+}
+
 // callbackGoogleCalendar is GET /v1/integrations/gcal/callback: where Google's own redirect lands
-// after the owner grants access, for Calendar and for Gmail alike (the state says which). It takes
+// after the owner grants access, for every Google connection (the state says which). It takes
 // no token, because a browser visit carries none; the single-use state is what authorizes it. It
 // answers plain text - a browser tab, not a screen - and then runs the same test a save is followed
 // by, so the connection's status is current at once.
@@ -236,16 +263,22 @@ func (s *Server) callbackGoogleCalendar(w http.ResponseWriter, r *http.Request) 
 	id, err := s.integrations.FinishGoogle(r.Context(), code, state)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		_, _ = w.Write([]byte("Google could not be connected: " + err.Error()))
+		_, _ = w.Write([]byte("Google could not be connected: " + plainMessage(err)))
 		return
 	}
 	s.integrationsTestAfterConnect(r.Context(), id)
 	w.WriteHeader(http.StatusOK)
-	name := "Google Calendar"
-	if id == integrations.GmailID {
-		name = "Gmail"
+	_, _ = w.Write([]byte(integrations.GoogleName(id) + " is connected. You can close this tab."))
+}
+
+// plainMessage is the sentence of a refusal, without the code that Error() puts in front of it, for
+// a page a person reads.
+func plainMessage(err error) string {
+	var answer *protocol.Error
+	if errors.As(err, &answer) {
+		return answer.Message
 	}
-	_, _ = w.Write([]byte(name + " is connected. You can close this tab."))
+	return err.Error()
 }
 
 // googleClientInfo is GET /v1/integrations/gcal/client: whether this build has Marshal's own Google
@@ -289,12 +322,24 @@ func (s *Server) setGoogleCalendars(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusOK, choices)
 }
 
-// googleError turns what reading Google answered into the refusal a person can act on.
+// googleError turns what reading Google answered into the refusal a person can act on. It names the
+// connection the failure belongs to: Google Calendar unless the error says another.
 func (s *Server) googleError(err error) error {
+	var access *integrations.GoogleAccessError
+	name := "Google Calendar"
+	if errors.As(err, &access) {
+		name = integrations.GoogleName(access.ID)
+	}
 	switch {
 	case errors.Is(err, integrations.ErrNotConnected), errors.Is(err, integrations.ErrNoGoogleClient):
+		if access != nil {
+			return protocol.Refused(name + " is not connected yet. Connect it in Settings, under Integrations.")
+		}
 		return protocol.Refused("Google Calendar is not connected yet. Save the client and grant access first.")
 	case errors.Is(err, integrations.ErrNeedsReconnect):
+		if access != nil {
+			return protocol.Refused("Google no longer accepts Marshal's access to " + name + ". Reconnect it in Settings.")
+		}
 		return protocol.Refused("Google no longer accepts Marshal's access. Reconnect Google Calendar in Settings.")
 	}
 	return translate(err)

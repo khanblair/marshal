@@ -14,11 +14,18 @@ const jsonMediaType = "application/json"
 // the 6 MiB a comment may keep in files (protocol.MaxCommentFileBytes) needs 8 MiB and some room.
 const commentBodyBytes = 9 << 20
 
-// bodyLimitOf is the size limit of this request's body. Only posting a comment may exceed the
-// ordinary limit, and only up to what its attachments need.
+// googleBodyBytes is the size a request that makes a Google file may reach: Marshal saves up to 2 MB
+// of content (integrations.maxContentBytes), and JSON escaping can make that larger on the wire.
+const googleBodyBytes = 8 << 20
+
+// bodyLimitOf is the size limit of this request's body. Only posting a comment, and making a Google
+// file, may exceed the ordinary limit, and only up to what they need.
 func (s *Server) bodyLimitOf(r *http.Request) int64 {
 	if r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/v1/cards/") && strings.HasSuffix(r.URL.Path, "/comments") {
 		return max(s.limits.MaxBodyBytes, commentBodyBytes)
+	}
+	if r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/v1/google/") {
+		return max(s.limits.MaxBodyBytes, googleBodyBytes)
 	}
 	return s.limits.MaxBodyBytes
 }
