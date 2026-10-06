@@ -29,7 +29,9 @@ func TestTheIntegrationListShowsEveryConnectionWithNothingStored(t *testing.T) {
 	st := newStack(t, withIntegrationsTester(passingTester))
 	got := decode[protocol.IntegrationList](t, st.do(http.MethodGet, "/v1/integrations", nil).want(t, http.StatusOK))
 
-	want := []string{"github", "trello", "gcal", "gmail", "telegram", "discord", "ntfy", "obsidian"}
+	want := []string{
+		"github", "trello", "gcal", "gmail", "gdrive", "gdocs", "gsheets", "gslides", "telegram", "discord", "ntfy", "obsidian",
+	}
 	if len(got.Integrations) != len(want) {
 		t.Fatalf("the list has %d connections, want the %d rows the settings screen shows",
 			len(got.Integrations), len(want))

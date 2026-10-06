@@ -178,7 +178,9 @@ func TestARouteIsRegisteredOnlyWhenItsServiceIsThere(t *testing.T) {
 	// follow the connections service the GitHub app is reached through.
 	integrationRoutes := []string{"POST /v1/integrations/telegram/detect-chat",
 		"GET /v1/integrations", "PUT /v1/integrations/{id}", "DELETE /v1/integrations/{id}",
-		"GET /v1/integrations/gcal/authorize", "GET /v1/integrations/gmail/authorize",
+		"GET /v1/integrations/gcal/authorize", "GET /v1/integrations/gmail/authorize", "GET /v1/integrations/{id}/authorize",
+		"GET /v1/google/files", "POST /v1/google/docs", "POST /v1/google/sheets", "POST /v1/google/slides",
+		"POST /v1/google/drive/files", "POST /v1/google/read",
 		"GET /v1/integrations/gcal/client", "GET /v1/integrations/gcal/calendars", "PUT /v1/integrations/gcal/calendars",
 		"POST /v1/integrations/github/connect", "GET /v1/integrations/github/connect",
 		"DELETE /v1/integrations/github/connect", "PUT /v1/integrations/github/token",

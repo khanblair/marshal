@@ -11,17 +11,27 @@ import (
 	"github.com/khanblair/marshal/daemon/internal/protocol"
 )
 
-// googleFake is where a stack's Google connections are pointed in a test.
-type googleFake struct{ auth, token, calendar, clientID, clientSecret string }
+// googleFake is where a stack's Google connections are pointed in a test. files is where Drive, Docs,
+// Sheets and Slides are, and scope, when a test stores one, is the scope list the token endpoint
+// reports as granted.
+type googleFake struct {
+	auth, token, calendar, files, clientID, clientSecret string
+	scope                                                *atomic.Value
+}
 
 // fakeGoogleServer answers Google's token endpoint and a one-calendar Calendar API. down makes the
 // Calendar API fail.
 func fakeGoogleServer(t *testing.T, down *atomic.Bool) googleFake {
 	t.Helper()
+	scope := &atomic.Value{}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/token", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"access_token":"a","refresh_token":"r","token_type":"Bearer","expires_in":3600}`))
+		granted := ""
+		if value, _ := scope.Load().(string); value != "" {
+			granted = `,"scope":"` + value + `"`
+		}
+		_, _ = w.Write([]byte(`{"access_token":"a","refresh_token":"r","token_type":"Bearer","expires_in":3600` + granted + `}`))
 	})
 	mux.HandleFunc("/calendar/v3/users/me/calendarList", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -38,7 +48,7 @@ func fakeGoogleServer(t *testing.T, down *atomic.Bool) googleFake {
 	})
 	server := httptest.NewServer(mux)
 	t.Cleanup(server.Close)
-	return googleFake{auth: server.URL + "/auth", token: server.URL + "/token", calendar: server.URL + "/calendar/v3/"}
+	return googleFake{auth: server.URL + "/auth", token: server.URL + "/token", calendar: server.URL + "/calendar/v3/", scope: scope}
 }
 
 // withMarshalsGoogleClient gives the daemon Marshal's own Google client, so a person connects with one
