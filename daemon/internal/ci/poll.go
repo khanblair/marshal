@@ -3,9 +3,11 @@ package ci
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	gh "github.com/khanblair/marshal/daemon/internal/github"
+	"github.com/khanblair/marshal/daemon/internal/protocol"
 	"github.com/khanblair/marshal/daemon/internal/store/db"
 )
 
@@ -78,6 +80,9 @@ func (s *Service) pollLoop(ctx context.Context, ticker *time.Ticker, done <-chan
 		case <-ticker.C:
 			if err := s.Poll(ctx); err != nil {
 				s.log.Warn("the CI polling backup could not run", "error", err)
+			}
+			if err := s.PollDefaultBranches(ctx); err != nil {
+				s.log.Warn("the CI check of the default branches could not run", "error", err)
 			}
 		}
 	}
@@ -220,4 +225,71 @@ func (s *Service) noteBranch(repo gh.Repository, branch string, found bool) {
 // branchKey names one branch of one repository for the miss cache.
 func branchKey(repo gh.Repository, branch string) string {
 	return repo.Owner + "/" + repo.Name + "#" + branch
+}
+
+// defaultBranchEvery is how often one project's default branch is asked about. The waiting-run
+// sweep above only follows runs a webhook or a card's branch already told Marshal about; this is what
+// finds the runs on main nobody announced, so CI health has them without a public webhook address.
+const defaultBranchEvery = 5 * time.Minute
+
+// PollDefaultBranches asks the forge for each project's default branch and records its newest run of
+// every workflow, through the same path a delivery takes. A project that is not a GitHub repository,
+// or was asked about lately, is skipped. A branch the forge could not be asked about is logged and
+// left: one project's trouble does not stop the others.
+func (s *Service) PollDefaultBranches(ctx context.Context) error {
+	if s.forge == nil {
+		return ErrNoForge
+	}
+	list, err := s.projects.List(ctx)
+	if err != nil {
+		return fmt.Errorf("list the projects to ask about their default branches: %w", err)
+	}
+	for _, project := range list.Projects {
+		s.pollDefaultBranch(ctx, project)
+	}
+	return nil
+}
+
+func (s *Service) pollDefaultBranch(ctx context.Context, project protocol.Project) {
+	branch := strings.TrimSpace(project.DefaultBranch)
+	if branch == "" || !s.defaultDue(project.ID) {
+		return
+	}
+	repo, ok := s.repository(ctx, project)
+	if !ok {
+		return
+	}
+	runs, err := s.forge.ListWorkflowRuns(ctx, repo, branch)
+	if err != nil {
+		s.log.Warn("the CI check could not ask the forge about a default branch",
+			"repository", repo.String(), "branch", branch, "error", err)
+		return
+	}
+	seen := map[string]bool{}
+	for _, run := range runs {
+		// The list is newest first, so the first run of a workflow is the one that counts.
+		if seen[run.Name] {
+			continue
+		}
+		seen[run.Name] = true
+		record, err := recordFromRun(repo, run)
+		if err != nil {
+			s.log.Warn("a default-branch run could not be read", "repository", repo.String(), "error", err)
+			continue
+		}
+		if err := s.applyRun(ctx, record, s.forge); err != nil {
+			s.log.Warn("a default-branch run could not be recorded", "run", run.ID, "error", err)
+		}
+	}
+}
+
+// defaultDue says whether a project's default branch is due to be asked about, and notes that it was.
+func (s *Service) defaultDue(projectID string) bool {
+	s.missMu.Lock()
+	defer s.missMu.Unlock()
+	if last, ok := s.defaultAsked[projectID]; ok && s.now().Sub(last) < defaultBranchEvery {
+		return false
+	}
+	s.defaultAsked[projectID] = s.now()
+	return true
 }

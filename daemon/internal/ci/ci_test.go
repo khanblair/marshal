@@ -480,3 +480,60 @@ func TestARunWithoutABranchIsRefusedNotRecorded(t *testing.T) {
 		t.Fatalf("a run with no branch was published: %v", f.bus.topics)
 	}
 }
+
+func TestThePollOfDefaultBranchesFindsRunsNobodyAnnounced(t *testing.T) {
+	f := newFixture(t)
+	f.forge.runs = []gh.WorkflowRun{
+		{ID: 77, Name: "ci", Branch: "main", Status: "completed", Conclusion: "failure", URL: "https://example.test/77"},
+		{ID: 76, Name: "ci", Branch: "main", Status: "completed", Conclusion: "success", URL: "https://example.test/76"},
+		{ID: 78, Name: "lint", Branch: "main", Status: "completed", Conclusion: "success", URL: "https://example.test/78"},
+	}
+	if err := f.svc.PollDefaultBranches(context.Background()); err != nil {
+		t.Fatalf("poll the default branches: %v", err)
+	}
+	if len(f.forge.listBrancs) != 1 || f.forge.listBrancs[0] != "main" {
+		t.Fatalf("the check asked about %v, want [main]", f.forge.listBrancs)
+	}
+	newest := readRun(t, f.store, "77")
+	if newest.Status != string(protocol.CIStateFailed) || newest.CardID != nil || newest.Branch != "main" {
+		t.Fatalf("the newest ci run is %+v, want failed, on main, with no card", newest)
+	}
+	if other := readRun(t, f.store, "78"); other.Workflow != "lint" || other.Status != string(protocol.CIStatePassed) {
+		t.Fatalf("the other workflow's run is %+v", other)
+	}
+	if len(f.forge.reruns) != 0 || len(f.worker.sent) != 0 {
+		t.Fatalf("a failure on main with no card started a fix: reruns %v, messages %v", f.forge.reruns, f.worker.sent)
+	}
+	snapshot, err := f.svc.Snapshot(context.Background())
+	if err != nil || len(snapshot.Projects) != 1 || snapshot.Projects[0].Status != protocol.CIStateFailed {
+		t.Fatalf("CI health after the check is %+v (err %v), want main failing", snapshot, err)
+	}
+}
+
+func TestTheDefaultBranchIsAskedAboutOnlyOnceInAWhile(t *testing.T) {
+	f := newFixture(t)
+	f.forge.runs = []gh.WorkflowRun{{ID: 77, Name: "ci", Branch: "main", Status: "completed", Conclusion: "success"}}
+	for i := 0; i < 3; i++ {
+		if err := f.svc.PollDefaultBranches(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if len(f.forge.listBrancs) != 1 {
+		t.Fatalf("the forge was asked %d times in a row, want once", len(f.forge.listBrancs))
+	}
+}
+
+func TestOneProjectTheForgeCannotAnswerDoesNotStopTheCheck(t *testing.T) {
+	f := newFixture(t)
+	f.forge.listErr = errors.New("rate limited")
+	if err := f.svc.PollDefaultBranches(context.Background()); err != nil {
+		t.Fatalf("a forge error stopped the whole check: %v", err)
+	}
+}
+
+func TestCheckingDefaultBranchesWithoutAForgeSaysSo(t *testing.T) {
+	f := newFixture(t, func(o *ci.Options) { o.Forge = nil })
+	if err := f.svc.PollDefaultBranches(context.Background()); !errors.Is(err, ci.ErrNoForge) {
+		t.Fatalf("got %v, want ErrNoForge", err)
+	}
+}

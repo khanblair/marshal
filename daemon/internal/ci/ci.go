@@ -196,6 +196,9 @@ type Service struct {
 	tickerDone   chan struct{}
 	missMu       sync.Mutex
 	branchMisses map[string]time.Time
+	// defaultAsked is when each project's default branch was last asked about, so a sweep every
+	// minute does not ask a project more than once in defaultBranchEvery.
+	defaultAsked map[string]time.Time
 }
 
 // cachedRepo is one project's repository, with the moment it was read.
@@ -251,6 +254,7 @@ func New(deps Deps) (*Service, error) {
 		logBytes: logBytes, logLines: logLines, pollEvery: pollEvery,
 		resolved:     map[string]cachedRepo{},
 		branchMisses: map[string]time.Time{},
+		defaultAsked: map[string]time.Time{},
 	}, nil
 }
 
