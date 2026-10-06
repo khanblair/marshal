@@ -1,6 +1,7 @@
 /** The rows of the phone's Go to and More sheets, as the design's `renderVals` builds them. */
 import type { IconNameInput } from "@marshal/ui";
 import { M } from "~/mock";
+import { projectExportItems } from "~/views/google-export/project-export-items";
 import { closeMenu, newProjectDraft, openPalette } from "./shell-actions";
 import { isProject } from "./shell-layout";
 
@@ -12,6 +13,8 @@ export interface SheetItem {
   /** Cards that need you, shown as a badge. */
   badge?: number;
   hint?: string;
+  /** True while the row's work already runs. */
+  disabled?: boolean;
 }
 
 const openNewProject = (): void => M.set({ menu: null, newProject: newProjectDraft() });
@@ -56,6 +59,13 @@ function newCard(): void {
   M.newCard();
 }
 
+/** The project's board sent to Google, as sheet rows. Nothing while no project is open. */
+function exportRows(): SheetItem[] {
+  const pid = M.S.route.pid;
+  if (!isProject() || !pid) return [];
+  return projectExportItems(pid).map((item) => ({ ...item, run: closing(item.run) }));
+}
+
 /** The rows of the More sheet. */
 export function moreItems(): SheetItem[] {
   return [
@@ -70,6 +80,7 @@ export function moreItems(): SheetItem[] {
     { icon: "calendar", label: "Calendar view", run: closing(openView("calendar")) },
     { icon: "git-merge", label: "Integration view", run: closing(openView("integration")) },
     { icon: "plus", label: "New card", run: closing(newCard) },
+    ...exportRows(),
     { icon: "folder-plus", label: "New project", run: openNewProject },
     { icon: "settings", label: "Settings", run: closing(() => M.go("settings")) },
     { icon: "map", label: "Replay tour", run: () => M.startTour() },

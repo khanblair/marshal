@@ -24,6 +24,7 @@ export function PhoneSheet() {
               kind="plain"
               icon={item().icon}
               current={item().current}
+              disabled={item().disabled}
               onClick={item().run}
               hint={hintOf(item())}
             >

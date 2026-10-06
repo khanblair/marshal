@@ -104,6 +104,28 @@ describe("More sheet", () => {
     ]);
   });
 
+  it("adds the board's two Google exports while a project is open, and runs them", () => {
+    M.go("project", "web", "board");
+    M.set({ menu: "more" });
+    render(() => <PhoneSheet />);
+    expect(rows().map((r) => r.textContent)).toEqual([
+      "SearchActions, cards, settings",
+      "List view",
+      "Timeline view",
+      "Calendar view",
+      "Integration view",
+      "New card",
+      "Export board to Google Sheet",
+      "Export board to Google Slides",
+      "New project",
+      "Settings",
+      "Replay tour",
+    ]);
+    fireEvent.click(row("Export board to Google Sheet"));
+    expect(M.S.menu).toBeNull();
+    expect(M.S.toasts.at(-1)?.msg).toBe("Connect Google Sheets in Settings, under Integrations.");
+  });
+
   it("Search opens the palette", () => {
     render(() => <PhoneSheet />);
     fireEvent.click(row(/^Search/));

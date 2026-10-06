@@ -1,6 +1,8 @@
-import { Badge, Button, cx, SegmentedControl } from "@marshal/ui";
-import { Show } from "solid-js";
+import { Badge, Button, cx, IconButton, Menu, MenuItem, SegmentedControl } from "@marshal/ui";
+import { Index, Show } from "solid-js";
 import { M, type ViewKey } from "~/mock";
+import { projectExportItems } from "~/views/google-export/project-export-items";
+import { closeMenu, toggleMenu } from "./shell-actions";
 import { isDesktop, isPhone, isProject, isTouch, maxPanes, modKey } from "./shell-layout";
 
 /** Tab heights in px: touch screens get larger tabs. */
@@ -11,6 +13,7 @@ const NEW_CARD_VIEWS: readonly ViewKey[] = ["board", "list", "timeline", "agents
 
 /**
  * The view tabs need 500 px, and Split view and New card need 220 px more with their gaps.
+ * The icon-only More button adds 36 px more, and the tabs scroll if there is no room.
  * When the header has less than 720 px inside its padding (a small tablet, or a wide phone),
  * both buttons keep only their icon and the label stays for screen readers, so the tabs keep
  * their room and the buttons never wrap. Sized by the header itself, not by the window.
@@ -50,9 +53,49 @@ function MergeTarget() {
   );
 }
 
+const MORE_MENU = "project-more";
+const MORE_TOUCH_PX = 36;
+const MORE_PX = 28;
+
+/** The project's More menu: its board sent to Google. Every project view shares this header. */
+function ProjectMore(props: { pid: string }) {
+  const items = () => projectExportItems(props.pid);
+  return (
+    <div class="relative flex-none">
+      <IconButton
+        label="More project actions"
+        title="More project actions"
+        icon="ellipsis"
+        variant="outline"
+        size={isTouch() ? MORE_TOUCH_PX : MORE_PX}
+        aria-expanded={M.S.menu === MORE_MENU}
+        onClick={() => toggleMenu(MORE_MENU)}
+      />
+      <Show when={M.S.menu === MORE_MENU}>
+        <Menu class="absolute top-[calc(100%+4px)] right-0 w-64 z-menu">
+          <Index each={items()}>
+            {(item) => (
+              <MenuItem
+                icon={item().icon}
+                disabled={item().disabled}
+                onClick={() => {
+                  closeMenu();
+                  item().run();
+                }}
+              >
+                {item().label}
+              </MenuItem>
+            )}
+          </Index>
+        </Menu>
+      </Show>
+    </div>
+  );
+}
+
 /**
- * The project's view tabs with the merge target, Split view, and New card. Hidden on phones, which use
- * the bottom navigation. Port of the design's view header row.
+ * The project's view tabs with the merge target, Split view, New card, and the More menu. Hidden on
+ * phones, which use the bottom navigation. Port of the design's view header row.
  */
 export function ViewHeader() {
   const options = M.VIEWS.map((v, i) => ({
@@ -100,6 +143,7 @@ export function ViewHeader() {
             <span class={LABEL_HIDDEN_NARROW}>New card</span>
           </Button>
         </Show>
+        <ProjectMore pid={M.S.route.pid ?? ""} />
       </div>
     </Show>
   );

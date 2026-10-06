@@ -95,6 +95,59 @@ describe("ViewHeader New card", () => {
   });
 });
 
+describe("ViewHeader More menu", () => {
+  const more = () => screen.getByRole("button", { name: "More project actions" });
+
+  it.each(["board", "list", "timeline"] as const)(
+    "offers the board's two Google exports in the %s view, after New card",
+    (view) => {
+      showProject(view);
+      render(() => <ViewHeader />);
+      expect(more()).toHaveAttribute("aria-expanded", "false");
+      fireEvent.click(more());
+      expect(more()).toHaveAttribute("aria-expanded", "true");
+      expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).toEqual([
+        "Export board to Google Sheet",
+        "Export board to Google Slides",
+      ]);
+      const buttons = screen
+        .getAllByRole("button")
+        .map((button) => button.getAttribute("aria-label") ?? button.textContent);
+      expect(buttons.indexOf("More project actions")).toBeGreaterThan(
+        buttons.findIndex((name) => /New card/.test(name ?? "")),
+      );
+    },
+  );
+
+  it("is drawn where the other views are, but not where the header is not", () => {
+    showProject("chat");
+    render(() => <ViewHeader />);
+    expect(more()).toBeInTheDocument();
+    cleanup();
+    showProject("board", PHONE_PX);
+    render(() => <ViewHeader />);
+    expect(screen.queryByRole("button", { name: "More project actions" })).toBeNull();
+  });
+
+  it("closes, and says to connect the service, when an export is chosen without it", () => {
+    render(() => <ViewHeader />);
+    fireEvent.click(more());
+    fireEvent.click(screen.getByRole("menuitem", { name: "Export board to Google Sheet" }));
+    expect(M.S.menu).toBeNull();
+    expect(screen.queryByRole("menuitem")).toBeNull();
+    expect(M.S.toasts.at(-1)?.msg).toBe("Connect Google Sheets in Settings, under Integrations.");
+    fireEvent.click(more());
+    fireEvent.click(screen.getByRole("menuitem", { name: "Export board to Google Slides" }));
+    expect(M.S.toasts.at(-1)?.msg).toBe("Connect Google Slides in Settings, under Integrations.");
+  });
+
+  it("uses a taller button on touch screens", () => {
+    showProject("board", TABLET_PX);
+    render(() => <ViewHeader />);
+    expect(more()).toHaveClass("size-9");
+  });
+});
+
 describe("ViewHeader Split view", () => {
   it("opens the first view that is not on screen, up to three panes on desktop", () => {
     render(() => <ViewHeader />);
