@@ -13,7 +13,7 @@ describe("PairingQr", () => {
     const [, , width, height] = (svg.getAttribute("viewBox") ?? "").split(" ");
     expect(width).toBe(height);
     expect(Number(width)).toBeGreaterThan(20);
-    expect(svg.querySelector("rect")).toHaveAttribute("fill", "#fff");
+    expect(svg.querySelector("rect")).toHaveClass("fill-qr-light");
     expect(svg.querySelector("path")?.getAttribute("d")).toMatch(/^M\d+ \d+h1v1h-1z/);
   });
 

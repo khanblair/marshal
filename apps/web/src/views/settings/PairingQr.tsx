@@ -31,8 +31,8 @@ export function PairingQr(props: { text: string; label: string }) {
       shape-rendering="crispEdges"
       class="rounded-sm"
     >
-      <rect width="100%" height="100%" fill="#fff" />
-      <path d={drawn().path} fill="#000" />
+      <rect width="100%" height="100%" class="fill-qr-light" />
+      <path d={drawn().path} class="fill-qr-dark" />
     </svg>
   );
 }

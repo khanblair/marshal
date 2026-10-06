@@ -3,7 +3,12 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { buildThemeCss, currentThemeCss } from "./build-splash-theme.mjs";
+import {
+  buildThemeCss,
+  currentDesktopCss,
+  currentThemeCss,
+  DESKTOP_THEME,
+} from "./build-splash-theme.mjs";
 
 const splash = join(dirname(fileURLToPath(import.meta.url)), "..", "splash");
 
@@ -13,6 +18,19 @@ test("the first screen's theme is the design tokens as they are now", () => {
     currentThemeCss(),
     "splash/theme.css has drifted from packages/tokens. Run `pnpm --filter mobile theme`.",
   );
+});
+
+test("the desktop start page's colors are the design tokens as they are now", () => {
+  assert.equal(
+    readFileSync(DESKTOP_THEME, "utf8"),
+    currentDesktopCss(),
+    "The desktop splash theme.css has drifted from packages/tokens. Run `pnpm --filter mobile theme`.",
+  );
+});
+
+test("the desktop start page holds no raw color", () => {
+  const html = readFileSync(join(dirname(DESKTOP_THEME), "index.html"), "utf8");
+  assert.doesNotMatch(html, /#[0-9a-fA-F]{3,8}\b|rgba?\(/);
 });
 
 test("light is the default and the phone's dark setting switches to the dark colors", () => {
