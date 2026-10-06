@@ -54,7 +54,7 @@ export function BoardView() {
           onTouchEnd={swipe.onTouchEnd}
           class={cx("flex-1 min-h-0 overflow-auto", M.mobile ? "p-3" : "px-4 pb-4")}
         >
-          <div class={cx("inline-flex flex-col", M.mobile && "min-w-full")}>
+          <div class={cx("flex-col", M.mobile ? "flex w-full min-w-0" : "inline-flex")}>
             <Show when={!M.mobile}>
               <ColumnHeaders counts={board.counts()} />
             </Show>

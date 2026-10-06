@@ -173,6 +173,15 @@ describe("BoardView Done limit", () => {
 describe("BoardView on a phone", () => {
   beforeEach(() => reset("api", PHONE_PX));
 
+  // An inline-flex box sizes itself to its longest unbroken line, so one long branch name pushed
+  // every card past the edge of the screen.
+  it("is as wide as the screen, not as wide as its longest line", () => {
+    const { container } = render(() => <BoardView />);
+    const board = container.querySelector("[data-col]")?.parentElement?.parentElement;
+    expect(board).toHaveClass("flex", "w-full", "min-w-0", "flex-col");
+    expect(board).not.toHaveClass("inline-flex");
+  });
+
   it("shows tabs for the seven columns, with Working selected", () => {
     render(() => <BoardView />);
     const tabs = within(screen.getByRole("tablist", { name: "Columns" })).getAllByRole("tab");
