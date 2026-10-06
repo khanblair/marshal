@@ -2730,6 +2730,127 @@ export interface GoogleClientInfo {
 }
 
 //////////
+// source: google_files.go
+
+/** GoogleFileKind is what sort of Google file something is. */
+/** GoogleFileKindDoc is a Google Doc. */
+export const GoogleFileKindDoc = "doc";
+/** GoogleFileKindSheet is a Google Sheet. */
+export const GoogleFileKindSheet = "sheet";
+/** GoogleFileKindSlides is a Google Slides presentation. */
+export const GoogleFileKindSlides = "slides";
+/** GoogleFileKindFile is any other file kept in Drive, such as a text or markdown file. */
+export const GoogleFileKindFile = "file";
+export type GoogleFileKind =
+  | typeof GoogleFileKindDoc
+  | typeof GoogleFileKindSheet
+  | typeof GoogleFileKindSlides
+  | typeof GoogleFileKindFile;
+/** Every GoogleFileKind, in the order the Go list gives them. */
+export const GoogleFileKindValues: readonly GoogleFileKind[] = [
+  GoogleFileKindDoc,
+  GoogleFileKindSheet,
+  GoogleFileKindSlides,
+  GoogleFileKindFile,
+];
+/** GoogleFile is one file in the person's Google Drive. */
+export interface GoogleFile {
+  /** ID is Google's own id for the file. */
+  id: string;
+  /** Name is the file's title. */
+  name: string;
+  /** Kind is what sort of file it is. */
+  kind: GoogleFileKind;
+  /** URL opens the file in Google. */
+  url: string;
+  /** ModifiedAt is when the file last changed. Absent when Google did not say. */
+  modifiedAt?: Timestamp;
+}
+/** GoogleFiles is the answer to GET /v1/google/files: the files Marshal made, newest first. */
+export interface GoogleFiles {
+  /** Files is never null. */
+  files: GoogleFile[];
+  /** Folder is the name of the Drive folder Marshal puts new files in. */
+  folder: string;
+}
+/** SaveGoogleDriveRequest is the body that saves Google Drive's one setting. */
+export interface SaveGoogleDriveRequest {
+  /**
+   * Folder is the name of the Drive folder Marshal puts the files it makes in. Marshal makes the
+   * folder the first time it needs it.
+   */
+  folder: string;
+}
+/** CreateGoogleDocRequest is the body of POST /v1/google/docs. Exactly one of HTML and Text is set. */
+export interface CreateGoogleDocRequest {
+  /** Title is the document's name. */
+  title: string;
+  /**
+   * HTML is the document's body as HTML. Google turns headings, lists, links and tables into
+   * the document's own formatting.
+   */
+  html?: string;
+  /** Text is the document's body as plain text. */
+  text?: string;
+}
+/** CreateGoogleSheetRequest is the body of POST /v1/google/sheets. */
+export interface CreateGoogleSheetRequest {
+  /** Title is the spreadsheet's name. */
+  title: string;
+  /** Rows are the cells, row by row. The first row is the header. */
+  rows: string[][];
+}
+/** GoogleSlide is one slide of a presentation Marshal makes. */
+export interface GoogleSlide {
+  /** Title is the slide's heading. */
+  title: string;
+  /** Bullets are the lines under the heading. */
+  bullets: string[];
+}
+/** CreateGoogleSlidesRequest is the body of POST /v1/google/slides. */
+export interface CreateGoogleSlidesRequest {
+  /** Title is the presentation's name. */
+  title: string;
+  /** Slides are the slides in order. At least one. */
+  slides: GoogleSlide[];
+}
+/**
+ * UploadGoogleFileRequest is the body of POST /v1/google/drive/files: a plain file saved to Drive
+ * as it is, with no conversion.
+ */
+export interface UploadGoogleFileRequest {
+  /** Name is the file's name, with its extension. */
+  name: string;
+  /** Content is the file's text. */
+  content: string;
+  /** MimeType is the file's type, such as "text/markdown". Empty means plain text. */
+  mimeType?: string;
+}
+/** ReadGoogleLinkRequest is the body of POST /v1/google/read. */
+export interface ReadGoogleLinkRequest {
+  /** URL is the address of a Google Doc, Sheet or Slides presentation, as copied from the browser. */
+  url: string;
+}
+/** GoogleLinkContent is a Google file read from a link, turned into markdown a card's note can hold. */
+export interface GoogleLinkContent {
+  /** Kind is what sort of file the link points to: a doc, a sheet, or slides. */
+  kind: GoogleFileKind;
+  /** ID is Google's own id for the file. */
+  id: string;
+  /** Title is the file's name. */
+  title: string;
+  /** URL opens the file in Google. */
+  url: string;
+  /**
+   * Markdown is the file's content: a doc's text, a sheet's first tab as a table, or a slide
+   * outline.
+   */
+  markdown: string;
+  /** Truncated says the file was longer than Marshal reads, so Markdown is only the start. */
+  truncated: boolean;
+}
+
+//////////
 // source: handoff.go
 
 /**

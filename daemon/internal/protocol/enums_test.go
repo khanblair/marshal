@@ -76,6 +76,7 @@ func allEnums() map[string][]string {
 		"SmellStatus":           names(protocol.SmellStatusValues()),
 		"IntegrationStatus":     names(protocol.IntegrationStatusValues()),
 		"GitHubConnectState":    names(protocol.GitHubConnectStateValues()),
+		"GoogleFileKind":        names(protocol.GoogleFileKindValues()),
 		"MergePhase":            names(protocol.MergePhaseValues()),
 		"IntegratorState":       names(protocol.IntegratorStateValues()),
 		"PreviewState":          names(protocol.PreviewStateValues()),

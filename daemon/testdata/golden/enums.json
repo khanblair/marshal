@@ -209,6 +209,12 @@
     "expired",
     "failed"
   ],
+  "GoogleFileKind": [
+    "doc",
+    "sheet",
+    "slides",
+    "file"
+  ],
   "HandoffRefusalReason": [
     "handoff_no_session",
     "handoff_turn_running",
