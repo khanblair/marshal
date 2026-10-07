@@ -28,6 +28,8 @@ export interface IntegrationState {
   id: string;
   st: IntegrationStatus;
   detail: string;
+  /** Where a chat connection sends notices (a channel id, a chat id, a topic), which is not a secret. */
+  target?: string;
   /** The last connection test's result, absent when the connection was never tested. */
   lastTest?: ProviderTest;
 }
@@ -38,6 +40,7 @@ function toState(entry: WireIntegration): IntegrationState {
     id: entry.id,
     st: entry.st,
     detail: entry.detail,
+    ...(entry.target ? { target: entry.target } : {}),
     ...(entry.lastTest ? { lastTest: toProviderTest(entry.lastTest) } : {}),
   };
 }

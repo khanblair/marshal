@@ -190,6 +190,16 @@ describe("Discord: the bot on one tab, the channel on the other", () => {
     expect(screen.getByText(/Copy Channel ID/)).toBeInTheDocument();
   });
 
+  it("walks through the portal in order, and says which id to copy", () => {
+    open(DiscordConnectDialog, discord());
+    for (const label of [/Create App/, /Reset Token/, /Installation page/, /View Channels/]) {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    }
+    fireEvent.click(tab("The channel"));
+    expect(screen.getByText(/Not Copy Server ID/)).toBeInTheDocument();
+    expect(screen.getByText(/the channel's id, not the server's/)).toBeInTheDocument();
+  });
+
   it("asks for each in words, whichever tab is open", () => {
     const edit = open(DiscordConnectDialog, discord());
     press("Save connection");
@@ -197,6 +207,38 @@ describe("Discord: the bot on one tab, the channel on the other", () => {
     type("Bot token", "tok");
     press("Save connection");
     expect(edit.errorFor("discord")).toBe("Enter the channel Marshal should send notices to.");
+  });
+
+  it("shows a saved connection's channel, and dots for the token, and keeps the token when left empty", async () => {
+    open(DiscordConnectDialog, { ...discord(), st: "connected", target: "1234567890123456789" });
+    expect(field(/^Bot token/)).toHaveAttribute("placeholder", expect.stringMatching(/^•+$/));
+    expect(field(/^Bot token/)).toHaveValue("");
+    expect(screen.getByText(/Leave it as it is to keep it/)).toBeInTheDocument();
+    fireEvent.click(tab("The channel"));
+    expect(field("Channel id")).toHaveValue("1234567890123456789");
+    type("Channel id", "777");
+    press("Save connection");
+    await waitFor(() =>
+      expect(actions.connectDiscord).toHaveBeenCalledWith({ token: "", channelId: "777" }),
+    );
+  });
+
+  it("still asks a new connection for its token", () => {
+    const edit = open(DiscordConnectDialog, discord());
+    expect(field(/^Bot token/)).not.toHaveAttribute("placeholder");
+    type("Bot token", "");
+    press("Save connection");
+    expect(edit.errorFor("discord")).toBe("Marshal needs the Discord bot's token to reach it.");
+  });
+
+  it("opens the tab of the empty field and marks only that field", () => {
+    open(DiscordConnectDialog, discord());
+    type("Bot token", "tok");
+    press("Save connection");
+    expect(field("Channel id")).toBeInvalid();
+    expect(tab("The channel")).toHaveAttribute("aria-selected", "true");
+    fireEvent.click(tab("The bot"));
+    expect(field(/^Bot token/)).not.toBeInvalid();
   });
 
   it("saves the token from one tab and the channel from the other", async () => {

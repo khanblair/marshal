@@ -107,6 +107,7 @@ export function applyIntegrationStates(ctx: Ctx, states: readonly IntegrationSta
     if (!row) continue;
     row.st = state.st;
     row.detail = state.detail;
+    row.target = state.target;
     row.lastTest = state.lastTest;
   }
 }

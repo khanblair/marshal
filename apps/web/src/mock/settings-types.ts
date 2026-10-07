@@ -24,6 +24,8 @@ export interface Integration {
   icon: string;
   st: "connected" | "none" | "error";
   detail: string;
+  /** Where a chat connection sends notices, from the daemon. Not a secret, so a form shows it back. */
+  target?: string;
   /**
    * The last connection test's result, or absent when the connection was never tested. It is the
    * daemon's, filled by `sync/integrations.ts` for a connection whose section is switched, and the

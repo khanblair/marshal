@@ -4,6 +4,15 @@ import type { Integration } from "~/mock";
 import { ConnectionStored } from "./ConnectionStored";
 import { ErrorLine, SaveRow, Steps, ValueField } from "./connect-fields";
 import { createDiscordConnect, type DiscordConnectController } from "./discord-connect";
+import {
+  DISCORD_BOT_STEPS,
+  DISCORD_CHANNEL_HINT,
+  DISCORD_CHANNEL_STEPS,
+  DISCORD_PORTAL_URL,
+  DISCORD_TOKEN_DOTS,
+  DISCORD_TOKEN_HINT,
+  DISCORD_TOKEN_SAVED_HINT,
+} from "./discord-words";
 import type { EditState } from "./edit-state";
 import { WaysDialog } from "./WaysDialog";
 
@@ -12,18 +21,6 @@ type Way = "bot" | "channel";
 const WAYS: readonly SegmentOption<Way>[] = [
   { value: "bot", label: "The bot" },
   { value: "channel", label: "The channel" },
-];
-
-const BOT_STEPS = [
-  "In the Discord developer portal, make a New Application, open its Bot page, and copy the token.",
-  "To answer by typing, and not only with the buttons, switch on Message Content Intent there too.",
-  "Under OAuth2, make a link with the bot scope and the Send Messages permission, and open it to add the bot to your server.",
-];
-
-const CHANNEL_STEPS = [
-  "In Discord, open User Settings, then Advanced, and switch on Developer Mode.",
-  "Right-click the channel notices should go to, and choose Copy Channel ID.",
-  "Paste it below.",
 ];
 
 function Tab(props: {
@@ -59,7 +56,7 @@ function Tab(props: {
  */
 export function DiscordConnectDialog(props: { integration: Integration; edit: EditState }) {
   const [way, setWay] = createSignal<Way>("bot");
-  const discord = createDiscordConnect(props.integration, props.edit);
+  const discord = createDiscordConnect(props.integration, props.edit, setWay);
   return (
     <WaysDialog
       titleId="discord-title"
@@ -72,9 +69,9 @@ export function DiscordConnectDialog(props: { integration: Integration; edit: Ed
     >
       <Switch>
         <Match when={way() === "bot"}>
-          <Tab integration={props.integration} discord={discord} steps={BOT_STEPS}>
+          <Tab integration={props.integration} discord={discord} steps={DISCORD_BOT_STEPS}>
             <a
-              href="https://discord.com/developers/applications"
+              href={DISCORD_PORTAL_URL}
               target="_blank"
               rel="noopener noreferrer"
               class="self-start text-small underline"
@@ -83,24 +80,25 @@ export function DiscordConnectDialog(props: { integration: Integration; edit: Ed
             </a>
             <ValueField
               label="Bot token"
-              hint="Marshal keeps it in the OS keychain."
+              hint={discord.connected() ? DISCORD_TOKEN_SAVED_HINT : DISCORD_TOKEN_HINT}
+              placeholder={discord.connected() ? DISCORD_TOKEN_DOTS : undefined}
               name="token"
               secret
               value={discord.draft.token}
               onValue={(value) => discord.set("token", value)}
-              invalid={!!discord.error()}
+              invalid={discord.invalid("token")}
             />
           </Tab>
         </Match>
         <Match when={way() === "channel"}>
-          <Tab integration={props.integration} discord={discord} steps={CHANNEL_STEPS}>
+          <Tab integration={props.integration} discord={discord} steps={DISCORD_CHANNEL_STEPS}>
             <ValueField
               label="Channel id"
-              hint="The channel's own id, the long number Discord copies."
+              hint={DISCORD_CHANNEL_HINT}
               name="channelId"
               value={discord.draft.channelId}
               onValue={(value) => discord.set("channelId", value)}
-              invalid={!!discord.error()}
+              invalid={discord.invalid("channelId")}
             />
           </Tab>
         </Match>
