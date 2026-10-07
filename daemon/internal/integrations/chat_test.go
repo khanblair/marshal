@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/khanblair/marshal/daemon/internal/chatbot"
 	"github.com/khanblair/marshal/daemon/internal/integrations"
 	"github.com/khanblair/marshal/daemon/internal/protocol"
 )
@@ -36,7 +37,7 @@ func fakeTelegram(t *testing.T) *httptest.Server {
 	return srv
 }
 
-// fakeDiscord answers the two REST calls the connection test makes, reached through a transport that
+// fakeDiscord answers the REST calls the connection test makes, reached through a transport that
 // rewrites the real discord.com address to this in-process server.
 func fakeDiscord(t *testing.T) *http.Client {
 	t.Helper()
@@ -48,6 +49,10 @@ func fakeDiscord(t *testing.T) *http.Client {
 		case strings.Contains(r.URL.Path, "/channels/") && strings.HasSuffix(r.URL.Path, "/messages"):
 			_, _ = io.ReadAll(r.Body)
 			_, _ = w.Write([]byte(`{"id":"2","channel_id":"555","content":"ok"}`))
+		case strings.HasSuffix(r.URL.Path, "/applications/@me"):
+			_, _ = w.Write([]byte(`{"id":"1","flags":524288}`))
+		case strings.Contains(r.URL.Path, "/channels/"):
+			_, _ = w.Write([]byte(`{"id":"555","name":"general","type":0}`))
 		default:
 			http.Error(w, "no such endpoint", http.StatusNotFound)
 		}
@@ -148,6 +153,51 @@ func TestDiscordConnectionTestPassesAgainstAFakeServer(t *testing.T) {
 	if !result.OK {
 		t.Fatalf("the Discord test did not pass: %+v", result.Checks)
 	}
+}
+
+func TestASavedDiscordChannelIsShownBackAndTheTokenIsKeptWhenLeftOut(t *testing.T) {
+	f := newFixture(t, func(o *integrations.Options) { o.DiscordHTTPClient = fakeDiscord(t) })
+	ctx := context.Background()
+	if err := f.svc.SaveDiscord(ctx, protocol.SaveDiscordRequest{Token: "TESTTOKEN", ChannelID: "555"}); err != nil {
+		t.Fatalf("SaveDiscord: %v", err)
+	}
+	if got := discordTarget(t, f); got != "555" {
+		t.Fatalf("the list's Discord target = %q, want the saved channel", got)
+	}
+	// Changing only the channel needs no token: the stored one stays, and the bot is still built.
+	if err := f.svc.SaveDiscord(ctx, protocol.SaveDiscordRequest{ChannelID: "https://discord.com/channels/1/777"}); err != nil {
+		t.Fatalf("SaveDiscord with no token: %v", err)
+	}
+	if got := discordTarget(t, f); got != "777" {
+		t.Errorf("the list's Discord target = %q, want the new channel read from its link", got)
+	}
+	if _, err := f.svc.ChatBot(ctx, chatbot.KindDiscord); err != nil {
+		t.Errorf("the bot could not be built after a save with no token: %v", err)
+	}
+}
+
+func TestASaveWithNoTokenAndNoneStoredIsRefused(t *testing.T) {
+	f := newFixture(t)
+	err := f.svc.SaveDiscord(context.Background(), protocol.SaveDiscordRequest{ChannelID: "555"})
+	if err == nil || !strings.Contains(err.Error(), "token") {
+		t.Fatalf("SaveDiscord with no token and none stored = %v, want a refusal that names the token", err)
+	}
+}
+
+// discordTarget is the Discord row's target in the list.
+func discordTarget(t *testing.T, f *fixture) string {
+	t.Helper()
+	list, err := f.svc.List(context.Background())
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	for _, one := range list {
+		if one.ID == integrations.DiscordID {
+			return one.Target
+		}
+	}
+	t.Fatal("the list has no Discord row")
+	return ""
 }
 
 func TestAChatConnectionSavedWithNothingShowsTheRightKind(t *testing.T) {

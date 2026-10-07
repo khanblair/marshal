@@ -335,6 +335,7 @@ func (s *Service) rowToWire(ctx context.Context, info Info, row integrationRow, 
 	}
 	wire.Status = statusFor(last, tested)
 	wire.Detail = detailFor(last, tested)
+	wire.Target = chatTarget(info.ID, row.config)
 	if info.ID == GitHubID && s.githubNeedsReconnect() {
 		wire.Status, wire.Detail = protocol.IntegrationStatusError, reconnectSentence
 	}

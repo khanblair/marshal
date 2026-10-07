@@ -3405,6 +3405,12 @@ export interface Integration {
    */
   detail: string;
   /**
+   * Target is where a chat connection sends its notices: the Discord channel id, the Telegram chat
+   * id, or the ntfy topic. It is not a secret, so a screen can show it back. Empty for every other
+   * connection, and for one nothing is stored for.
+   */
+  target?: string;
+  /**
    * LastTest is the result of the last connection test of this connection, or nil when it has
    * never been tested. It is the same shape a provider's test answers with, so one screen shows
    * both kinds of result.

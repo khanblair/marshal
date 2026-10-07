@@ -64,7 +64,14 @@ func (s *Service) SaveTelegram(ctx context.Context, req protocol.SaveTelegramReq
 
 // SaveDiscord stores the Discord connection, replacing whatever was there (B9.3).
 func (s *Service) SaveDiscord(ctx context.Context, req protocol.SaveDiscordRequest) error {
-	return s.saveChat(ctx, DiscordID, KindDiscord, req.Token, req.ChannelID)
+	if strings.TrimSpace(req.ChannelID) == "" {
+		return protocol.InvalidArgument("Enter the channel Marshal should send notices to.")
+	}
+	channelID, err := discordChannelID(req.ChannelID)
+	if err != nil {
+		return err
+	}
+	return s.saveChat(ctx, DiscordID, KindDiscord, discordToken(req.Token), channelID)
 }
 
 // SaveNtfy stores the ntfy connection, replacing whatever was there. Unlike a chat bot it needs no
@@ -95,6 +102,19 @@ func (s *Service) SaveNtfy(ctx context.Context, req protocol.SaveNtfyRequest) er
 	return nil
 }
 
+// chatTarget is the chat, channel, or topic a chat connection's stored settings send to, for a screen
+// to show back. It is empty for any other connection and for settings it cannot read.
+func chatTarget(id, configJSON string) string {
+	if id != TelegramID && id != DiscordID && id != NtfyID {
+		return ""
+	}
+	var config chatConfig
+	if err := json.Unmarshal([]byte(configJSON), &config); err != nil {
+		return ""
+	}
+	return config.ChatID
+}
+
 // saveChat is the write half both chat connections share. A token and a place to send are both
 // required, because a bot with no token cannot talk to the service and a bot with no chat has
 // nowhere to deliver a notice; either one alone is not a connection.
@@ -103,7 +123,17 @@ func (s *Service) SaveNtfy(ctx context.Context, req protocol.SaveNtfyRequest) er
 // GitHub App's does: a secret with no settings is inert, while settings with no secret would be a
 // connection whose every notice fails.
 func (s *Service) saveChat(ctx context.Context, id, kind, token, chatID string) error {
-	if strings.TrimSpace(token) == "" {
+	token = strings.TrimSpace(token)
+	if token == "" {
+		// A token left out keeps the one already stored, so a person can change the chat without
+		// pasting the token again (it never comes back out to be shown).
+		_, stored, err := s.readChat(ctx, id)
+		if err != nil {
+			return err
+		}
+		token = stored.Token
+	}
+	if token == "" {
 		return protocol.InvalidArgument(fmt.Sprintf("Marshal needs the %s bot's token to reach it.", kind))
 	}
 	if strings.TrimSpace(chatID) == "" {

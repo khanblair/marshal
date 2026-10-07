@@ -57,6 +57,10 @@ type Integration struct {
 	// Detail is one plain sentence saying what is set up, such as "GitHub App installed on 3
 	// repositories". It is empty for a connection nothing is stored for.
 	Detail string `json:"detail"`
+	// Target is where a chat connection sends its notices: the Discord channel id, the Telegram chat
+	// id, or the ntfy topic. It is not a secret, so a screen can show it back. Empty for every other
+	// connection, and for one nothing is stored for.
+	Target string `json:"target,omitempty"`
 	// LastTest is the result of the last connection test of this connection, or nil when it has
 	// never been tested. It is the same shape a provider's test answers with, so one screen shows
 	// both kinds of result.
