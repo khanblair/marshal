@@ -2,6 +2,7 @@ package chatbot_test
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -10,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/khanblair/marshal/daemon/internal/chatbot"
+	"github.com/khanblair/marshal/daemon/internal/protocol"
 )
 
 // Talking to Discord (B9.3, build-plan 9.6). Discord's REST endpoints are the real discord.com
@@ -38,13 +40,23 @@ type discordCalls struct {
 	messages int
 	sent     []string
 	token    string
+	// flags is the application's flags the fake answers with. Message Content Intent is on by default.
+	flags int
+	// noChannel makes the channel answer as Discord does for an id it has no channel for, and
+	// asGuild makes that same number a server the bot is in.
+	noChannel, asGuild bool
+	// channelCode is the error code the channel answers with when the bot may not read it.
+	channelCode int
 }
+
+// messageContentFlag is the application flag Discord sets when Message Content Intent is on.
+const messageContentFlag = 1 << 19
 
 // discordServer answers the two REST calls the bot makes. A refuse flag makes it answer the way
 // Discord answers a token it does not like.
 func discordServer(t *testing.T, refuse bool) (*httptest.Server, *discordCalls) {
 	t.Helper()
-	calls := &discordCalls{}
+	calls := &discordCalls{flags: messageContentFlag}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls.token = r.Header.Get("Authorization")
 		path := r.URL.Path
@@ -65,12 +77,36 @@ func discordServer(t *testing.T, refuse bool) (*httptest.Server, *discordCalls) 
 				return
 			}
 			discordOK(w, `{"id":"2","channel_id":"555","content":"ok"}`)
+		case strings.HasSuffix(path, "/applications/@me"):
+			discordOK(w, fmt.Sprintf(`{"id":"1","flags":%d}`, calls.flags))
+		case strings.Contains(path, "/guilds/"):
+			if !calls.asGuild {
+				discordErrorCode(w, http.StatusNotFound, 10004)
+				return
+			}
+			discordOK(w, `{"id":"555","name":"My server"}`)
+		case strings.Contains(path, "/channels/"):
+			if calls.noChannel {
+				discordErrorCode(w, http.StatusNotFound, 10003)
+				return
+			}
+			if calls.channelCode != 0 {
+				discordErrorCode(w, http.StatusForbidden, calls.channelCode)
+				return
+			}
+			discordOK(w, `{"id":"555","name":"general","type":0}`)
 		default:
 			http.Error(w, "no such endpoint", http.StatusNotFound)
 		}
 	}))
 	t.Cleanup(srv.Close)
 	return srv, calls
+}
+
+func discordErrorCode(w http.ResponseWriter, status, code int) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_, _ = fmt.Fprintf(w, `{"message":"refused","code":%d}`, code)
 }
 
 func discordOK(w http.ResponseWriter, body string) {
@@ -117,6 +153,88 @@ func TestDiscordConnectionTestPassesWhenTheBotAndChannelAnswer(t *testing.T) {
 	}
 	if state := checkByName(t, result, chatbot.CheckBot); state != "passed" {
 		t.Errorf("the %q check is %q, want passed", chatbot.CheckBot, state)
+	}
+}
+
+// discordResult runs a connection test against the fake with one thing changed.
+func discordResult(t *testing.T, change func(*discordCalls)) protocol.TestResult {
+	t.Helper()
+	srv, calls := discordServer(t, false)
+	change(calls)
+	bot, err := chatbot.NewDiscord(chatbot.DiscordConfig{
+		Token: "TESTTOKEN", ChannelID: "555", HTTPClient: discordClient(t, srv),
+	})
+	if err != nil {
+		t.Fatalf("NewDiscord: %v", err)
+	}
+	result, err := bot.Test(context.Background())
+	if err != nil {
+		t.Fatalf("Test: %v", err)
+	}
+	return result
+}
+
+func discordCheck(t *testing.T, result protocol.TestResult, name string) protocol.TestCheck {
+	t.Helper()
+	for _, check := range result.Checks {
+		if check.Name == name {
+			return check
+		}
+	}
+	t.Fatalf("the test reported no %q check: %+v", name, result.Checks)
+	return protocol.TestCheck{}
+}
+
+func TestDiscordNamesTheChannelItSentTo(t *testing.T) {
+	result := discordResult(t, func(*discordCalls) {})
+	if got := discordCheck(t, result, chatbot.CheckChat).Message; !strings.Contains(got, "#general") {
+		t.Errorf("the channel check says %q, want the channel's name", got)
+	}
+	if state := checkByName(t, result, chatbot.CheckTyping); state != "passed" {
+		t.Errorf("the %q check is %q, want passed", chatbot.CheckTyping, state)
+	}
+}
+
+func TestDiscordWarnsWhenTypedRepliesAreOffButStillWorks(t *testing.T) {
+	result := discordResult(t, func(c *discordCalls) { c.flags = 0 })
+	typing := discordCheck(t, result, chatbot.CheckTyping)
+	if typing.State != protocol.CheckStateWarning || !strings.Contains(typing.Fix, "Message Content Intent") {
+		t.Errorf("the typing check = %+v, want a warning that names Message Content Intent", typing)
+	}
+	if !result.OK {
+		t.Error("a bot that cannot read typed replies still sends, so the result should be OK")
+	}
+	if state := checkByName(t, result, chatbot.CheckSummary); state != "warning" {
+		t.Errorf("the summary is %q, want warning", state)
+	}
+}
+
+func TestDiscordTellsAServerIDFromAChannelID(t *testing.T) {
+	result := discordResult(t, func(c *discordCalls) { c.noChannel, c.asGuild = true, true })
+	chat := discordCheck(t, result, chatbot.CheckChat)
+	if chat.State != protocol.CheckStateFailed || !strings.Contains(chat.Message, "server's id") {
+		t.Errorf("the channel check = %+v, want a failure that says it is a server's id", chat)
+	}
+	if !strings.Contains(chat.Fix, "Copy Channel ID") {
+		t.Errorf("the fix = %q, want it to say how to copy a channel's id", chat.Fix)
+	}
+}
+
+func TestDiscordSaysWhenThereIsNoSuchChannel(t *testing.T) {
+	result := discordResult(t, func(c *discordCalls) { c.noChannel = true })
+	chat := discordCheck(t, result, chatbot.CheckChat)
+	if chat.State != protocol.CheckStateFailed || !strings.Contains(chat.Message, "no channel with that id") {
+		t.Errorf("the channel check = %+v, want no channel with that id", chat)
+	}
+}
+
+func TestDiscordSaysWhatToDoWhenTheBotCannotSeeOrSendToTheChannel(t *testing.T) {
+	cases := map[int]string{50001: "cannot see that channel", 50013: "may not send messages"}
+	for code, want := range cases {
+		result := discordResult(t, func(c *discordCalls) { c.channelCode = code })
+		if got := discordCheck(t, result, chatbot.CheckChat).Message; !strings.Contains(got, want) {
+			t.Errorf("code %d: the channel check says %q, want %q", code, got, want)
+		}
 	}
 }
 

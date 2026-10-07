@@ -2,6 +2,7 @@ package chatbot
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -48,10 +49,10 @@ func NewDiscord(cfg DiscordConfig) (*Discord, error) {
 	if err != nil {
 		return nil, fmt.Errorf("build the Discord bot: %w", err)
 	}
-	// Buttons need no intent. Typed replies (approve <id>, new <project> <title>) need the message
-	// content intent, which Discord holds back from a bot until it is switched on in the developer
-	// portal; without it a server message arrives empty and the bot only answers to buttons.
-	session.Identify.Intents |= discordgo.IntentsGuildMessages | discordgo.IntentsDirectMessages | discordgo.IntentMessageContent
+	// Buttons need no privileged intent. Typed replies (approve <id>, new <project> <title>) need the
+	// message content intent, which Start asks for only when the developer portal has it switched
+	// on: Discord closes the gateway with 4014 for a privileged intent that is not.
+	session.Identify.Intents |= discordgo.IntentsGuildMessages | discordgo.IntentsDirectMessages
 	if cfg.HTTPClient != nil {
 		session.Client = cfg.HTTPClient
 	}
@@ -77,14 +78,17 @@ func (d *Discord) Notify(_ context.Context, notice Notice) error {
 	return nil
 }
 
-// Test checks the connection and answers what to show the person. It makes two REST calls and says
-// what each proved: who the bot is (which proves the token), and that a message reaches the channel
-// (which proves the channel id). The second really sends a short message, because a channel that
-// cannot receive is exactly what the test is for.
+// Test checks the connection and answers what to show the person. It makes a few REST calls and
+// says what each proved: who the bot is (which proves the token), that the channel is one the bot
+// can see and send to (which proves the channel id), and whether the bot may read typed replies
+// (which is the Message Content Intent). The send really posts a short message, because a channel
+// that cannot receive is exactly what the test is for.
 func (d *Discord) Test(_ context.Context) (protocol.TestResult, error) {
-	checks := make([]protocol.TestCheck, 0, 3)
-	checks = append(checks, d.botCheck())
-	checks = append(checks, d.channelCheck())
+	checks := make([]protocol.TestCheck, 0, 4)
+	checks = append(checks, d.botCheck(), d.channelCheck())
+	if typing, known := d.typingCheck(); known {
+		checks = append(checks, typing)
+	}
 	checks = append([]protocol.TestCheck{summaryCheck(checks,
 		"Discord is set up and Marshal can send notices to it.",
 		"Discord works, with something to check.")}, checks...)
@@ -106,17 +110,89 @@ func (d *Discord) botCheck() protocol.TestCheck {
 	return check
 }
 
-// channelCheck is that a message reaches the channel.
+// channelCheck is that the channel is one the bot can see, and that a message reaches it. Reading
+// the channel first gives its name, so the row says where notices go, and tells a channel that does
+// not exist from one the bot may not write in.
 func (d *Discord) channelCheck() protocol.TestCheck {
-	check := protocol.TestCheck{Name: CheckChat}
+	check := protocol.TestCheck{Name: CheckChat, State: protocol.CheckStateFailed}
+	channel, err := d.session.Channel(d.channelID)
+	if err != nil {
+		check.Message, check.Fix = d.channelFailure(err)
+		return check
+	}
 	if _, err := d.session.ChannelMessageSend(d.channelID, "Marshal is connected to this channel."); err != nil {
-		check.State = protocol.CheckStateFailed
 		check.Message, check.Fix = discordFailure(err, "Marshal could not send a message to the channel.")
 		return check
 	}
 	check.State = protocol.CheckStatePassed
-	check.Message = "Marshal sent a test message to the channel."
+	check.Message = "Marshal sent a test message to " + channelWords(channel) + "."
 	return check
+}
+
+// channelWords is how a channel is named in a sentence: #general, or "the channel" when Discord
+// gives no name (a direct message has none).
+func channelWords(channel *discordgo.Channel) string {
+	if channel == nil || channel.Name == "" {
+		return "the channel"
+	}
+	return "#" + channel.Name
+}
+
+// channelFailure explains a channel Marshal could not read. A number Discord has no channel for is
+// most often a server's id, because a channel's link carries both numbers and the first is the
+// server's, so a server answering to it is told apart and named.
+func (d *Discord) channelFailure(err error) (message, fix string) {
+	if restCode(err) == discordUnknownChannel {
+		if _, guildErr := d.session.Guild(d.channelID); guildErr == nil {
+			return "That number is a server's id, not a channel's.", channelIDFix
+		}
+	}
+	return discordFailure(err, "Marshal could not read the channel.")
+}
+
+// typingCheck is whether the bot may read what a person types in the channel, which is the Message
+// Content Intent in the developer portal. The second answer is false when Discord could not be
+// asked, so a connection that works is never marked down for a question it did not answer.
+func (d *Discord) typingCheck() (protocol.TestCheck, bool) {
+	on, known := d.messageContentOn()
+	if !known {
+		return protocol.TestCheck{}, false
+	}
+	if on {
+		return protocol.TestCheck{
+			Name: CheckTyping, State: protocol.CheckStatePassed,
+			Message: "Marshal can read replies typed in the channel.",
+		}, true
+	}
+	return protocol.TestCheck{
+		Name: CheckTyping, State: protocol.CheckStateWarning,
+		Message: "Marshal can send notices and read the buttons, but not replies typed in the channel.",
+		Fix: "On the bot's page in the Discord developer portal, switch on Message Content Intent under " +
+			"Privileged Gateway Intents, save, and restart Marshal.",
+	}, true
+}
+
+// The application flags Discord sets when Message Content Intent is switched on in the developer
+// portal: the first for a bot in 100 or more servers, the second for a bot in fewer.
+const (
+	applicationFlagMessageContent        = 1 << 18
+	applicationFlagMessageContentLimited = 1 << 19
+)
+
+// messageContentOn reads the bot's own application and answers whether Message Content Intent is
+// on. The second answer is false when it could not be read.
+func (d *Discord) messageContentOn() (on, known bool) {
+	body, err := d.session.RequestWithBucketID("GET", discordgo.EndpointApplication("@me"), nil, discordgo.EndpointApplication(""))
+	if err != nil {
+		return false, false
+	}
+	var app struct {
+		Flags int `json:"flags"`
+	}
+	if err := json.Unmarshal(body, &app); err != nil {
+		return false, false
+	}
+	return app.Flags&(applicationFlagMessageContent|applicationFlagMessageContentLimited) != 0, true
 }
 
 // Start opens the gateway and hands every message to handle until ctx ends. It is the receive half,
@@ -127,6 +203,9 @@ func (d *Discord) Start(ctx context.Context, handle Handler) error {
 	d.session.AddHandler(func(_ *discordgo.Session, i *discordgo.InteractionCreate) {
 		d.onInteraction(ctx, i, handle)
 	})
+	if on, _ := d.messageContentOn(); on {
+		d.session.Identify.Intents |= discordgo.IntentMessageContent
+	}
 	d.session.AddHandler(func(_ *discordgo.Session, m *discordgo.MessageCreate) {
 		if m.Author == nil || m.Author.Bot {
 			return
@@ -203,19 +282,48 @@ func (d *Discord) Close() error {
 	return d.session.Close()
 }
 
+// Discord's own error codes for a channel Marshal cannot use.
+const (
+	discordUnknownChannel    = 10003
+	discordMissingAccess     = 50001
+	discordMissingPermission = 50013
+)
+
+// channelIDFix is the fix for a channel id that is wrong, in the words a person can follow.
+const channelIDFix = "Open the channel itself in Discord, then copy its id (right-click it, or long-press it " +
+	"on a phone, and choose Copy Channel ID). Do not copy the server's id."
+
+// restCode is the Discord error code inside a failed call, or 0 when there is none.
+func restCode(err error) int {
+	var rest *discordgo.RESTError
+	if errors.As(err, &rest) && rest.Message != nil {
+		return rest.Message.Code
+	}
+	return 0
+}
+
 // discordFailure turns a failed Discord call into the sentence and the fix a person reads. Discord
-// answers a bad token with a 401 and a missing channel with a 403 or a 404, so those are told apart
-// from the network, which is not the connection's own fault.
+// answers a bad token with a 401 and a channel it will not serve with a 403 or a 404 whose code says
+// which, so those are told apart from each other and from the network, which is not the connection's
+// own fault.
 func discordFailure(err error, what string) (message, fix string) {
 	var rest *discordgo.RESTError
 	switch {
 	case errors.As(err, &rest) && rest.Response != nil && rest.Response.StatusCode == http.StatusUnauthorized:
 		return "Discord refused the bot token.",
-			"Check the token from the Discord developer portal, and save it again."
+			"Copy the token again from the bot's page in the Discord developer portal (Reset Token shows a new one), and save it again."
+	case restCode(err) == discordUnknownChannel:
+		return "Discord has no channel with that id.", channelIDFix
+	case restCode(err) == discordMissingAccess:
+		return "The bot cannot see that channel.",
+			"Add the bot to the server with its invite link. For a private channel, also give the bot (or its role) access to that channel."
+	case restCode(err) == discordMissingPermission:
+		return "The bot can see the channel but may not send messages in it.",
+			"In the channel's permissions, allow the bot (or its role) View Channel and Send Messages."
 	case errors.As(err, &rest) && rest.Response != nil &&
 		(rest.Response.StatusCode == http.StatusForbidden || rest.Response.StatusCode == http.StatusNotFound):
 		return what + " Discord refused it.",
-			"Check that the bot is in the server, and that the channel id is right."
+			"Check that the bot is in the server and can see the channel, and that the id is the channel's, not the server's."
 	case errors.As(err, &rest) && rest.Response != nil && rest.Response.StatusCode == http.StatusTooManyRequests:
 		return "Discord is asking Marshal to slow down.",
 			"Wait a moment, then test again."

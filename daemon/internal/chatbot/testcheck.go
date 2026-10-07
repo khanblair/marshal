@@ -14,6 +14,9 @@ const (
 	// CheckChat is the check that a message reaches the chat or channel, which is what proves where
 	// notices go.
 	CheckChat = "Chat"
+	// CheckTyping is the check that the bot may read replies a person types, which Discord holds
+	// back until Message Content Intent is switched on.
+	CheckTyping = "Typing"
 	// CheckTopic is the check that a message reaches an ntfy topic.
 	CheckTopic = "Topic"
 )
