@@ -1,6 +1,6 @@
 import type { ScheduleCatalog, ScheduleRun } from "@marshal/protocol";
-import { Button, Dialog, IconButton } from "@marshal/ui";
-import { createResource, createUniqueId, For, Match, Show, Switch } from "solid-js";
+import { Button, Dialog, Icon, IconButton } from "@marshal/ui";
+import { createResource, createSignal, createUniqueId, For, Match, Show, Switch } from "solid-js";
 import { Markdown } from "~/features/markdown/Markdown";
 import { M, type Schedule } from "~/mock";
 import type { EditState } from "./edit-state";
@@ -26,14 +26,54 @@ const runTone = (status: string): string => {
   return status === "unsupported" ? "text-status-needs-you-text" : "text-secondary";
 };
 
+/** The first line of a run's saved text, without its markdown marks: what a closed run shows. */
+const firstLine = (details: string): string =>
+  details
+    .split("\n")
+    .map((line) => line.replace(/^#+\s*/, "").trim())
+    .find((line) => line !== "") ?? "";
+
+/** One run. Its saved message folds away under its time and status, and starts closed. */
 function Run(props: { run: ScheduleRun }) {
+  const [open, setOpen] = createSignal(false);
+  const bodyId = createUniqueId();
+  const title = () => (
+    <span class={`shrink-0 ${runTone(props.run.status)}`}>
+      {new Date(props.run.runAt).toLocaleString()} - {props.run.status}
+    </span>
+  );
   return (
-    <div class="flex flex-col gap-1 rounded-md border border-border bg-surface-sunken p-3 text-small">
-      <span class={runTone(props.run.status)}>
-        {new Date(props.run.runAt).toLocaleString()} - {props.run.status}
-      </span>
-      <Show when={props.run.details}>
-        {(details) => <Markdown text={details()} class={DETAILS_CLASS} />}
+    <div class="flex flex-col rounded-md border border-border bg-surface-sunken text-small">
+      <Show
+        when={props.run.details}
+        fallback={<div class="flex min-h-8 items-center p-3">{title()}</div>}
+      >
+        {(details) => (
+          <>
+            <button
+              type="button"
+              aria-expanded={open()}
+              aria-controls={bodyId}
+              onClick={() => setOpen(!open())}
+              class="flex min-h-8 w-full items-center gap-2 rounded-md border-none bg-transparent p-3 text-left hover:bg-surface-hover"
+            >
+              <span class="inline-flex text-muted">
+                <Icon name={open() ? "chevron-down" : "chevron-right"} size={14} />
+              </span>
+              {title()}
+              <Show when={!open()}>
+                <span class="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-muted">
+                  {firstLine(details())}
+                </span>
+              </Show>
+            </button>
+            <Show when={open()}>
+              <div id={bodyId} class="px-3 pb-3">
+                <Markdown text={details()} class={DETAILS_CLASS} />
+              </div>
+            </Show>
+          </>
+        )}
       </Show>
     </div>
   );

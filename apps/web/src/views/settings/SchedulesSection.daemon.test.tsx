@@ -233,12 +233,33 @@ describe("a schedule's row", () => {
     render(() => <SettingsView />);
     fireEvent.click(await screen.findByRole("button", { name: "Run Morning brief now" }));
     const sheet = await screen.findByRole("dialog");
+    fireEvent.click(await within(sheet).findByRole("button", { expanded: false }));
     expect(await within(sheet).findByRole("heading", { name: "Finished" })).toBeInTheDocument();
     expect(
       within(sheet).getByRole("heading", { name: "Morning brief", level: 1 }),
     ).toBeInTheDocument();
     expect(sheet.querySelector("hr")).not.toBeNull();
     expect(sheet).not.toHaveTextContent("##");
+  });
+
+  it("folds each run under its time, and starts every one closed", async () => {
+    render(() => <SettingsView />);
+    const runNow = await screen.findByRole("button", { name: "Run Morning brief now" });
+    fireEvent.click(runNow);
+    fireEvent.click(
+      await within(await screen.findByRole("dialog")).findByRole("button", { name: "Close" }),
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    fireEvent.click(runNow);
+    const sheet = await screen.findByRole("dialog");
+    const closed = await within(sheet).findAllByRole("button", { expanded: false });
+    expect(closed).toHaveLength(2);
+    expect(within(sheet).queryByRole("heading", { name: "Finished" })).toBeNull();
+    expect(closed[0]).toHaveTextContent("Run by hand.");
+    fireEvent.click(closed[0] as HTMLElement);
+    expect(within(sheet).getAllByRole("heading", { name: "Finished" })).toHaveLength(1);
+    fireEvent.click(closed[0] as HTMLElement);
+    expect(within(sheet).queryByRole("heading", { name: "Finished" })).toBeNull();
   });
 
   it("asks before running a brief that goes to a chat that is set up", async () => {
