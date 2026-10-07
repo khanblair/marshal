@@ -72,22 +72,30 @@ async function decide(
 }
 
 /**
- * Approves the approval a card is waiting on, the daemon's way (S8b). False means the card is not
+ * Answers the approval a card is waiting on, the daemon's way (S8b). False means the card is not
  * waiting on one the daemon knows about, or the daemon refused the answer; either way nothing was
- * changed and, for a refusal, the reason has already been shown.
+ * changed and the reason has been shown, so a button is never silent.
  */
-export async function approveOnDaemon(ctx: Ctx, id: CardKey): Promise<boolean> {
+async function answerOnDaemon(
+  ctx: Ctx,
+  id: CardKey,
+  decision: "approved" | "denied",
+): Promise<boolean> {
   const approvalId = pendingApprovalID(ctx, id);
-  if (!approvalId) return false;
-  return decide(ctx, approvalId, "approved");
+  if (!approvalId) {
+    toast(ctx, "That request is not waiting for an answer any more.");
+    return false;
+  }
+  return decide(ctx, approvalId, decision);
 }
 
+/** Approves the approval a card is waiting on, the daemon's way (S8b). */
+export const approveOnDaemon = (ctx: Ctx, id: CardKey): Promise<boolean> =>
+  answerOnDaemon(ctx, id, "approved");
+
 /** Denies the approval a card is waiting on, the daemon's way (S8b). */
-export async function denyOnDaemon(ctx: Ctx, id: CardKey): Promise<boolean> {
-  const approvalId = pendingApprovalID(ctx, id);
-  if (!approvalId) return false;
-  return decide(ctx, approvalId, "denied");
-}
+export const denyOnDaemon = (ctx: Ctx, id: CardKey): Promise<boolean> =>
+  answerOnDaemon(ctx, id, "denied");
 
 /** The card a card-scoped approval event names, found by the daemon's own id. */
 function cardKeyOf(ctx: Ctx, daemonId: string): CardKey | undefined {

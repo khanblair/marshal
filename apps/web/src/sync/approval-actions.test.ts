@@ -143,7 +143,18 @@ describe("answering an approval on the daemon", () => {
   it("does nothing when the card is not waiting on one the daemon knows about", async () => {
     const { ctx, d } = await setup([api44({ state: "working", needsReason: null })], []);
     expect(await approveOnDaemon(ctx, "api#44")).toBe(false);
+    expect(await denyOnDaemon(ctx, "api#44")).toBe(false);
     expect(d.routes()).not.toContain(APPROVE);
+  });
+
+  it("says so, for Approve and for Deny, instead of doing nothing", async () => {
+    const { M, ctx } = await setup([api44({ state: "working", needsReason: null })], []);
+    await approveOnDaemon(ctx, "api#44");
+    await denyOnDaemon(ctx, "api#44");
+    expect(toasts(M)).toEqual([
+      "That request is not waiting for an answer any more.",
+      "That request is not waiting for an answer any more.",
+    ]);
   });
 
   it("shows the daemon's sentence when the request was already answered", async () => {

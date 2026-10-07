@@ -136,7 +136,8 @@ function toStoredMessage(message: ChatMessage): Msg {
         ? planMessage(message, message.plan)
         : { id: message.id, k: "system", text: message.text };
     case "approval":
-      return message.approval
+      // A row with no id and no command asked for nothing (bypass's note), so it is a note.
+      return message.approval && (message.approval.id || message.approval.command)
         ? approvalMessage(message, message.approval)
         : { id: message.id, k: "system", text: message.text };
     case "card": {

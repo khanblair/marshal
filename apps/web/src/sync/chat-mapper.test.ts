@@ -138,6 +138,22 @@ describe("a page of a card's chat", () => {
     ])[0];
     expect(stored?.k === "approval" && stored.approvalId).toBeUndefined();
   });
+
+  it("draws an approval that asked for nothing as a note, with no buttons to press", () => {
+    const stored = toStoredMessages([
+      message({
+        id: "m3",
+        kind: "approval",
+        text: "Bypass permissions turned on by you",
+        approval: { id: "", state: "waiting", command: "", reason: "" },
+      }),
+    ])[0];
+    expect(stored).toEqual({
+      id: "m3",
+      k: "system",
+      text: "Bypass permissions turned on by you",
+    });
+  });
 });
 
 describe("a page of a card's activity", () => {
