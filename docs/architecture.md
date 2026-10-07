@@ -983,7 +983,7 @@ Test(ctx context.Context) (TestResult, error)
 | Google Drive | Token valid, the Drive API on, and whether the folder Marshal saves into is there (it is made when the first file is saved) |
 | Google Docs, Sheets, and Slides | Token valid, the Drive API on, and that service's own API on, found by asking for a file that cannot exist, so nothing is made |
 | Telegram | Bot token valid, a test message delivered to the linked chat |
-| Discord | Bot token valid, bot in the server, a test message delivered to the linked channel |
+| Discord | Bot token valid, the channel exists and is named, a test message delivered to it, and whether Message Content Intent is on (a warning when it is off: notices and buttons work, typed replies do not). A channel id that is really a server's says so |
 | Obsidian vault | Folder exists and is writable |
 | Tailscale | Node online, tailnet address assigned, Funnel open for `/hooks/*` only |
 | Model providers | Key valid, with a tiny request to the cheapest model, and rate-limit headers read |
