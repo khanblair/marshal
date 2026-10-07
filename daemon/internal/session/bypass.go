@@ -111,7 +111,7 @@ func (m *Manager) noteBypass(ctx context.Context, card protocol.Card, on bool) {
 	}
 	records := []history.Record{
 		{Kind: history.KindSystem, Summary: note},
-		{Kind: history.KindApproval, Summary: activity},
+		{Kind: history.KindApproval, State: history.StateOK, Summary: activity},
 	}
 	if err := m.cfg.History.Append(m.ctx, card.ID, sessionID, records); err != nil {
 		m.log.Error("could not store the bypass note", "card_id", card.ID, "error", err)

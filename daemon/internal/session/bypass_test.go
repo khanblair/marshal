@@ -209,6 +209,9 @@ func TestBypassWritesTheNoteIntoTheCardHistory(t *testing.T) {
 	if len(activity.Events) != 1 || !contains(activity.Events[0].Summary, "turned on by you") {
 		t.Errorf("the card's activity = %+v, want the bypass row", activity.Events)
 	}
+	if activity.Events[0].State != history.StateOK {
+		t.Errorf("the bypass row's state = %q, want %q, so it is never drawn as waiting", activity.Events[0].State, history.StateOK)
+	}
 }
 
 // startBypassed starts a card's session and turns bypass on, so the requests its agent makes are

@@ -257,8 +257,14 @@ func approvalOf(ev Event, state protocol.ActivityState) (protocol.ChatApproval, 
 	if err := decodeDetail(ev, &stored); err != nil {
 		return protocol.ChatApproval{}, err
 	}
+	answer := approvalState(state)
+	if stored.ID == "" && answer == protocol.ChatApprovalStateWaiting {
+		// A row with no approval id is never one a person can answer. Bypass wrote such rows with
+		// no state before it set one, so they read as decided rather than as a dead button.
+		answer = protocol.ChatApprovalStateApproved
+	}
 	return protocol.ChatApproval{
-		ID: stored.ID, State: approvalState(state), Command: stored.Command, Reason: stored.Title,
+		ID: stored.ID, State: answer, Command: stored.Command, Reason: stored.Title,
 	}, nil
 }
 

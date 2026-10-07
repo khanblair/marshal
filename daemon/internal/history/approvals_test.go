@@ -47,6 +47,19 @@ func TestAppendApprovalStoresTheApprovalsOwnID(t *testing.T) {
 	}
 }
 
+func TestAnApprovalRowWithNoIDAndNoStateIsNeverWaiting(t *testing.T) {
+	// Bypass once wrote its note this way. A person has nothing to answer, so no button is drawn.
+	e := newEnv(t)
+	note := []history.Record{{Kind: history.KindApproval, Summary: "Bypass permissions turned on by you"}}
+	if err := e.history.Append(context.Background(), e.cardID, e.sessionID, note); err != nil {
+		t.Fatalf("Append: %v", err)
+	}
+	got := approvalOf(t, e, e.cardID)
+	if got.ID != "" || got.State != protocol.ChatApprovalStateApproved {
+		t.Errorf("approval = %+v, want no id, approved", got)
+	}
+}
+
 func TestAppendApprovalWithNoIDIsAnAlreadyDecidedRow(t *testing.T) {
 	// The daemon-auto-answer paths (bypass, the harness) never mint an approval id, and their row is
 	// already resolved: nothing is ever waiting for a person to answer.
