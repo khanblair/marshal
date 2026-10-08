@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/khanblair/marshal/daemon/internal/agents"
+	"github.com/khanblair/marshal/daemon/internal/history"
 	"github.com/khanblair/marshal/daemon/internal/protocol"
 	"github.com/khanblair/marshal/daemon/internal/store"
 	"github.com/khanblair/marshal/daemon/internal/store/db"
@@ -96,12 +97,13 @@ func (m *Manager) resumeRow(ctx context.Context, row db.Session) (protocol.Card,
 	if err != nil {
 		return m.failResume(ctx, row, err)
 	}
+	attached := m.attach(ctx, card)
 	rctx, cancel := context.WithTimeout(ctx, resumeTimeout)
 	defer cancel()
 	// A resumed session is given the internal MCP server again, because the list is part of the
 	// request that brings the session back; the context is not repeated, because Instructions go to
 	// the agent with the first message of a new session only.
-	handle, err := agent.Resume(rctx, row.AgentSessionID, resumeSpec(card, path, m.attach(ctx, card).Servers))
+	handle, err := agent.Resume(rctx, row.AgentSessionID, resumeSpec(card, path, attached.Servers))
 	if err != nil {
 		// The agent never came back, so no pump will release what its session was given.
 		m.detachCard(card.ID)
@@ -113,12 +115,50 @@ func (m *Manager) resumeRow(ctx context.Context, row db.Session) (protocol.Card,
 		}
 		return m.failResume(ctx, row, err)
 	}
-	registered, err := m.registerResumedSession(ctx, card, row, startedAgent{agent: agent, handle: handle, view: view})
+	note := resumedText(handle.Restarted)
+	registered, err := m.registerResumedSession(ctx, card, row, startedAgent{agent: agent, handle: handle, view: view, note: note})
 	if err != nil {
 		// The session never became live, so no pump will release what it was given.
 		m.detachCard(card.ID)
+		return registered, err
 	}
-	return registered, err
+	m.storeResumedNote(card, row, note)
+	if handle.Restarted {
+		// Nothing was saved to resume, so this is a new conversation: it is given the context a
+		// new session starts with, and told to begin. Without that the card would read working
+		// while its agent waited.
+		m.sendRestartPrompt(ctx, card.ID, attached.Instructions)
+	}
+	return registered, nil
+}
+
+// What a card's chat says when its agent is back, so a person is not left looking at an idle card
+// and wondering whether anything happened.
+const (
+	resumedNote   = "Agent resumed. It picked up its earlier conversation and is waiting for your next message."
+	restartedNote = "Agent started again. Nothing from its earlier session was saved, so it began a new " +
+		"conversation with this card's instructions and is working on it now."
+)
+
+// resumedText is what a card's chat says when its agent is back: waiting for a message, or starting
+// over.
+func resumedText(restarted bool) string {
+	if restarted {
+		return restartedNote
+	}
+	return resumedNote
+}
+
+// storeResumedNote keeps the note with the card's history, which is what a chat opened later reads.
+// An open card shows it at once, from the "awake" the session is announced with.
+func (m *Manager) storeResumedNote(card protocol.Card, row db.Session, text string) {
+	if m.cfg.History == nil {
+		return
+	}
+	record := history.Record{Kind: history.KindSystem, State: history.StateOK, Summary: text}
+	if err := m.cfg.History.Append(m.ctx, card.ID, row.ID, []history.Record{record}); err != nil {
+		m.log.Error("could not store the note that a card's agent resumed", "card_id", card.ID, "error", err)
+	}
 }
 
 // resumeSpec is how a card's agent is asked to resume its session: in the card's worktree, with the

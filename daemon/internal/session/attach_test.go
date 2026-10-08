@@ -3,6 +3,7 @@ package session_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 
@@ -223,5 +224,41 @@ func TestAResumeIsGivenTheServerAndNotTheContext(t *testing.T) {
 	}
 	if resumed.Instructions != "" {
 		t.Errorf("the resumed session was told %q, and a resume is not told the context again", resumed.Instructions)
+	}
+}
+
+// A session that had nothing saved to resume starts a new conversation, so it is told what a new
+// session is told: the context, and to begin. The resume itself still carries neither.
+func TestAResumeThatStartedAgainIsGivenTheContextAndToldToBegin(t *testing.T) {
+	e := newEnv(t, func(c *session.Config) { c.StartPrompt = "Begin now." })
+	t.Cleanup(func() { _ = e.mgr.Close() })
+	project := e.project(t, "small-repo")
+	card := e.card(t, project.ID, "Do the work")
+	attacher := &fakeAttacher{answer: func(card protocol.Card) (session.Attachment, error) {
+		return session.Attachment{Instructions: "You are the Implementer."}, nil
+	}}
+	e.mgr.SetAttacher(attacher)
+
+	if _, err := e.mgr.Start(context.Background(), card.ID); err != nil {
+		t.Fatalf("start the card: %v", err)
+	}
+	if err := e.mgr.StopCardSession(context.Background(), card.ID); err != nil {
+		t.Fatalf("stop the card: %v", err)
+	}
+	waitFor(t, "the first session to end", func() bool { return len(attacher.detachedCards()) > 0 })
+	e.agent.mu.Lock()
+	e.agent.restarted = true
+	e.agent.mu.Unlock()
+	if _, err := e.mgr.Start(context.Background(), card.ID); err != nil {
+		t.Fatalf("resume the card: %v", err)
+	}
+
+	waitFor(t, "the restarted session's first message", func() bool { return len(e.agent.sentTexts()) == 2 })
+	first := e.agent.sentTexts()[1]
+	if !strings.Contains(first, "You are the Implementer.") || !strings.HasSuffix(first, "Begin now.") {
+		t.Errorf("the restarted session's first message = %q, want the context, then the start prompt", first)
+	}
+	if got := e.agent.startSpecs()[1].Instructions; got != "" {
+		t.Errorf("the resume itself was told %q, and a resume is not told the context", got)
 	}
 }

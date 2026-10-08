@@ -298,6 +298,8 @@ type startedAgent struct {
 	// view is the view the agent was started in. The zero value is the chat view, which is what every
 	// session starts in.
 	view protocol.CardViewMode
+	// note is what the session's first "awake" says, for an agent that came back (see noteResumed).
+	note string
 }
 
 // newLiveSession opens a session's on-disk log and ring and builds its bookkeeping.

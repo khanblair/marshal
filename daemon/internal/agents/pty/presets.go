@@ -1,27 +1,9 @@
 package pty
 
 import (
-	"os"
-	"path/filepath"
-
 	"github.com/khanblair/marshal/daemon/internal/agents"
+	"github.com/khanblair/marshal/daemon/internal/agents/claude"
 )
-
-// claudeSaved says whether Claude Code has saved a conversation for a session id. It keeps each
-// one as <id>.jsonl in a folder per project, and a session with no message has no file. When the
-// answer cannot be found out, it says yes, and the resume is tried as it was before.
-func claudeSaved(sessionID string) bool {
-	root := os.Getenv("CLAUDE_CONFIG_DIR")
-	if root == "" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return true
-		}
-		root = filepath.Join(home, ".claude")
-	}
-	found, err := filepath.Glob(filepath.Join(root, "projects", "*", sessionID+".jsonl"))
-	return err != nil || len(found) > 0
-}
 
 // ClaudeConfig runs Claude Code's own interactive command, for the terminal view of a card whose
 // agent is Claude Code. It is the same CLI that the chat view drives through its streaming JSON
@@ -43,7 +25,7 @@ func ClaudeConfig(path string, env []string) Config {
 		ResumeArgs: func(sessionID string) []string {
 			return []string{"--resume=" + sessionID}
 		},
-		Saved: claudeSaved,
+		Saved: claude.Saved,
 		SpecArgs: func(spec agents.StartSpec) []string {
 			if spec.Model == "" {
 				return nil

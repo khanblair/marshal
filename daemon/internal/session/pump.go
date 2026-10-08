@@ -2,6 +2,8 @@ package session
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/khanblair/marshal/daemon/internal/agents"
@@ -73,9 +75,12 @@ func (m *Manager) handleEvent(ls *liveSession, ev agents.AgentEvent) {
 		// held, and announced (B3.4).
 		m.onPermissionRequested(ls, e)
 	case agents.Failed:
-		// Still wait for the Exited that follows (the agents.Failed doc comment says one always
-		// does, whether the process survives or not); nothing else to do here.
+		// A failure that kills the process is followed by its Exited, which finishPump reacts to.
 		m.log.Warn("an agent session failed", ls.noun()+"_id", ls.key(), "message", e.Message)
+		// A card's agent that is signed out can do nothing, and its process stays alive, so the end
+		// of its turn ends it (see onTurnEnded).
+		ls.signedOut = e.SignedOut && !ls.isChat()
+		ls.failureCause = failureCause(e.Detail)
 	}
 	// agents.Exited needs no case here; finishPump reacts to it once the loop ends, which covers
 	// every way the loop can end.
@@ -150,7 +155,15 @@ func (m *Manager) publishToolCall(ls *liveSession, ev agents.AgentEvent) {
 // A pause holds the card between turns: the turn that just ended does not start the next message,
 // which waits until the card is resumed (see deliverHeld). A chat cannot be paused.
 func (m *Manager) onTurnEnded(ls *liveSession) {
+	// A failure that left the process running was said in the chat; it is not why a later exit happened.
+	ls.failureCause = ""
 	if ls.wasStopRequested() {
+		return
+	}
+	if ls.signedOut {
+		// Ending the idle process is what lets the person resume with a new one, which reads the
+		// login they have just made. finishPump then moves the card and says why.
+		m.endSignedOut(ls)
 		return
 	}
 	if err := m.setSessionState(m.ctx, ls, protocol.SessionStateAwake); err != nil {
@@ -247,15 +260,65 @@ func (m *Manager) finishPump(ls *liveSession) {
 		m.log.Error("could not record that a session exited", ls.noun()+"_id", ls.key(), "error", err)
 	}
 	if !ls.isChat() {
-		reason := protocol.NeedsReason{Kind: protocol.NeedsReasonKindStuck, Text: stoppedCardReason}
+		reason := protocol.NeedsReason{Kind: protocol.NeedsReasonKindStuck, Text: m.stoppedReason(ls)}
 		if _, err := m.projects.SetNeeds(m.ctx, ls.cardID, reason); err != nil {
 			m.log.Error("could not move a card to needs you after its agent exited", "card_id", ls.cardID, "error", err)
 		}
 	}
-	m.publishState(ls, protocol.SessionStateStopped, "The agent stopped unexpectedly.")
-	m.log.Warn("an agent session exited unexpectedly", ls.noun()+"_id", ls.key())
+	note := "The agent stopped unexpectedly."
+	if ls.signedOut {
+		note = signedOutNote
+	}
+	m.publishState(ls, protocol.SessionStateStopped, note)
+	m.log.Warn("an agent session exited unexpectedly", ls.noun()+"_id", ls.key(), "signed_out", ls.signedOut)
 }
 
-// stoppedCardReason is what a card says when its agent stopped without being asked to: there is
-// nothing to approve, and the way forward is to resume it.
-const stoppedCardReason = "The agent stopped unexpectedly. Resume it to continue."
+// endSignedOut ends the process of a session whose agent is signed out. It runs on its own
+// goroutine because stopping waits on the process, and this one is the reader of its events.
+func (m *Manager) endSignedOut(ls *liveSession) {
+	go func() {
+		if err := ls.agent.Stop(m.ctx, ls.handle); err != nil {
+			m.log.Error("could not end the session of an agent that is signed out", "card_id", ls.cardID, "error", err)
+		}
+	}()
+}
+
+// signedOutNote is what the card's chat says when its agent is signed out.
+const signedOutNote = "Claude is signed out, so the agent could not work. Sign in, then resume it."
+
+// stoppedReason is what a card says when its agent stopped without being asked to: which card, why
+// as far as the agent said, and what to do. It names the card because the same sentence is sent to
+// a chat, where nothing around it says which project it is about.
+func (m *Manager) stoppedReason(ls *liveSession) string {
+	label := "this card"
+	if card, err := m.projects.Card(m.ctx, ls.cardID); err == nil && card.Key != "" {
+		label = card.Key
+	}
+	if ls.signedOut {
+		return fmt.Sprintf("Claude is signed out on this Mac, so the agent for %s could not do any work. "+
+			"Open a terminal, run claude, and sign in with /login. Then press Resume agent.", label)
+	}
+	cause := ""
+	if ls.failureCause != "" {
+		cause = ": " + ls.failureCause
+	}
+	return fmt.Sprintf("The agent for %s stopped unexpectedly%s. "+
+		"Press Resume agent to start it again where it left off.", label, cause)
+}
+
+// failureCauseMax is how much of an agent's last words a card repeats.
+const failureCauseMax = 160
+
+// failureCause is the last thing the agent printed as it failed, cut short, for a card to say why.
+// "exit status 1" alone is not a cause worth repeating, so it is left out.
+func failureCause(detail string) string {
+	lines := strings.Split(strings.TrimSpace(detail), "\n")
+	last := strings.TrimSpace(lines[len(lines)-1])
+	if last == "" || strings.HasPrefix(last, "exit status") {
+		return ""
+	}
+	if r := []rune(last); len(r) > failureCauseMax {
+		last = string(r[:failureCauseMax]) + "..."
+	}
+	return strings.TrimRight(last, ". ")
+}

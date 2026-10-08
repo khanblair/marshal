@@ -21,6 +21,9 @@ type fakeAgent struct {
 	sessions  map[string]*fakeSession
 	startErr  error
 	resumeErr error
+	// restarted, when set, makes every Resume answer that it began a new conversation, as an agent
+	// does for a session that was started and never spoken to.
+	restarted bool
 	// sendErr, when set, is what Send returns instead of starting a turn (for a reason other than
 	// the fake's own busy bookkeeping, which returns agents.ErrBusy on its own).
 	sendErr error
@@ -122,7 +125,9 @@ func (a *fakeAgent) Resume(_ context.Context, sessionID string, spec agents.Star
 	s.mu.Lock()
 	s.sink, s.busy = agents.NewEventSink(256), false
 	s.mu.Unlock()
-	return a.handleFor(sessionID, spec), nil
+	h := a.handleFor(sessionID, spec)
+	h.Restarted = a.restarted
+	return h, nil
 }
 
 func (a *fakeAgent) handleFor(id string, spec agents.StartSpec) agents.SessionHandle {
@@ -363,12 +368,16 @@ func (a *fakeAgent) find(id string) (*fakeSession, error) {
 
 // crash ends a session the way a process that died on its own would: Failed then Exited, with no
 // Stop ever asked for.
-func (a *fakeAgent) crash(id, message string) {
+func (a *fakeAgent) crash(id, message string) { a.crashWith(id, agents.Failed{Message: message}) }
+
+// crashWith ends a session the way a dying process does: a Failed event, then Exited.
+func (a *fakeAgent) crashWith(id string, failed agents.Failed) {
+	message := failed.Message
 	s, err := a.find(id)
 	if err != nil {
 		return
 	}
-	s.sink.Emit(agents.Failed{Message: message})
+	s.sink.Emit(failed)
 	s.sink.EmitFinal(agents.Exited{Code: -1, Err: errors.New(message)})
 	s.sink.Release()
 	s.sink.Close()

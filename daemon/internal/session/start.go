@@ -63,12 +63,28 @@ func (m *Manager) startOrResume(ctx context.Context, cardID string) (protocol.Ca
 // sendStartPrompt gives a session that has just started its first turn, when the config sets one.
 // The session is already running, so a failure here is logged and not returned: the card started.
 func (m *Manager) sendStartPrompt(ctx context.Context, cardID string) {
-	if m.cfg.StartPrompt == "" {
+	m.sendFirstTurn(ctx, cardID, m.cfg.StartPrompt)
+}
+
+// sendRestartPrompt is the first turn of a session that had to start again because nothing was
+// saved to resume (agents.SessionHandle.Restarted). A resume is never given instructions, so they
+// go in the message instead, ahead of the words that tell the agent to begin.
+func (m *Manager) sendRestartPrompt(ctx context.Context, cardID, instructions string) {
+	text := m.cfg.StartPrompt
+	if text != "" && instructions != "" {
+		text = instructions + "\n\n" + text
+	}
+	m.sendFirstTurn(ctx, cardID, text)
+}
+
+// sendFirstTurn delivers a session's first message. An empty text sends nothing.
+func (m *Manager) sendFirstTurn(ctx context.Context, cardID, text string) {
+	if text == "" {
 		return
 	}
 	ls, err := m.live(cardID)
 	if err == nil {
-		err = m.deliver(ctx, ls, m.cfg.StartPrompt)
+		err = m.deliver(ctx, ls, text)
 	}
 	if err != nil {
 		m.log.Warn("could not send a new session its first turn", "card_id", cardID, "error", err)
@@ -294,7 +310,7 @@ func (m *Manager) register(o owner, rowID string, sa startedAgent) (*liveSession
 	if err := m.goLive(ls); err != nil {
 		return nil, err
 	}
-	m.publishState(ls, protocol.SessionStateAwake, "")
+	m.publishState(ls, protocol.SessionStateAwake, sa.note)
 	return ls, nil
 }
 

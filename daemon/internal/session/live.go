@@ -61,6 +61,13 @@ type liveSession struct {
 	stopMu        sync.Mutex
 	stopRequested bool
 
+	// signedOut is set by the pump goroutine when the agent says its login is gone, and read by it at
+	// the turn's end and when the session ends, so it needs no lock.
+	signedOut bool
+	// failureCause is the last line of the most recent failure the agent reported, for the sentence
+	// a card says if the session then ends. It is read and written only by the pump goroutine.
+	failureCause string
+
 	// scannedThrough is the last commit the secret scanner has read on this card's branch (B3.5).
 	// It is read and written only by the pump goroutine, in the turn-end scan, so it needs no lock.
 	scannedThrough string

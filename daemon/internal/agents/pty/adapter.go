@@ -84,10 +84,13 @@ func (a *Adapter) Resume(
 		return agents.SessionHandle{}, fmt.Errorf("%w: there is no session id to resume", agents.ErrCannotResume)
 	}
 	args := a.cfg.ResumeArgs(sessionID)
-	if a.cfg.Saved != nil && a.cfg.StartArgs != nil && !a.cfg.Saved(sessionID) {
+	restarted := a.cfg.Saved != nil && a.cfg.StartArgs != nil && !a.cfg.Saved(sessionID)
+	if restarted {
 		args = a.cfg.StartArgs(sessionID)
 	}
-	return a.launch(ctx, sessionID, args, spec)
+	h, err := a.launch(ctx, sessionID, args, spec)
+	h.Restarted = restarted && err == nil
+	return h, err
 }
 
 // Send types the text and then Config.LineEnd into the terminal. A terminal has no turns, so it
