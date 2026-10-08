@@ -144,15 +144,16 @@ func TestChatMessageOfMapsEveryKind(t *testing.T) {
 		},
 		{
 			name:     "an approval",
-			ev:       event(history.KindApproval, history.StateWaiting, "Asked to run rm -rf build", `{"requestId":"r1","title":"Clean the build folder","command":"rm -rf build"}`),
+			ev:       event(history.KindApproval, history.StateWaiting, "Asked to run rm -rf build", `{"id":"appr_1","requestId":"r1","title":"Clean the build folder","command":"rm -rf build"}`),
 			wantKind: protocol.ChatMessageKindApproval, wantText: "Asked to run rm -rf build",
 			checkExtra: func(t *testing.T, message protocol.ChatMessage) {
 				t.Helper()
 				if message.Approval == nil {
 					t.Fatal("an approval message has no approval block")
 				}
+				// A request with an id someone can answer is the only kind that reads as waiting.
 				want := protocol.ChatApproval{
-					State: protocol.ChatApprovalStateWaiting, Command: "rm -rf build", Reason: "Clean the build folder",
+					ID: "appr_1", State: protocol.ChatApprovalStateWaiting, Command: "rm -rf build", Reason: "Clean the build folder",
 				}
 				if *message.Approval != want {
 					t.Errorf("approval = %+v, want %+v", *message.Approval, want)
