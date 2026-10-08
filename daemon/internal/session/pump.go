@@ -247,11 +247,15 @@ func (m *Manager) finishPump(ls *liveSession) {
 		m.log.Error("could not record that a session exited", ls.noun()+"_id", ls.key(), "error", err)
 	}
 	if !ls.isChat() {
-		if _, err := m.projects.SetState(m.ctx, ls.cardID, protocol.CardStateNeeds); err != nil {
+		reason := protocol.NeedsReason{Kind: protocol.NeedsReasonKindStuck, Text: stoppedCardReason}
+		if _, err := m.projects.SetNeeds(m.ctx, ls.cardID, reason); err != nil {
 			m.log.Error("could not move a card to needs you after its agent exited", "card_id", ls.cardID, "error", err)
 		}
 	}
-	reason := "The agent stopped unexpectedly."
-	m.publishState(ls, protocol.SessionStateStopped, reason)
+	m.publishState(ls, protocol.SessionStateStopped, "The agent stopped unexpectedly.")
 	m.log.Warn("an agent session exited unexpectedly", ls.noun()+"_id", ls.key())
 }
+
+// stoppedCardReason is what a card says when its agent stopped without being asked to: there is
+// nothing to approve, and the way forward is to resume it.
+const stoppedCardReason = "The agent stopped unexpectedly. Resume it to continue."

@@ -512,6 +512,11 @@ func TestAnUnexpectedExitMovesTheCardToNeeds(t *testing.T) {
 	if updated.State != protocol.CardStateNeeds {
 		t.Errorf("card state after a crash = %s, want %s", updated.State, protocol.CardStateNeeds)
 	}
+	// The card says why, so a person is not left with "Needs you" and nothing to do.
+	if updated.NeedsReason == nil || updated.NeedsReason.Kind != protocol.NeedsReasonKindStuck ||
+		updated.NeedsReason.Text != "The agent stopped unexpectedly. Resume it to continue." {
+		t.Errorf("needs reason after a crash = %+v, want stuck with the resume sentence", updated.NeedsReason)
+	}
 }
 
 func TestResumeOfACardWithNoSessionIsNotFound(t *testing.T) {
