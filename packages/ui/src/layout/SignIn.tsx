@@ -45,6 +45,19 @@ export interface SignInProps extends Omit<JSX.HTMLAttributes<HTMLDivElement>, "o
 
 const ICON_PX = 20;
 
+/** What to paste and where to find it. */
+function TokenHelp() {
+  return (
+    <p class="m-0 text-secondary">
+      Paste the access token for this computer. To see it, run{" "}
+      <code class="py-px px-1.5 rounded-xs bg-surface-sunken font-mono text-small whitespace-nowrap">
+        marshal token --show
+      </code>{" "}
+      in a terminal on the computer where Marshal runs.
+    </p>
+  );
+}
+
 /**
  * The screen where a person pastes the access token for the daemon. The token stays in the
  * input: it is not put in an attribute, echoed as text, or logged, and it is trimmed before it
@@ -134,16 +147,6 @@ export function SignIn(props: SignInProps) {
     </form>
   );
 
-  const tokenHelp = () => (
-    <p class="m-0 text-secondary">
-      Paste the access token for this computer. To see it, run{" "}
-      <code class="py-px px-1.5 rounded-xs bg-surface-sunken font-mono text-small whitespace-nowrap">
-        marshal token --show
-      </code>{" "}
-      in a terminal on the computer where Marshal runs.
-    </p>
-  );
-
   const pairForm = () => (
     <form
       aria-label="Pair with a code"
@@ -216,7 +219,7 @@ export function SignIn(props: SignInProps) {
             <h1 id={titleId} class="m-0 text-title leading-6 font-semibold">
               Sign in to Marshal
             </h1>
-            {tokenHelp()}
+            <TokenHelp />
             {tokenForm()}
             <Show when={local.onPair}>
               <div class="w-full flex flex-col gap-3.5 text-left border-t border-border pt-3.5">
@@ -243,7 +246,7 @@ export function SignIn(props: SignInProps) {
         <details class="w-full text-left border-t border-border pt-3.5">
           <summary class="cursor-pointer font-semibold">Use an access token instead</summary>
           <div class="flex flex-col gap-3.5 pt-3.5">
-            {tokenHelp()}
+            <TokenHelp />
             {tokenForm()}
           </div>
         </details>
