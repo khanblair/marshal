@@ -48,13 +48,28 @@ func (a *Adapter) Resume(
 	if sessionID == "" {
 		return agents.SessionHandle{}, fmt.Errorf("%w: there is no session id to resume", agents.ErrCannotResume)
 	}
+	if !looksLikeUUID(sessionID) {
+		return agents.SessionHandle{}, notASessionID(sessionID)
+	}
+	// Claude Code only saves a conversation once it has a first message. A session that was
+	// started and never spoken to has nothing to resume, so it starts again under its own id. The
+	// file is looked for first because Claude Code's own "no conversation" answer can come after
+	// the process has already counted as started.
+	if !Saved(sessionID) {
+		return a.startAgain(ctx, spec, sessionID)
+	}
 	h, err := a.open(ctx, spec, sessionID, "")
 	if err != nil && strings.Contains(err.Error(), noConversation) {
-		// Claude Code only saves a conversation once it has a first message. A session that was
-		// started and never spoken to has nothing to resume, so it starts again under its own id.
-		a.log.Info("no saved conversation to resume, starting the session again", "session_id", sessionID)
-		return a.open(ctx, spec, "", sessionID)
+		return a.startAgain(ctx, spec, sessionID)
 	}
+	return h, err
+}
+
+// startAgain begins a new conversation under a session id that has none saved.
+func (a *Adapter) startAgain(ctx context.Context, spec agents.StartSpec, sessionID string) (agents.SessionHandle, error) {
+	a.log.Info("no saved conversation to resume, starting the session again", "session_id", sessionID)
+	h, err := a.open(ctx, spec, "", sessionID)
+	h.Restarted = err == nil
 	return h, err
 }
 

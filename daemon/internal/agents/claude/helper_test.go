@@ -5,6 +5,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -36,6 +37,22 @@ func fakeAdapter(t *testing.T, flags string, mods ...func(*Config)) agents.Agent
 		t.Fatalf("New: %v", err)
 	}
 	return a
+}
+
+// saveConversation points Claude Code's config folder at a temp folder and writes the file it keeps
+// for a session's conversation, which is what makes a resume find something to resume. A test that
+// resumes a session it never spoke to is the one that leaves this out.
+func saveConversation(t *testing.T, sessionID string) {
+	t.Helper()
+	root := t.TempDir()
+	t.Setenv("CLAUDE_CONFIG_DIR", root)
+	dir := filepath.Join(root, "projects", "worktree")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatalf("make the projects folder: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, sessionID+".jsonl"), []byte("{}\n"), 0o600); err != nil {
+		t.Fatalf("save the conversation: %v", err)
+	}
 }
 
 // startSpec returns a start spec pointed at a fresh temp folder.

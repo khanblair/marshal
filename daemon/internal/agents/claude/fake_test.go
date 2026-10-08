@@ -195,6 +195,10 @@ func handleTurn(fc fakeContext, in fakeInLine, firstTurn bool) {
 	id := "call-" + strconv.FormatUint(toolCallSeq.Add(1), 10)
 	writeLine(assistantToolUse(id, "Bash", map[string]any{"command": "echo hi"}))
 	writeLine(userToolResult(id, "hi\n", fc.flags["toolfails"]))
+	if fc.flags["signedout"] {
+		writeLine(resultOf("Failed to authenticate: OAuth session expired and could not be refreshed", true, "success", "end_turn"))
+		return
+	}
 	if fc.flags["failresult"] {
 		writeLine(resultOf("could not finish", true, "error_during_execution", "tool_use"))
 		return

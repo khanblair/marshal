@@ -2,6 +2,7 @@ package claude
 
 import (
 	"encoding/json"
+	"strings"
 
 	"github.com/khanblair/marshal/daemon/internal/agents"
 )
@@ -136,6 +137,13 @@ func resultFailureMessage(m resultLine) string {
 		return m.Result
 	}
 	return "The agent could not finish its turn."
+}
+
+// isSignedOut says whether a failed result is Claude Code saying it has no usable login: it either
+// says it failed to authenticate, or tells the person to run /login.
+func isSignedOut(message string) bool {
+	text := strings.ToLower(message)
+	return strings.Contains(text, "failed to authenticate") || strings.Contains(text, "/login")
 }
 
 // resultFailureDetail is the log-and-fold detail for a Failed event from an error result.

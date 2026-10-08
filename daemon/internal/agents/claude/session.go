@@ -142,11 +142,16 @@ func (a *Adapter) open(ctx context.Context, spec agents.StartSpec, resumeID, fre
 	}, nil
 }
 
+// notASessionID is the refusal for an id that cannot be a Claude Code session id.
+func notASessionID(id string) error {
+	return fmt.Errorf("%w: %q is not a claude code session id", agents.ErrCannotResume, id)
+}
+
 // idAndArgs picks the session id and the argument list for a Start (resumeID empty) or a Resume.
 func idAndArgs(resumeID string, common []string, instructions string) (string, []string, error) {
 	if resumeID != "" {
 		if !looksLikeUUID(resumeID) {
-			return "", nil, fmt.Errorf("%w: %q is not a claude code session id", agents.ErrCannotResume, resumeID)
+			return "", nil, notASessionID(resumeID)
 		}
 		return resumeID, resumeArgs(common, resumeID), nil
 	}

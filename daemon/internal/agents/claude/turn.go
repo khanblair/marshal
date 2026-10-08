@@ -117,7 +117,8 @@ func (s *session) endTurn(m resultLine, usage *agents.Usage) {
 		return
 	}
 	if m.IsError {
-		s.emit(agents.Failed{Message: resultFailureMessage(m), Detail: resultFailureDetail(m)})
+		msg := resultFailureMessage(m)
+		s.emit(agents.Failed{Message: msg, Detail: resultFailureDetail(m), SignedOut: isSignedOut(msg)})
 	}
 	s.emit(agents.TurnEnded{Reason: turnReason(m), Usage: usage})
 }

@@ -194,6 +194,7 @@ func TestResumeContinuesTheSameSessionWithAFreshProcess(t *testing.T) {
 		t.Fatalf("text = %q, no pid found", tr.text())
 	}
 	stopAndDrain(t, a, h)
+	saveConversation(t, h.ID)
 
 	h2, err := a.Resume(context.Background(), h.ID, startSpec(t))
 	if err != nil {
@@ -201,6 +202,9 @@ func TestResumeContinuesTheSameSessionWithAFreshProcess(t *testing.T) {
 	}
 	if h2.ID != h.ID {
 		t.Errorf("resumed id = %q, want %q", h2.ID, h.ID)
+	}
+	if h2.Restarted {
+		t.Error("Restarted = true for a session whose conversation was saved")
 	}
 	t.Cleanup(func() { stopAndDrain(t, a, h2) })
 	tr2 := send(t, a, h2, "two")
@@ -215,6 +219,33 @@ func TestResumeContinuesTheSameSessionWithAFreshProcess(t *testing.T) {
 	}
 	if pid2 := extractPid(tr2.text()); pid2 == pid1 || pid2 == "" {
 		t.Errorf("pid = %q after Resume, want a different pid than the first process (%q)", pid2, pid1)
+	}
+}
+
+// TestResumeOfASessionNeverSpokenToStartsItAgain covers a card whose agent was started and ended
+// before anyone sent it a message: Claude Code saved nothing, so --resume would fail, and the session
+// starts again under the same id, and says so.
+func TestResumeOfASessionNeverSpokenToStartsItAgain(t *testing.T) {
+	a := fakeAdapter(t, "showargs")
+	id, err := newSessionID()
+	if err != nil {
+		t.Fatalf("newSessionID: %v", err)
+	}
+	t.Setenv("CLAUDE_CONFIG_DIR", t.TempDir())
+	h, err := a.Resume(context.Background(), id, startSpec(t))
+	if err != nil {
+		t.Fatalf("Resume: %v", err)
+	}
+	t.Cleanup(func() { stopAndDrain(t, a, h) })
+	if h.ID != id || !h.Restarted {
+		t.Errorf("handle = id %q restarted %v, want id %q restarted true", h.ID, h.Restarted, id)
+	}
+	tr := send(t, a, h, "one")
+	if strings.Contains(tr.text(), "--resume") {
+		t.Errorf("text = %q, nothing was saved to resume", tr.text())
+	}
+	if !strings.Contains(tr.text(), "--session-id="+id) {
+		t.Errorf("text = %q, want --session-id=%s", tr.text(), id)
 	}
 }
 
@@ -270,8 +301,23 @@ func TestAFailedResultGivesFailedAndTurnError(t *testing.T) {
 	if tr.failed[0].Detail != "error_during_execution" {
 		t.Errorf("detail = %q, want the result's subtype", tr.failed[0].Detail)
 	}
+	if tr.failed[0].SignedOut {
+		t.Error("SignedOut = true for a failure that is not about the login")
+	}
 	if tr.ended == nil || tr.ended.Reason != agents.TurnError {
 		t.Fatalf("ended = %+v, want TurnError", tr.ended)
+	}
+}
+
+// TestAFailedSignInIsSaidToBeASignedOutAgent covers the answer Claude Code gives a turn when its
+// login has expired: an error result, with the process still alive.
+func TestAFailedSignInIsSaidToBeASignedOutAgent(t *testing.T) {
+	a := fakeAdapter(t, "signedout,toolfails")
+	h := start(t, a, startSpec(t))
+	tr := send(t, a, h, "hello")
+
+	if len(tr.failed) != 1 || !tr.failed[0].SignedOut {
+		t.Fatalf("failed = %+v, want one failure that says the agent is signed out", tr.failed)
 	}
 }
 

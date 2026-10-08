@@ -163,6 +163,9 @@ type TurnEnded struct {
 type Failed struct {
 	Message string
 	Detail  string
+	// SignedOut says the agent's own login is missing or has expired, so nothing it is asked will
+	// work until a person signs in. The process may still be alive; a new one reads the new login.
+	SignedOut bool
 }
 
 // Exited is the last event. The process is gone and the channel closes after it.

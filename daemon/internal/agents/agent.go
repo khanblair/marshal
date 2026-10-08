@@ -179,6 +179,11 @@ type SessionHandle struct {
 	Applied        Applied
 	// Capabilities is what this session's agent said it can do.
 	Capabilities Capabilities
+	// Restarted is set by a Resume that found nothing saved under the id (the session was started
+	// and never spoken to), so it began a new conversation under the same id, without the
+	// instructions a Resume is never given. The caller owes it what a new session is given: its
+	// context, and its first message.
+	Restarted bool
 }
 
 // Applied says which requested settings the agent took.
