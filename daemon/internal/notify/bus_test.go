@@ -177,6 +177,11 @@ func TestACardThatNeedsThePersonSaysWhyExceptForAPermission(t *testing.T) {
 	if !wanted || stuck.Type != notify.EventAgentStuck || stuck.Title != "Fix login needs you" || stuck.Body != "It cannot find the config." {
 		t.Errorf("a stuck card reads %+v (wanted %v)", stuck, wanted)
 	}
+	keyed := needs(protocol.NeedsReasonKindStuck, "It cannot find the config.")
+	keyed.Card.Key = "api#4"
+	if got, _ := svc.EventOf(events.Event{Data: keyed}); got.Title != "api#4 needs you: Fix login" {
+		t.Errorf("a stuck card with a key reads %q, want the project and number first", got.Title)
+	}
 	red, _ := svc.EventOf(events.Event{Data: needs(protocol.NeedsReasonKindCIFailed, "3 tests failed.")})
 	if red.Type != notify.EventCIFailed || red.Title != "CI failed: Fix login" {
 		t.Errorf("a card with red CI reads %+v", red)

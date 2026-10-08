@@ -86,7 +86,16 @@ func needsYou(card protocol.Card) Event {
 	if reason.Kind == protocol.NeedsReasonKindCIFailed {
 		return Event{Type: EventCIFailed, Title: "CI failed: " + card.Title, Body: reason.Text, CardID: card.ID}
 	}
-	return Event{Type: EventAgentStuck, Title: card.Title + " needs you", Body: reason.Text, CardID: card.ID}
+	return Event{Type: EventAgentStuck, Title: needsYouTitle(card), Body: reason.Text, CardID: card.ID}
+}
+
+// needsYouTitle names the card by its project and number ahead of its title, so a notice in a chat
+// says which project it is about. A card with no key reads as its title alone.
+func needsYouTitle(card protocol.Card) string {
+	if card.Key == "" {
+		return card.Title + " needs you"
+	}
+	return card.Key + " needs you: " + card.Title
 }
 
 // branchTurnedRed tells the person when a project's default branch goes red, once: a branch that
