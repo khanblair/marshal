@@ -9,6 +9,8 @@ import type { Panel } from "./panel-state";
 export interface CardActionsProps {
   card: Card;
   panel: Panel;
+  /** Only the action that leads (Approve, Resume agent, Start), for a card whose details are folded away. */
+  primaryOnly?: boolean;
 }
 
 const BASE =
@@ -64,10 +66,24 @@ function MoreMenu(props: CardActionsProps) {
 
 /** Approve, start or pause, sleep, pin, fork, merge, the More actions menu, and its Google import dialog. */
 export function CardActions(props: CardActionsProps) {
-  const actions = () => cardActions(props.card, M.mobile);
+  const actions = () =>
+    cardActions(props.card, M.mobile).filter((action) => !props.primaryOnly || action.primary);
   return (
-    <div class="flex flex-wrap gap-1.5 relative">
-      <For each={actions()}>{(action) => <ActionButton action={action} />}</For>
+    <Show when={actions().length > 0 || !props.primaryOnly}>
+      <div class="flex flex-wrap gap-1.5 relative">
+        <For each={actions()}>{(action) => <ActionButton action={action} />}</For>
+        <Show when={!props.primaryOnly}>
+          <MoreActions card={props.card} panel={props.panel} />
+        </Show>
+      </div>
+    </Show>
+  );
+}
+
+/** The More actions button, its menu, and the Google import dialog the menu opens. */
+function MoreActions(props: CardActionsProps) {
+  return (
+    <>
       <div class="relative">
         <IconButton
           label="More actions"
@@ -82,6 +98,6 @@ export function CardActions(props: CardActionsProps) {
         </Show>
       </div>
       <GoogleImportDialog card={props.card} panel={props.panel} />
-    </div>
+    </>
   );
 }

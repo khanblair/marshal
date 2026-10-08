@@ -4,6 +4,7 @@ import { type Card, type CardView, M } from "~/mock";
 import { CardActions } from "./CardActions";
 import { CardMeta } from "./CardMeta";
 import { CardTabs } from "./CardTabs";
+import { detailsCollapsed, toggleDetails } from "./details-collapsed";
 import { MembersRow } from "./MembersRow";
 import { MergeRow } from "./MergeRow";
 import type { Panel } from "./panel-state";
@@ -56,6 +57,13 @@ function TopRow(props: Omit<CardHeaderProps, "diffCount">) {
         </IconLabel>
       </Show>
       <span class="flex-1" />
+      <IconButton
+        label={detailsCollapsed() ? "Show card details" : "Hide card details"}
+        title={detailsCollapsed() ? "Show card details" : "Hide card details"}
+        icon={detailsCollapsed() ? "chevron-right" : "chevron-down"}
+        aria-expanded={!detailsCollapsed()}
+        onClick={toggleDetails}
+      />
       <Show when={!M.mobile}>
         <IconButton
           label={expandLabel()}
@@ -69,7 +77,11 @@ function TopRow(props: Omit<CardHeaderProps, "diffCount">) {
   );
 }
 
-/** The card's title, meta line, merge row, members, actions, settings, and tabs. */
+/**
+ * The card's title, meta line, merge row, members, actions, settings, and tabs. The chevron in the
+ * top row folds the worktree, members, actions, and settings away so the tabs get the height; only
+ * the action that leads, and a merge that needs a person, stay.
+ */
 export function CardHeader(props: CardHeaderProps) {
   return (
     <div class="flex-none pt-3 px-4 pb-0 flex flex-col gap-2.5 border-b border-border">
@@ -90,10 +102,14 @@ export function CardHeader(props: CardHeaderProps) {
         <TitleField cardId={props.card.id} title={props.c.title} panel={props.panel} />
       </Show>
       <CardMeta card={props.card} c={props.c} />
-      <MergeRow card={props.card} c={props.c} />
-      <MembersRow card={props.card} panel={props.panel} />
-      <CardActions card={props.card} panel={props.panel} />
-      <SessionSettings card={props.card} panel={props.panel} />
+      <MergeRow card={props.card} c={props.c} compact={detailsCollapsed()} />
+      <Show when={!detailsCollapsed()}>
+        <MembersRow card={props.card} panel={props.panel} />
+      </Show>
+      <CardActions card={props.card} panel={props.panel} primaryOnly={detailsCollapsed()} />
+      <Show when={!detailsCollapsed()}>
+        <SessionSettings card={props.card} panel={props.panel} />
+      </Show>
       <CardTabs card={props.card} diffCount={props.diffCount} />
     </div>
   );
