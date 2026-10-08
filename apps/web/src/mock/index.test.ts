@@ -148,6 +148,7 @@ const API = [
   "rename",
   "renameChat",
   "renameProject",
+  "resume",
   "saveProject",
   "saveProfile",
   "saveProviderKey",
@@ -287,6 +288,8 @@ describe("index.ts boot", () => {
       "saveLimits",
       "limitsOnDaemon",
       "testProviderKey",
+      // A card whose agent stopped without being asked to is the daemon's; the prototype has none.
+      "resume",
       // The roles screen's own actions. The prototype keeps them in its view's script rather than
       // in its store, and the port declares them all up front; the names differ because the port's
       // list is the daemon's (a save, a create, a duplicate, a reset, a delete, an import) and the

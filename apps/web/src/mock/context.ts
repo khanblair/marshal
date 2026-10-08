@@ -1,8 +1,10 @@
+import { createSignal } from "solid-js";
 import { createMutable } from "solid-js/store";
 import type { Data } from "~/data";
 import { createOptimistic, type Optimistic } from "~/data/optimistic";
 import { isDaemon, type SectionId, type SectionStatus, sectionStatus } from "~/data/sections";
 import { type KeyValueStore, readKey } from "~/data/storage";
+import { startOfDay } from "~/data/zone";
 import { platform } from "~/platform";
 import type { Reservoir } from "~/sync/reservoir";
 import type { SyncControl } from "~/sync/sync-control";
@@ -37,7 +39,7 @@ export interface Ctx {
   S: State;
   /** `Date.now()` when the store was created; seeded times count back from it. */
   loadedAt: number;
-  /** Midnight today. */
+  /** Midnight today in the chosen time zone. It moves at midnight and when the zone changes (`sync/today.ts`). */
   today: number;
   ids: IdCounters;
   msg: MsgFactory;
@@ -60,11 +62,7 @@ export interface Ctx {
   };
 }
 
-function startOfToday(): number {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d.getTime();
-}
+const startOfToday = (): number => startOfDay(Date.now());
 
 /**
  * The mock's GitHub and Obsidian rows once each connection is the daemon's own (S29a, S29b): the
@@ -95,7 +93,8 @@ export const sectionsOf = (env: Env): Readonly<Record<SectionId, SectionStatus>>
 
 export function createContext(env: Env): Ctx {
   const loadedAt = Date.now();
-  const today = startOfToday();
+  const firstToday = startOfToday();
+  const [today, setToday] = createSignal(firstToday);
   const ids = createIds();
   const { cards, chats, notices, feed, ...seed } = buildSeed(ids, loadedAt);
   // A card's chat and its activity are the daemon's once their sections are switched, and this seed
@@ -157,7 +156,7 @@ export function createContext(env: Env): Ctx {
         // device's own note is not read, and a person who set up on another device never sees
         // onboarding again.
         onboarded: isDaemon("S31a", table) || !!readKey(env.storage, ONBOARDED_KEY),
-        today,
+        today: firstToday,
         savedViewsOnDaemon: isDaemon("S6a", table),
       },
     ),
@@ -165,7 +164,12 @@ export function createContext(env: Env): Ctx {
   const ctx: Ctx = {
     S,
     loadedAt,
-    today,
+    get today() {
+      return today();
+    },
+    set today(value: number) {
+      setToday(value);
+    },
     ids,
     msg: createMsgFactory(ids),
     clock: createClock(() => env.data?.clock.offsetMs() ?? 0),

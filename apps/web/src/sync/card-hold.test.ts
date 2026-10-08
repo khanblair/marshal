@@ -15,7 +15,7 @@ import { cardId, wireCard } from "~/testing/fake-cards";
 import { createFakeDaemon, type FakeDaemon } from "~/testing/fake-daemon";
 import { PROTOTYPE_PROJECTS } from "~/testing/projects";
 import { contextOf, createTestMarshal } from "~/testing/test-store";
-import { pause, pin, sleep, stopSession, wake } from "./card-hold";
+import { pause, pin, resume, sleep, stopSession, wake } from "./card-hold";
 import { applyCardSessionEvent } from "./card-session";
 
 // Section S7c: the session hold (docs/backend-checklist.md B2.15). The cards are the daemon's (S5a)
@@ -221,6 +221,22 @@ describe("wake", () => {
     const { ctx, d } = await setup();
     expect(await wake(ctx, "api#9999")).toBe(false);
     expect(d.routes().filter((one) => one.endsWith("/wake"))).toEqual([]);
+  });
+});
+
+describe("resume", () => {
+  it("asks the daemon to start the agent of a card that stopped, and says so", async () => {
+    const { M, ctx, d } = await setup(api41({ state: "needs", session: "stopped" }));
+    expect(await resume(ctx, "api#41")).toBe(true);
+    expect(d.routes()).toContain(route("resume"));
+    expect(toasts(M)).toEqual(["Agent resumed"]);
+    await vi.waitFor(() => expect(M.card("api#41")).toMatchObject({ session: "awake" }));
+  });
+
+  it("does nothing for a card the store does not have", async () => {
+    const { ctx, d } = await setup();
+    expect(await resume(ctx, "api#9999")).toBe(false);
+    expect(d.routes().filter((one) => one.endsWith("/resume"))).toEqual([]);
   });
 });
 

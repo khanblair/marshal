@@ -45,6 +45,17 @@ describe("cardActions", () => {
     expect(waking).toMatchObject({ label: "Waking", disabled: true });
   });
 
+  it("leads with Resume agent on a card whose agent stopped, and not on one that finished", () => {
+    cardOf("api#41").state = "needs";
+    cardOf("api#41").session = "stopped";
+    expect(cardActions(cardOf("api#41"), false)[0]).toMatchObject({
+      label: "Resume agent",
+      primary: true,
+    });
+    cardOf("api#41").state = "review";
+    expect(labels("api#41")).not.toContain("Resume agent");
+  });
+
   it("offers Resume card on a paused card", () => {
     cardOf("api#41").paused = true;
     expect(labels("api#41")[0]).toBe("Resume card");

@@ -106,6 +106,11 @@ export function sleep(ctx: Ctx, id: CardKey): void {
   announce(ctx, `${cardLabelOf(ctx, c)} is asleep`);
 }
 
+/** A stopped agent only exists on a daemon card, so the mock's own answer is to start the card. */
+export function resume(ctx: Ctx, id: CardKey): void {
+  start(ctx, id);
+}
+
 export function wake(ctx: Ctx, id: CardKey): void {
   const c = card(ctx, id);
   if (!c?.asleep) return;

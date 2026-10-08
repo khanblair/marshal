@@ -324,6 +324,18 @@ function googleFileActions(ctx: Ctx) {
   });
 }
 
+/** The session hold (pause, sleep, wake, resume, pin, stop): the daemon's once S7c is switched. */
+function holdActions(onDaemon: boolean) {
+  return {
+    pause: onDaemon ? cardHold.pause : sessions.pause,
+    sleep: onDaemon ? cardHold.sleep : sessions.sleep,
+    wake: onDaemon ? cardHold.wake : sessions.wake,
+    resume: onDaemon ? cardHold.resume : sessions.resume,
+    pin: onDaemon ? cardHold.pin : sessions.pin,
+    stopSession: onDaemon ? cardHold.stopSession : sessions.stopSession,
+  };
+}
+
 function cardActions(ctx: Ctx) {
   // The cards are the daemon's once section S5a is switched, so these writes go to it; while the
   // section is still on the mock they are the mock's own. The phase that deletes the mock removes
@@ -357,11 +369,7 @@ function cardActions(ctx: Ctx) {
     newCard: cardCreate.newCard,
     createCard: onDaemon ? cardWrites.createCard : cardCreate.createCard,
     start: onDaemon ? cardWrites.start : sessions.start,
-    pause: holdOnDaemon ? cardHold.pause : sessions.pause,
-    sleep: holdOnDaemon ? cardHold.sleep : sessions.sleep,
-    wake: holdOnDaemon ? cardHold.wake : sessions.wake,
-    pin: holdOnDaemon ? cardHold.pin : sessions.pin,
-    stopSession: holdOnDaemon ? cardHold.stopSession : sessions.stopSession,
+    ...holdActions(holdOnDaemon),
     keepAwake: noticesOnDaemon
       ? noticeWrites.keepAwake
       : holdOnDaemon
@@ -460,7 +468,10 @@ export function createMarshalIn(ctx: Ctx) {
     THINK,
     PERMS,
     VIEWS,
-    T0: ctx.today,
+    /** Midnight today in the chosen time zone. */
+    get T0(): number {
+      return ctx.today;
+    },
     D: DAY_MS,
     H: HOUR_MS,
     MIN: MINUTE_MS,

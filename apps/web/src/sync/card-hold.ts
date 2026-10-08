@@ -100,6 +100,20 @@ export async function wake(ctx: Ctx, id: CardKey): Promise<boolean> {
 }
 
 /**
+ * Starts the agent of a card whose session stopped without being asked to (it crashed, or the daemon
+ * restarted under it), with the session it had. A card that is not in that state gets the daemon's
+ * own sentence.
+ */
+export async function resume(ctx: Ctx, id: CardKey): Promise<boolean> {
+  const card = cardOf(ctx, id);
+  if (!card) return false;
+  const ok = await ask(ctx, `hold:${id}`, (api) => api.resumeCard(daemonIdOf(card)));
+  if (ok === null) return false;
+  toast(ctx, "Agent resumed");
+  return true;
+}
+
+/**
  * The Agents view's Stop, which the mock drew as a pause and a sleep together (a working card is
  * held, then its session ends and is kept). It asks the daemon for the same two things in the same
  * order, and stops at the first refusal with the daemon's own sentence: a card that is waiting on

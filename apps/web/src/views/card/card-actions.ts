@@ -1,3 +1,4 @@
+import { SessionStateStopped } from "@marshal/protocol";
 import { batch } from "solid-js";
 import { type ApprovalMsg, type Card, type Column, M, type PlanMsg } from "~/mock";
 import type { CardKey } from "~/mock/card-key";
@@ -51,6 +52,10 @@ function sessionAction(card: Card, pending: Pending): CardAction[] {
   const lead = !pending;
   if (card.state === "backlog") {
     return [action("Start card", "play", () => M.start(card.id), { primary: lead })];
+  }
+  // The agent stopped without being asked to, which is what put the card in Needs you.
+  if (card.state === "needs" && card.session === SessionStateStopped) {
+    return [action("Resume agent", "play", () => M.resume(card.id), { primary: lead })];
   }
   if (card.asleep) {
     return [
