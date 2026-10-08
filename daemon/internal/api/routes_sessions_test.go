@@ -18,7 +18,7 @@ func TestStartSendStopThroughHTTP(t *testing.T) {
 	base := "/v1/cards/" + card.ID
 
 	started := st.do(http.MethodPost, base+"/start", nil).want(t, http.StatusOK)
-	sameShape(t, "card", started.Body)
+	sameShape(t, "card-started", started.Body)
 	running := decode[protocol.Card](t, started)
 	if running.ID != card.ID || running.State != protocol.CardStateWorking ||
 		!strings.HasPrefix(running.Branch, "marshal/") || running.Number != card.Number {

@@ -142,7 +142,7 @@ SELECT attachment.id, attachment.comment_id, attachment.file_name, attachment.mi
 FROM attachments AS attachment
 JOIN comments AS comment ON comment.id = attachment.comment_id
 WHERE comment.card_id = ?
-ORDER BY attachment.created_at, attachment.id
+ORDER BY attachment.created_at, attachment.rowid
 `
 
 // Every file on a card, for the agent's context and for a card's own file list. It is the join the
@@ -180,7 +180,7 @@ func (q *Queries) ListCardAttachments(ctx context.Context, cardID string) ([]Att
 }
 
 const listCardComments = `-- name: ListCardComments :many
-SELECT id, card_id, author_kind, author_id, body, mentions_json, agent_read_at, created_at, edited_at FROM comments WHERE card_id = ? ORDER BY created_at, id
+SELECT id, card_id, author_kind, author_id, body, mentions_json, agent_read_at, created_at, edited_at FROM comments WHERE card_id = ? ORDER BY created_at, rowid
 `
 
 // One card's comments, oldest first, which is the order a conversation is read in.
@@ -218,7 +218,7 @@ func (q *Queries) ListCardComments(ctx context.Context, cardID string) ([]Commen
 }
 
 const listCommentAttachments = `-- name: ListCommentAttachments :many
-SELECT id, comment_id, file_name, mime_type, size_bytes, path, created_at FROM attachments WHERE comment_id = ? ORDER BY created_at, id
+SELECT id, comment_id, file_name, mime_type, size_bytes, path, created_at FROM attachments WHERE comment_id = ? ORDER BY created_at, rowid
 `
 
 // The files on one comment, oldest first.
@@ -256,7 +256,7 @@ func (q *Queries) ListCommentAttachments(ctx context.Context, commentID string) 
 const listUnreadComments = `-- name: ListUnreadComments :many
 SELECT id, card_id, author_kind, author_id, body, mentions_json, agent_read_at, created_at, edited_at FROM comments
 WHERE card_id = ? AND agent_read_at IS NULL
-ORDER BY created_at, id
+ORDER BY created_at, rowid
 `
 
 // The comments on a card the card's agent has not picked up yet, oldest first. This is what

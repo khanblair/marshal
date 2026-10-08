@@ -102,10 +102,10 @@ func (q *Queries) GetCardCheck(ctx context.Context, id string) (CardCheck, error
 }
 
 const listCardChecks = `-- name: ListCardChecks :many
-SELECT id, card_id, kind, spec_json, status, run_ref, created_at, updated_at FROM card_checks WHERE card_id = ? ORDER BY created_at, id
+SELECT id, card_id, kind, spec_json, status, run_ref, created_at, updated_at FROM card_checks WHERE card_id = ? ORDER BY rowid
 `
 
-// One card's checks, in the order they are drawn.
+// One card's checks, in the order they were added, which is the order they are drawn.
 func (q *Queries) ListCardChecks(ctx context.Context, cardID string) ([]CardCheck, error) {
 	rows, err := q.db.QueryContext(ctx, listCardChecks, cardID)
 	if err != nil {

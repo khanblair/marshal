@@ -588,6 +588,8 @@ func TestAReconnectingClientAsksForTheScreenInsteadOfBeingReplayedOutput(t *test
 	card, w := startedTerminalCard(t, st, "Reconnects")
 	st.switchView(card.ID, protocol.CardViewModeTerminal).want(t, http.StatusOK)
 	out := &outputs{t: t, cardID: card.ID}
+	// The program's first line is waited for, or a slow shell start has the typed text echoed before it.
+	out.untilHas(w, "terminal session ")
 	w.typeText(card.ID, "seen by the first client\r")
 	out.untilHas(w, "seen by the first client\r\nseen by the first client")
 	epoch := w.epoch

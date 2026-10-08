@@ -24,8 +24,8 @@ WHERE id = ?;
 DELETE FROM card_checks WHERE id = ?;
 
 -- name: ListCardChecks :many
--- One card's checks, in the order they are drawn.
-SELECT * FROM card_checks WHERE card_id = ? ORDER BY created_at, id;
+-- One card's checks, in the order they were added, which is the order they are drawn.
+SELECT * FROM card_checks WHERE card_id = ? ORDER BY rowid;
 
 -- name: CountCardChecks :one
 -- How many checks a card has, for a card that is about to be created from a template.

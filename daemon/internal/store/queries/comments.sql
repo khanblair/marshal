@@ -33,14 +33,14 @@ DELETE FROM comments WHERE id = ?;
 
 -- name: ListCardComments :many
 -- One card's comments, oldest first, which is the order a conversation is read in.
-SELECT * FROM comments WHERE card_id = ? ORDER BY created_at, id;
+SELECT * FROM comments WHERE card_id = ? ORDER BY created_at, rowid;
 
 -- name: ListUnreadComments :many
 -- The comments on a card the card's agent has not picked up yet, oldest first. This is what
 -- `read_comments` hands the agent at the start of a turn, and what marks them read on the way past.
 SELECT * FROM comments
 WHERE card_id = ? AND agent_read_at IS NULL
-ORDER BY created_at, id;
+ORDER BY created_at, rowid;
 
 -- name: MarkCommentsReadByAgent :exec
 -- Records that the card's agent has read what was waiting. It stamps everything the card has that
@@ -63,7 +63,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?);
 
 -- name: ListCommentAttachments :many
 -- The files on one comment, oldest first.
-SELECT * FROM attachments WHERE comment_id = ? ORDER BY created_at, id;
+SELECT * FROM attachments WHERE comment_id = ? ORDER BY created_at, rowid;
 
 -- name: ListCardAttachments :many
 -- Every file on a card, for the agent's context and for a card's own file list. It is the join the
@@ -73,7 +73,7 @@ SELECT attachment.*
 FROM attachments AS attachment
 JOIN comments AS comment ON comment.id = attachment.comment_id
 WHERE comment.card_id = ?
-ORDER BY attachment.created_at, attachment.id;
+ORDER BY attachment.created_at, attachment.rowid;
 
 -- name: DeleteAttachment :exec
 -- Removes one file's row. The file on disk is removed by the service that holds the path; the query

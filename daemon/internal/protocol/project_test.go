@@ -66,6 +66,22 @@ func sampleCard() protocol.Card {
 	}
 }
 
+// sampleStartedCard is a card whose agent has run: it has a branch and a worktree, which a card that
+// never started leaves out.
+func sampleStartedCard() protocol.Card {
+	card := sampleCard()
+	card.State = protocol.CardStateWorking
+	session := protocol.SessionStateAwake
+	card.Session = &session
+	card.Branch = "marshal/web-dashboard-12-add-a-health-check-endpoint"
+	card.Worktree = "/home/ada/.marshal/data/worktrees/web-dashboard/" + sampleCardID
+	return card
+}
+
+func TestStartedCardGolden(t *testing.T) {
+	testutil.Golden(t, "card-started", sampleStartedCard())
+}
+
 func TestProjectGolden(t *testing.T) {
 	testutil.Golden(t, "project", sampleProject())
 }
