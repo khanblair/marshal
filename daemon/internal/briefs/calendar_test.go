@@ -8,6 +8,7 @@ import (
 
 	"github.com/khanblair/marshal/daemon/internal/integrations/googlecal"
 	"github.com/khanblair/marshal/daemon/internal/protocol"
+	"github.com/khanblair/marshal/daemon/internal/runctx"
 )
 
 // fakeEvents is a calendar that answers what it was given, and records the range it was asked for.
@@ -24,16 +25,16 @@ func (f *fakeEvents) GoogleEvents(_ context.Context, start, end time.Time) ([]go
 }
 
 var (
-	zone  = time.FixedZone("EAT", 3*60*60)
-	noon  = time.Date(2026, 10, 2, 12, 0, 0, 0, zone)
-	today = time.Date(2026, 10, 2, 0, 0, 0, 0, zone)
+	eat   = time.FixedZone("EAT", 3*60*60)
+	noon  = time.Date(2026, 10, 2, 12, 0, 0, 0, eat)
+	today = time.Date(2026, 10, 2, 0, 0, 0, 0, eat)
 )
 
 func service(events EventSource) *Service {
 	return &Service{events: events, now: func() time.Time { return noon }}
 }
 
-func at(hour, minute int) time.Time { return time.Date(2026, 10, 2, hour, minute, 0, 0, zone) }
+func at(hour, minute int) time.Time { return time.Date(2026, 10, 2, hour, minute, 0, 0, eat) }
 
 func TestAMorningBriefListsTodaysEventsWithTimeAndPlace(t *testing.T) {
 	fake := &fakeEvents{
@@ -44,7 +45,7 @@ func TestAMorningBriefListsTodaysEventsWithTimeAndPlace(t *testing.T) {
 		reading: protocol.GoogleReading{Connected: true},
 	}
 	got := service(fake).calendarSection(context.Background(), protocol.Schedule{Name: "Morning brief"})
-	want := "## Today's calendar\n- All day Holiday\n- 09:30-09:45 Standup (Room 2)"
+	want := "## Today's calendar\n(times in EAT)\n- All day Holiday\n- 09:30-09:45 Standup (Room 2)"
 	if got != want {
 		t.Errorf("section = %q, want %q", got, want)
 	}
@@ -104,5 +105,52 @@ func TestWhichBriefsAreEveningOnes(t *testing.T) {
 		if got := IsEvening(protocol.Schedule{Name: tc.name, Time: tc.time}); got != tc.want {
 			t.Errorf("%q at %q: evening = %v, want %v", tc.name, tc.time, got, tc.want)
 		}
+	}
+}
+
+func TestTwoCalendarsHoldingTheSameEventAreOneLine(t *testing.T) {
+	fake := &fakeEvents{
+		events: []googlecal.Event{
+			{Title: "Independence Day", AllDay: true, StartAt: today, CalendarName: "Holidays in Uganda"},
+			{Title: "Independence Day ", AllDay: true, StartAt: today, CalendarName: "Holidays in Uganda (UK)"},
+			{Title: "Standup", StartAt: at(9, 30), EndAt: at(9, 45)},
+		},
+		reading: protocol.GoogleReading{Connected: true},
+	}
+	got := service(fake).calendarSection(context.Background(), protocol.Schedule{Name: "Morning brief"})
+	if strings.Count(got, "Independence Day") != 1 {
+		t.Errorf("the same event came out more than once:\n%s", got)
+	}
+	if !strings.Contains(got, "(times in EAT)") || !strings.Contains(got, "09:30-09:45 Standup") {
+		t.Errorf("the timed event or its zone is missing:\n%s", got)
+	}
+}
+
+func TestACalendarOfOnlyAllDayEventsNeedsNoZone(t *testing.T) {
+	fake := &fakeEvents{
+		events:  []googlecal.Event{{Title: "Holiday", AllDay: true, StartAt: today}},
+		reading: protocol.GoogleReading{Connected: true},
+	}
+	got := service(fake).calendarSection(context.Background(), protocol.Schedule{Name: "Morning brief"})
+	if strings.Contains(got, "times in") {
+		t.Errorf("a zone was named for events with no time:\n%s", got)
+	}
+}
+
+func TestACatchUpBriefSaysWhenItWasDueAndWhenItWasSent(t *testing.T) {
+	s := briefService(board(card("api#1", "Fix login", protocol.CardStateNeeds, noon.Add(-time.Hour))))
+	due := time.Date(2026, 10, 2, 8, 0, 0, 0, eat)
+	sched := schedule(TemplateMorning, SectionNeedsYou)
+	details, err := s.Handle(runctx.WithLate(context.Background(), due), sched, noon.Add(-time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "Sent late: due 08:00 Fri, sent 12:00 (EAT) because Marshal was not running then."
+	if !strings.Contains(details, want) {
+		t.Errorf("the catch-up brief does not say it was late:\n%s", details)
+	}
+	onTime, _ := s.Handle(context.Background(), sched, noon.Add(-time.Hour))
+	if strings.Contains(onTime, "Sent late") {
+		t.Errorf("an on-time brief said it was late:\n%s", onTime)
 	}
 }

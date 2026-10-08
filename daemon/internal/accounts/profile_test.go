@@ -89,6 +89,29 @@ func TestUpdateProfileThatChangesNothing(t *testing.T) {
 	e.noEvent(t)
 }
 
+func TestASavedProfileTellsWhatDependsOnIt(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	saved := 0
+	svc, err := accounts.New(accounts.Deps{Store: e.store, Bus: e.bus, Projects: e.projects, DataDir: e.dataDir},
+		accounts.WithClock(e.clock.now), accounts.WithProfileSaved(func(context.Context) { saved++ }))
+	if err != nil {
+		t.Fatalf("make the service: %v", err)
+	}
+	if _, err := svc.UpdateProfile(ctx, e.userID, protocol.UpdateProfileRequest{TimeZone: ptr("Africa/Kampala")}); err != nil {
+		t.Fatalf("UpdateProfile: %v", err)
+	}
+	if saved != 1 {
+		t.Errorf("the hook ran %d times after a change, want 1", saved)
+	}
+	if _, err := svc.UpdateProfile(ctx, e.userID, protocol.UpdateProfileRequest{TimeZone: ptr("Africa/Kampala")}); err != nil {
+		t.Fatalf("UpdateProfile again: %v", err)
+	}
+	if saved != 1 {
+		t.Errorf("the hook ran again for a change that changed nothing: %d", saved)
+	}
+}
+
 func ptr[T any](value T) *T { return &value }
 
 // Initials are the first letter of each of the first two words, in capitals, as the profile form

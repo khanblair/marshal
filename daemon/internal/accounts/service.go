@@ -71,6 +71,9 @@ type Service struct {
 	avatars  string
 	log      *slog.Logger
 	now      func() time.Time
+	// saved is called after a profile change is stored, so what depends on it (the time zone the
+	// daemon tells time in) reads it again. Nil means nothing does.
+	saved func(context.Context)
 
 	// changeMu lets one change at a time write and publish. The event carries all of the person's
 	// state, so two changes that published out of order could leave a device on the older one.
@@ -87,6 +90,11 @@ func WithClock(now func() time.Time) Option {
 			s.now = now
 		}
 	}
+}
+
+// WithProfileSaved sets a function called after a change to the profile is stored.
+func WithProfileSaved(fn func(context.Context)) Option {
+	return func(s *Service) { s.saved = fn }
 }
 
 // WithLogger sets the logger. The default logs nothing.

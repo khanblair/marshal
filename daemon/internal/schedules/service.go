@@ -21,6 +21,7 @@ import (
 
 	"github.com/khanblair/marshal/daemon/internal/briefs"
 	"github.com/khanblair/marshal/daemon/internal/protocol"
+	"github.com/khanblair/marshal/daemon/internal/runctx"
 	"github.com/khanblair/marshal/daemon/internal/store"
 	"github.com/khanblair/marshal/daemon/internal/store/db"
 )
@@ -136,7 +137,6 @@ func NewService(st *store.Store, logger *slog.Logger, opts ...Option) *Service {
 	s := &Service{
 		store:    st,
 		logger:   logger,
-		cron:     cron.New(),
 		now:      time.Now,
 		entropy:  rand.Reader,
 		handlers: make(map[string]ActionHandler),
@@ -147,6 +147,9 @@ func NewService(st *store.Store, logger *slog.Logger, opts ...Option) *Service {
 			opt(s)
 		}
 	}
+	// The cron reads its clock times in the zone of the service's own clock, so "8:00" is the
+	// person's 8:00.
+	s.cron = cron.New(cron.WithLocation(s.now().Location()))
 	return s
 }
 
@@ -176,6 +179,18 @@ func (s *Service) Start(ctx context.Context) error {
 	// itself for the handler lookup. Holding the lock across this call would deadlock against that.
 	s.checkMissedRuns(ctx)
 	return nil
+}
+
+// Rezone moves every cron schedule to the zone of the service's clock, which the daemon calls when the
+// person chooses another zone: a schedule set for 8:00 stays set for 8:00, now in the new zone.
+func (s *Service) Rezone(ctx context.Context) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	// Not waited for: a job that is running takes the lock to find its handler.
+	s.cron.Stop()
+	s.cron = cron.New(cron.WithLocation(s.now().Location()))
+	s.cron.Start()
+	return s.reloadLocked(ctx)
 }
 
 // Stop stops the cron scheduler.
@@ -383,11 +398,13 @@ func (s *Service) checkMissedRuns(ctx context.Context) {
 		if row.LastRunAt > 0 {
 			since = time.UnixMilli(row.LastRunAt)
 		}
-		if spec.Next(since).After(now) {
+		// The spec is read in the clock's zone, as the cron reads it.
+		due := spec.Next(since.In(now.Location()))
+		if due.After(now) {
 			continue
 		}
 		s.logger.Info("catching up a missed schedule", "id", row.ID, "name", row.Name)
-		s.executeSchedule(ctx, toProtocolSchedule(row))
+		s.executeSchedule(runctx.WithLate(ctx, due), toProtocolSchedule(row))
 	}
 }
 
@@ -537,8 +554,7 @@ func (s *Service) Delete(ctx context.Context, id string) error {
 const maxRuns = 50
 
 // Runs answers a schedule's own run history, newest first - a brief's own text is a run's
-// details, and this is how a person reads one back until a real delivery channel exists (B8.5,
-// phase-reports/phase-08-automation.md).
+// details, and this is how a person reads one back until a real delivery channel exists (B8.5).
 func (s *Service) Runs(ctx context.Context, id string) ([]protocol.ScheduleRun, error) {
 	rows, err := s.store.Queries().ListScheduleRuns(ctx, db.ListScheduleRunsParams{ScheduleID: id, Limit: maxRuns})
 	if err != nil {

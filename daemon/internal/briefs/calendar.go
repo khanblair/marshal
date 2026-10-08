@@ -8,6 +8,7 @@ import (
 
 	"github.com/khanblair/marshal/daemon/internal/integrations/googlecal"
 	"github.com/khanblair/marshal/daemon/internal/protocol"
+	"github.com/khanblair/marshal/daemon/internal/zone"
 )
 
 // eveningFromHour is the hour a brief with no telling name is read as an evening one from.
@@ -71,6 +72,11 @@ func (s *Service) calendarPart(ctx context.Context, sched protocol.Schedule, now
 		b.WriteString("Nothing on the calendar.\n")
 		return part{text: strings.TrimRight(b.String(), "\n")}
 	}
+	events = mergedEvents(events)
+	if hasTimed(events) {
+		// A time of day means nothing without its zone.
+		fmt.Fprintf(&b, "(times in %s)\n", zone.Label(now))
+	}
 	manyDays := end.Sub(start) > 36*time.Hour
 	for _, event := range events {
 		line := eventLine(event, now.Location())
@@ -83,6 +89,32 @@ func (s *Service) calendarPart(ctx context.Context, sched protocol.Schedule, now
 		fmt.Fprintf(&b, "%s\n", reading.Error)
 	}
 	return part{text: strings.TrimRight(b.String(), "\n"), items: len(events)}
+}
+
+// mergedEvents drops an event that repeats another: the same title at the same time on a second
+// calendar, as two holiday calendars of one country do. The screens still show each calendar's own.
+func mergedEvents(events []googlecal.Event) []googlecal.Event {
+	seen := map[string]bool{}
+	out := make([]googlecal.Event, 0, len(events))
+	for _, event := range events {
+		key := fmt.Sprintf("%s|%d|%t", strings.ToLower(strings.TrimSpace(event.Title)), event.StartAt.UnixMilli(), event.AllDay)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, event)
+	}
+	return out
+}
+
+// hasTimed says some event has a time of day.
+func hasTimed(events []googlecal.Event) bool {
+	for _, event := range events {
+		if !event.AllDay {
+			return true
+		}
+	}
+	return false
 }
 
 // eventLine is one event as a brief writes it: when, what, and where.

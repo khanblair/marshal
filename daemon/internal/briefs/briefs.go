@@ -5,7 +5,7 @@
 // reads - never a query of its own - and writes a deterministic list. The short model-written
 // summary 18.5 also asks for, and delivering a brief anywhere but as the text this package
 // returns (chat, Telegram, Discord, email, an Obsidian daily note), are both later polish: see
-// phase-reports/phase-08-automation.md.
+// docs/marshal-product-scope.md, section 18.
 package briefs
 
 import (
@@ -16,6 +16,8 @@ import (
 
 	"github.com/khanblair/marshal/daemon/internal/integrations/googlecal"
 	"github.com/khanblair/marshal/daemon/internal/protocol"
+	"github.com/khanblair/marshal/daemon/internal/runctx"
+	"github.com/khanblair/marshal/daemon/internal/zone"
 )
 
 // EventSource reads Google Calendar's events. The daemon's is the integrations service. A brief
@@ -72,6 +74,9 @@ func (s *Service) Handle(ctx context.Context, sched protocol.Schedule, since tim
 	if err != nil {
 		return "", err
 	}
+	if due, late := runctx.Late(ctx); late {
+		brief.Body = lateLine(due, s.now()) + "\n\n" + brief.Body
+	}
 	text := fmt.Sprintf("# %s\n\n%s", brief.Title, brief.Body)
 	if sched.QuietWhenEmpty && brief.Empty {
 		return text + "\n\n---\nNothing to report, so nothing was sent.", nil
@@ -84,6 +89,13 @@ func (s *Service) Handle(ctx context.Context, sched protocol.Schedule, since tim
 		return text, errDelivery
 	}
 	return text, nil
+}
+
+// lateLine says a brief is a catch-up: when it was due, and when it is being sent. It names the zone
+// so the two times mean one thing wherever the message is read.
+func lateLine(due, now time.Time) string {
+	return fmt.Sprintf("Sent late: due %s, sent %s (%s) because Marshal was not running then.",
+		due.In(now.Location()).Format("15:04 Mon"), now.Format("15:04"), zone.Label(now))
 }
 
 func (s *Service) handleLegacy(ctx context.Context, sched protocol.Schedule, since time.Time) (string, error) {

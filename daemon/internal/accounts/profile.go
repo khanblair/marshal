@@ -89,6 +89,9 @@ func (s *Service) UpdateProfile(ctx context.Context, userID string, in protocol.
 	}
 	if changed {
 		s.log.Info("edited the profile", "user_id", userID)
+		if s.saved != nil {
+			s.saved(ctx)
+		}
 		s.publishMe(ctx, userID)
 	}
 	return toProfile(row), nil
