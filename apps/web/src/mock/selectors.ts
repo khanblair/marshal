@@ -1,5 +1,6 @@
 import { microsToDollars } from "~/data/mappers/limits";
 import { isDaemon } from "~/data/sections";
+import { dateKey } from "~/data/zone";
 import { type CardKey, cardLabelIn } from "./card-key";
 import { colOf, isAwake, PHONE_MAX_WIDTH_PX } from "./constants";
 import { type Ctx, sectionsOf } from "./context";
@@ -77,6 +78,10 @@ export interface Costs {
 const TODAY_SHARE = 0.92;
 const ORCHESTRATOR_TODAY_USD = { project: 0.42, all: 1.26 };
 
+/** The year and month of a moment in the chosen zone, "2026-10". */
+const MONTH_KEY_LENGTH = 7;
+const monthOf = (ms: number): string => dateKey(ms).slice(0, MONTH_KEY_LENGTH);
+
 /**
  * The spend stored for a scope (section S19b): the daemon's own `costMicros`, in dollars. "Today" is
  * the stored day whose midnight is today; "month" adds the stored days in the current calendar
@@ -86,14 +91,11 @@ function storedSpend(ctx: Ctx, pid?: string | null): { today: number; month: num
   const days = pid
     ? (ctx.S.stats.projects.find((row) => row.projectId === pid)?.days ?? [])
     : ctx.S.stats.days;
-  const now = new Date(ctx.today);
-  const year = now.getFullYear();
-  const month = now.getMonth();
+  const month = monthOf(ctx.today);
   let todayMicros = 0;
   let monthMicros = 0;
   for (const day of days) {
-    const at = new Date(day.day);
-    if (at.getFullYear() === year && at.getMonth() === month) monthMicros += day.costMicros;
+    if (monthOf(day.day) === month) monthMicros += day.costMicros;
     if (day.day === ctx.today) todayMicros += day.costMicros;
   }
   return { today: microsToDollars(todayMicros), month: microsToDollars(monthMicros) };

@@ -17,6 +17,7 @@ import {
   type ThinkingMode,
   type Card as WireCard,
 } from "@marshal/protocol";
+import { startOfDay } from "../zone";
 import { toMillis } from "./time";
 
 /** A day in milliseconds, for the day numbers the Timeline and the calendar draw. */
@@ -122,9 +123,7 @@ export function mergePhaseText(phase: MergePhase | null | undefined): string {
  */
 function dayOf(from: number, at: number | null | undefined): number | null {
   if (!at) return null;
-  const start = new Date(from);
-  start.setHours(0, 0, 0, 0);
-  return Math.round((at - start.getTime()) / DAY_MS);
+  return Math.round((at - startOfDay(from)) / DAY_MS);
 }
 
 /**

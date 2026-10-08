@@ -68,6 +68,17 @@ describe("the calendar syncer", () => {
     expect(ctx.S.calGoogle).toMatchObject({ known: true, connected: true });
   });
 
+  it("reads the window again when today moves, cut from the new today", async () => {
+    const { ctx, d } = await store();
+    const reads = (): string[] => d.routes().filter((r) => r.startsWith("GET /v1/calendar?"));
+    const before = reads().length;
+    const next = ctx.today + 86_400_000;
+    ctx.today = next;
+    await vi.waitFor(() => expect(reads().length).toBeGreaterThan(before));
+    const start = Number(/start=(\d+)/.exec(reads().at(-1) ?? "")?.[1]);
+    expect(start).toBe(next - 14 * 86_400_000);
+  });
+
   it("keeps the reason Google's events are old or missing", async () => {
     const { ctx, d } = await store();
     d.schedules.google = {

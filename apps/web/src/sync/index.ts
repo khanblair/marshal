@@ -35,6 +35,7 @@ import { schedulesSyncer } from "./schedules";
 import { sleepSettingsSyncer } from "./sleep-settings";
 import type { SyncControl } from "./sync-control";
 import type { Syncer } from "./syncer";
+import { followToday } from "./today";
 
 /**
  * Every section the daemon fills, in the order their snapshots are applied. A section that is
@@ -81,6 +82,9 @@ const SYNCERS: readonly Syncer[] = [
   schedulesSyncer,
   calendarSyncer,
 ];
+
+/** The fewest milliseconds between two re-reads that a day change sets off. */
+const DAYS_REREAD_GAP_MS = 60_000;
 
 const LOAD_FAILED = "Marshal could not load your data from the daemon. Try again.";
 
@@ -283,6 +287,20 @@ export function startSync(ctx: Ctx, syncers: readonly Syncer[] = SYNCERS): SyncC
     const stopped = active.flatMap((syncer) => syncer.start?.(ctx, data.api) ?? []);
     // The links that open the app at a card or a shared note, from a notice or another app.
     stopped.push(followDeepLinks(ctx));
+    // Today moves at midnight in the chosen time zone, and when the zone changes.
+    // A card's dates are counted from today, so the cards are read again when today moves after the
+    // first load. At most once a minute, so two answers that disagree about the zone cannot loop.
+    let reloadedAt = 0;
+    stopped.push(
+      followToday(ctx, () => {
+        if (!progress.loaded || Date.now() - reloadedAt < DAYS_REREAD_GAP_MS) return;
+        reloadedAt = Date.now();
+        void cardsSyncer.load(data.api, ctx).then(
+          (snapshot) => cardsSyncer.apply(ctx, snapshot),
+          () => undefined,
+        );
+      }),
+    );
     return () => {
       for (const stop of stopped) stop();
       dispose();

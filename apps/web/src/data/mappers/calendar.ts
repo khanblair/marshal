@@ -1,12 +1,11 @@
 import type { CalendarList, CalendarEvent as WireCalendarEvent } from "@marshal/protocol";
-
-const DAY_MS = 86_400_000;
+import { clock, dateKey, daysBetween, daysBetweenDates, startOfDay } from "../zone";
 
 /** One Google Calendar event, as the Calendar view and Home's coming-up list draw it. */
 export interface CalEvent {
   id: string;
   title: string;
-  /** `09:30`, the viewer's own clock. Empty for an all-day event, which has no time of day. */
+  /** `09:30`, on the clock of the chosen time zone. Empty for an all-day event, which has no time of day. */
   time: string;
   /** `10:00`, when the event ends the same day. Empty when it has no end, or runs past midnight. */
   endTime?: string;
@@ -37,29 +36,29 @@ export interface CalGoogle {
   stale: boolean;
 }
 
-/** Midnight of the day ms falls on, in the viewer's own time zone. */
-function startOfDay(ms: number): number {
-  const date = new Date(ms);
-  date.setHours(0, 0, 0, 0);
-  return date.getTime();
-}
-
-/** "09:30", the viewer's own local clock. */
-function clockOf(date: Date): string {
-  const hours = String(date.getHours()).padStart(2, "0");
-  const minutes = String(date.getMinutes()).padStart(2, "0");
-  return `${hours}:${minutes}`;
+/**
+ * The last day an event covers, as an offset from today, or undefined when it stays on its first day.
+ * A timed event ends at its end time, so one that ends at midnight is not on the next day: this looks
+ * at the moment before the end.
+ */
+function lastDayOffsetOf(start: number, end: number | null, firstOffset: number, today: number) {
+  if (end === null || end <= start) return undefined;
+  const last = daysBetween(today, end - 1);
+  return last > firstOffset ? last : undefined;
 }
 
 /**
- * The last day an event covers, as an offset from today, or undefined when it stays on its first day.
- * An all-day event's end is the first day it no longer covers, and a timed one ends at its end time,
- * so one that ends at midnight is not on the next day either: both look at the moment before the end.
+ * The days an all-day event covers from its own dates, "2026-10-09" to the first day it no longer
+ * covers. They belong to no zone, so the event is on that date wherever the viewer is. Null when the
+ * daemon sent none.
  */
-function lastDayOffsetOf(start: Date, end: Date | null, firstOffset: number, today: number) {
-  if (!end || end.getTime() <= start.getTime()) return undefined;
-  const last = Math.round((startOfDay(end.getTime() - 1) - today) / DAY_MS);
-  return last > firstOffset ? last : undefined;
+function allDayOffsets(wire: WireCalendarEvent, today: number) {
+  const todayKey = dateKey(today);
+  const first = daysBetweenDates(todayKey, wire.startDate ?? "");
+  if (first === null) return null;
+  const after = daysBetweenDates(todayKey, wire.endDate ?? "");
+  const last = after === null ? undefined : after - 1;
+  return { first, last: last !== undefined && last > first ? last : undefined };
 }
 
 /**
@@ -68,17 +67,17 @@ function lastDayOffsetOf(start: Date, end: Date | null, firstOffset: number, tod
  * items.ts`, `~/views/home/today.ts`). today is midnight of the day the events are being read for.
  */
 function toCalEvent(wire: WireCalendarEvent, today: number): CalEvent {
-  const start = new Date(wire.start);
-  const end = wire.end ? new Date(wire.end) : null;
-  const sameDay =
-    end !== null && !wire.allDay && startOfDay(end.getTime()) === startOfDay(start.getTime());
-  const dayOffset = Math.round((startOfDay(start.getTime()) - today) / DAY_MS);
-  const lastDayOffset = lastDayOffsetOf(start, end, dayOffset, today);
+  const start = Date.parse(wire.start);
+  const end = wire.end ? Date.parse(wire.end) : null;
+  const sameDay = end !== null && !wire.allDay && startOfDay(end) === startOfDay(start);
+  const dates = wire.allDay ? allDayOffsets(wire, today) : null;
+  const dayOffset = dates ? dates.first : daysBetween(today, start);
+  const lastDayOffset = dates ? dates.last : lastDayOffsetOf(start, end, dayOffset, today);
   return {
     id: wire.id,
     title: wire.title,
-    time: wire.allDay ? "" : clockOf(start),
-    ...(sameDay && end ? { endTime: clockOf(end) } : {}),
+    time: wire.allDay ? "" : clock(start),
+    ...(sameDay && end !== null ? { endTime: clock(end) } : {}),
     ...(wire.allDay ? { allDay: true } : {}),
     ...(wire.location ? { location: wire.location } : {}),
     ...(wire.url ? { url: wire.url } : {}),

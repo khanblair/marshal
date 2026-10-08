@@ -53,6 +53,8 @@ export const calendarSyncer: Syncer<CalendarList> = {
       );
     };
     const timer = setInterval(refresh, REFRESH_MS);
+    // The window is cut from today, so a new day or a new time zone reads it again.
+    createEffect(on(() => ctx.today, refresh, { defer: true }));
     const onVisible = (): void => {
       if (document.visibilityState === "visible" && Date.now() - last > FOCUS_GAP_MS) refresh();
     };

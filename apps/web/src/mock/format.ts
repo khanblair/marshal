@@ -1,4 +1,5 @@
 import { relTime } from "~/data/format";
+import { formatDateTime } from "~/data/zone";
 
 const CENTS_PER_DOLLAR = 100;
 
@@ -10,5 +11,4 @@ export const money = (v: number): string =>
    mock is deleted in Phase 13. */
 export { relTime };
 
-export const full = (ts: number): string =>
-  new Date(ts).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+export const full = (ts: number): string => formatDateTime(ts);
