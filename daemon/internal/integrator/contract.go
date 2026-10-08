@@ -109,4 +109,7 @@ type Reader interface {
 	Retry(ctx context.Context, cardID string) (protocol.Card, error)
 	// Undo puts the integration branch back to where it was before the card's merge.
 	Undo(ctx context.Context, cardID string) (protocol.Card, error)
+	// SendToMerge moves a card of a project with no GitHub origin to Ready to merge, once its work
+	// is committed, and lets the queue take it.
+	SendToMerge(ctx context.Context, cardID string) (protocol.Card, error)
 }

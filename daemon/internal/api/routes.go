@@ -395,6 +395,7 @@ func integrationRoutes() []routeSpec {
 		{"POST /v1/projects/{id}/integration/resume", needsIntegration, (*Server).resumeIntegration},
 		{"POST /v1/cards/{id}/merge/retry", needsIntegration, (*Server).retryMerge},
 		{"POST /v1/cards/{id}/merge/undo", needsIntegration, (*Server).undoMerge},
+		{"POST /v1/cards/{id}/send-to-merge", needsIntegration, (*Server).sendToMerge},
 		{"POST /v1/cards/{id}/worktree/open", needsProjects, (*Server).openWorktree},
 	}
 }

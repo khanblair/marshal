@@ -100,6 +100,13 @@ func (f *fakeMergeQueue) Undo(_ context.Context, cardID string) (protocol.Card, 
 	return fakeCard(cardID, protocol.CardStateReady), nil
 }
 
+func (f *fakeMergeQueue) SendToMerge(_ context.Context, cardID string) (protocol.Card, error) {
+	if err := f.record("send " + cardID); err != nil {
+		return protocol.Card{}, err
+	}
+	return fakeCard(cardID, protocol.CardStateReady), nil
+}
+
 // fakeCard is a card with the times a card always has, so it can be written to the wire.
 func fakeCard(id string, state protocol.CardState) protocol.Card {
 	now := protocol.NewTimestamp(time.Now())
@@ -225,6 +232,25 @@ func TestRetryAndUndoAnswerTheCard(t *testing.T) {
 	}
 }
 
+func TestSendToMergeAnswersTheCardAndPassesTheRefusalOn(t *testing.T) {
+	queue := &fakeMergeQueue{}
+	st := newStack(t, withMergeQueue(queue))
+	project, _ := st.addProject("small-repo")
+	card := st.addCard(project.ID, "Add login page")
+
+	sent := decode[protocol.Card](t, st.do(http.MethodPost, "/v1/cards/"+card.ID+"/send-to-merge", nil).want(t, http.StatusOK))
+	if sent.ID != card.ID || sent.State != protocol.CardStateReady {
+		t.Errorf("send-to-merge answered %+v", sent)
+	}
+	queue.mu.Lock()
+	queue.err = protocol.Refused("This card has no commits to merge yet.").With("reason", "send_no_commits")
+	queue.mu.Unlock()
+	got := st.do(http.MethodPost, "/v1/cards/"+card.ID+"/send-to-merge", nil).apiError(t, http.StatusUnprocessableEntity, protocol.ErrorCodeRefused)
+	if got.Message != "This card has no commits to merge yet." {
+		t.Errorf("the message is %q, want the queue's own", got.Message)
+	}
+}
+
 func TestTheReadersOwnSentenceComesThroughARefusal(t *testing.T) {
 	const sentence = "This merge cannot be undone: other cards were merged after it."
 	queue := &fakeMergeQueue{err: protocol.Refused(sentence)}
@@ -253,6 +279,7 @@ func TestAMalformedIdIsNotFoundWithoutAskingTheReader(t *testing.T) {
 	st.do(http.MethodPost, "/v1/projects/Not%20A%20Project/integration/pause", nil).apiError(t, http.StatusNotFound, protocol.ErrorCodeNotFound)
 	st.do(http.MethodPost, "/v1/cards/not-a-card/merge/retry", nil).apiError(t, http.StatusNotFound, protocol.ErrorCodeNotFound)
 	st.do(http.MethodPost, "/v1/cards/not-a-card/merge/undo", nil).apiError(t, http.StatusNotFound, protocol.ErrorCodeNotFound)
+	st.do(http.MethodPost, "/v1/cards/not-a-card/send-to-merge", nil).apiError(t, http.StatusNotFound, protocol.ErrorCodeNotFound)
 	if calls := queue.seen(); len(calls) != 0 {
 		t.Errorf("the reader was asked %v for ids that cannot exist", calls)
 	}

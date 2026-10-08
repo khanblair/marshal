@@ -48,6 +48,13 @@ func (s *Server) undoMerge(w http.ResponseWriter, r *http.Request) {
 	lookup[protocol.Card]{cardIDOf, s.integration.Undo}.serve(s, w, r)
 }
 
+// sendToMerge is POST /v1/cards/{id}/send-to-merge: a person says a card's committed work is
+// finished, for a project with no GitHub origin, where no pull request will ever send it to Ready to
+// merge. The answer is the card as it now is.
+func (s *Server) sendToMerge(w http.ResponseWriter, r *http.Request) {
+	lookup[protocol.Card]{cardIDOf, s.integration.SendToMerge}.serve(s, w, r)
+}
+
 // openWorktree is POST /v1/cards/{id}/worktree/open: show the card's worktree in the file manager or
 // the editor of the machine the daemon runs on. Only a request from this machine is answered, and
 // the only thing the request chooses is how to show the folder: the folder is the card's own.

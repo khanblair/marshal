@@ -204,7 +204,7 @@ func TestARouteIsRegisteredOnlyWhenItsServiceIsThere(t *testing.T) {
 	mergeStateRoutes := []string{
 		"GET /v1/projects/{id}/integration", "POST /v1/projects/{id}/integration/pause",
 		"POST /v1/projects/{id}/integration/resume", "POST /v1/cards/{id}/merge/retry",
-		"POST /v1/cards/{id}/merge/undo",
+		"POST /v1/cards/{id}/merge/undo", "POST /v1/cards/{id}/send-to-merge",
 	}
 	worktreeRoutes := []string{"POST /v1/cards/{id}/worktree/open"}
 	// The notice routes are the session manager's: a sleep notice names live sessions and the
