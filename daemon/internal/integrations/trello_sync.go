@@ -55,8 +55,8 @@ const (
 )
 
 // doneListWords are the words a Trello list's name is checked against to recognize it as the
-// board's "done" column (the owner's ruling: assume standard names, phase-reports/phase-08-
-// automation.md §6 - no per-board setting screen this pass).
+// board's "done" column (the owner's ruling: assume standard names - no per-board setting screen
+// this pass).
 func doneListWords() []string { return []string{"done", "complete", "completed", "finished"} }
 
 // looksDone reports whether a Trello list's name reads as a "done" column.
@@ -151,7 +151,7 @@ func (s *Service) HandleTrelloDelivery(ctx context.Context, event trello.Webhook
 
 // handleTrelloMove applies a card moved into list, when the card is already linked and list looks
 // like the board's done column (looksDone). Any other list is ignored: without a per-board setting
-// (phase-reports/phase-08-automation.md §6), only the done move is one this pass acts on.
+// (the same ruling as doneListWords), only the done move is one this pass acts on.
 func (s *Service) handleTrelloMove(ctx context.Context, event trello.WebhookEvent, list trello.List) (TrelloOutcome, error) {
 	if !looksDone(list.Name) {
 		return TrelloOutcomeIgnored, nil

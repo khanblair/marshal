@@ -135,7 +135,7 @@ function answerFor(store: SearchStore, query: string): SearchSnapshot {
       lastActiveAt: c.lastActiveAt,
     })),
     // Session and note search (S24b) have no fake route yet - the web half of that cutover is not
-    // built (phase-reports/phase-07-orchestration-and-memory.md). Empty rather than omitted, so
+    // built. Empty rather than omitted, so
     // this still answers the wire shape SearchSnapshot/SearchTotals require.
     sessions: [],
     notes: [],
