@@ -92,7 +92,7 @@ describe("New schedule", () => {
 describe("the schedule editor", () => {
   it("writes the words, the time, and the days together from the pickers", async () => {
     await openMorningEditor();
-    fireEvent.input(screen.getByLabelText("Time"), { target: { value: "07:30" } });
+    fireEvent.input(screen.getByLabelText(/^Time \(/), { target: { value: "07:30" } });
     for (const day of ["Tue", "Wed", "Thu", "Fri"]) {
       fireEvent.click(screen.getByRole("button", { name: day }));
     }

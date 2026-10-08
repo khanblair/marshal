@@ -1,6 +1,8 @@
 import type { ScheduleCatalog, ScheduleRun } from "@marshal/protocol";
 import { Button, Dialog, Icon, IconButton } from "@marshal/ui";
 import { createResource, createSignal, createUniqueId, For, Match, Show, Switch } from "solid-js";
+import { toMillis } from "~/data/mappers/time";
+import { formatDateTime } from "~/data/zone";
 import { Markdown } from "~/features/markdown/Markdown";
 import { M, type Schedule } from "~/mock";
 import type { EditState } from "./edit-state";
@@ -39,7 +41,7 @@ function Run(props: { run: ScheduleRun }) {
   const bodyId = createUniqueId();
   const title = () => (
     <span class={`shrink-0 ${runTone(props.run.status)}`}>
-      {new Date(props.run.runAt).toLocaleString()} - {props.run.status}
+      {formatDateTime(toMillis(props.run.runAt))} - {props.run.status}
     </span>
   );
   return (

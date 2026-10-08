@@ -1,6 +1,7 @@
 import type { ScheduleCatalog } from "@marshal/protocol";
 import { cx, Icon, IconButton, Switch } from "@marshal/ui";
 import { Show } from "solid-js";
+import { zoneLabel } from "~/data/zone";
 import { M, type Schedule } from "~/mock";
 import { requestFrom } from "~/sync/schedule-actions";
 
@@ -26,6 +27,12 @@ function remove(schedule: Schedule): void {
       });
     },
   });
+}
+
+/** When a schedule runs, with the zone after a clock time: "Every day at 8:00 EAT". */
+export function whenLine(schedule: Schedule): string {
+  const hasClock = schedule.trigger === "Cron" || schedule.trigger === "One-time";
+  return hasClock ? `${schedule.when} ${zoneLabel()}` : schedule.when;
 }
 
 /** The chats a brief is sent to, by name, for a line under it. */
@@ -93,7 +100,7 @@ export function ScheduleRow(props: ScheduleRowProps) {
         <Icon name={s().icon} size={18} class="mt-0.5 flex-none" />
         <div class="flex min-w-0 flex-col">
           <span class="font-semibold">{name()}</span>
-          <span class="text-small leading-4.5 text-secondary">{s().when}</span>
+          <span class="text-small leading-4.5 text-secondary">{whenLine(s())}</span>
           <span class="text-small leading-4.5 text-secondary">{s().action}</span>
           <Show when={sendsTo(s(), props.catalog)}>
             {(line) => <span class="text-caption leading-4 text-muted">{line()}</span>}

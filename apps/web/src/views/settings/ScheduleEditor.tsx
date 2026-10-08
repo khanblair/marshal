@@ -1,6 +1,7 @@
 import type { ScheduleCatalog } from "@marshal/protocol";
 import { Button, Checkbox, cx, Field, Input, Select } from "@marshal/ui";
 import { For, Show, untrack } from "solid-js";
+import { zoneName } from "~/data/zone";
 import { M, type Schedule } from "~/mock";
 import { GRID_MIN_200 } from "./auto-fit-grid";
 import type { EditState } from "./edit-state";
@@ -74,11 +75,12 @@ function WhenPicker(props: { form: ScheduleForm; error: string | null | undefine
         <div class="flex flex-wrap items-center gap-3">
           <Input
             type="time"
-            aria-label="Time"
+            aria-label={`Time (${zoneName()})`}
             class="w-32"
             value={form.time()}
             onInput={(event) => form.setTime(event.currentTarget.value)}
           />
+          <span class="text-small text-secondary">{zoneName()}</span>
           <DayPicker form={form} />
         </div>
       </Show>
