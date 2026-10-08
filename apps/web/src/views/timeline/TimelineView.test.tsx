@@ -59,7 +59,7 @@ describe("TimelineView on desktop", () => {
 
   it("shows the date range, the day headings, and the legend", () => {
     render(() => <TimelineView />);
-    expect(screen.getByText(rangeLabel(M.T0, M.D))).toBeInTheDocument();
+    expect(screen.getByText(rangeLabel(M.T0))).toBeInTheDocument();
     expect(document.querySelectorAll("[title]").length).toBeGreaterThan(32);
     expect(screen.getByText("Depends on")).toBeInTheDocument();
     expect(screen.getByText("Broken dependency")).toBeInTheDocument();

@@ -2,6 +2,7 @@
  * Text and rules of the timeline that do not depend on the store: bar tooltips, what a
  * drop would break, and the day groups of the phone list. From design/TimelineView.dc.html.
  */
+import { addDays, formatDate } from "~/data/zone";
 import { type CardKey, cardLabel, cardNumber } from "~/mock/card-key";
 import type { Planned } from "./timeline-geometry";
 
@@ -83,20 +84,16 @@ export function groupByStart<T extends Planned>(cards: readonly T[]): DayGroup<T
 }
 
 /** "Thu, Sep 24" for a day offset from today. */
-export const shortDay = (today: number, dayMs: number, offset: number): string =>
-  new Date(today + offset * dayMs).toLocaleDateString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
+export const shortDay = (today: number, offset: number): string =>
+  formatDate(addDays(today, offset), { weekday: "short", month: "short", day: "numeric" });
 
 /** Heading of a phone day group. */
-export const groupLabel = (today: number, dayMs: number, offset: number): string =>
-  `${offset === 0 ? "Today, " : ""}${shortDay(today, dayMs, offset)}`;
+export const groupLabel = (today: number, offset: number): string =>
+  `${offset === 0 ? "Today, " : ""}${shortDay(today, offset)}`;
 
 /** "One day", or "Until Mon, Sep 28". */
-export const spanLabel = (c: Planned, today: number, dayMs: number): string =>
-  c.e === c.s ? "One day" : `Until ${shortDay(today, dayMs, c.e ?? 0)}`;
+export const spanLabel = (c: Planned, today: number): string =>
+  c.e === c.s ? "One day" : `Until ${shortDay(today, c.e ?? 0)}`;
 
 /** A card `c` waits for is late when it ends on or after the day `c` starts. */
 export const isLateFor = (a: Planned, c: Planned): boolean => (a.e ?? 0) >= (c.s ?? 0);

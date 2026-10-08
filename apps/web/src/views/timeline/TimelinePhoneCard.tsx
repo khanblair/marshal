@@ -49,7 +49,7 @@ export function TimelinePhoneCard(props: TimelinePhoneCardProps) {
       </button>
       <span class="flex flex-wrap gap-x-3 gap-y-0.5 text-small text-secondary">
         <StatusLabel state={props.card.state}>{d().stateLabel}</StatusLabel>
-        <span>{spanLabel(props.card, M.T0, M.D)}</span>
+        <span>{spanLabel(props.card, M.T0)}</span>
       </span>
       <Show when={props.card.deps.length > 0}>
         <span class="flex flex-wrap items-center gap-x-2 gap-y-1 text-small text-secondary">

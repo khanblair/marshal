@@ -121,7 +121,7 @@ describe("dependencyLines", () => {
 });
 
 describe("dayCells", () => {
-  const cells = dayCells(TODAY, DAY_MS);
+  const cells = dayCells(TODAY);
 
   it("has 32 cells, 40 px apart, starting 14 days before today", () => {
     expect(cells).toHaveLength(DAY_COUNT);
@@ -152,8 +152,6 @@ describe("rangeLabel", () => {
   it("names the first and last day on the grid", () => {
     const f = (t: number) =>
       new Date(t).toLocaleDateString(undefined, { month: "short", day: "numeric" });
-    expect(rangeLabel(TODAY, DAY_MS)).toBe(
-      `${f(TODAY - 14 * DAY_MS)} to ${f(TODAY + 17 * DAY_MS)}`,
-    );
+    expect(rangeLabel(TODAY)).toBe(`${f(TODAY - 14 * DAY_MS)} to ${f(TODAY + 17 * DAY_MS)}`);
   });
 });

@@ -21,7 +21,7 @@ export function TimelinePhoneList(props: TimelinePhoneListProps) {
         {(group) => (
           <section class="flex flex-col mb-3">
             <DayHeading today={group.offset === 0} class="py-2">
-              {groupLabel(M.T0, M.D, group.offset)}
+              {groupLabel(M.T0, group.offset)}
             </DayHeading>
             <For each={group.cards}>{(c) => <TimelinePhoneCard card={c} />}</For>
           </section>

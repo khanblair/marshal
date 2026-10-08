@@ -111,17 +111,17 @@ describe("day labels", () => {
     });
 
   it("formats a short day", () => {
-    expect(shortDay(TODAY, DAY_MS, 2)).toBe(short(2));
+    expect(shortDay(TODAY, 2)).toBe(short(2));
   });
 
   it("prefixes today's group", () => {
-    expect(groupLabel(TODAY, DAY_MS, 0)).toBe(`Today, ${short(0)}`);
-    expect(groupLabel(TODAY, DAY_MS, 1)).toBe(short(1));
+    expect(groupLabel(TODAY, 0)).toBe(`Today, ${short(0)}`);
+    expect(groupLabel(TODAY, 1)).toBe(short(1));
   });
 
   it("says One day, or until the end day", () => {
-    expect(spanLabel(card(1, 2, 2), TODAY, DAY_MS)).toBe("One day");
-    expect(spanLabel(card(1, 2, 4), TODAY, DAY_MS)).toBe(`Until ${short(4)}`);
+    expect(spanLabel(card(1, 2, 2), TODAY)).toBe("One day");
+    expect(spanLabel(card(1, 2, 4), TODAY)).toBe(`Until ${short(4)}`);
   });
 });
 

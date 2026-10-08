@@ -2,6 +2,7 @@
  * Geometry of the timeline grid, value for value from design/TimelineView.dc.html.
  * Everything here is a pure function of day offsets (days from today) and row indexes.
  */
+import { addDays, dayNumber, dayOfWeek, formatDate, startOfDay } from "~/data/zone";
 import type { CardKey } from "~/mock/card-key";
 
 /** First day on the grid, as an offset from today. */
@@ -123,20 +124,19 @@ export interface DayCell {
   weekend: boolean;
 }
 
-/** Midnight of a day on the grid. Adds whole days in ms, as the design does. */
-const dayStart = (today: number, dayMs: number, offset: number): Date =>
-  new Date(today + offset * dayMs);
+/** Midnight of a day on the grid, `offset` days from today. */
+const dayStart = (today: number, offset: number): number => startOfDay(addDays(today, offset));
 
 /** The day header cells. */
-export function dayCells(today: number, dayMs: number): DayCell[] {
+export function dayCells(today: number): DayCell[] {
   return Array.from({ length: DAY_COUNT }, (_, i) => {
-    const t = dayStart(today, dayMs, START_DAY + i);
-    const dow = t.getDay();
+    const t = dayStart(today, START_DAY + i);
+    const dow = dayOfWeek(t);
     return {
       x: i * DAY_WIDTH_PX,
-      weekday: t.toLocaleDateString(undefined, { weekday: "narrow" }),
-      date: t.getDate(),
-      full: t.toLocaleDateString(undefined, { dateStyle: "full" }),
+      weekday: formatDate(t, { weekday: "narrow" }),
+      date: dayNumber(t),
+      full: formatDate(t, { dateStyle: "full" }),
       today: START_DAY + i === 0,
       weekend: dow === SUNDAY || dow === SATURDAY,
     };
@@ -144,11 +144,8 @@ export function dayCells(today: number, dayMs: number): DayCell[] {
 }
 
 /** "Sep 10 to Oct 11": the first and last day on the grid. */
-export function rangeLabel(today: number, dayMs: number): string {
+export function rangeLabel(today: number): string {
   const f = (offset: number) =>
-    dayStart(today, dayMs, offset).toLocaleDateString(undefined, {
-      month: "short",
-      day: "numeric",
-    });
+    formatDate(dayStart(today, offset), { month: "short", day: "numeric" });
   return `${f(START_DAY)} to ${f(START_DAY + DAY_COUNT - 1)}`;
 }

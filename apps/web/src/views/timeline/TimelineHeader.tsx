@@ -1,5 +1,5 @@
 import { cx } from "@marshal/ui";
-import { For } from "solid-js";
+import { createMemo, For } from "solid-js";
 import { M } from "~/mock";
 import { type DayCell, dayCells, px, rangeLabel, TRACK_WIDTH_PX } from "./timeline-geometry";
 
@@ -10,15 +10,15 @@ function dayText(d: DayCell): string {
 
 /** Sticky header: the date range over the card column, then one cell per day. */
 export function TimelineHeader() {
-  // Today (M.T0) is fixed for the life of the store, so the cells never change.
-  const days = dayCells(M.T0, M.D);
+  // The cells follow today, which moves at midnight and when the time zone changes.
+  const days = createMemo(() => dayCells(M.T0));
   return (
     <div class="sticky top-0 z-[12] flex h-13 bg-surface border-b border-border">
       <div class="sticky left-0 z-[2] w-[280px] flex-none flex items-end px-4 pt-0 pb-2 bg-surface border-r border-border font-semibold">
-        {rangeLabel(M.T0, M.D)}
+        {rangeLabel(M.T0)}
       </div>
       <div class="relative flex-none" style={{ width: px(TRACK_WIDTH_PX) }}>
-        <For each={days}>
+        <For each={days()}>
           {(d) => (
             <div
               title={d.full}
