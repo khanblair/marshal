@@ -48,11 +48,14 @@ import (
 	"github.com/khanblair/marshal/daemon/internal/session"
 	sleepsettings "github.com/khanblair/marshal/daemon/internal/settings"
 	"github.com/khanblair/marshal/daemon/internal/store"
+	"github.com/khanblair/marshal/daemon/internal/zone"
 )
 
 // daemonModules are the parts of the daemon that buildModules makes together, once the store and
 // the bus are ready.
 type daemonModules struct {
+	// clock tells time in the zone the person chose in their profile.
+	clock     *zone.Clock
 	proj      *projects.Service
 	sessions  *session.Manager
 	catalog   catalog.Source
@@ -158,6 +161,8 @@ type coreDaemonModules struct {
 	historyStore     *history.Store
 	auditRec         *audit.Recorder
 	sessions         *session.Manager
+	// clock tells time in the zone the person chose in their profile.
+	clock *zone.Clock
 }
 
 // startPrompt is the first message a started card's agent gets. The card's title, body, role, and
@@ -168,6 +173,7 @@ const startPrompt = "Start working on this card now."
 // in the order each depends on the last.
 func buildCoreModules(st *store.Store, bus *events.Bus, settings config.Settings, env platform.Env, log *slog.Logger) (coreDaemonModules, error) {
 	git := gitx.New()
+	clock := zone.New(zone.StoreSource{Store: st})
 	late := &lateSessions{}
 	lateMem := &lateMemory{}
 	// A card's session state is read from the stored session rows, not from the manager, so the
@@ -192,7 +198,7 @@ func buildCoreModules(st *store.Store, bus *events.Bus, settings config.Settings
 	// (providers.noticeFallback), so nothing happens silently in the meantime.
 	providerSvc, err := providers.New(security.NewOSKeychain(platform.AppName(settings.Mode)), providers.Options{
 		Logger:   log,
-		Recorder: providers.NewStoreRecorder(st, rand.Reader),
+		Recorder: providers.NewStoreRecorder(st, rand.Reader, providers.WithLocation(clock.Location)),
 		Now:      time.Now,
 	})
 	if err != nil {
@@ -237,7 +243,7 @@ func buildCoreModules(st *store.Store, bus *events.Bus, settings config.Settings
 		DataDir: settings.DataDir, Logger: log, History: historyStore, Plans: historyStore,
 		Terminals: terminals, Audit: auditRec,
 		StartPrompt: startPrompt, StartOnSend: true,
-		Usage: providers.NewStoreRecorder(st, rand.Reader),
+		Usage: providers.NewStoreRecorder(st, rand.Reader, providers.WithLocation(clock.Location)),
 	})
 	if err != nil {
 		return coreDaemonModules{}, fmt.Errorf("start the session manager: %w", err)
@@ -246,7 +252,7 @@ func buildCoreModules(st *store.Store, bus *events.Bus, settings config.Settings
 	return coreDaemonModules{
 		git: git, lateMem: lateMem, proj: proj, providerSvc: providerSvc, costLimits: costLimits,
 		sleepSettingsSvc: sleepSettingsSvc, connectionTests: connectionTests, catalogSrc: catalogSrc,
-		historyStore: historyStore, auditRec: auditRec, sessions: sessions,
+		historyStore: historyStore, auditRec: auditRec, sessions: sessions, clock: clock,
 	}, nil
 }
 
@@ -270,10 +276,14 @@ type cardDaemonModules struct {
 // role and sleep readers it needs once they exist. ctx is the daemon's own context, which the
 // vault watcher this starts stops with.
 func buildCardModules(ctx context.Context, st *store.Store, bus *events.Bus, settings config.Settings, log *slog.Logger, core coreDaemonModules) (cardDaemonModules, error) {
-	home, err := dashboard.New(dashboard.Deps{Store: st}, dashboard.WithLogger(log))
+	home, err := dashboard.New(dashboard.Deps{Store: st}, dashboard.WithLogger(log), dashboard.WithClock(core.clock.Now))
 	if err != nil {
 		return cardDaemonModules{}, fmt.Errorf("start the dashboard module: %w", err)
 	}
+	// Home's days are cut at the midnight of the person's zone: again when they were cut in another,
+	// and again whenever the zone changes.
+	recutHomeDays(ctx, st, home, core.clock.Location(), log)
+	core.clock.OnChange(func(loc *time.Location) { recutHomeDays(context.Background(), st, home, loc, log) })
 	// The dashboard's subscriber keeps the stored daily numbers and the activity stream current from
 	// the events the daemon publishes. It is built here and started by the caller, which is also
 	// where it is closed: its goroutine must stop before the bus and the store close.
@@ -324,7 +334,7 @@ func buildCardModules(ctx context.Context, st *store.Store, bus *events.Bus, set
 	// The accounts service owns the person's profile, avatar, progress, and preferences. It asks the
 	// projects module only whether a project and a saved view are there.
 	you, err := accounts.New(accounts.Deps{Store: st, Bus: bus, Projects: core.proj, DataDir: settings.DataDir},
-		accounts.WithLogger(log))
+		accounts.WithLogger(log), accounts.WithProfileSaved(func(ctx context.Context) { core.clock.Refresh(ctx) }))
 	if err != nil {
 		return cardDaemonModules{}, fmt.Errorf("start the accounts module: %w", err)
 	}
@@ -437,7 +447,7 @@ func buildLateModules(st *store.Store, bus *events.Bus, settings config.Settings
 	gcalRedirect := fmt.Sprintf("http://%s/v1/integrations/gcal/callback", loopbackAddress(settings.Port))
 	integrationSvc, err := integrations.New(st, security.NewOSKeychain(platform.AppName(settings.Mode)),
 		integrations.Options{
-			Logger: log, Now: time.Now, VaultRoot: cm.mem.Root(), GCalRedirectURL: gcalRedirect,
+			Logger: log, Now: core.clock.Now, VaultRoot: cm.mem.Root(), GCalRedirectURL: gcalRedirect,
 			GitHubClientID: os.Getenv("MARSHAL_GITHUB_CLIENT_ID"), GitHubAppSlug: os.Getenv("MARSHAL_GITHUB_APP_SLUG"),
 			GoogleClientID:     os.Getenv("MARSHAL_GOOGLE_CLIENT_ID"),
 			GoogleClientSecret: os.Getenv("MARSHAL_GOOGLE_CLIENT_SECRET"),
@@ -454,7 +464,7 @@ func buildLateModules(st *store.Store, bus *events.Bus, settings config.Settings
 	ciSvc, err := ci.New(ci.Deps{
 		Store: st, Cards: core.proj, Projects: core.proj, Git: core.git, Roles: cm.roleSvc,
 		Worker: core.sessions, Bus: bus, Audit: core.auditRec,
-		Options: ci.Options{Logger: log, Now: time.Now, Forge: appForge{svc: integrationSvc}},
+		Options: ci.Options{Logger: log, Now: time.Now, Forge: appForge{svc: integrationSvc}, Failures: ciFailures{home: cm.homeSub}},
 	})
 	if err != nil {
 		return lateDaemonModules{}, fmt.Errorf("start the CI monitor: %w", err)
@@ -541,7 +551,13 @@ func buildLateModules(st *store.Store, bus *events.Bus, settings config.Settings
 	// The scheduler (B8.1, build-plan 8.1): the scheduled jobs and briefs, and the cron that runs
 	// them. It needs only the store - the rows are what it runs - and it is built here so that the
 	// routes that edit a schedule and the cron that runs one are the same object.
-	schedSvc := schedules.NewService(st, log)
+	schedSvc := schedules.NewService(st, log, schedules.WithClock(core.clock.Now))
+	// Choosing another zone moves every schedule to it: 8:00 stays 8:00, now in the new zone.
+	core.clock.OnChange(func(*time.Location) {
+		if err := schedSvc.Rezone(context.Background()); err != nil {
+			log.Error("could not move the schedules to the new time zone", "error", err)
+		}
+	})
 	// Briefs (B8.5, build-plan task 8.7): gathered from the same projects service every card route
 	// reads, never a query of its own. Registered under the schedule's Kind, not its Action -
 	// every brief's Action is a person's own free-text sentence describing what happens, not a
@@ -549,6 +565,7 @@ func buildLateModules(st *store.Store, bus *events.Bus, settings config.Settings
 	// A brief reads Google Calendar for its calendar part, through the same cached read the calendar
 	// view uses, and leaves the part out when Google is not connected.
 	briefSvc := briefs.New(core.proj)
+	briefSvc.SetClock(core.clock.Now)
 	briefSvc.SetEvents(integrationSvc)
 	// A brief's main-branch part reads the CI health, and a brief is sent to the chats it names.
 	briefSvc.SetCI(ciSvc)
@@ -631,6 +648,6 @@ func buildModules(ctx context.Context, st *store.Store, bus *events.Bus, setting
 		gmailPoller: late.gmailPoller,
 		ci:          late.ciSvc, localCI: late.localCISvc, cardPanel: late.panelSvc,
 		preview: late.previewSvc, memory: cm.mem, mcpHost: late.mcpHost, codemap: late.codeMap,
-		schedules: late.schedSvc,
+		schedules: late.schedSvc, clock: core.clock,
 	}, nil
 }
