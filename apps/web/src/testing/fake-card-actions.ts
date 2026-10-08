@@ -153,8 +153,12 @@ function stopCard(store: CardStore, card: WireCard): Response {
   return emptyAnswer();
 }
 
-/** POST /v1/cards/{id}/resume: the session comes back, and the answer has no body. */
+/**
+ * POST /v1/cards/{id}/resume: a session a restart left waiting comes back, and the answer has no
+ * body. Like `Manager.Resume`, it refuses a session that has stopped (Start is the way back).
+ */
 function resumeCard(store: CardStore, card: WireCard): Response {
+  if (card.session === "stopped") return stoppedRefusal(card);
   resumeSession(store, card);
   return emptyAnswer();
 }
@@ -210,6 +214,20 @@ function sleepCard(store: CardStore, card: WireCard): Response {
   return emptyAnswer();
 }
 
+/** The daemon's refusal for waking or resuming a session that has stopped. */
+function stoppedRefusal(card: WireCard): Response {
+  return jsonAnswer(
+    {
+      error: {
+        code: "refused",
+        message: "This card's session has stopped and cannot be resumed.",
+        details: { cardId: card.id },
+      },
+    },
+    STATUS.refused,
+  );
+}
+
 /**
  * The rules of `Manager.Wake`: a card that never had a session is not found, one whose session has
  * stopped cannot be woken (Start is the way back), and a session that is already awake is left
@@ -223,18 +241,7 @@ function wakeCard(store: CardStore, card: WireCard): Response {
       "Marshal cannot find that session. It may have been removed.",
     );
   }
-  if (card.session === "stopped") {
-    return jsonAnswer(
-      {
-        error: {
-          code: "refused",
-          message: "This card's session has stopped and cannot be resumed.",
-          details: { cardId: card.id },
-        },
-      },
-      STATUS.refused,
-    );
-  }
+  if (card.session === "stopped") return stoppedRefusal(card);
   if (card.session === "asleep") resumeSession(store, card);
   return emptyAnswer();
 }

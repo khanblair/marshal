@@ -184,12 +184,12 @@ describe("a card's own live events", () => {
     at: "2026-09-26T12:00:01.000Z",
     data: { cardId: CARD.id, kind: "message", text },
   });
-  const stateChanged = (state: string): Event => ({
+  const stateChanged = (state: string, reason?: string): Event => ({
     seq: 3,
     topic: `card:${CARD.id}`,
     type: EventTypeSessionStateChanged,
     at: "2026-09-26T12:00:03.000Z",
-    data: { cardId: CARD.id, sessionId: "s1", state },
+    data: { cardId: CARD.id, sessionId: "s1", state, ...(reason ? { reason } : {}) },
   });
   const toolCall = (title: string, status: string): Event => ({
     seq: 2,
@@ -218,6 +218,17 @@ describe("a card's own live events", () => {
       "One",
       "Two",
     ]);
+  });
+
+  it("shows what a state change says as a note in the chat, once, so a resume is never silent", async () => {
+    const { ctx } = await storeWithHistory();
+    const note =
+      "Agent resumed. It picked up its earlier conversation and is waiting for your next message.";
+    applyCardSessionEvent(ctx, stateChanged("awake", note));
+    applyCardSessionEvent(ctx, stateChanged("awake", note));
+    applyCardSessionEvent(ctx, stateChanged("awake"));
+    const notes = (ctx.S.chat[KEY] ?? []).filter((one) => one.k === "system");
+    expect(notes).toEqual([{ id: expect.stringContaining("s"), k: "system", text: note }]);
   });
 
   it("shows a tool call and then keeps it up to date, by its own id, in the words the wire uses", async () => {

@@ -101,13 +101,18 @@ export async function wake(ctx: Ctx, id: CardKey): Promise<boolean> {
 
 /**
  * Starts the agent of a card whose session stopped without being asked to (it crashed, or the daemon
- * restarted under it), with the session it had. A card that is not in that state gets the daemon's
- * own sentence.
+ * restarted under it), with the session it had. It asks `start`, not `resume`: the daemon's resume
+ * route only recovers a session a restart left waiting and refuses one that has stopped, and start
+ * is the route that continues a stopped session.
  */
 export async function resume(ctx: Ctx, id: CardKey): Promise<boolean> {
   const card = cardOf(ctx, id);
   if (!card) return false;
-  const ok = await ask(ctx, `hold:${id}`, (api) => api.resumeCard(daemonIdOf(card)));
+  // Starting an agent again can take a minute, and nothing on the card moves until it has.
+  toast(ctx, "Resuming the agent. This can take a minute.");
+  const ok = await ask(ctx, `hold:${id}`, async (api) => {
+    applyCard(ctx, await api.startCard(daemonIdOf(card)));
+  });
   if (ok === null) return false;
   toast(ctx, "Agent resumed");
   return true;

@@ -228,15 +228,17 @@ describe("resume", () => {
   it("asks the daemon to start the agent of a card that stopped, and says so", async () => {
     const { M, ctx, d } = await setup(api41({ state: "needs", session: "stopped" }));
     expect(await resume(ctx, "api#41")).toBe(true);
-    expect(d.routes()).toContain(route("resume"));
-    expect(toasts(M)).toEqual(["Agent resumed"]);
+    // Start continues a stopped session; the daemon refuses resume for one.
+    expect(d.routes()).toContain(route("start"));
+    expect(d.routes()).not.toContain(route("resume"));
+    expect(toasts(M)).toEqual(["Resuming the agent. This can take a minute.", "Agent resumed"]);
     await vi.waitFor(() => expect(M.card("api#41")).toMatchObject({ session: "awake" }));
   });
 
   it("does nothing for a card the store does not have", async () => {
     const { ctx, d } = await setup();
     expect(await resume(ctx, "api#9999")).toBe(false);
-    expect(d.routes().filter((one) => one.endsWith("/resume"))).toEqual([]);
+    expect(d.routes().filter((one) => one.endsWith("/start"))).toEqual([]);
   });
 });
 

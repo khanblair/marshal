@@ -165,6 +165,7 @@ export function applyCardSessionEvent(ctx: Ctx, event: WireEvent): void {
     applySessionState(ctx, key, data);
     // The words of a turn are done once the session leaves it.
     if (data.state !== SessionStateWorking) endStreaming(ctx.S.chat[key] ?? []);
+    noteReason(ctx, key, data.reason);
     return;
   }
   const chat = ctx.S.chat[key] ?? [];
@@ -178,6 +179,22 @@ export function applyCardSessionEvent(ctx: Ctx, event: WireEvent): void {
 
 const isSessionState = (state: unknown): state is SessionState =>
   SessionStateValues.some((known) => known === state);
+
+/**
+ * The sentence a state change carries - why the agent stopped, or that it is back - joins the card's
+ * chat as a note, so a person watching sees it as it happens rather than after a reload. The same
+ * note is stored with the card's history, which is what a chat opened later reads. The same note
+ * twice in a row is one note.
+ */
+function noteReason(ctx: Ctx, key: CardKey, reason: unknown): void {
+  if (typeof reason !== "string" || reason === "") return;
+  const chat = ctx.S.chat[key] ?? [];
+  ctx.S.chat[key] = chat;
+  const last = chat.at(-1);
+  if (last?.k === "system" && last.text === reason) return;
+  endStreaming(chat);
+  chat.push({ id: `s${takeMid(ctx.ids)}`, k: "system", text: reason });
+}
 
 /**
  * A session's own state moved (section S7c): the card keeps it, and draws asleep and waking from it,
