@@ -1104,6 +1104,14 @@ The first time a daemon runs it makes seven schedules, all switched off, so a pe
 - **Where it is edited:** each schedule is a row with its switch and its actions as icons (preview, run now, history, edit, delete). Edit, history, and the preview open in a sheet, which is a bottom sheet on a phone.
 - **A job does nothing yet.** Only briefs can run. A schedule of the job kind records a run marked "unsupported" and says nothing was done.
 
+### 18.7 One time zone, everywhere
+
+- **The zone is the person's profile zone** (Settings, Profile), such as Africa/Kampala. Empty means the machine's own zone, on the daemon, and the device's own zone, on a screen.
+- **It decides what a time means.** A schedule set for 8:00 fires at 8:00 in that zone, a brief says "today" and "tomorrow" by that zone's days, and Home's daily numbers and the calendar cut their days at that zone's midnight. A phone in another zone still shows the profile zone's times.
+- **Changing it keeps the clock time.** A schedule set for 8:00 stays 8:00, now in the new zone, and the schedules are moved at once. Home's last 90 days of daily numbers are cut again into the new zone's days. Older days stay as they were.
+- **A brief that runs late says so.** When the daemon was not running at the time, "Run once on wake" sends the brief as soon as it starts and the brief opens with "Sent late: due 08:00 Thu, sent 11:35 (EAT)". Times in a brief's calendar part are labelled with the zone.
+- **Calendar events:** an all-day event is a date, not a moment, so it sits on that date in every zone. Two calendars holding the same event (two holiday calendars of one country) read as one line in a brief and as two on the Calendar screen. The Google Calendar row names the connected account.
+
 ### 18.4 Interactive
 
 You can reply to a brief (in the app or in chat) to create cards or ask questions.

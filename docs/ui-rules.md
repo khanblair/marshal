@@ -497,7 +497,7 @@ A short guided tour on the Home dashboard that shows what the main controls do.
 ## 13. Profile
 
 - Opened by clicking the **profile avatar** in the top right corner. It goes to Settings, on the Profile page.
-- **Profile page contains:** name, avatar (image or initials), email (optional, used for briefs by email), time zone (used for briefs and schedules), paired devices with "Remove device", and the tailnet identity.
+- **Profile page contains:** name, avatar (image or initials), email (optional, used for briefs by email), time zone (used for schedules, briefs, and every time and day on screen), paired devices with "Remove device", and the tailnet identity.
 - In team mode, it also shows the user's role in each project.
 - The avatar shows the user's image, or their initials on a neutral background. It never uses a status color.
 
