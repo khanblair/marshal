@@ -3,6 +3,7 @@
  * with the text of their tooltips and confirm dialogs. Port of `itemsFor` in
  * design/CalendarView.dc.html. Pure: the view passes the store's lists in.
  */
+import { dayOfWeek, daysBetween } from "~/data/zone";
 import type { CalEvent, Card, Schedule } from "~/mock";
 import { cardLabel } from "~/mock/card-key";
 import { fullDate } from "./calendar-dates";
@@ -33,7 +34,6 @@ export interface CalSource {
   projectName: string;
   /** Midnight of today. */
   today: number;
-  dayMs: number;
 }
 
 export interface ConfirmText {
@@ -47,9 +47,6 @@ const INTERVAL_DAYS = 3;
 const ALL_PROJECTS = "All projects";
 /** Sorts an item without a time after every timed one. */
 const NO_TIME_SORT_KEY = "99";
-
-const dayOffset = (t: number, today: number, dayMs: number): number =>
-  Math.round((t - today) / dayMs);
 
 function runsOn(s: Schedule, dow: number, off: number): boolean {
   if (s.trigger === "Interval") return off >= 0 && off < INTERVAL_DAYS;
@@ -111,8 +108,8 @@ function dueItems(src: CalSource, off: number): CalItem[] {
 
 /** Everything on the day starting at midnight `t`, earliest time first, due cards last. */
 export function itemsForDay(t: number, src: CalSource): CalItem[] {
-  const dow = new Date(t).getDay();
-  const off = dayOffset(t, src.today, src.dayMs);
+  const dow = dayOfWeek(t);
+  const off = daysBetween(src.today, t);
   return [
     ...scheduleItems(src, dow, off),
     ...eventItems(src, t, dow, off),

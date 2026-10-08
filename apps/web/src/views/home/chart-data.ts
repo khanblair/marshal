@@ -1,5 +1,6 @@
 import type { AxisTick, ChartSeries } from "@marshal/ui";
 import { microsToDollars } from "~/data/mappers/limits";
+import { addDays, dayOfWeek, formatShortDate } from "~/data/zone";
 import type { DailyStats } from "~/mock/types";
 
 /*
@@ -52,7 +53,7 @@ export function finishedPerDay(days: ChartDays, mergedToday: number): number[] {
   return Array.from({ length: days.range }, (_, i) => {
     if (i === days.range - 1) return mergedToday;
     const day = dayNumber(days, i);
-    const weekend = new Date(day * days.dayMs).getDay() % WEEKEND_DAY_STEP === 0;
+    const weekend = dayOfWeek(day * days.dayMs) % WEEKEND_DAY_STEP === 0;
     return Math.round(
       MIN_CARDS_PER_DAY + seeded(day) * CARDS_SPREAD + (weekend ? WEEKEND_ADJUST : WEEKDAY_ADJUST),
     );
@@ -118,20 +119,19 @@ export function tickIndexes(range: number): number[] {
   return [...(range === MONTH_DAYS ? MONTH_TICKS : QUARTER_TICKS)];
 }
 
-const shortDay = (ts: number): string =>
-  new Date(ts).toLocaleDateString(undefined, { month: "short", day: "numeric" });
-
 /** Date labels under the charts, such as `Sep 18`. */
 export function dateTicks(days: ChartDays): AxisTick[] {
   return tickIndexes(days.range).map((index) => ({
     index,
-    label: shortDay(days.today - (days.range - 1 - index) * days.dayMs),
+    label: formatShortDate(addDays(days.today, index - (days.range - 1))),
   }));
 }
 
 /** Hover text of each bar, such as `Sep 18: 3 cards`. */
 export function barTips(days: ChartDays, values: readonly number[]): string[] {
-  return values.map((value, i) => `${shortDay(dayNumber(days, i) * days.dayMs)}: ${value} cards`);
+  return values.map(
+    (value, i) => `${formatShortDate(addDays(days.today, i - (days.range - 1)))}: ${value} cards`,
+  );
 }
 
 const sum = (values: readonly number[]): number => values.reduce((a, b) => a + b, 0);

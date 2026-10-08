@@ -13,7 +13,6 @@ export function itemsOnDay(t: number): CalItem[] {
     cards: M.cardsOf(pid),
     projectName: M.proj(pid)?.name ?? "",
     today: M.T0,
-    dayMs: M.D,
   });
 }
 

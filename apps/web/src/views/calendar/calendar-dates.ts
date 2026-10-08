@@ -1,6 +1,18 @@
+import {
+  addDays,
+  addMonths,
+  dayNumber,
+  dayOfWeek,
+  daysInMonth,
+  formatDate,
+  monthNumber,
+  startOfDay,
+  startOfMonth,
+} from "~/data/zone";
+
 /**
- * Date math of the calendar, from design/CalendarView.dc.html. Days are local calendar
- * days: cells step with `setDate`, so a daylight saving change never skips a day.
+ * Date math of the calendar, from design/CalendarView.dc.html. Days are calendar days of the chosen
+ * time zone: cells step by whole days, so a daylight saving change never skips a day.
  */
 
 export type CalMode = "month" | "week";
@@ -8,22 +20,14 @@ export type CalMode = "month" | "week";
 const DAYS_PER_WEEK = 7;
 /** Six weeks, enough for any month starting on any weekday. */
 const MONTH_GRID_DAYS = 42;
-/** `getDay()` counts from Sunday; this makes Monday 0 and Sunday 6. */
+/** The weekday counts from Sunday; this makes Monday 0 and Sunday 6. */
 const MONDAY_FIRST_SHIFT = 6;
 
 /** Midnight of the Monday of the week that holds `t`. */
 export function mondayOf(t: number): number {
-  const d = new Date(t);
-  const sinceMonday = (d.getDay() + MONDAY_FIRST_SHIFT) % DAYS_PER_WEEK;
-  d.setDate(d.getDate() - sinceMonday);
-  d.setHours(0, 0, 0, 0);
-  return d.getTime();
+  const sinceMonday = (dayOfWeek(t) + MONDAY_FIRST_SHIFT) % DAYS_PER_WEEK;
+  return startOfDay(addDays(t, -sinceMonday));
 }
-
-const firstOfMonth = (cursor: number): Date => {
-  const c = new Date(cursor);
-  return new Date(c.getFullYear(), c.getMonth(), 1);
-};
 
 export interface GridRange {
   /** Midnight of the first cell. */
@@ -33,17 +37,12 @@ export interface GridRange {
 
 /** Month: six weeks from the Monday before the 1st. Week: the cursor's week. */
 export function gridRange(mode: CalMode, cursor: number): GridRange {
-  if (mode === "month")
-    return { start: mondayOf(firstOfMonth(cursor).getTime()), count: MONTH_GRID_DAYS };
+  if (mode === "month") return { start: mondayOf(startOfMonth(cursor)), count: MONTH_GRID_DAYS };
   return { start: mondayOf(cursor), count: DAYS_PER_WEEK };
 }
 
-/** The day `i` days after `start`. */
-export function dayAfter(start: number, i: number): Date {
-  const d = new Date(start);
-  d.setDate(d.getDate() + i);
-  return d;
-}
+/** Midnight of the day `i` days after the day starting at `start`. */
+export const dayAfter = (start: number, i: number): number => startOfDay(addDays(start, i));
 
 export interface CalCell {
   /** Midnight of the day. */
@@ -56,23 +55,21 @@ export interface CalCell {
   inMonth: boolean;
 }
 
-export const fullDate = (t: number): string =>
-  new Date(t).toLocaleDateString(undefined, { dateStyle: "full" });
+export const fullDate = (t: number): string => formatDate(t, { dateStyle: "full" });
 
 /** The grid's days. Days outside the cursor's month are marked in month mode only. */
 export function gridCells(mode: CalMode, cursor: number, today: number): CalCell[] {
   const { start, count } = gridRange(mode, cursor);
-  const month = new Date(cursor).getMonth();
+  const month = monthNumber(cursor);
   return Array.from({ length: count }, (_, i) => {
-    const d = dayAfter(start, i);
-    const t = d.getTime();
+    const t = dayAfter(start, i);
     return {
       t,
       key: String(t),
-      date: d.getDate(),
+      date: dayNumber(t),
       full: fullDate(t),
       today: t === today,
-      inMonth: mode === "week" || d.getMonth() === month,
+      inMonth: mode === "week" || monthNumber(t) === month,
     };
   });
 }
@@ -81,40 +78,35 @@ export function gridCells(mode: CalMode, cursor: number, today: number): CalCell
 export function weekdayLabels(mode: CalMode, cursor: number, narrow: boolean): string[] {
   const { start } = gridRange(mode, cursor);
   return Array.from({ length: DAYS_PER_WEEK }, (_, i) => {
-    const d = dayAfter(start, i);
-    const name = d.toLocaleDateString(undefined, { weekday: narrow ? "narrow" : "short" });
-    return mode === "week" ? `${name} ${d.getDate()}` : name;
+    const t = dayAfter(start, i);
+    const name = formatDate(t, { weekday: narrow ? "narrow" : "short" });
+    return mode === "week" ? `${name} ${dayNumber(t)}` : name;
   });
 }
 
 /** The cursor one month or one week earlier (`dir` -1) or later (1). */
 export function shiftCursor(mode: CalMode, cursor: number, dir: 1 | -1): number {
-  const d = new Date(cursor);
-  if (mode === "month") d.setMonth(d.getMonth() + dir);
-  else d.setDate(d.getDate() + DAYS_PER_WEEK * dir);
-  return d.getTime();
+  return mode === "month" ? addMonths(cursor, dir) : addDays(cursor, DAYS_PER_WEEK * dir);
 }
 
 export const monthLabel = (cursor: number): string =>
-  new Date(cursor).toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  formatDate(cursor, { month: "long", year: "numeric" });
 
 /** The heading: "September 2026", or "Week of September 21". Phones always show the month. */
 export function titleLabel(mode: CalMode, cursor: number, phone: boolean): string {
   if (phone || mode === "month") return monthLabel(cursor);
-  const start = new Date(gridRange(mode, cursor).start);
-  return `Week of ${start.toLocaleDateString(undefined, { month: "long", day: "numeric" })}`;
+  return `Week of ${formatDate(gridRange(mode, cursor).start, { month: "long", day: "numeric" })}`;
 }
 
 /** Midnight of every day in the cursor's month. */
 export function monthDays(cursor: number): number[] {
-  const first = firstOfMonth(cursor);
-  const count = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
-  return Array.from({ length: count }, (_, i) => dayAfter(first.getTime(), i).getTime());
+  const first = startOfMonth(cursor);
+  return Array.from({ length: daysInMonth(cursor) }, (_, i) => dayAfter(first, i));
 }
 
 /** Agenda heading: "Today, Thursday, September 24". */
 export const agendaLabel = (t: number, today: number): string =>
-  `${t === today ? "Today, " : ""}${new Date(t).toLocaleDateString(undefined, {
+  `${t === today ? "Today, " : ""}${formatDate(t, {
     weekday: "long",
     month: "long",
     day: "numeric",

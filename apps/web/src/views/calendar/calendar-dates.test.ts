@@ -46,8 +46,8 @@ describe("gridRange", () => {
 
 describe("dayAfter", () => {
   it("adds calendar days, so a clock change never skips one", () => {
-    expect(dayAfter(local(2026, 2, 28), 2).getDate()).toBe(30);
-    expect(dayAfter(local(2026, 9, 31), 1).getMonth()).toBe(10);
+    expect(new Date(dayAfter(local(2026, 2, 28), 2)).getDate()).toBe(30);
+    expect(new Date(dayAfter(local(2026, 9, 31), 1)).getMonth()).toBe(10);
   });
 });
 

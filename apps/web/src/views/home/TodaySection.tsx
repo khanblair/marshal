@@ -1,5 +1,6 @@
 import { Icon, ShowMoreFooter } from "@marshal/ui";
 import { createMemo, Index, Show } from "solid-js";
+import { dayOfWeek } from "~/data/zone";
 import { M } from "~/mock";
 import { GoogleNotice } from "../calendar/GoogleNotice";
 import { openCalendar } from "./home-actions";
@@ -26,7 +27,7 @@ function TodayRow(props: { item: TodayItem }) {
 /** Home's "Coming up today": schedules, calendar events, and cards due today. */
 export function TodaySection() {
   // Only the weekday matters, so the list does not rebuild on every clock tick.
-  const weekday = createMemo(() => new Date(M.now()).getDay());
+  const weekday = createMemo(() => dayOfWeek(M.now()));
   const items = createMemo(() => todayItems(weekday()));
   const rows = createShowAll(items);
   return (

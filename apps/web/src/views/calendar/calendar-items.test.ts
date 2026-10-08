@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import type { CalEvent, Card, Schedule } from "~/mock";
 import { type CalSource, eventDialog, itemsForDay, scheduleDialog } from "./calendar-items";
 
-const DAY_MS = 86_400_000;
 const TODAY = new Date(2026, 8, 24).getTime();
 const at = (offset: number) => new Date(2026, 8, 24 + offset).getTime();
 const THURSDAY = 0;
@@ -39,7 +38,6 @@ const source = (over: Partial<CalSource>): CalSource => ({
   cards: [],
   projectName: "api-gateway",
   today: TODAY,
-  dayMs: DAY_MS,
   ...over,
 });
 
