@@ -120,6 +120,48 @@ func TestAFailedRunRerunsTheFailedJobsOnce(t *testing.T) {
 	}
 }
 
+// failureLog is what Home's counter is told: each run that newly failed.
+type failureLog struct{ seen []ci.Failure }
+
+func (l *failureLog) CIFailed(_ context.Context, failure ci.Failure) {
+	l.seen = append(l.seen, failure)
+}
+
+func TestARunThatNewlyFailedIsReportedOnceWithItsCard(t *testing.T) {
+	log := &failureLog{}
+	f := newFixture(t, func(o *ci.Options) { o.Failures = log })
+	f.deliver(t, testRunID, "completed", "success")
+	if len(log.seen) != 0 {
+		t.Fatalf("a passing run was reported as %v", log.seen)
+	}
+	f.deliver(t, testRunID+1, "completed", "failure")
+	// The same failed run delivered again, or seen again by the polling backup, is not a new failure.
+	f.deliver(t, testRunID+1, "completed", "failure")
+	if len(log.seen) != 1 {
+		t.Fatalf("a failed run reported %d times, want once: %v", len(log.seen), log.seen)
+	}
+	got := log.seen[0]
+	if got.ProjectID != testProjectID || got.CardID != testCardID || got.Branch != testBranch || got.Workflow != "ci" {
+		t.Errorf("the failure is %+v, want the project, the card, the branch, and the workflow", got)
+	}
+	// A later run of the same workflow that fails is a new failure.
+	f.deliver(t, testRunID+2, "completed", "failure")
+	if len(log.seen) != 2 {
+		t.Fatalf("a second failed run reported %d times in all, want 2", len(log.seen))
+	}
+}
+
+func TestARunThatFailsAgainAfterRunningIsAnotherFailure(t *testing.T) {
+	log := &failureLog{}
+	f := newFixture(t, func(o *ci.Options) { o.Failures = log })
+	f.deliver(t, testRunID, "completed", "failure")
+	f.deliver(t, testRunID, "in_progress", "")
+	f.deliver(t, testRunID, "completed", "failure")
+	if len(log.seen) != 2 {
+		t.Fatalf("a rerun that failed again was reported %d times, want 2", len(log.seen))
+	}
+}
+
 func TestASecondFailureSendsTheFailedStepsLogToTheCard(t *testing.T) {
 	f := newFixture(t, func(o *ci.Options) { o.LogBytes = 4 << 10; o.LogLines = 3 })
 	f.forge.log = "line one\nline two\nline three\nline four\nline five\n"

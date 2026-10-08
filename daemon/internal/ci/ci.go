@@ -138,6 +138,19 @@ type Options struct {
 	LogLines int
 	// PollEvery is how often the polling backup looks. Zero disables the backup loop.
 	PollEvery time.Duration
+	// Failures is told about each run that newly failed, so Home can count it. Nil counts none.
+	Failures FailureRecorder
+}
+
+// Failure is a run that newly failed: a first sighting of a failed run, or a run that was not failed
+// the last time Marshal looked. The card is empty for a run on a branch no card owns.
+type Failure struct {
+	ProjectID, CardID, CardKey, CardTitle, Branch, Workflow string
+}
+
+// FailureRecorder counts failed runs. Home's daily numbers implement it.
+type FailureRecorder interface {
+	CIFailed(ctx context.Context, failure Failure)
 }
 
 // Defaults for a log that is sent to a card's session. A step's log can be megabytes; what a person
@@ -170,6 +183,7 @@ type Service struct {
 	worker   Worker
 	bus      Publisher
 	forge    Forge
+	failures FailureRecorder
 	audit    *audit.Recorder
 	repo     func(ctx context.Context, project protocol.Project) (gh.Repository, bool)
 	log      *slog.Logger
@@ -250,7 +264,8 @@ func New(deps Deps) (*Service, error) {
 	return &Service{
 		store: deps.Store, cards: deps.Cards, projects: deps.Projects, git: deps.Git,
 		roles: deps.Roles, worker: deps.Worker, bus: deps.Bus, forge: opts.Forge, audit: deps.Audit,
-		repo: repoFn, log: log, now: now,
+		failures: opts.Failures,
+		repo:     repoFn, log: log, now: now,
 		logBytes: logBytes, logLines: logLines, pollEvery: pollEvery,
 		resolved:     map[string]cachedRepo{},
 		branchMisses: map[string]time.Time{},

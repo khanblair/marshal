@@ -2,6 +2,7 @@ package ci
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -242,7 +243,7 @@ func (s *Service) applyRun(ctx context.Context, record runRecord, forge Forge) e
 	if card != nil {
 		cardID = card.ID
 	}
-	row, err := s.record(ctx, project.ID, cardID, record)
+	row, newFailure, err := s.record(ctx, project.ID, cardID, record)
 	if err != nil {
 		return err
 	}
@@ -250,6 +251,13 @@ func (s *Service) applyRun(ctx context.Context, record runRecord, forge Forge) e
 		s.setCardCI(ctx, *card, row)
 	}
 	s.publishProject(ctx, project.ID)
+	if newFailure && s.failures != nil {
+		failure := Failure{ProjectID: project.ID, Branch: record.Branch, Workflow: record.Workflow}
+		if card != nil {
+			failure.CardID, failure.CardKey, failure.CardTitle = card.ID, card.Key, card.Title
+		}
+		s.failures.CIFailed(ctx, failure)
+	}
 	if row.Status != string(protocol.CIStateFailed) || card == nil {
 		return nil
 	}
@@ -302,10 +310,12 @@ func (s *Service) cardForBranch(ctx context.Context, projectID, branch string) (
 	return nil, nil
 }
 
-// record writes the run's newest state and answers the row it landed on. The upsert keeps
+// record writes the run's newest state and answers the row it landed on, and whether the run newly
+// failed: it is failed now, and it was not the same failed run when Marshal last looked. A failed run
+// delivered again, or seen again by the polling backup, is not a new failure. The upsert keeps
 // `rerun_at` for a run that is the same run and starts it over for a new one, so section 9's "rerun
 // the failed jobs once" survives a restart and is not repeated for a run that has not changed.
-func (s *Service) record(ctx context.Context, projectID, cardID string, record runRecord) (db.CiRun, error) {
+func (s *Service) record(ctx context.Context, projectID, cardID string, record runRecord) (db.CiRun, bool, error) {
 	now := s.now().UTC()
 	params := db.UpsertCiRunParams{
 		ID:        strconv.FormatInt(record.ID, 10),
@@ -321,10 +331,19 @@ func (s *Service) record(ctx context.Context, projectID, cardID string, record r
 		params.StartedAt = record.StartedAt.UnixMilli()
 	}
 	var row db.CiRun
+	newFailure := false
 	err := s.store.Write(ctx, func(q *db.Queries) error {
+		before, beforeErr := q.GetCiRunFor(ctx, db.GetCiRunForParams{
+			ProjectID: projectID, Branch: record.Branch, Workflow: record.Workflow,
+		})
+		if beforeErr != nil && !errors.Is(beforeErr, sql.ErrNoRows) {
+			return beforeErr
+		}
 		if err := q.UpsertCiRun(ctx, params); err != nil {
 			return err
 		}
+		failed := params.Status == string(protocol.CIStateFailed)
+		newFailure = failed && (beforeErr != nil || before.ID != params.ID || before.Status != params.Status)
 		got, err := q.GetCiRunFor(ctx, db.GetCiRunForParams{
 			ProjectID: projectID, Branch: record.Branch, Workflow: record.Workflow,
 		})
@@ -335,9 +354,9 @@ func (s *Service) record(ctx context.Context, projectID, cardID string, record r
 		return nil
 	})
 	if err != nil {
-		return db.CiRun{}, err
+		return db.CiRun{}, false, err
 	}
-	return row, nil
+	return row, newFailure, nil
 }
 
 // optionalID turns an empty id into a null, so a run with no card stores no card rather than an
