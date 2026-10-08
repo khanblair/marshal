@@ -113,6 +113,47 @@ func TestSubscriberCountsAFinishedCard(t *testing.T) {
 	}
 }
 
+// A CI run that newly failed writes one row of the stream and adds one CI failure to its project's
+// day, and the home topic is told so the tile and the feed update without asking again.
+func TestSubscriberCountsACIFailure(t *testing.T) {
+	_, sub, st, bus := newSubscriber(t, fixedTime())
+	seedProject(t, st, "api", "api-gateway")
+	watcher := bus.Subscribe(events.Topics(string(protocol.HomeTopic)))
+	t.Cleanup(watcher.Close)
+
+	card := finishedCard()
+	sub.CIFailed(context.Background(), dashboard.CIFailure{
+		ProjectID: "api", CardID: card.ID, CardKey: card.Key, CardTitle: card.Title,
+		Branch: "marshal/api-41", Workflow: "tests",
+	})
+	sub.CIFailed(context.Background(), dashboard.CIFailure{ProjectID: "api", Branch: "main"})
+
+	rows := allActivity(t, st)
+	// The stream is read newest first, so the branch's line comes before the card's.
+	if len(rows) != 2 || rows[0].Kind != string(protocol.FeedKindCI) || rows[1].SubjectKey != "api#41" {
+		t.Fatalf("stream rows = %+v, want two ci rows, the older on the card", rows)
+	}
+	if want := "CI failed on api#41 Fix token refresh on login (tests)"; rows[1].Summary != want {
+		t.Errorf("the card's line says %q, want %q", rows[1].Summary, want)
+	}
+	if want := "CI failed on branch main"; rows[0].Summary != want || rows[0].SubjectKind != "" {
+		t.Errorf("the branch's line = %+v, want %q with no card", rows[0], want)
+	}
+	stats := allStats(t, st)
+	if len(stats) != 1 || stats[0].CiFailures != 2 || stats[0].Day != midnight(0).UnixMilli() {
+		t.Fatalf("stored days = %+v, want two CI failures for api today", stats)
+	}
+	select {
+	case ev := <-watcher.C():
+		data, ok := ev.Data.(protocol.ActivityCreatedEventData)
+		if !ok || data.Entry.Kind != protocol.FeedKindCI || data.Day == nil || data.Day.CIFailures != 1 {
+			t.Fatalf("event = %+v, want the ci row and the day with its first failure", ev)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("the subscriber published no activity.created event")
+	}
+}
+
 // A card that was already done and is told to be done again is not counted twice: the event carries
 // the state it came from, so one finish is one finish.
 func TestSubscriberDoesNotCountAMoveFromDone(t *testing.T) {

@@ -2,9 +2,12 @@ package providers
 
 import (
 	"context"
+	"math"
 	"path/filepath"
 	"testing"
 	"time"
+	// The zones below must load on a machine with no zone database.
+	_ "time/tzdata"
 
 	"github.com/khanblair/marshal/daemon/internal/protocol"
 	"github.com/khanblair/marshal/daemon/internal/store"
@@ -173,5 +176,89 @@ func TestStoreRecorderWithNoStoreRecordsNothing(t *testing.T) {
 	var rec *StoreRecorder
 	if err := rec.Record(context.Background(), UsageRecord{At: testNow}); err != nil {
 		t.Errorf("a recorder with no store answered %v, want nothing", err)
+	}
+}
+
+// allDays reads every stored day, oldest first.
+func allDays(t *testing.T, st *store.Store) []db.DailyStat {
+	t.Helper()
+	rows, err := st.Queries().ListDailyStats(context.Background(), db.ListDailyStatsParams{
+		FromDay: 0, ToDay: math.MaxInt64,
+	})
+	if err != nil {
+		t.Fatalf("read the days: %v", err)
+	}
+	return rows
+}
+
+func zoneNamed(t *testing.T, name string) *time.Location {
+	t.Helper()
+	loc, err := time.LoadLocation(name)
+	if err != nil {
+		t.Fatalf("load zone %s: %v", name, err)
+	}
+	return loc
+}
+
+// TestStoreRecorderBucketsCostByTheChosenZone is the person's zone applied to the Home chart: one
+// call at 23:00 UTC on October 8 is October 9 in Kampala and still October 8 in Los Angeles.
+func TestStoreRecorderBucketsCostByTheChosenZone(t *testing.T) {
+	kampala, la := zoneNamed(t, "Africa/Kampala"), zoneNamed(t, "America/Los_Angeles")
+	at := time.Date(2026, time.October, 8, 23, 0, 0, 0, time.UTC)
+	cases := []struct {
+		name string
+		at   time.Time
+		loc  func() *time.Location
+		want time.Time
+	}{
+		{"no zone chosen keeps the call's own", at.In(kampala), nil, time.Date(2026, 10, 9, 0, 0, 0, 0, kampala)},
+		{"a zone that answers nil keeps the call's own", at, func() *time.Location { return nil }, time.Date(2026, 10, 8, 0, 0, 0, 0, time.UTC)},
+		{"Kampala", at, func() *time.Location { return kampala }, time.Date(2026, 10, 9, 0, 0, 0, 0, kampala)},
+		{"Los Angeles", at, func() *time.Location { return la }, time.Date(2026, 10, 8, 0, 0, 0, 0, la)},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			st := openTestStore(t)
+			rec := NewStoreRecorder(st, &countingEntropy{}, WithLocation(tc.loc))
+			if err := rec.Record(context.Background(), UsageRecord{
+				ProjectID: testProjectID, Provider: AnthropicID, Model: "claude-sonnet-4-5",
+				CostMicros: 2_000_000, At: tc.at,
+			}); err != nil {
+				t.Fatalf("Record: %v", err)
+			}
+			days := allDays(t, st)
+			if len(days) != 1 || days[0].Day != tc.want.UnixMilli() || days[0].CostMicros != 2_000_000 {
+				t.Errorf("days = %+v, want one day at %v holding 2000000", days, tc.want)
+			}
+		})
+	}
+}
+
+// TestStoreRecorderFollowsAZoneChangedBetweenCalls: the zone is read on each call, so a call after
+// the person changes it lands in the new zone's day while the earlier one keeps its day.
+func TestStoreRecorderFollowsAZoneChangedBetweenCalls(t *testing.T) {
+	kampala, la := zoneNamed(t, "Africa/Kampala"), zoneNamed(t, "America/Los_Angeles")
+	zone := kampala
+	st := openTestStore(t)
+	rec := NewStoreRecorder(st, &countingEntropy{}, WithLocation(func() *time.Location { return zone }))
+	at := time.Date(2026, time.October, 8, 23, 0, 0, 0, time.UTC)
+	for _, loc := range []*time.Location{kampala, la} {
+		zone = loc
+		if err := rec.Record(context.Background(), UsageRecord{
+			ProjectID: testProjectID, Provider: OpenAIID, Model: "gpt-5-mini", CostMicros: 1_000, At: at,
+		}); err != nil {
+			t.Fatalf("Record: %v", err)
+		}
+	}
+	days := allDays(t, st)
+	if len(days) != 2 {
+		t.Fatalf("stored %d days, want one per zone: %+v", len(days), days)
+	}
+	// Los Angeles' October 8 begins at 07:00 UTC and Kampala's October 9 at 21:00 UTC the day before.
+	if want := time.Date(2026, 10, 8, 0, 0, 0, 0, la).UnixMilli(); days[0].Day != want {
+		t.Errorf("first day = %d, want Los Angeles' October 8 (%d)", days[0].Day, want)
+	}
+	if want := time.Date(2026, 10, 9, 0, 0, 0, 0, kampala).UnixMilli(); days[1].Day != want {
+		t.Errorf("second day = %d, want Kampala's October 9 (%d)", days[1].Day, want)
 	}
 }

@@ -31,10 +31,11 @@ import (
 //     rather than a number that can be edited after the fact.
 //   - A project that is removed loses its rows, and its topic is dropped.
 //
-// Nothing else writes `ci_failures` or `cost_micros` yet: their events (`ci.updated`,
-// `usage.updated`) have no payload on the wire until their own phases (B4.4), so the columns stay
-// zero and a subscriber for them is added where their events are. The trim runs after every
-// append, which keeps the stream bounded at ninety days without a timer.
+// A CI run that newly failed is one line of the stream (kind `ci`) and one CI failure on its
+// project's day, written by CIFailed, which the CI module calls: the `ci.updated` event carries a
+// whole snapshot, so it cannot tell a new failure from the same one seen again. Cost is written
+// where the model call is recorded (internal/providers). The trim runs after every append, which
+// keeps the stream bounded at ninety days without a timer.
 type Subscriber struct {
 	svc     *Service
 	bus     *events.Bus
@@ -227,6 +228,75 @@ func (s *Subscriber) cardFinished(ctx context.Context, card protocol.Card) {
 	}
 	s.bus.Publish(string(protocol.HomeTopic), string(protocol.EventTypeActivityCreated),
 		protocol.ActivityCreatedEventData{Entry: entry, Day: dayStats}, false)
+}
+
+// CIFailure is a CI run that newly failed. The card is empty for a run on a branch no card owns.
+type CIFailure struct {
+	ProjectID, CardID, CardKey, CardTitle, Branch, Workflow string
+}
+
+// CIFailed counts one failed CI run: a line in the stream and one failure on the project's day, in
+// one transaction, and then tells the home topic so the tile and the feed update without asking
+// again. A failure that cannot be stored is logged and dropped: counting is never a reason to fail
+// the run's own handling.
+func (s *Subscriber) CIFailed(ctx context.Context, failure CIFailure) {
+	now := s.svc.now()
+	day := startOfDay(now)
+	id, err := protocol.NewID(now, s.entropy)
+	if err != nil {
+		s.svc.log.Error("could not make an activity id", "error", err)
+		return
+	}
+	projectID := failure.ProjectID
+	entry := protocol.FeedEntry{
+		ID: id, Kind: protocol.FeedKindCI, Text: ciFailureText(failure), ProjectID: &projectID,
+		At: protocol.NewTimestamp(now), CardID: failure.CardID, CardKey: failure.CardKey,
+	}
+	err = s.svc.store.Write(ctx, func(q *db.Queries) error {
+		seq, err := q.NextActivitySeq(ctx)
+		if err != nil {
+			return fmt.Errorf("take the next activity number: %w", err)
+		}
+		if err := q.UpsertDailyStat(ctx, db.UpsertDailyStatParams{
+			Day: day.UnixMilli(), ProjectID: failure.ProjectID, CiFailures: 1,
+		}); err != nil {
+			return fmt.Errorf("add to the day's numbers: %w", err)
+		}
+		subjectKind := ""
+		if failure.CardID != "" {
+			subjectKind = subjectCard
+		}
+		if err := q.InsertActivity(ctx, db.InsertActivityParams{
+			ID: id, Seq: seq, ProjectID: failure.ProjectID, Kind: string(protocol.FeedKindCI),
+			SubjectKind: subjectKind, SubjectID: failure.CardID, SubjectKey: failure.CardKey,
+			Summary: entry.Text, CreatedAt: now.UnixMilli(),
+		}); err != nil {
+			return fmt.Errorf("append to the activity stream: %w", err)
+		}
+		return q.TrimActivity(ctx, now.AddDate(0, 0, -activityRetentionDays).UnixMilli())
+	})
+	if err != nil {
+		s.svc.log.Error("could not store a CI failure", "project", failure.ProjectID, "error", err)
+		return
+	}
+	dayStats, err := s.dayStats(ctx, day, failure.ProjectID)
+	if err != nil {
+		s.svc.log.Error("could not read back the day's numbers", "day", day, "error", err)
+	}
+	s.bus.Publish(string(protocol.HomeTopic), string(protocol.EventTypeActivityCreated),
+		protocol.ActivityCreatedEventData{Entry: entry, Day: dayStats}, false)
+}
+
+// ciFailureText is the line a failed run writes: the card it is on, or the branch when no card owns it.
+func ciFailureText(failure CIFailure) string {
+	where := "branch " + failure.Branch
+	if failure.CardKey != "" {
+		where = fmt.Sprintf("%s %s", failure.CardKey, failure.CardTitle)
+	}
+	if failure.Workflow == "" {
+		return "CI failed on " + where
+	}
+	return fmt.Sprintf("CI failed on %s (%s)", where, failure.Workflow)
 }
 
 // stateLabel is a state in the words the app uses for it.

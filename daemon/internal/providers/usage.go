@@ -58,12 +58,36 @@ type UsageRecorder interface {
 type StoreRecorder struct {
 	store   *store.Store
 	entropy io.Reader
+	loc     func() *time.Location
+}
+
+// RecorderOption changes how NewStoreRecorder builds a recorder.
+type RecorderOption func(*StoreRecorder)
+
+// WithLocation sets the zone a call's cost is bucketed into days by, read on every call so a zone
+// the person changes applies at once. Without it, or when it answers nil, a call keeps its own zone.
+func WithLocation(loc func() *time.Location) RecorderOption {
+	return func(r *StoreRecorder) { r.loc = loc }
 }
 
 // NewStoreRecorder returns a recorder that writes into st. entropy makes each row's opaque id; use
 // crypto/rand.Reader in the daemon and a fixed reader in a test.
-func NewStoreRecorder(st *store.Store, entropy io.Reader) *StoreRecorder {
-	return &StoreRecorder{store: st, entropy: entropy}
+func NewStoreRecorder(st *store.Store, entropy io.Reader, opts ...RecorderOption) *StoreRecorder {
+	r := &StoreRecorder{store: st, entropy: entropy}
+	for _, opt := range opts {
+		opt(r)
+	}
+	return r
+}
+
+// dayOf is the midnight, in the chosen zone, of the day a call finished.
+func (r *StoreRecorder) dayOf(at time.Time) time.Time {
+	if r.loc != nil {
+		if loc := r.loc(); loc != nil {
+			at = at.In(loc)
+		}
+	}
+	return dayStart(at)
 }
 
 // Record writes one usage row and adds its cost to that day's total, in one transaction. The two are
@@ -101,7 +125,7 @@ func (r *StoreRecorder) Record(ctx context.Context, rec UsageRecord) error {
 			return nil
 		}
 		if err := q.UpsertDailyStat(ctx, db.UpsertDailyStatParams{
-			Day:        dayStart(rec.At).UnixMilli(),
+			Day:        r.dayOf(rec.At).UnixMilli(),
 			ProjectID:  rec.ProjectID,
 			CostMicros: rec.CostMicros,
 		}); err != nil {
@@ -111,9 +135,9 @@ func (r *StoreRecorder) Record(ctx context.Context, rec UsageRecord) error {
 	})
 }
 
-// dayStart is midnight of t's own day, in t's own location. It has to bucket a call's cost into the
-// same day the dashboard's cardFinished writes its numbers into (internal/dashboard.startOfDay), or
-// the Home chart and the usage rows would disagree about which day a call belongs to.
+// dayStart is midnight of t's own day, in t's own location. The recorder passes a time already in
+// the chosen zone, so a call's cost lands on the same day as the dashboard's numbers
+// (internal/dashboard.startOfDay).
 func dayStart(t time.Time) time.Time {
 	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
 }
