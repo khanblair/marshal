@@ -5344,6 +5344,13 @@ export interface CalendarEvent {
   end?: Timestamp | null;
   /** AllDay says the event covers whole days, so its time of day means nothing. */
   allDay: boolean;
+  /**
+   * StartDate and EndDate are an all-day event's own dates, "2026-10-09", which belong to no zone,
+   * so a screen draws the event on that date whatever zone it is in. EndDate is the first date the
+   * event no longer covers. Empty for a timed event.
+   */
+  startDate?: string;
+  endDate?: string;
   /** Location is the place, as typed. Empty when there is none. */
   location: string;
   /** URL opens the event in Google Calendar. Empty when there is none. */

@@ -124,6 +124,9 @@ type Event struct {
 	// which is how Google states it. Zero when Google gave none.
 	EndAt  time.Time
 	AllDay bool
+	// StartDate and EndDate are an all-day event's own dates, "2026-10-09", which belong to no zone.
+	// EndDate is the first day the event no longer covers. Both are empty for a timed event.
+	StartDate, EndDate string
 	// Location is the place, as typed. Empty when there is none.
 	Location string
 	// URL opens the event in Google Calendar.
@@ -218,8 +221,10 @@ func eventOf(item *calendar.Event, ref Ref) Event {
 	}
 	if item.Start.Date != "" {
 		event.AllDay = true
+		event.StartDate = item.Start.Date
 		event.StartAt, _ = time.ParseInLocation("2006-01-02", item.Start.Date, time.Local)
 		if item.End != nil && item.End.Date != "" {
+			event.EndDate = item.End.Date
 			event.EndAt, _ = time.ParseInLocation("2006-01-02", item.End.Date, time.Local)
 		}
 		return event

@@ -187,6 +187,31 @@ func (s *Service) calendarClient(ctx context.Context) (*googlecal.Client, string
 // how the read went comes back as a protocol.GoogleReading, so the calendar view can still show its
 // schedules and due cards when Google cannot be read, and say why Google's events are missing.
 func (s *Service) GoogleEvents(ctx context.Context, start, end time.Time) ([]googlecal.Event, protocol.GoogleReading) {
+	events, reading := s.googleEvents(ctx, start, end)
+	return anchorAllDay(events, s.now().Location()), reading
+}
+
+// anchorAllDay puts each all-day event's start and end at midnight of its own dates in the zone
+// the person chose, so an event "on the 9th" starts when their 9th does. It works on a copy: the
+// cache keeps what Google said, and a zone chosen later reads the same cached events correctly.
+func anchorAllDay(events []googlecal.Event, loc *time.Location) []googlecal.Event {
+	out := make([]googlecal.Event, len(events))
+	copy(out, events)
+	for i := range out {
+		if !out[i].AllDay {
+			continue
+		}
+		if at, err := time.ParseInLocation("2006-01-02", out[i].StartDate, loc); err == nil {
+			out[i].StartAt = at
+		}
+		if at, err := time.ParseInLocation("2006-01-02", out[i].EndDate, loc); err == nil {
+			out[i].EndAt = at
+		}
+	}
+	return out
+}
+
+func (s *Service) googleEvents(ctx context.Context, start, end time.Time) ([]googlecal.Event, protocol.GoogleReading) {
 	client, refresh, err := s.calendarClient(ctx)
 	switch {
 	case errors.Is(err, ErrNotConnected) || errors.Is(err, ErrNoGoogleClient):
@@ -252,6 +277,7 @@ func (s *Service) readEvents(ctx context.Context, client *googlecal.Client, gran
 // is not connected, is no event: nothing is ever held back because of it. It reads the same two days
 // the scheduler's watcher does, so the two share one cached call.
 func (s *Service) EventNow(ctx context.Context, t time.Time) (googlecal.Event, bool) {
+	t = t.In(s.now().Location())
 	start := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
 	events, reading := s.GoogleEvents(ctx, start, start.Add(2*24*time.Hour))
 	if !reading.Connected || reading.Error != "" {

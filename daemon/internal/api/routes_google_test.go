@@ -126,6 +126,21 @@ func TestTheCalendarListsGoogleEventsWithTheirDetail(t *testing.T) {
 	}
 }
 
+func TestTheGoogleCalendarRowSaysWhichAccountIsConnected(t *testing.T) {
+	st := newStack(t, withGoogle(fakeGoogleServer(t, nil)))
+	connectGoogle(t, st)
+	list := decode[protocol.IntegrationList](t, st.do(http.MethodGet, "/v1/integrations", nil).want(t, http.StatusOK))
+	for _, row := range list.Integrations {
+		if row.ID == "gcal" {
+			if row.Detail != "Reading 1 calendar(s) of me@x.com." {
+				t.Errorf("the row says %q, want it to name the account", row.Detail)
+			}
+			return
+		}
+	}
+	t.Fatal("the list has no Google Calendar row")
+}
+
 func TestTheCalendarKeepsItsOtherPartsWhenGoogleCannotBeRead(t *testing.T) {
 	var down atomic.Bool
 	st := newStack(t, withGoogle(fakeGoogleServer(t, &down)))

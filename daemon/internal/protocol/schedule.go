@@ -151,6 +151,11 @@ type CalendarEvent struct {
 	End *Timestamp `json:"end" tstype:"Timestamp | null"`
 	// AllDay says the event covers whole days, so its time of day means nothing.
 	AllDay bool `json:"allDay"`
+	// StartDate and EndDate are an all-day event's own dates, "2026-10-09", which belong to no zone,
+	// so a screen draws the event on that date whatever zone it is in. EndDate is the first date the
+	// event no longer covers. Empty for a timed event.
+	StartDate string `json:"startDate,omitempty"`
+	EndDate   string `json:"endDate,omitempty"`
 	// Location is the place, as typed. Empty when there is none.
 	Location string `json:"location"`
 	// URL opens the event in Google Calendar. Empty when there is none.

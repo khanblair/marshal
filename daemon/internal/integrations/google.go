@@ -528,9 +528,16 @@ func (s *Service) testGCal(ctx context.Context, info Info) (protocol.TestResult,
 			Fix:     "Reconnect Google Calendar in Settings.",
 		}}, s.now()), nil
 	}
+	message := fmt.Sprintf("Reading %d calendar(s).", len(calendars))
+	for _, calendar := range calendars {
+		// The primary calendar is named after the Google account, so the row says whose it is.
+		if calendar.Primary {
+			message = fmt.Sprintf("Reading %d calendar(s) of %s.", len(calendars), calendar.ID)
+			break
+		}
+	}
 	return protocol.NewTestResult(info.ID, []protocol.TestCheck{{
-		Name: CheckSummary, State: protocol.CheckStatePassed,
-		Message: fmt.Sprintf("Reading %d calendar(s).", len(calendars)),
+		Name: CheckSummary, State: protocol.CheckStatePassed, Message: message,
 	}}, s.now()), nil
 }
 

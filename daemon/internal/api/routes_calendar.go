@@ -47,7 +47,7 @@ func (s *Server) calendarEvents(ctx context.Context, start, end int64) ([]protoc
 	for i, event := range found {
 		wire := protocol.CalendarEvent{
 			ID: event.ID, Title: event.Title, Start: protocol.NewTimestamp(event.StartAt),
-			AllDay: event.AllDay, Location: event.Location, URL: event.URL, JoinURL: event.JoinURL,
+			AllDay: event.AllDay, StartDate: event.StartDate, EndDate: event.EndDate, Location: event.Location, URL: event.URL, JoinURL: event.JoinURL,
 			Calendar: event.CalendarName,
 		}
 		if !event.EndAt.IsZero() {
