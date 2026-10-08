@@ -59,7 +59,10 @@ export function ProfileSection(props: { profile: ProfileDraft }) {
             onInput={(e) => props.profile.edit("email", e.currentTarget.value)}
           />
         </Field>
-        <Field label="Time zone" hint="Briefs and schedules run in this time zone.">
+        <Field
+          label="Time zone"
+          hint="Schedules, briefs, and every time and day on screen use this zone. Not set means this device's zone."
+        >
           <Select
             class="px-2.5!"
             options={zoneOptions(fields().tz)}

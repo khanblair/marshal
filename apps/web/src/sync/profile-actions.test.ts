@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { zoneName } from "~/data/zone";
 import { createFakeDaemon, type FakeDaemon } from "~/testing/fake-daemon";
 import { wireProfile } from "~/testing/fake-me";
 import { PROTOTYPE_PROJECTS } from "~/testing/projects";
@@ -60,6 +61,13 @@ describe("saving the profile on the daemon", () => {
       initials: "GH",
     });
     expect(toasts(M)).toEqual(["Profile saved"]);
+  });
+
+  it("puts the saved time zone in force for every date on screen", async () => {
+    const d = open();
+    const { M } = await synced(d);
+    await M.saveProfile({ ...fields, tz: "Asia/Singapore" });
+    expect(zoneName()).toBe("Asia/Singapore");
   });
 
   it("clears an email with the empty string", async () => {

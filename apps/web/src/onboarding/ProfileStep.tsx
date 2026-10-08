@@ -64,7 +64,10 @@ export function ProfileStep(props: ProfileStepProps) {
             autocomplete="email"
           />
         </Field>
-        <Field label="Time zone" hint="Optional. Briefs and schedules run in this time zone.">
+        <Field
+          label="Time zone"
+          hint="Optional. Schedules, briefs, and every time and day on screen use this zone. Not set means this device's zone."
+        >
           <Select
             class="px-2.5!"
             options={[{ value: "", label: "Not set" }, ...zoneChoices(props.draft.tz)]}

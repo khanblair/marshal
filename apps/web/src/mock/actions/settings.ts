@@ -1,3 +1,4 @@
+import { setZone } from "~/data/zone";
 import type { CardKey } from "../card-key";
 import type { Ctx } from "../context";
 import { addAct, later, toast } from "../engine";
@@ -29,6 +30,7 @@ export function saveProfile(
     email: fields.email.trim(),
     tz: fields.tz,
   });
+  setZone(fields.tz);
   toast(ctx, "Profile saved");
   return true;
 }

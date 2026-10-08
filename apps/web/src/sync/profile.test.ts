@@ -1,6 +1,8 @@
 import type { Profile } from "@marshal/protocol";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { golden } from "~/data/testing/golden";
+import { currentTimeZone } from "~/data/time-zones";
+import { zoneName } from "~/data/zone";
 import { createFakeDaemon, type FakeDaemon } from "~/testing/fake-daemon";
 import { wireProfile } from "~/testing/fake-me";
 import { PROTOTYPE_PROJECTS } from "~/testing/projects";
@@ -73,6 +75,18 @@ describe("loading the person", () => {
       node: "",
     });
     expect(M.S.profile.devices.map((device) => device.name)).toEqual(["Pixel 8", "iPad Air"]);
+  });
+
+  it("puts the profile's time zone in force for every date on screen, or the device's when none is set", async () => {
+    const d = open({ profile: wireProfile({ timeZone: "America/Los_Angeles" }) });
+    await synced(d);
+    expect(zoneName()).toBe("America/Los_Angeles");
+    d.emit("me", "me.updated", {
+      profile: { ...d.me.profile, timeZone: "" },
+      preferences: d.me.preferences,
+      progress: d.me.progress,
+    });
+    expect(zoneName()).toBe(currentTimeZone());
   });
 
   it("shows a person who has no email or time zone as empty", async () => {

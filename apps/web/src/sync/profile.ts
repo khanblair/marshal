@@ -10,6 +10,7 @@ import {
 import { batch } from "solid-js";
 import type { ApiClient } from "~/data/api-client";
 import { isRecord } from "~/data/guards";
+import { setZone } from "~/data/zone";
 import type { Ctx } from "~/mock/context";
 import { type AvatarPicture, createAvatarPicture } from "./avatar";
 import { toPerson, toStoredProfile } from "./me-mapper";
@@ -55,6 +56,8 @@ export function applyProfile(ctx: Ctx, wire: WireProfile, snapshot = false): voi
   if (at) appliedAt.set(ctx, at);
   const { S } = ctx;
   batch(() => {
+    // Every date and time on screen is read in the profile's zone.
+    setZone(wire.timeZone);
     for (const [key, value] of Object.entries(toStoredProfile(wire))) {
       if (S.profile[key as keyof typeof S.profile] !== value)
         Object.assign(S.profile, { [key]: value });
