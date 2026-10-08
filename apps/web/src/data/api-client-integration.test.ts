@@ -16,6 +16,7 @@ describe("the merge flow's routes", () => {
     "POST /v1/projects/web/integration/resume": () => jsonAnswer(state),
     [`POST /v1/cards/${card.id}/merge/retry`]: () => jsonAnswer(card),
     [`POST /v1/cards/${card.id}/merge/undo`]: () => jsonAnswer(card),
+    [`POST /v1/cards/${card.id}/send-to-merge`]: () => jsonAnswer(card),
     [`POST /v1/cards/${card.id}/worktree/open`]: () => emptyAnswer(),
   };
 
@@ -26,6 +27,7 @@ describe("the merge flow's routes", () => {
     expect(await client.resumeIntegration("web")).toEqual(state);
     expect(await client.retryCardMerge(card.id)).toEqual(card);
     expect(await client.undoCardMerge(card.id)).toEqual(card);
+    expect(await client.sendCardToMerge(card.id)).toEqual(card);
     expect(await client.openCardWorktree(card.id, { with: "finder" })).toBeUndefined();
     expect(calls.map((c) => `${c.method} ${c.url}`)).toEqual(Object.keys(routes));
   });

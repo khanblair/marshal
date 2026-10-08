@@ -103,6 +103,8 @@ export function historyItem(
 }
 
 const NO_MERGE_QUEUE = "Marshal has nothing at that address.";
+const NO_COMMITS =
+  "This card has no commits to merge yet. Commit its work, or ask the agent to, and send it again.";
 const NOTHING_TO_UNDO =
   "This card was not delivered by the Integrator, so there is nothing to undo.";
 
@@ -172,6 +174,19 @@ function retry(store: MergeFlowStore, card: WireCard): Response {
   return jsonAnswer(card);
 }
 
+/**
+ * Sends a card with committed work to Ready to merge, as the daemon does for a project with no GitHub
+ * origin. A card that has no branch has nothing to merge, and says so in the daemon's own words.
+ */
+function send(store: MergeFlowStore, card: WireCard): Response {
+  if (card.state !== "ready") {
+    if (!card.branch) return errorAnswer(STATUS.refused, "refused", NO_COMMITS);
+    card.state = "ready";
+    store.publish(`project:${card.projectId}`, "card.updated", { card });
+  }
+  return jsonAnswer(card);
+}
+
 /** Takes a delivered card out of what was delivered and back to Ready to merge. */
 function undo(store: MergeFlowStore, card: WireCard): Response {
   const state = stateOf(store, card.projectId);
@@ -188,7 +203,8 @@ function undo(store: MergeFlowStore, card: WireCard): Response {
 export function answerMergeFlowRoute(store: MergeFlowStore, request: FakeRequest): Response | null {
   const path = request.url.replace(/^https?:\/\/[^/]+/, "").split("?")[0] ?? "";
   const project = /^\/v1\/projects\/([^/]+)\/integration(?:\/(pause|resume))?$/.exec(path);
-  const onCard = /^\/v1\/cards\/([^/]+)\/(merge\/retry|merge\/undo|worktree\/open)$/.exec(path);
+  const onCard =
+    /^\/v1\/cards\/([^/]+)\/(merge\/retry|merge\/undo|send-to-merge|worktree\/open)$/.exec(path);
   if (!project && !onCard) return null;
   // Opening a folder needs only the card, not the merge queue, so it answers on every daemon.
   if (store.absent && onCard?.[2] !== "worktree/open") return notFound();
@@ -206,6 +222,7 @@ export function answerMergeFlowRoute(store: MergeFlowStore, request: FakeRequest
   if (!card) return noCard();
   if (onCard[2] === "merge/retry") return retry(store, card);
   if (onCard[2] === "merge/undo") return undo(store, card);
+  if (onCard[2] === "send-to-merge") return send(store, card);
   const body = request.body ? (JSON.parse(request.body) as { with?: string }) : {};
   store.opened.push({ cardId: card.id, with: body.with ?? "" });
   return emptyAnswer();

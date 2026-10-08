@@ -66,6 +66,17 @@ describe("cardActions", () => {
     expect(labels("api#33")).toEqual(["Fork"]);
   });
 
+  it("offers Send to merge on a card with real work that is not waiting or finished", () => {
+    expect(labels("api#41")).not.toContain("Send to merge");
+    cardOf("api#41").worktree = "/data/worktrees/api/01HZ41";
+    expect(labels("api#41")).toContain("Send to merge");
+    cardOf("api#41").state = "backlog";
+    expect(labels("api#41")).not.toContain("Send to merge");
+    cardOf("api#36").worktree = "/data/worktrees/api/01HZ36";
+    expect(labels("api#36")).toContain("Merge");
+    expect(labels("api#36")).not.toContain("Send to merge");
+  });
+
   it("shows Unpin for a pinned card", () => {
     expect(labels("mobile#207")).toContain("Unpin");
   });

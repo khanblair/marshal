@@ -9,6 +9,7 @@ import {
   pauseMerging,
   resumeMerging,
   retryMerge,
+  sendToMerge,
   undoMerge,
 } from "./integration-flow";
 
@@ -234,8 +235,23 @@ describe("retrying and undoing a card's merge", () => {
     expect(daemon.routes().filter((route) => route.endsWith("/merge/retry"))).toHaveLength(2);
   });
 
+  it("sends a card to the merge queue and draws it as ready, or says the daemon's own sentence", async () => {
+    const id = idOf("mobile#210");
+    expect(await sendToMerge("mobile#210")).toBe(true);
+    expect(daemon.routes()).toContain(`POST /v1/cards/${id}/send-to-merge`);
+    expect(M.S.cards.find((card) => card.id === "mobile#210")?.state).toBe("ready");
+    expect(toasts()).toContain("Sent mobile#210 to the merge queue");
+
+    const sentence =
+      "This project is on GitHub, so its cards reach Ready to merge through a pull request and a review.";
+    daemon.refuseNext(`POST /v1/cards/${idOf("api#41")}/send-to-merge`, 422, "refused", sentence);
+    expect(await sendToMerge("api#41")).toBe(false);
+    expect(toasts()).toContain(sentence);
+  });
+
   it("asks nothing for a key the store does not have", async () => {
     expect(await retryMerge("nope#1")).toBe(false);
+    expect(await sendToMerge("nope#1")).toBe(false);
     expect(await undoMerge("nope#1")).toBe(false);
     expect(await openCardWorktree("nope#1", "finder")).toBe(false);
     expect(

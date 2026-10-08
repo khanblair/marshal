@@ -278,24 +278,33 @@ export async function openCardWorktree(
   return opened === true;
 }
 
-/** Runs a card's merge or delivery again, or puts the branch back, and draws the card it answers. */
+const MERGE_CALLS = {
+  retry: (api: ApiClient, id: string) => api.retryCardMerge(id),
+  undo: (api: ApiClient, id: string) => api.undoCardMerge(id),
+  send: (api: ApiClient, id: string) => api.sendCardToMerge(id),
+};
+
+const MERGE_WORDS = {
+  retry: (key: string) => `Retrying the merge of ${key}`,
+  undo: (key: string) => `Undid the merge of ${key}`,
+  send: (key: string) => `Sent ${key} to the merge queue`,
+};
+
+/** Runs a card's merge or delivery again, sends it to the queue, or puts the branch back, and draws the card it answers. */
 async function changeMerge(
   cardId: string,
   ctx: Ctx | null | undefined,
-  kind: "retry" | "undo",
+  kind: "retry" | "undo" | "send",
 ): Promise<boolean> {
   const live = liveCtx(ctx);
   const daemonId = live ? daemonIdOf(live, cardId) : null;
   if (!live || !daemonId) return false;
   const card = await ask(live, `merge-${kind}:${daemonId}`, (api) =>
-    kind === "retry" ? api.retryCardMerge(daemonId) : api.undoCardMerge(daemonId),
+    MERGE_CALLS[kind](api, daemonId),
   );
   if (!card) return false;
   applyCard(live, card);
-  toast(
-    live,
-    kind === "retry" ? `Retrying the merge of ${card.key}` : `Undid the merge of ${card.key}`,
-  );
+  toast(live, MERGE_WORDS[kind](card.key));
   if (live.S.integration?.[card.projectId]) void readMergeFlow(live, card.projectId);
   return true;
 }
@@ -303,6 +312,13 @@ async function changeMerge(
 /** Runs a card's merge or delivery again after a stop that needed the owner. */
 export const retryMerge = (cardId: string, ctx?: Ctx | null): Promise<boolean> =>
   changeMerge(cardId, ctx, "retry");
+
+/**
+ * Sends a card whose work is committed to the merge queue. A project on GitHub is refused with the
+ * daemon's own sentence: its cards go through a pull request and a review.
+ */
+export const sendToMerge = (cardId: string, ctx?: Ctx | null): Promise<boolean> =>
+  changeMerge(cardId, ctx, "send");
 
 /** Puts the integration branch back to where it was before a card's merge. */
 export const undoMerge = (cardId: string, ctx?: Ctx | null): Promise<boolean> =>

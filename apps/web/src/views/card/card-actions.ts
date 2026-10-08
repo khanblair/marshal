@@ -2,6 +2,7 @@ import { SessionStateStopped } from "@marshal/protocol";
 import { batch } from "solid-js";
 import { type ApprovalMsg, type Card, type Column, M, type PlanMsg } from "~/mock";
 import type { CardKey } from "~/mock/card-key";
+import { sendToMerge } from "~/sync/integration-flow";
 import { exportCardToDoc, exportKey, saveNoteToDrive } from "~/views/google-export/export-actions";
 import { isExporting } from "~/views/google-export/export-run";
 
@@ -81,6 +82,23 @@ function queueMerge(card: Card): void {
   });
 }
 
+/**
+ * A card with a worktree has real work, so the daemon's queue is asked to take it. A card without
+ * one is the mock's own, which is drawn as merging.
+ */
+function mergeReady(card: Card): void {
+  if (card.worktree) void sendToMerge(card.id);
+  else queueMerge(card);
+}
+
+/**
+ * A card with a worktree that is not waiting or finished can be sent to the merge queue. Whether its
+ * project may do that (no GitHub origin), and whether it has commits, is the daemon's to say.
+ */
+function canSendToMerge(card: Card): boolean {
+  return !!card.worktree && ["working", "needs", "review"].includes(card.state);
+}
+
 /** The buttons above the settings, in the design's order. Read it inside a memo. */
 export function cardActions(card: Card, mobile: boolean): CardAction[] {
   const id = card.id;
@@ -100,7 +118,11 @@ export function cardActions(card: Card, mobile: boolean): CardAction[] {
     );
   }
   actions.push(action("Fork", "git-fork", () => M.fork(id)));
-  if (card.state === "ready") actions.push(action("Merge", "git-merge", () => queueMerge(card)));
+  if (card.state === "ready") {
+    actions.push(action("Merge", "git-merge", () => mergeReady(card)));
+  } else if (canSendToMerge(card)) {
+    actions.push(action("Send to merge", "git-merge", () => void sendToMerge(card.id)));
+  }
   return actions;
 }
 

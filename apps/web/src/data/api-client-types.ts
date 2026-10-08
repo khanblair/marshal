@@ -372,6 +372,11 @@ export interface ApiClient {
   /** Puts the integration branch back to where it was before the card's merge. Answers the card. */
   undoCardMerge(cardId: string, options?: CallOptions): Promise<Card>;
   /**
+   * Says a card's committed work is finished, for a project with no GitHub origin, and sends it to
+   * the merge queue. Answers the card as it now is, or the daemon's sentence for why it cannot go.
+   */
+  sendCardToMerge(cardId: string, options?: CallOptions): Promise<Card>;
+  /**
    * Shows the card's worktree in the file manager or the editor of the machine the daemon runs on.
    * The daemon answers only a request that comes from that machine.
    */
