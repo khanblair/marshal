@@ -17,6 +17,7 @@ Marshal is a lightweight desktop app and background service for running AI codin
 | `ui-tokens.md` | What are the design values? |
 | `ui-rules.md` | How should the UI look, read, and behave? |
 | `ui-registry.md` | Which UI components exist? |
+| `mobile.md` | How does the mobile app connect, look, and behave? |
 | `design-port.md` | How did the Claude Design become the app, and what differs from it? |
 | `backend-checklist.md` | How do we build the daemon and replace the prototype's dummy data, and how is each step tested? |
 | `backend-inventory.md` | What does the prototype do, and where does each piece live in the backend? |
