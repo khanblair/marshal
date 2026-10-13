@@ -1347,7 +1347,7 @@ You can reply to a brief (in the app or in chat) to create cards or ask question
   - The project screen takes a repository folder, a GitHub clone, or a sample project to try Marshal safely.
   - The "stay in control" screen is optional: pairing a phone over Tailscale, and Telegram or Discord for notices.
   - The last screen opens the Home dashboard, where the tour starts.
-- **Tutorial tour:** after onboarding, a short guided tour on the Home dashboard highlights one control at a time and explains what it does: needs you, tiles and charts, recent activity, the project list, new project, the view switcher, search, notices, and the profile avatar. It can be skipped at any step and replayed later.
+- **Tutorial tour:** after onboarding, a short guided tour on the Home dashboard highlights one control at a time and explains what it does: tiles and charts, needs you, recent activity, the project list, new project, the view switcher, search, notices, and the profile avatar. It can be skipped at any step and replayed later.
 - **Why:** new users should reach a working setup quickly, and learn the main controls without reading docs, while experienced users can skip straight in.
 
 ### 23.9 Responsive layouts

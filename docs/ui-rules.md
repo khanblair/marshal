@@ -477,6 +477,7 @@ A short guided tour on the Home dashboard that shows what the main controls do.
 | 6 | View switcher | Moving between board, chats, agents, and other views |
 | 7 | Search | The command palette and shortcuts |
 | 8 | Notices | Alerts that happen while you are away |
+| 9 | Profile avatar | Open your profile and settings, or replay this tour |
 | 9 | Profile avatar | Your profile and settings |
 
 - The tour can be skipped at any step. Skipping asks nothing further.

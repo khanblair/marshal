@@ -102,6 +102,8 @@ After adding, add an entry here with the major version, purpose, and notes.
 | `github.com/zalando/go-keyring` | v0 | OS keychain access | Works on macOS, Linux (Secret Service), and Windows |
 | `github.com/zricethezav/gitleaks/v8` | v8 | Secret scanning on agent commits | Well-known rule set, usable as a library |
 
+`github.com/rs/zerolog` and `github.com/fatih/semgroup` are imported only in `daemon/internal/secrets/secrets.go`, to switch off gitleaks's own logging and to size its detector. Marshal logs through `slog`; use neither library elsewhere.
+
 **Notes:**
 
 - tsnet adds noticeably to binary size. **Measured for task 9.1 on 2026-09-28** (macOS arm64, `CGO_ENABLED=0`, compiling `./cmd/marshald` with and without `internal/tailnet`): **+15.13 MiB stripped** (`-ldflags="-s -w"`), or +22.22 MiB unstripped. The whole daemon is 70.86 MiB stripped with tsnet, against the download budget of "under 50 MB" in `architecture.md` section 14. The daemon already misses that without tsnet, at 55.73 MiB. The budget is a release-build check and this is a bare Go build, so the real reading is the controller's; both numbers are recorded.
@@ -199,6 +201,7 @@ The codebase map needs to read symbols from many languages. Options:
 - `tauri-plugin-single-instance` (not added yet): only one app window process.
 - `tauri-plugin-deep-link` (2): `marshal://` links from notifications and chat bots.
 - `tauri-plugin-updater` (2): app updates.
+- `@tauri-apps/plugin-dialog` and `tauri-plugin-dialog` (2): the native folder picker when adding a project from a folder.
 
 When the desktop app is closed, the daemon sends OS notifications itself through a small platform helper, so notices still arrive.
 
