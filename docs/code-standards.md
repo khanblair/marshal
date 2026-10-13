@@ -8,103 +8,16 @@ When a rule here conflicts with a habit, follow the rule. When a rule seems wron
 
 ## 1. Repository layout
 
-This is the folder overview. Every planned file, and what it is for, is listed in `project-structure.md`. Adding, moving, renaming, or deleting a file means updating that document and logging the change in `progress-tracker.md`.
+The folder tree is in `project-structure.md`, with one section for each part of the repo (daemon, web app, desktop and phone shells, `packages/ui`, `packages/tokens`, `packages/protocol`, `tools/`, `scripts/`). The full file list is `git ls-files`. The daemon modules are described in `architecture.md`, and the root scripts in `development.md`.
 
-```
-marshal/
-  package.json               root scripts, see development.md
-  pnpm-workspace.yaml        workspace packages
-  daemon/                    Go module (package.json holds scripts only)
-    cmd/
-      marshald/              daemon entry point
-      marshal/               command line tool entry point
-    internal/                all daemon modules (see architecture.md)
-      api/
-      events/
-      projects/
-      chats/
-      accounts/
-      dashboard/
-      session/
-      harness/
-      agents/
-        acp/
-        pty/
-        builtin/
-      providers/
-      gitx/
-      integrator/
-      ci/
-      scheduler/
-      mcpserver/
-      memory/
-      codemap/
-      integrations/
-        github/
-        trello/
-        gcal/
-        gmail/
-        telegram/
-        discord/
-      notify/
-      security/
-        permissions/
-        secrets/
-        audit/
-        keychain/
-      remote/
-      preview/
-      store/
-        migrations/
-        queries/
-      budgets/
-    testdata/                fixture repos and golden files
-  apps/
-    web/                     SolidJS app, used by desktop and web UI
-      src/
-        app/                 app shell, routes, top bar, navigation
-        layouts/             desktop, tablet, and phone layouts
-        views/               one folder per view
-          home/              dashboard
-          chats/             chat list and chat
-          agents/
-          board/
-          list/
-          timeline/
-          calendar/
-          card/              card detail
-          settings/
-            profile/
-            projects/
-            roles/
-            providers/
-            schedules/
-            integrations/
-        onboarding/          first-run screens
-        features/            feature logic shared across views
-          tutorial/          the Home tour
-          projects/          create, rename, remove
-          chats/             create, rename, archive, delete
-        stores/              client state
-        lib/                 small helpers
-    desktop/                 Tauri v2 shell
-      src-tauri/
-  packages/
-    ui/                      component library, see ui-registry.md
-    tokens/                  design tokens, see ui-tokens.md
-    protocol/                generated API types from Go
-  tools/
-    stub-agent/              fake ACP agent for tests
-    budgets/                 budget measurement scripts
-  docs/                      these documents
-```
+Check `project-structure.md` when you add, move, rename, or delete a file. Edit it when a folder, or a kind of file it lists, changes. Always log the change in `progress-tracker.md`.
 
 Rules:
 
 - **Daemon code stays in `internal/`.** Nothing outside the daemon imports it.
 - **One module, one folder.** A module does not read another module's tables. It calls the other module's interface or listens to its events.
 - **UI components live in `packages/ui`.** Views in `apps/web` compose them. Views do not define reusable components.
-- **Generated code is never edited by hand.** It lives in clearly named folders (`packages/protocol`, `store/queries`) and is rebuilt by a script.
+- **Generated code is never edited by hand.** It lives in clearly named folders (`packages/protocol/src/generated`, `daemon/internal/store/db`) and is rebuilt by a script. `project-structure.md` lists them all.
 
 ---
 
