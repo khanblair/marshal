@@ -172,6 +172,11 @@ stateDiagram-v2
 
 **Managing projects.** Projects can be created (from a folder or a GitHub clone), renamed, edited, and removed. Removing a project takes it out of Marshal only, and never deletes the repository on disk.
 
+- **Create:** asks for the repository folder (or a GitHub repo to clone), the name, and the default branch. Monorepos are detected automatically.
+- **Rename:** the name must be unique.
+- **Edit:** default branch, integrations, limits, role overrides, and the memory vault folder.
+- **Remove:** running sessions stop, worktrees are cleaned up, and the project's cards and chats are deleted from Marshal. If any card has unmerged work, the user is told how many and can keep those branches. The user can also keep the project's memory folder in the vault. The user confirms first.
+
 **Many chats, one board.** A project can have many chats, each about a different topic, but all cards they create go onto the project's one board.
 
 **Two levels of limits.** Cost limits and the awake card limit work at both levels:
@@ -551,6 +556,7 @@ The card is the main unit of work in Marshal.
   - Link chips show the site and the link text. Marshal does not fetch linked pages by itself, to stay private and light. The agent opens a link only if its permissions allow network use.
   - Attachments are stored on the machine that hosts the project, with a size limit per file set in settings.
   - Board cards show a comment count and an attachment count.
+  - People can edit and delete their own comments. A deleted comment is removed, not shown as "deleted".
 - **Why:** chat is for steering the agent in real time. Comments are for notes, files, and discussion that belong to the card and stay with it.
 
 ### 9.15 Members
@@ -1142,6 +1148,9 @@ You can reply to a brief (in the app or in chat) to create cards or ask question
 - **Webhooks first**, through Tailscale Funnel, with cheap polling as a backup.
 - Tokens are stored in the **OS keychain**.
 - **Test connection:** every integration, provider API key, and MCP server has a test button. It checks sign-in, permissions, and, where the service uses webhooks, that events reach Marshal through Funnel. For Telegram and Discord it sends a test message. Results say what passed, what failed, and how to fix it. Connections are also tested right after they are added.
+  - A result is **passed**, **partly working** (sign-in works but something is missing, such as a permission or the webhook), or **failed**.
+  - After a test, the same connection cannot be tested again for a few seconds, to respect the service's rate limits.
+  - The last result shows on the integration's status.
 - New integrations can be added through the **Plugin API** (see [Section 22](#22-skills-mcp-and-plugins)).
 
 ### 19.2 Trello sync
@@ -1328,11 +1337,16 @@ You can reply to a brief (in the app or in chat) to create cards or ask question
 
 - **What:** a top bar on every screen, with the project name on the left, and search, notices, and the **profile avatar** on the right.
 - **How it works:** clicking the avatar opens Settings on the Profile page: name, avatar, email, time zone, paired devices, and tailnet identity. In team mode it also shows the user's roles.
+- **Profile details:** the email is optional and is used for briefs by email. The time zone decides what every time and day means (see [Section 18.7](#187-one-time-zone-everywhere)). Paired devices can be removed.
 - **Why:** a familiar, always-visible place for the user's own settings.
 
 ### 23.8 Onboarding and tutorial
 
 - **Onboarding:** four screens on first launch, each with Skip: welcome, connect agents and API keys, add the first project (or a sample project), and stay in control from anywhere (Tailscale pairing and chat apps). Skipped steps can be finished later.
+  - The agents screen lists the detected CLI agents with their versions and has fields for provider API keys. At least one agent or key is suggested, not required.
+  - The project screen takes a repository folder, a GitHub clone, or a sample project to try Marshal safely.
+  - The "stay in control" screen is optional: pairing a phone over Tailscale, and Telegram or Discord for notices.
+  - The last screen opens the Home dashboard, where the tour starts.
 - **Tutorial tour:** after onboarding, a short guided tour on the Home dashboard highlights one control at a time and explains what it does: needs you, tiles and charts, recent activity, the project list, new project, the view switcher, search, notices, and the profile avatar. It can be skipped at any step and replayed later.
 - **Why:** new users should reach a working setup quickly, and learn the main controls without reading docs, while experienced users can skip straight in.
 

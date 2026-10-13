@@ -415,32 +415,22 @@ Every view is checked at three sizes in end-to-end tests: a phone (390 by 844), 
 
 ## 11. Projects and chats management
 
+Behavior: marshal-product-scope.md, sections 3.2 and 23.6.
+
 ### 11.1 Projects
 
-| Action | Where | Behavior |
-|---|---|---|
-| **Create** | "New project" in the sidebar, the command palette, or onboarding | A dialog asks for the repository folder (or a GitHub repo to clone), the name, and the default branch. Monorepos are detected automatically. |
-| **Rename** | Project row menu, or click the project name in project settings | Inline edit. `Enter` saves, `Esc` cancels. The name must be unique. |
-| **Edit** | Project settings | Default branch, integrations, limits, role overrides, and memory vault folder |
-| **Remove** | Project row menu or project settings | See below |
-
-**Removing a project:**
-
-- Removes it from Marshal only. **The repository on disk is never deleted.**
-- The confirm dialog lists what will happen: running sessions stop, worktrees are cleaned up, and cards and chats are deleted from Marshal.
-- If any card has unmerged work, the dialog says how many and offers to keep those branches.
-- The user can choose to keep the project's memory folder in the vault.
-- The confirm button says "Remove project".
+- **Create:** "New project" in the sidebar, the command palette, or onboarding. It opens a dialog.
+- **Rename:** the project row menu, or click the project name in project settings. Inline edit (11.3).
+- **Edit:** project settings.
+- **Remove:** the project row menu or project settings. The confirm dialog lists each effect, says how many cards have unmerged work and offers to keep those branches, and offers to keep the project's memory folder in the vault. The confirm button says "Remove project".
 
 ### 11.2 Chats
 
-| Action | Behavior |
-|---|---|
-| **Create** | "New chat", pick who to talk to, start typing |
-| **Rename** | Inline edit from the row menu, or by clicking the title in the open chat |
-| **Archive** | Moves the chat to the archived section. Its session sleeps. Nothing is deleted. Undo is offered in a toast. |
-| **Restore** | Moves an archived chat back to the list |
-| **Delete** | Confirmed. Removes the chat and its history. Cards it created stay on the board. |
+- **Create:** "New chat", pick who to talk to, start typing.
+- **Rename:** inline edit from the row menu, or by clicking the title in the open chat.
+- **Archive:** moves the chat to the archived section. A toast offers Undo.
+- **Restore:** moves an archived chat back to the list.
+- **Delete:** confirmed.
 
 ### 11.3 Inline rename rules
 
@@ -455,14 +445,16 @@ Every view is checked at three sizes in end-to-end tests: a phone (390 by 844), 
 
 ### 12.1 Onboarding
 
+Behavior: marshal-product-scope.md, section 23.8.
+
 Shown on first launch. Four screens, with a step indicator ("Step 2 of 4"), Back, Continue, and **Skip** on every screen. Skipped steps can be finished later from Settings.
 
 | Step | Title | Content |
 |---|---|---|
 | 1 | Welcome to Marshal | One sentence on what Marshal does, and a simple picture of a board with cards moving through the flag colors |
-| 2 | Connect your agents | Detected CLI agents with their versions, and fields to add API keys for providers. At least one agent or key is suggested, not required. |
-| 3 | Add your first project | Pick a repository folder, or clone from GitHub. Option to use a sample project instead, to try Marshal safely. |
-| 4 | Stay in control from anywhere | Pair a phone over Tailscale, and connect Telegram or Discord for notices. Both optional. |
+| 2 | Connect your agents | Detected CLI agents with their versions, and fields to add API keys for providers |
+| 3 | Add your first project | A repository folder picker or a GitHub clone, and a sample project option |
+| 4 | Stay in control from anywhere | Phone pairing over Tailscale, and Telegram or Discord for notices |
 
 - Onboarding works at every screen size.
 - On the last screen, "Open Marshal" goes to the Home dashboard, where the tutorial starts.
@@ -496,45 +488,52 @@ A short guided tour on the Home dashboard that shows what the main controls do.
 
 ## 13. Profile
 
+Behavior: marshal-product-scope.md, section 23.7.
+
 - Opened by clicking the **profile avatar** in the top right corner. It goes to Settings, on the Profile page.
-- **Profile page contains:** name, avatar (image or initials), email (optional, used for briefs by email), time zone (used for schedules, briefs, and every time and day on screen), paired devices with "Remove device", and the tailnet identity.
-- In team mode, it also shows the user's role in each project.
+- **Profile page contains:** name, avatar (image or initials), email, time zone, paired devices with "Remove device", and the tailnet identity. In team mode, it also shows the user's role in each project.
 - The avatar shows the user's image, or their initials on a neutral background. It never uses a status color.
 
 ---
 
 ## 14. Code smell findings
 
+Behavior: marshal-product-scope.md, section 15.4.
+
 - Findings live in the card's **Checklists** tab, in a "Code smells" section after Marshal's acceptance checks (see section 16.1). The card itself shows a small count only when there are blocking findings, as part of the needs you reason or checks state.
 - Findings are grouped by severity: blocking first, then warnings, then info. Info is collapsed by default.
-- **Each finding shows:** the file and line (a link that opens the diff at that line), the smell's name and family, one sentence on why it matters, and a suggested refactoring.
+- **Each finding** shows what section 15.4 of the scope lists. The file and line is a link that opens the diff at that line.
 - **Actions:** "Ask agent to fix" and "Dismiss". Dismiss opens a small dialog that asks for a reason. The reason is required.
 - **Tone:** findings describe the code, not the agent or the person. Say "This function has 7 parameters. Group related ones into an options object." Do not say "Bad code" or "The agent made a mistake".
 - Severity uses the existing status tokens: blocking uses `danger`, warnings use `needs-you`, and info is neutral. Each has an icon and a label as well as color.
 - On phones, each finding is a stacked item, and the file link opens the diff full screen.
-- **A blocking finding stops the move, and the daemon says so.** Dragging the card to In review is refused with the reason `move_quality_blocking` and the sentence "This card's changes have code smells to fix first. The agent has been told."; the card snaps back and the sentence is shown. The app may pre-check with the same rule to refuse the drop early, but the daemon decides. The call to ask the agent to fix a finding, from a card with no agent to ask, is refused with reason `quality_no_agent`.
+- **A blocking finding stops the move, and the daemon says so.** A drop on In review is refused (architecture.md, section 6.1, rule 8): the card snaps back and the daemon's message is shown. The app may pre-check with the same rule to refuse the drop early, but the daemon decides. A fix request from a card with no agent to ask is refused too (architecture.md, section 17.4).
 - The smell profile editor lives in project settings. It shows each check with its threshold and severity, grouped by family and by language, with "Reset to defaults".
 
 ---
 
 ## 15. Testing connections
 
+Behavior: marshal-product-scope.md, section 19.1. The checks for each connection are in architecture.md, section 18.
+
 Every outside connection has a **Test connection** button, so users can check it works without waiting for a real event.
 
-- **Where:** on each integration in Settings (GitHub, Trello, Google Calendar, Gmail, Telegram, Discord, Obsidian vault, and Tailscale), on each provider API key, on each MCP server, and in onboarding steps 2 and 4.
+- **Where:** on each integration in Settings, on each provider API key, on each MCP server, and in onboarding steps 2 and 4.
 - **While testing:** the button shows a small spinner and says "Testing". Nothing else on the screen is blocked.
 - **Result:** shown right under the connection, with a time ("Tested 2 min ago"):
   - **Passed:** a check icon and a short list of what was checked, for example "Signed in as ada", "Can read issues and pull requests", "Webhook reached Marshal".
   - **Failed:** a cross icon, which check failed, why, and how to fix it, for example "Marshal can't read pull requests. Add the pull requests permission to the GitHub App, then test again." A "Details" section holds the technical error.
-  - **Partly working:** a warning icon when sign-in works but something is missing, such as a permission or the webhook.
+  - **Partly working:** a warning icon.
 - **Colors:** passed uses `working`, partly working uses `needs-you`, failed uses `danger`, each with an icon and a label.
 - **Test messages:** tests that send something visible say so on the button, for example "Send test message" for Telegram and Discord.
 - **Cooldown:** after a test, the button waits a few seconds before it can run again, to respect the service's rate limits.
-- Connections are also tested automatically right after they are added, and the last result shows on the integration's status.
+- The last result shows on the integration's status.
 
 ---
 
 ## 16. Checklists, comments, and members
+
+Behavior: marshal-product-scope.md, sections 9.13 (checklists), 9.14 (comments), and 9.15 (members).
 
 ### 16.1 Checklists tab
 
@@ -542,7 +541,7 @@ Every outside connection has a **Test connection** button, so users can check it
 - **Each checklist** has its name (renamed inline), a progress bar with a count ("4 of 7"), and a menu with "Hide checked items", "Required to finish", "Only people can tick", and Delete.
 - **"Add an item"** sits at the bottom of each checklist, as an inline field. `Enter` adds the item and keeps the field open for the next one.
 - **Each done item** shows who completed it: the person's avatar, or the agent's rounded square. Agent ticks have an "Evidence" link to the test run, check, or commit.
-- **Required checklists** show a small "Required to finish" label beside the name. When they block the merge queue, the card's needs you reason says how many items are left.
+- **Required checklists** show a small "Required to finish" label beside the name.
 - **"Add a checklist"** sits at the top of the tab, with choices for Sub-tasks, Definition of done, Acceptance criteria, or a custom name.
 - Deleting a checklist is confirmed if it has ticked items.
 
@@ -552,15 +551,13 @@ Every outside connection has a **Test connection** button, so users can check it
 - **Each comment** shows the author's avatar and name, the time, the text, attachments, and link chips. The agent's comments use the agent avatar.
 - **"Agent read this"** shows in small, secondary text under a comment once the agent has read it.
 - **Attachments:** images preview inline and open larger on click. Other files show as a row with the file name, type, and size, with a download action.
-- **Links:** pasted links become chips showing the site name and the link text. Chips never show fetched previews.
 - **Composer:** a text field with buttons to attach a file or image and to add a link. Typing `@` suggests members and the agent. The field says, in placeholder text, that mentioning @agent or asking a question gets a reply.
-- People can edit and delete their own comments. Deleted comments are removed, not shown as "deleted".
 
 ### 16.3 Members
 
 - The **+** button opens a small picker with search, listing people in the project. Ticking a person adds them. Unticking removes them.
 - The agent always shows first in the members row, and cannot be removed there. Its menu says "Change agent in settings", which jumps to the Agent setting.
-- Avatars follow the shape rule: circle for people, rounded square for the agent. Never tell them apart by color.
+- Avatars follow the shape rule in section 3.3.
 
 ### 16.4 On phones and tablets
 

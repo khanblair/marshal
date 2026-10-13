@@ -1,8 +1,8 @@
 # UI tokens
 
-This document holds every design value in Marshal: colors, type, spacing, radius, elevation, motion, and layout sizes. Components use these tokens only. No raw hex values, pixel sizes, or font names appear in component code.
+This document says what each design token is for: colors, type, spacing, radius, elevation, motion, and layout sizes. Components use these tokens only. No raw hex values, pixel sizes, or font names appear in component code.
 
-The source of truth for the values is `packages/tokens`. This document explains them and must stay in sync with that package.
+Values live in `packages/tokens/src/themes.ts` (colors, charts, elevation) and `packages/tokens/src/tokens.ts` (type, spacing, radius, sizes, breakpoints, motion, layers). `pnpm --filter @marshal/tokens gen` writes `dist/tokens.css` and `dist/tailwind-theme.css` from them. `dist/` is gitignored and never edited. This document holds the color tables, the design direction, and the rules, and must stay in sync with that package.
 
 ---
 
@@ -191,12 +191,7 @@ The base size is 14 px, which suits a dense working tool.
 
 ### 3.3 Weights
 
-| Token | Value |
-|---|---|
-| `weight-regular` | 400 |
-| `weight-medium` | 500 |
-| `weight-semibold` | 600 |
-| `weight-bold` | 700 |
+`weight-regular` 400, `weight-medium` 500, `weight-semibold` 600, `weight-bold` 700.
 
 ### 3.4 Rules
 
@@ -208,22 +203,7 @@ The base size is 14 px, which suits a dense working tool.
 
 ## 4. Spacing
 
-A 4 px base scale.
-
-| Token | Value |
-|---|---|
-| `space-0` | 0 |
-| `space-0.5` | 2 px |
-| `space-1` | 4 px |
-| `space-2` | 8 px |
-| `space-3` | 12 px |
-| `space-4` | 16 px |
-| `space-5` | 20 px |
-| `space-6` | 24 px |
-| `space-8` | 32 px |
-| `space-10` | 40 px |
-| `space-12` | 48 px |
-| `space-16` | 64 px |
+A 4 px base scale (`spacingStep` in `packages/tokens/src/tokens.ts`). Steps are Tailwind's, so `p-3` is 12 px and `gap-1.5` is 6 px; `space-N` below means that step.
 
 Common uses:
 
@@ -254,15 +234,17 @@ Radius follows hierarchy. Small controls are tighter, large surfaces are softer.
 
 Most surfaces are separated by borders, not shadows. Shadows are only for things that float above the page.
 
-| Token | Value | Use |
-|---|---|---|
-| `border-width` | 1 px | Default |
-| `border-width-strong` | 2 px | Focus rings, selected edges |
-| `card-edge-width` | 3 px | Colored status edge on the left of a card |
-| `elevation-0` | none | Cards, panels, columns |
-| `elevation-1` | Light: `0 6px 16px -4px rgb(22 25 29 / 0.16)` with a 1 px border. Dark: `0 6px 16px -4px rgb(0 0 0 / 0.5)` with a 1 px border | Popovers, menus, tooltips |
-| `elevation-2` | Light: `0 16px 40px -8px rgb(22 25 29 / 0.24)`. Dark: `0 16px 40px -8px rgb(0 0 0 / 0.6)` | Dialogs, command palette |
-| `elevation-drag` | Light: `0 10px 24px -6px rgb(22 25 29 / 0.22)`. Dark: `0 10px 24px -6px rgb(0 0 0 / 0.55)` | A card being dragged |
+| Token | Use |
+|---|---|
+| `border-width` (1 px) | Default |
+| `border-width-strong` (2 px) | Focus rings, selected edges |
+| `card-edge-width` (3 px) | Colored status edge on the left of a card |
+| `elevation-0` (none) | Cards, panels, columns |
+| `elevation-1` | Popovers, menus, tooltips. Has a 1 px border as well as the shadow |
+| `elevation-2` | Dialogs, command palette |
+| `elevation-drag` | A card being dragged |
+
+Shadow values are `elevations` in `packages/tokens/src/themes.ts`, one set per theme.
 
 ### Focus ring
 
@@ -275,16 +257,18 @@ Most surfaces are separated by borders, not shadows. Shadows are only for things
 
 Motion is used to show what changed after an action, and for a very small number of status signals. It is never decoration.
 
-| Token | Value | Use |
-|---|---|---|
-| `duration-instant` | 80 ms | Press states, toggles |
-| `duration-fast` | 140 ms | Hover, small reveals, tooltips |
-| `duration-base` | 200 ms | Menus, popovers, card moves |
-| `duration-slow` | 280 ms | Panels and dialogs opening |
-| `ease-standard` | `cubic-bezier(0.2, 0, 0, 1)` | Most movement |
-| `ease-enter` | `cubic-bezier(0, 0, 0, 1)` | Things appearing |
-| `ease-exit` | `cubic-bezier(0.4, 0, 1, 1)` | Things leaving |
-| `pulse-working` | 1600 ms, opacity 0.45 to 1, ease in and out, repeating | The status dot of a working card, and the placeholder shapes of a skeleton while a part loads (`Skeleton` in `@marshal/ui`) |
+Values are `durations`, `easings`, and `keyframes` in `packages/tokens/src/tokens.ts`. The working pulse (`--animate-pulse-working`: `m-pulse`, 1600 ms, repeating) is set in `packages/tokens/scripts/build-css.ts`.
+
+| Token | Use |
+|---|---|
+| `duration-instant` | Press states, toggles |
+| `duration-fast` | Hover, small reveals, tooltips |
+| `duration-base` | Menus, popovers, card moves |
+| `duration-slow` | Panels and dialogs opening |
+| `ease-standard` | Most movement |
+| `ease-enter` | Things appearing |
+| `ease-exit` | Things leaving |
+| `pulse-working` | The status dot of a working card, and the placeholder shapes of a skeleton while a part loads (`Skeleton` in `@marshal/ui`) |
 
 Rules:
 
@@ -317,14 +301,7 @@ Rules:
 
 Six size bands, Tailwind's defaults, written once in `packages/tokens/src/tokens.ts` (`breakpoints`). A band runs from its width to the next one. Nobody writes these numbers anywhere else: `shell-layout.ts` imports them, and Tailwind gets them as `sm:` to `2xl:`.
 
-| Band | From | Typical screens |
-|---|---|---|
-| base | 0 | Phones in portrait |
-| `bp-sm` | 640 px | Large phones in landscape, small tablets |
-| `bp-md` | 768 px | Portrait tablets |
-| `bp-lg` | 1024 px | Landscape tablets, laptops |
-| `bp-xl` | 1280 px | Desktop monitors |
-| `bp-2xl` | 1536 px | Large and wide monitors |
+Bands: base (0, phones in portrait), `bp-sm` (640 px, large phones in landscape and small tablets), `bp-md` (768 px, portrait tablets), `bp-lg` (1024 px, landscape tablets and laptops), `bp-xl` (1280 px, desktop monitors), and `bp-2xl` (1536 px, large and wide monitors).
 
 The shell groups the bands into three layouts. The layout changes structure (navigation, panels, split view):
 
@@ -346,12 +323,14 @@ Rules:
 
 On a phone every text button, icon button, input, select, and non-compact tab or segment is one height: `--control-h`, 30 px. Components keep their own sizes for desktop (Button 28, 32, or 36, Input 32); the `phone:` variant in `apps/web/src/styles/app.css` swaps in `--control-h` when the app root has `data-size="phone"` and the element has not opted out with `data-compact`. A raw `<button>` or `<input>` that sets its own height does the same: `h-8 phone:h-(--control-h)`.
 
-| Variable | Used by | Desktop | Tablet (touch screen) | Phone |
-|---|---|---|---|---|
-| `--control-h` | Button, IconButton, Input, Select, segments (via `phone:`); raw controls | 32 px | 32 px | 30 px |
-| `--control-min` | Least height of any button, select, or input (min width too for icon buttons) | 0 (own size) | 40 px | 30 px |
-| `--tab-min` | Tabs and segments (`role="tab"`) | 0 | 36 px | 30 px |
-| `--row-h` | Rows in bottom sheets, menus, and list rows | 36 px | 44 px | 36 px |
+| Variable | Used by |
+|---|---|
+| `--control-h` | Button, IconButton, Input, Select, segments (via `phone:`); raw controls |
+| `--control-min` | Least height of any button, select, or input (min width too for icon buttons) |
+| `--tab-min` | Tabs and segments (`role="tab"`) |
+| `--row-h` | Rows in bottom sheets, menus, and list rows |
+
+The values for desktop, touch tablet, and phone are in `apps/web/src/styles/app.css`. Phone: `--control-h` is 30 px and `--control-min` and `--tab-min` follow it. Touch tablet: `--control-min` is 40 px. Desktop: controls keep their own size.
 
 - The tablet column applies only when the pointer is coarse (`@media (pointer: coarse)`). A mouse in a tablet-sized window gets the desktop column, so a small laptop window stays compact.
 - `compact` (`data-compact="1"`) keeps a control at its own size on every layout. Use it only for a control that must stay small on a phone. No tab filter uses it now.
@@ -363,13 +342,8 @@ On a phone every text button, icon button, input, select, and non-compact tab or
 
 Body, small, and the 13 px phone floor are the same in every band. Only headings and big numbers shrink, from `textSizesByBand` in `tokens.ts`, which `build-css.ts` writes as `[data-bp="..."]` blocks in `tokens.css`. The app root carries `data-bp`, so every size below it follows.
 
-| Token | base (<640) | sm (640) | md and up (768+) |
-|---|---|---|---|
-| `text-tile` | 24 | 26 | 28 |
-| `text-display` | 22 | 24 | 24 |
-| `text-view-title` | 20 | 22 | 22 |
-| `text-title` | 17 | 18 | 18 |
-| `text-subtitle` and smaller | unchanged | unchanged | unchanged |
+- `text-tile`, `text-display`, `text-view-title`, and `text-title` shrink below `bp-md`: all four on the base band, only `text-tile` on `bp-sm`. From `bp-md` up they use the sizes in `textSizes`.
+- `text-subtitle` and smaller never change.
 
 On phones `text-caption` and `text-badge` are forced to 13 px with an 18 px line (the existing rule in `app.css`).
 
@@ -388,17 +362,7 @@ Built 2026-10-06; see the decision of that date in `progress-tracker.md`.
 
 ## 9. Layers
 
-| Token | Value | Use |
-|---|---|---|
-| `z-base` | 0 | Page content |
-| `z-sticky` | 10 | Sticky headers, column headers |
-| `z-banner` | 50 | Bypass banner |
-| `z-dropdown` | 100 | Menus, selects |
-| `z-overlay` | 200 | Dialog backdrop |
-| `z-dialog` | 300 | Dialogs |
-| `z-palette` | 400 | Command palette |
-| `z-toast` | 500 | Toasts |
-| `z-tooltip` | 600 | Tooltips |
+Stacking order is `layers` in `packages/tokens/src/tokens.ts`. Tailwind gets it as the `z-raised` to `z-onboarding` utilities in `tailwind-theme.css`.
 
 ---
 
@@ -425,122 +389,7 @@ Built 2026-10-06; see the decision of that date in `progress-tracker.md`.
 
 ### 11.1 CSS variables
 
-```css
-:root {
-  /* neutrals */
-  --color-canvas: #F5F6F7;
-  --color-surface: #FFFFFF;
-  --color-surface-sunken: #EEF0F2;
-  --color-surface-raised: #FFFFFF;
-  --color-surface-hover: #F0F2F4;
-  --color-surface-selected: #E7EAED;
-  --color-border: #E1E4E8;
-  --color-border-strong: #C9CED4;
-  --color-text-primary: #16191D;
-  --color-text-secondary: #4C535C;
-  --color-text-muted: #6A727B;
-  --color-text-inverse: #F5F6F7;
-
-  /* ink */
-  --color-ink: #16191D;
-  --color-ink-hover: #2A2F35;
-  --color-on-ink: #FFFFFF;
-
-  /* status flags */
-  --color-status-planning-solid: #8A929B;
-  --color-status-planning-text: #4C535C;
-  --color-status-planning-subtle: #F1F3F5;
-  --color-status-working-solid: #1E9E5A;
-  --color-status-working-text: #146C3E;
-  --color-status-working-subtle: #E7F5EC;
-  --color-status-needs-you-solid: #BF8700;
-  --color-status-needs-you-text: #7F5A00;
-  --color-status-needs-you-subtle: #FCF4DC;
-  --color-status-review-solid: #2E6BD9;
-  --color-status-review-text: #1F4FA8;
-  --color-status-review-subtle: #E8EFFC;
-  --color-status-ready-solid: #0F97A0;
-  --color-status-ready-text: #0A6A71;
-  --color-status-ready-subtle: #E3F4F5;
-  --color-status-done-solid: #16191D;
-  --color-status-done-text: #4C535C;
-  --color-status-done-subtle: #F1F3F5;
-  --color-status-danger-solid: #D53B3B;
-  --color-status-danger-text: #A32323;
-  --color-status-danger-subtle: #FBEAEA;
-
-  /* bypass */
-  --color-bypass-bg: #B42323;
-  --color-bypass-stripe: #9C1C1C;
-  --color-bypass-text: #FFFFFF;
-
-  /* diffs */
-  --color-diff-added-bg: #E7F5EC;
-  --color-diff-added-line: #CDEBD8;
-  --color-diff-added-text: #146C3E;
-  --color-diff-removed-bg: #FBEAEA;
-  --color-diff-removed-line: #F4D2D2;
-  --color-diff-removed-text: #A32323;
-
-  /* type */
-  --font-sans: "Atkinson Hyperlegible Next", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "Atkinson Hyperlegible Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-}
-
-[data-theme="dark"] {
-  --color-canvas: #15181C;
-  --color-surface: #1B1F24;
-  --color-surface-sunken: #111417;
-  --color-surface-raised: #22272D;
-  --color-surface-hover: #242A31;
-  --color-surface-selected: #2A3139;
-  --color-border: #2B3138;
-  --color-border-strong: #3A424B;
-  --color-text-primary: #E8EBEE;
-  --color-text-secondary: #A8B0B9;
-  --color-text-muted: #858D96;
-  --color-text-inverse: #15181C;
-
-  --color-ink: #E8EBEE;
-  --color-ink-hover: #FFFFFF;
-  --color-on-ink: #15181C;
-
-  --color-status-planning-solid: #6B737D;
-  --color-status-planning-text: #A8B0B9;
-  --color-status-planning-subtle: #20252B;
-  --color-status-working-solid: #3DBE7A;
-  --color-status-working-text: #6FD69E;
-  --color-status-working-subtle: #15291F;
-  --color-status-needs-you-solid: #F2B81F;
-  --color-status-needs-you-text: #F5CC5C;
-  --color-status-needs-you-subtle: #2E2610;
-  --color-status-review-solid: #5B8DEF;
-  --color-status-review-text: #8DB0F5;
-  --color-status-review-subtle: #182338;
-  --color-status-ready-solid: #2BB6BF;
-  --color-status-ready-text: #6BD0D6;
-  --color-status-ready-subtle: #11292C;
-  --color-status-done-solid: #E8EBEE;
-  --color-status-done-text: #A8B0B9;
-  --color-status-done-subtle: #20252B;
-  --color-status-danger-solid: #EF5A5A;
-  --color-status-danger-text: #F58A8A;
-  --color-status-danger-subtle: #331A1B;
-
-  --color-bypass-bg: #C83A3A;
-  --color-bypass-stripe: #A92E2E;
-  --color-bypass-text: #FFFFFF;
-
-  --color-diff-added-bg: #15291F;
-  --color-diff-added-line: #1D3A2B;
-  --color-diff-added-text: #6FD69E;
-  --color-diff-removed-bg: #331A1B;
-  --color-diff-removed-line: #4A2224;
-  --color-diff-removed-text: #F58A8A;
-}
-```
-
-Spacing, radius, motion, layout, and layer tokens are the same in both themes and live in the same package.
+Light and dark values are `themes` in `packages/tokens/src/themes.ts`. `pnpm --filter @marshal/tokens gen` writes them to `packages/tokens/dist/tokens.css` (dark theme under `[data-theme="dark"]`, and the size bands) and `packages/tokens/dist/tailwind-theme.css` (light theme, scales, and the Tailwind `@theme`). Never edit the files in `dist/`. Spacing, radius, motion, layout, and layer tokens are the same in both themes and live in `tokens.ts`.
 
 ---
 
@@ -567,24 +416,4 @@ Rules:
 - Bars use `radius-xs` on the top corners only.
 - Charts have a text summary for screen readers, such as "Cards finished per day, last 14 days, highest on Tuesday with 12".
 
-```css
-:root {
-  --color-chart-1: #16191D;
-  --color-chart-2: #6A727B;
-  --color-chart-3: #A7AEB6;
-  --color-chart-4: #C9CED4;
-  --color-chart-grid: #E1E4E8;
-  --color-chart-axis: #6A727B;
-  --color-chart-limit: #D53B3B;
-}
-
-[data-theme="dark"] {
-  --color-chart-1: #E8EBEE;
-  --color-chart-2: #A8B0B9;
-  --color-chart-3: #6B737D;
-  --color-chart-4: #3A424B;
-  --color-chart-grid: #2B3138;
-  --color-chart-axis: #858D96;
-  --color-chart-limit: #EF5A5A;
-}
-```
+Chart values are `charts` in `packages/tokens/src/themes.ts`. The generated variables are `--chart-*`, aliased as `--color-chart-*` for Tailwind (`tokens.css`, `tailwind-theme.css`).
