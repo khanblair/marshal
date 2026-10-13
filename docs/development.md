@@ -65,33 +65,22 @@ The repo is a pnpm workspace. `pnpm-workspace.yaml` lists these packages:
 pnpm dev
 ```
 
-This builds the stub agent first, then starts two things in parallel, with their output labeled in one terminal:
+This builds the stub agent first (the daemon looks for it next to itself, `dist/bin/stub-agent` beside `dist/bin/marshald`; `MARSHAL_STUB_AGENT` overrides the path), then runs two things in parallel with labeled output in one terminal:
 
-1. **The daemon** in dev mode, through `air`, so it restarts when you save a Go file. It starts with `--dev`, so it shows your own projects and nothing else. To get the three prototype projects as well, start it with `MARSHAL_FIXTURE=prototype pnpm dev`.
+1. **The daemon** in dev mode through `air`, so it restarts when you save a Go file. It starts with `--dev`, so it shows your own projects and nothing else. For the three prototype projects as well, run `MARSHAL_FIXTURE=prototype pnpm dev`.
 2. **The Vite dev server** for the UI, which reloads the page as you edit.
 
-Then open the printed local address in your browser. Most UI work happens here, in a normal browser, because it is the fastest loop.
+Open the printed local address in your browser. Most UI work happens here, because it is the fastest loop.
 
-Under the hood, `pnpm dev` runs:
-
-```sh
-pnpm --filter stub-agent build && pnpm --parallel --filter daemon --filter web dev
-```
-
-The stub agent is built first because the daemon looks for it in its own folder (`dist/bin/stub-agent`, next to `dist/bin/marshald`) and uses it as the default agent. `pnpm build` builds it too; `MARSHAL_STUB_AGENT` overrides the path.
+**Gotcha:** `daemon/.air.toml` starts the daemon with `--agent real`, and a flag beats `MARSHAL_AGENT`. So `pnpm dev` and `pnpm dev:daemon` run real agents (section 3.6), not the stub agent that `--dev` uses by default.
 
 ### 3.2 With the desktop window
 
-Not built yet. `pnpm dev:desktop` and the Tauri shell arrive after Phase 2 (the desktop shell and signed releases are deferred until the daemon replaces the mock). Until then, all UI work happens in a browser tab.
+`pnpm desktop:dev` starts the Tauri shell in `apps/desktop/` (it needs Rust and the Tauri prerequisites for your OS). Most UI work still happens in a browser tab.
 
 ### 3.3 Only one part
 
-| Command | Starts |
-|---|---|
-| `pnpm dev:daemon` | Only the daemon, with reload |
-| `pnpm dev:web` | Only the Vite dev server, pointing at a daemon you started yourself |
-
-There is no `pnpm dev:stub`: the stub agent is a program, not a server. Build it with `pnpm --filter stub-agent build` and run `dist/bin/stub-agent` yourself when you want it on its own.
+`pnpm dev:daemon` runs only the daemon, with reload. `pnpm dev:web` runs only the Vite dev server, pointing at a daemon you started yourself. There is no `pnpm dev:stub`: the stub agent is a program, not a server. Build it with `pnpm --filter stub-agent build` and run `dist/bin/stub-agent` yourself when you want it on its own.
 
 ### 3.4 Dev mode
 
@@ -103,13 +92,12 @@ The daemon's `--dev` flag keeps development fully separate from a real Marshal i
 | Port | 47801 | 47800 |
 | Default agent | Stub agent | Real agents |
 | Keychain entries | Stored under `marshal-dev` | Stored under `marshal` |
-| Tailscale | Not built yet (Phase 9) | Not built yet (Phase 9) |
 | Client auth | A dev token, accepted on localhost only | Paired tokens |
 | Budget warnings | Shown in the daemon log | Shown in the app |
 
 The Vite dev server forwards API and WebSocket requests to the dev daemon's port, so the browser talks to one address and there are no cross-origin issues.
 
-The browser gets the dev token from the Vite dev server, so there is nothing to paste. In the dev build only, the app asks `GET /__marshal/dev-token`, and the dev server answers with the contents of `dev-token` in the dev daemon's data folder (the same folder as in the table above, or `MARSHAL_DATA_DIR`). It reads the file on every request, because `pnpm dev` starts Vite and the daemon at the same time, and it answers 404 until the daemon has made the file. It answers only requests from this machine, even when Vite runs with `--host`, and it does not exist in a production build or in `vite preview`. The app keeps the token in memory and never stores it.
+The dev server also hands the browser the dev token, so there is nothing to paste. In the dev build only, the app asks `GET /__marshal/dev-token`, and `apps/web/vite/dev-token.ts` answers with the `dev-token` file in the dev daemon's data folder. It reads the file on every request, because `pnpm dev` starts Vite and the daemon at the same time, and answers 404 until the daemon has made it. It answers only requests from this machine, even with `--host`, and does not exist in a production build or in `vite preview`. The app keeps the token in memory and never stores it.
 
 ### 3.5 Settings through environment variables
 
@@ -119,19 +107,19 @@ The browser gets the dev token from the Vite dev server, so there is nothing to 
 | `MARSHAL_PORT` | 47801 | Use another port |
 | `MARSHAL_AGENT` | `stub` | Set to `real` to use installed CLI agents |
 | `MARSHAL_LOG_LEVEL` | `debug` | `debug`, `info`, `warn`, or `error` |
-| `MARSHAL_FIXTURE` | none | Load a fixture on start (or pass `--fixture`). The only one is `prototype`: the three projects the prototype shows, `api-gateway`, `web-dashboard`, and `mobile-app`, as real Git repositories under `<data>/fixtures`. It is safe on every start, and it loads in dev mode only (a normal install ignores it). `pnpm dev` no longer passes it: set it yourself to get the prototype data. See below |
+| `MARSHAL_FIXTURE` | none | Load a fixture on start (or pass `--fixture`). The only one is `prototype`. Dev mode only; a normal install ignores it. Safe on every start. `pnpm dev` does not pass it. |
 
-With `MARSHAL_FIXTURE=prototype` the daemon makes the repositories from `daemon/testdata/repos` (`small-repo` twice, `monorepo` once), gives each one a single commit with a fixed author and date, and adds them as the projects `api`, `web`, and `mobile`. It also writes the prototype's 29 cards (11 in `api`, 9 in `web`, 9 in `mobile`) with their numbers, states, labels, dates, pull requests, CI states, and needs-you reasons, and a session row for each of the 20 cards that has started, so the screens look as they do in the prototype. **Those sessions have no agent process behind them, and a daemon with a fixture loaded does not restore sessions on start**, so nothing runs until a person starts a card themselves. A project that already exists is left alone. The fixture finds `daemon/testdata/repos` from the checkout the daemon was built from, so run a daemon built from a checkout (`pnpm dev` does). If it cannot load, the daemon logs a warning and starts without it. The project language and packages are what detection finds in those repositories (for example `JavaScript` for the two small ones), not the hand-picked labels of the mock data.
+`MARSHAL_FIXTURE=prototype` loads the three prototype projects (`daemon/internal/fixture/fixture.go`) as the projects `api`, `web`, and `mobile`, built from `daemon/testdata/repos`, which the daemon finds from the checkout it was built from, so run a daemon built from a checkout (`pnpm dev` does). It also writes the prototype's 29 cards (11 in `api`, 9 in `web`, 9 in `mobile`) with their numbers, states, labels, dates, pull requests, CI states, and needs-you reasons, and a session row for each of the 20 cards that has started.
+
+- **Those sessions have no agent process, and a daemon with a fixture loaded does not restore sessions on start**, so nothing runs until a person starts a card themselves.
+- If the fixture cannot load, the daemon logs a warning and starts without it.
+- The project language and packages are what detection finds in those repositories (for example `JavaScript` for the two small ones), not the hand-picked labels of the mock data.
 
 ### 3.6 Using real agents and models
 
-The stub agent is the default so development costs nothing and works offline. To test with real agents:
+The `--dev` default is the stub agent, so development costs nothing and works offline. Real agents: `MARSHAL_AGENT=real` or `--agent real` (but see the `.air.toml` gotcha in section 3.1).
 
-```sh
-MARSHAL_AGENT=real pnpm dev
-```
-
-API keys for the built-in agent are stored in the OS keychain — the macOS Keychain, the Linux Secret Service, or the Windows Credential Manager — never in a file and never in the environment. Add one with `marshal keys`, which reads the key from standard input so it does not land in your shell history:
+API keys for the built-in agent are stored in the OS keychain (the macOS Keychain, the Linux Secret Service, or the Windows Credential Manager), never in a file and never in the environment. Add one with `marshal keys`, which reads the key from standard input so it does not land in your shell history:
 
 ```sh
 marshal keys set anthropic      # paste the key when asked, then press Enter
@@ -139,62 +127,59 @@ marshal keys list               # which providers have a key, each shown masked
 marshal keys remove anthropic   # delete one
 ```
 
-The list shows the key masked (`sk-ant-…4f2a`), never the key itself. A provider that runs on this machine (Ollama, LM Studio) stores a server address rather than a key, and its address is shown as it is. Add `--dev` to any of these to work on the dev daemon's own keychain entries, which are kept apart from a normal install's. The onboarding and settings screens collect a key into their form and save it through the daemon's provider routes, which write to the same keychain, so the two ways agree. Real-agent runs that need a signed-in CLI still use that CLI's own sign-in. A key never belongs in a file or in the environment.
+The list shows the key masked (`sk-ant-…4f2a`), never the key itself. A provider that runs on this machine (Ollama, LM Studio) stores a server address instead, shown as it is. Add `--dev` to use the dev daemon's own keychain entries, kept apart from a normal install's. The onboarding and settings screens save into the same keychain through the daemon's provider routes. Real-agent runs that need a signed-in CLI still use that CLI's own sign-in.
 
 ### 3.7 Webhooks in development
 
-You have two options:
-
-- **Replay recorded webhooks.** Fastest and needs no internet setup.
+- **Replay recorded webhooks.** Fastest, and needs no internet setup.
 
   ```sh
   pnpm hooks:replay github ci-failed
   pnpm hooks:replay trello card-moved
   ```
 
-  Recorded webhook bodies live in `daemon/testdata/hooks/`. Add new ones when you add new event types.
+  Recorded bodies live in `daemon/testdata/hooks/`. Add new ones when you add new event types.
 
-- **Real webhooks through Funnel.** Start the daemon with `--tailnet --funnel` (or `MARSHAL_TAILNET=1 MARSHAL_FUNNEL=1`), sign in to Tailscale from Settings, Remote control, and allow Funnel for the tailnet in the Tailscale admin console. Only `/hooks/*` is public, and every request is still signed. Replay recorded webhooks when you do not want a public address.
+- **Real webhooks through Funnel.** Start the daemon with `--tailnet --funnel` (or `MARSHAL_TAILNET=1 MARSHAL_FUNNEL=1`), sign in to Tailscale from Settings, Remote control, and allow Funnel for the tailnet in the Tailscale admin console. Only `/hooks/*` is public, and every request is still signed.
 
 ### 3.7a Connecting Google Calendar, Gmail, Drive, Docs, Sheets, and Slides
 
-Marshal reads your Google Calendar (and, if you want, a Gmail label) with read-only access, and can make files in Google Drive, Docs, Sheets, and Slides and read a doc, sheet, or deck from a link. Each of the six is its own row with its own consent, and the person pastes nothing. That works when the build has **Marshal's own Google client**; without one, Settings asks the person to make a client of their own (see "Without Marshal's client" below).
+Marshal reads your Google Calendar (and, if you want, a Gmail label) read-only, makes files in Google Drive, Docs, Sheets, and Slides, and reads a doc, sheet, or deck from a link. Each of the six is its own row with its own consent, and the person pastes nothing. That works when the build has **Marshal's own Google client**. Without one, Settings, Integrations, Google Calendar shows the setup steps and a form for the id and secret of a **Desktop app** OAuth client the person makes; **Save and grant access** does both, and a client the person saved is always the one used.
 
 **Making Marshal's own Google client (once, by whoever publishes Marshal)**
 
-1. In the Google Cloud console, make a project for Marshal and turn on six APIs: the **Google Calendar API**, the **Gmail API**, the **Google Drive API**, the **Google Docs API**, the **Google Sheets API**, and the **Google Slides API**. Marshal's tests say which one is off ("Turn on the Google Docs API in the Google Cloud project Marshal signs in with").
+1. In the Google Cloud console, make a project for Marshal and turn on six APIs: Calendar, Gmail, Drive, Docs, Sheets, and Slides. Marshal's tests say which one is off.
 2. Under **OAuth consent screen**, choose **External**. Give it Marshal's name, a homepage, a privacy policy address, and your contact address. On the **Data access** page add six scopes: `calendar.readonly`, `gmail.readonly`, `drive.file`, `documents.readonly`, `spreadsheets.readonly`, and `presentations.readonly`.
-3. Under **Credentials**, make an **OAuth client ID** of type **Desktop app**. Google accepts any `http://127.0.0.1:<port>` return address for that type, so the dev daemon (47801) and the installed app (47800) both work. A Desktop app's secret is not confidential to Google, which is why it is allowed to ship inside the app.
+3. Under **Credentials**, make an **OAuth client ID** of type **Desktop app**. Google accepts any `http://127.0.0.1:<port>` return address for that type, so the dev daemon (47801) and the installed app (47800) both work. A Desktop app's secret is not confidential to Google, which is why it may ship inside the app.
 4. Hand the client to the build:
-   - **Release builds:** add the repository secrets `MARSHAL_GOOGLE_CLIENT_ID` and `MARSHAL_GOOGLE_CLIENT_SECRET`. `release.yml` writes them to `daemon/internal/integrations/googleclient/files/client.json` (which is not in git) before the daemon is compiled.
-   - **Your own dev daemon:** set `MARSHAL_GOOGLE_CLIENT_ID` and `MARSHAL_GOOGLE_CLIENT_SECRET`, or put the same `{"clientId": "...", "clientSecret": "..."}` in `client.json` before building.
+   - **Release builds:** add the repository secrets `MARSHAL_GOOGLE_CLIENT_ID` and `MARSHAL_GOOGLE_CLIENT_SECRET`. `release.yml` writes them to `daemon/internal/integrations/googleclient/files/client.json` (not in git) before the daemon is compiled.
+   - **Your own dev daemon:** set the same two variables, or put `{"clientId": "...", "clientSecret": "..."}` in `client.json` before building.
 
-**Who can use it, and when it is smooth**
+**Who can use it**
 
-- While the app's publishing status is **Testing**, only the test users you list can connect, and Google expires their access after about a week (Marshal then says "Reconnect Google Calendar").
-- Set the status to **In production** so anyone can connect. Until Google **verifies** the app, each person sees an "unverified app" warning, and Google caps unverified apps at 100 users. `calendar.readonly` is a sensitive scope: verification asks for the privacy policy, the homepage, and a short demo video of the consent and what it is used for.
-- `documents.readonly`, `spreadsheets.readonly`, and `presentations.readonly` are sensitive scopes, like `calendar.readonly`: they need Google verification, but no yearly security assessment. `drive.file` is non-sensitive. It lets Marshal make files and see only the ones it made. Marshal never edits or deletes a file you already had.
-- `gmail.readonly` is a restricted scope. Letting other people use it through Marshal's client needs Google's yearly security assessment. Until then Gmail works for you and your test users only, and anyone else can use Gmail with a client of their own.
-
-**Without Marshal's client (a build with none, or a person who prefers their own)**
-
-Settings, Integrations, Google Calendar shows the four steps and a form: make a project, turn on the Calendar API, set up the consent screen and add yourself as a test user, then make a **Desktop app** OAuth client and paste its id and secret. **Save and grant access** does both in one go. A client the person saved is always the one used.
+- Publishing status **Testing**: only the test users you list can connect, and Google expires their access after about a week (Marshal then says "Reconnect Google Calendar").
+- **In production**: anyone can connect. Until Google **verifies** the app, each person sees an "unverified app" warning, and Google caps unverified apps at 100 users. `calendar.readonly`, `documents.readonly`, `spreadsheets.readonly`, and `presentations.readonly` are sensitive scopes: verification asks for the privacy policy, the homepage, and a short demo video of the consent and its use, but no yearly security assessment.
+- `drive.file` is non-sensitive: Marshal makes files and sees only the ones it made, and never edits or deletes a file you already had.
+- `gmail.readonly` is restricted: letting other people use it through Marshal's client needs Google's yearly security assessment. Until then Gmail works for you and your test users only; anyone else can use Gmail with a client of their own.
 
 **Using it**
 
-- Grant access in your own browser on the computer that runs Marshal, because Google sends the browser back to that computer's own daemon. A phone cannot finish it, and then says so; it shows the events once connected.
-- Calendar asks for `calendar.readonly` only. **Gmail** is a separate row with its own **Grant access**, asking for `gmail.readonly` alone. **Google Drive** asks for `drive.file`; **Google Docs**, **Sheets**, and **Slides** each ask for their own `.readonly` scope and `drive.file`. If a person unticks a box on Google's page, Marshal refuses the grant, stores nothing, and asks them to connect again with every box ticked.
-- Marshal puts what it makes in one Drive folder, named "Marshal" until the person names another on the Google Drive row. All four file connections share it, whether or not Drive itself is connected, and Marshal makes the folder when it saves the first file. The tests for these four never make a file or a folder.
-- Once connected, the row lists every calendar you have, with a tick for each one Marshal reads. Until you choose, the ticks follow what is ticked in Google Calendar itself.
-- Marshal uses the calendar for the calendar view and Home's "Coming up today", the calendar part of the morning and evening briefs, schedules with the **Event** trigger (for example "When 30 minutes before my first calendar event", or "When a calendar event named "Morning brief" starts"), and **Stay quiet during calendar events** under Settings, Alerts. An event you marked as available, and a working-location marker, does not count as busy. An event that runs over several days shows on each of them. Events are read at most once a minute and kept for that minute; if Google cannot be reached, the last events read are shown and marked as old.
-- **Gmail's row** reads connected once it has a label and its own grant, in either order, and it asks again while you grant access in the other tab.
-- **Disconnect** removes Marshal's stored access. When it is the last Google connection holding a token, Marshal also asks Google to end the access. While any other Google connection is still connected it leaves Google's grant alone, because Google ends every scope when one token is revoked. If Google cannot be reached, the access stays until it is removed at myaccount.google.com/permissions.
+- Grant access in your own browser on the computer that runs Marshal, because Google sends the browser back to that computer's own daemon. A phone cannot finish it, and says so; it shows the events once connected.
+- Calendar asks for `calendar.readonly` only. **Gmail** is a separate row with its own **Grant access** (`gmail.readonly` alone). **Google Drive** asks for `drive.file`; **Docs**, **Sheets**, and **Slides** each ask for their own `.readonly` scope and `drive.file`. If a person unticks a box on Google's page, Marshal refuses the grant, stores nothing, and asks them to connect again with every box ticked.
+- Marshal puts what it makes in one Drive folder, named "Marshal" until the person names another on the Google Drive row. All four file connections share it, whether or not Drive itself is connected, and Marshal makes it when it saves the first file. Their tests never make a file or a folder.
+- Once connected, the Calendar row lists every calendar you have, with a tick for each one Marshal reads. Until you choose, the ticks follow Google Calendar's own.
+- The calendar feeds the calendar view, Home's "Coming up today", the morning and evening briefs, schedules with the **Event** trigger, and **Stay quiet during calendar events** under Settings, Alerts. An event marked available, and a working-location marker, does not count as busy. Events are read at most once a minute; if Google cannot be reached, the last events read are shown and marked as old.
+- **Gmail's row** reads connected once it has a label and its own grant, in either order, and asks again while you grant access in the other tab.
+- **Disconnect** removes Marshal's stored access. When it is the last Google connection holding a token, Marshal also asks Google to end the access; while another is still connected it leaves Google's grant alone, because Google ends every scope when one token is revoked. If Google cannot be reached, the access stays until it is removed at myaccount.google.com/permissions.
 
 ### 3.8 Testing on phones and tablets
 
 - **In the browser:** use the browser's device mode for quick checks at phone and tablet sizes.
-- **On a real device:** a daemon listens on `127.0.0.1` only until a phone has a way in, and Settings, Remote control says which way is in place and what is missing, with your computer's real name and port. If Tailscale already runs on your Mac, run the command that page shows (`tailscale serve --bg --http=47800 http://127.0.0.1:47801` for a dev daemon), press **Check again**, and type the address it shows into the phone app. The phone needs the Tailscale app, signed in to the same account, and the page lists it with whether Tailscale says it is online. Otherwise start the daemon on the tailnet itself, because the flags of the compound `dev` script do not reach the daemon: `MARSHAL_TAILNET=1 pnpm dev` (add `MARSHAL_TAILNET_HOSTNAME=marshal-dev` to name the node), which the `daemon` entry in `.claude/launch.json` already does. It then appears as a second device on your tailnet, and Remote control shows its sign-in link the first time. The phone app lets the daemon's page use the camera and haptics on port 47800 only, which is why the Serve command above uses 47800.
-- **In tests:** `pnpm test:e2e` runs every view at phone (390 by 844), tablet (820 by 1180), and desktop (1440 by 900) sizes, in both themes, against the built dev daemon. Run `pnpm build` first: Playwright starts `dist/bin/marshald` (through `scripts/e2e-daemon.mjs`, on port 47811 with a throwaway data folder under `apps/web/test-results`, and the `prototype` fixture) and a Vite server beside it. It never uses the dev daemon on port 47801 or your dev data folder.
+- **On a real device:** a daemon listens on `127.0.0.1` only until a phone has a way in. Settings, Remote control says which way is in place and what is missing, with your computer's real name and port.
+  - If Tailscale already runs on your Mac, run the command that page shows (`tailscale serve --bg --http=47800 http://127.0.0.1:47801` for a dev daemon), press **Check again**, and type the address it shows into the phone app. The phone needs the Tailscale app, signed in to the same account.
+  - Otherwise start the daemon on the tailnet itself: `MARSHAL_TAILNET=1 pnpm dev` (add `MARSHAL_TAILNET_HOSTNAME=marshal-dev` to name the node). The flags of the compound `dev` script do not reach the daemon, so use the variables; the `daemon` entry in `.claude/launch.json` already does. The node appears as a second device on your tailnet, and Remote control shows its sign-in link the first time.
+  - The phone app lets the daemon's page use the camera and haptics on port 47800 only, which is why the Serve command uses 47800.
+- **In tests:** `pnpm test:e2e` runs every view at phone, tablet, and desktop sizes, in both themes, against the built dev daemon. Run `pnpm build` first: Playwright starts `dist/bin/marshald` through `scripts/e2e-daemon.mjs` (port 47811, a throwaway data folder, the `prototype` fixture) and a Vite server beside it. It never uses the dev daemon on port 47801 or your dev data folder.
 
 ### 3.9 Resetting dev data
 
@@ -202,11 +187,11 @@ Settings, Integrations, Google Calendar shows the four steps and a form: make a 
 pnpm dev:reset
 ```
 
-This runs `marshal dev reset`. It refuses to run while the dev daemon is up (stop it first), asks you to confirm, and then deletes the dev data folder, including dev worktrees. It only ever deletes a folder whose name ends in `-dev` and that sits well below the home folder, so it can never touch the normal install. Pass `--yes` after `--` to skip the question.
+This runs `marshal dev reset`. It refuses to run while the dev daemon is up (stop it first), asks you to confirm, then deletes the dev data folder, including dev worktrees. It only deletes a folder whose name ends in `-dev` and that sits well below the home folder, so it can never touch the normal install. Pass `--yes` after `--` to skip the question.
 
 ### 3.10 Installing as a login service
 
-For everyday use outside this dev loop, `marshald` runs as a per-user service that starts at login (architecture.md section 2, "Daemon as a user service"), managed with:
+For everyday use outside this dev loop, `marshald` runs as a per-user service that starts at login (architecture.md section 2, "Daemon as a user service"):
 
 ```sh
 marshal service install     # installs marshald next to marshal's own program
@@ -214,7 +199,7 @@ marshal service status      # reports whether it is installed and running
 marshal service uninstall   # stops and removes it
 ```
 
-Add `--dev` to any of these to manage the dev daemon's own, separate service instead, so it can run beside a normal install. `install` finds `marshald` next to wherever `marshal` itself is running from, so both programs need to sit together, as they do in a built release. These commands register a real login item on your account (a launchd agent, a systemd user unit, or a Windows scheduled task), so they are not run by any automated test; only their argument and file generation and their status parsing are.
+Add `--dev` to manage the dev daemon's own, separate service, so it can run beside a normal install. `install` finds `marshald` next to wherever `marshal` is running from, so both programs need to sit together, as they do in a built release. These commands register a real login item on your account (a launchd agent, a systemd user unit, or a Windows scheduled task), so no automated test runs them; only their argument and file generation and their status parsing are tested.
 
 ---
 
@@ -283,15 +268,6 @@ The only way to prove the Claude Code adapter end to end is to run one real sess
 Production builds happen in CI on every release. You can also build for your own OS locally to test an installer.
 
 ### 6.1 What gets built
-
-```mermaid
-flowchart LR
-    UI[Vite builds the UI to static files] --> EMB[Files embedded into the daemon]
-    GO[Go builds marshald and marshal for every platform] --> EMB
-    EMB --> SRV[Daemon-only packages]
-    EMB --> TAU[Tauri bundles the UI and the daemon as a sidecar]
-    TAU --> INST[Desktop installers]
-```
 
 1. **The UI** is built by Vite into static files.
 2. **The daemon and command line tool** are built by Go for every target, with the UI files embedded, so the daemon can serve the web UI to phones even when no desktop app is open.

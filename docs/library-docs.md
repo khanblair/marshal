@@ -2,7 +2,7 @@
 
 This document lists every library Marshal uses, why we chose it, and how to use it well. It is the approved list. Using a library that is not listed here needs the process in section 1 first.
 
-**About versions:** exact versions are pinned in `go.mod`, `pnpm-lock.yaml`, and `Cargo.lock` when the repo is set up (task 0.2). The version column below is filled in at that point, and updated with every upgrade. Always check the library's current docs before relying on an API, since some of these libraries move fast.
+**About versions:** the Version column is the major version only. Exact pins are in `daemon/go.mod` and `go.sum`, `pnpm-lock.yaml`, the `Cargo.lock` of each Tauri app (`apps/desktop/src-tauri`, `apps/mobile/src-tauri`), and `scripts/setup-tools.mjs` (the Go tools in section 2.8). "Not added yet" means no manifest holds it. Always check a library's current docs before relying on an API, since some of these libraries move fast.
 
 ---
 
@@ -20,7 +20,7 @@ Before adding a library, check all of these. Record the answers in the pull requ
 | **Daemon: no cgo** | Daemon libraries must be pure Go, so we can cross-compile easily. Exceptions need approval and a note here. |
 | **Overlap** | It does not duplicate a library already on this list. |
 
-After adding, add an entry here with the version, purpose, and notes.
+After adding, add an entry here with the major version, purpose, and notes.
 
 ---
 
@@ -30,20 +30,20 @@ After adding, add an entry here with the version, purpose, and notes.
 
 | Library | Version | Used for | Why this one |
 |---|---|---|---|
-| Go standard library (`net/http`, `log/slog`, `context`, `os/exec`) | 1.27.1 | HTTP server and routing, logging, processes | Modern routing patterns are built in. No web framework needed. |
-| `golang.org/x/sync/errgroup` | v0.23.0 | Groups of goroutines, used by `internal/api/stream.go` to run a stream's reader and writer as one unit that stops together | Standard way to run and stop related goroutines together. Checks (section 1): needed, since the "first error wins and cancels the rest" rule is easy to get subtly wrong, though a hand-rolled version is only about 60 lines, so this one is kept for correctness rather than for size; pure Go, no cgo; BSD-3-Clause (Go Authors); released 2026-08-31 and maintained alongside the Go toolchain; no install scripts, and it has no dependencies of its own; size: about 0.35 MB in a probe program on macOS arm64 (measured 2026-09-25), almost all of it the runtime shared with any program that starts goroutines; it does not overlap another library on this list. |
-| `golang.org/x/time/rate` | Pin at setup | Rate limiting per provider | Small, standard token bucket |
-| `github.com/coder/websocket` | v1.8.15 | The `/v1/events` WebSocket, used by `internal/api` (`server.go`, `stream.go`, `stream_hub.go`, `stream_pump.go`) | Small, maintained, supports context well. Checks (section 1): needed, since a correct RFC 6455 handshake, frame masking, fragmentation, ping/pong, and close handshake is far beyond 200 lines; pure Go, no cgo; ISC (`LICENSE.txt`, "Copyright (c) 2025 Coder"); released 2026-06-15 and maintained by Coder; no install scripts, and it has no dependencies of its own; size: about 0.35 MB on top of `net/http`, which the daemon links anyway (measured 2026-09-25 on macOS arm64 with probe programs); it does not overlap another library on this list. |
-| `github.com/pelletier/go-toml/v2` | Pin at setup | `config.toml` | Fast, correct TOML |
-| `github.com/fsnotify/fsnotify` | Pin at setup | Watching the vault and worktrees | The standard cross-platform file watcher |
+| Go standard library (`net/http`, `log/slog`, `context`, `os/exec`) | 1.27 | HTTP server and routing, logging, processes | Modern routing patterns are built in. No web framework needed. |
+| `golang.org/x/sync/errgroup` | v0 | Runs a stream's reader and writer as one unit that stops together (`internal/api/stream.go`) | The "first error wins and cancels the rest" rule is easy to get subtly wrong. A hand-rolled version is about 60 lines, so it is kept for correctness, not size. Pure Go. About 0.35 MB in a probe program, nearly all runtime shared with any goroutine program (macOS arm64, 2026-09-25). |
+| `golang.org/x/time/rate` | v0 | Rate limiting per provider | Small, standard token bucket |
+| `github.com/coder/websocket` | v1 | The `/v1/events` WebSocket (`internal/api`) | Small, maintained, supports context well. A correct RFC 6455 handshake, masking, fragmentation, ping/pong, and close handshake is far beyond 200 lines. Pure Go. About 0.35 MB on top of `net/http`, which the daemon links anyway (same measurement). |
+| `github.com/pelletier/go-toml/v2` | v2 | `config.toml` | Fast, correct TOML |
+| `github.com/fsnotify/fsnotify` | v1 | Watching the vault and worktrees | The standard cross-platform file watcher |
 
 ### 2.2 Storage
 
 | Library | Version | Used for | Why this one |
 |---|---|---|---|
-| `modernc.org/sqlite` | v1.59.0 | SQLite driver, used by `internal/store` through `database/sql` | Pure Go, no cgo, so cross-compiling stays simple. Checks (section 1): needed, since a database engine is far beyond 200 lines; the driver carries SQLite 3.53.4 transpiled to Go, and `CGO_ENABLED=0` builds for macOS, Linux, and Windows were run; BSD-3-Clause (SQLite itself is public domain), and its indirect libraries `modernc.org/libc`, `mathutil`, `memory`, `bigfft`, `google/uuid` are BSD-3-Clause and `go-humanize`, `go-isatty`, `go-strftime` are MIT; released 2026-09-15 and maintained; `govulncheck` (v1.8.0, 2026-09-25) found no vulnerabilities in the daemon packages that use it, and it has no install scripts; size: about 6.3 MB when it is linked into the 9.5 MB daemon and used to open a database and run a statement, and about 7.2 MB with goose and the store code (measured 2026-09-25 on macOS arm64 with probe programs; `marshald` does not use it yet, so the download and idle RAM budgets need a fresh reading when the store is wired); no other library on this list does the same job. |
-| `github.com/pressly/goose/v3` | v3.28.0 | Migrations, used through its `Provider` API only (no command line, and the global registry is off) | Simple, supports embedded SQL files, and sqlc reads goose files. Checks (section 1): need is borderline, since a forward-only runner is about 150 lines of our own, and we keep goose because sqlc reads its file format and it applies each file in one transaction and records the version; pure Go, MIT, its indirect libraries are MIT (`mfridman/interpolate`, `go.uber.org/multierr`) and Apache-2.0 (`sethvargo/go-retry`); released 2026-09-02 and maintained; `govulncheck` found nothing (see above) and there are no install scripts; size: about 0.8 MB in the daemon (measured 2026-09-25, same probes as above); it does not overlap another library on this list. We only ever run migrations up: a test fails if a file has a Down section. |
-| `sqlc` (tool) | v1.31.1 | Generating typed Go from SQL queries. `pnpm gen` runs `sqlc generate -f daemon/sqlc.yaml`, and the output in `daemon/internal/store/db` is committed | Real SQL, type safety, no ORM. The generated code uses only `database/sql`, so it adds no library to the daemon. |
+| `modernc.org/sqlite` | v1 | SQLite driver, used by `internal/store` through `database/sql` | Pure Go, no cgo, so cross-compiling stays simple (`CGO_ENABLED=0` builds for macOS, Linux, and Windows were run). A database engine is far beyond 200 lines. Carries SQLite 3.53.4 transpiled to Go. About 6.3 MB linked into the 9.5 MB daemon, or 7.2 MB with goose and the store code (probe on macOS arm64, 2026-09-25, before `marshald` used it; `pnpm budgets` measures the real daemon). |
+| `github.com/pressly/goose/v3` | v3 | Migrations, through its `Provider` API only (no command line, global registry off) | Supports embedded SQL files, and sqlc reads goose files. Need is borderline (a forward-only runner is about 150 lines of our own); kept because sqlc reads its file format and it applies each file in one transaction and records the version. Pure Go. About 0.8 MB in the daemon (same probes). We only ever run migrations up: a test fails if a file has a Down section. |
+| `sqlc` (tool) | v1 | Typed Go from SQL queries. `pnpm gen` runs `sqlc generate -f daemon/sqlc.yaml`; the output in `daemon/internal/store/db` is committed | Real SQL, type safety, no ORM. The generated code uses only `database/sql`, so it adds no library to the daemon. |
 
 **Notes:**
 
@@ -55,10 +55,10 @@ After adding, add an entry here with the version, purpose, and notes.
 
 | Library | Version | Used for | Why this one |
 |---|---|---|---|
-| `github.com/aymanbagabas/go-pty` | v0.2.3 | PTY on macOS, Linux, and Windows (ConPTY), used by `internal/agents/pty` | One API for all three platforms. Checks (section 1): needed, since ConPTY start-up (pseudo console, process attribute lists, environment block) is far beyond 200 lines; pure Go, no cgo (`CGO_ENABLED=0` builds and vets for macOS, Linux, and Windows were run), and its own libraries are `creack/pty` (MIT), `golang.org/x/sys` and `golang.org/x/crypto` (BSD-3-Clause), and `u-root` (BSD-3-Clause); MIT; released 2026-05-17 and maintained; no install scripts, and `govulncheck` was not run for it (it needs the network, so it is left to the CI run); size: it adds about 1.1 MB to a stripped program on all three platforms, most of it from its SSH helper, which pulls `x/crypto/ssh` into the link even though we never use it (measured 2026-09-25, not yet in `marshald`, so the download budget needs a fresh reading when the adapter is wired); no other library on this list does the same job. |
-| `golang.org/x/sys` (`unix`, `windows`) | v0.47.0 | The single-instance lock (`internal/platform/lock_unix.go`, `lock_windows.go`): `unix.Flock` and `windows.LockFileEx`/`UnlockFileEx` | Checks (section 1): needed, since a real OS-held advisory lock (released automatically on a hard kill, unlike a PID file) needs the raw syscalls the standard library does not expose; pure Go, no cgo; was already an indirect dependency of `go-pty` and `modernc.org/sqlite`, promoted to direct with `go mod tidy` (no other module changed) once this package imported it for real; BSD-3-Clause; Google-maintained, released alongside the Go toolchain and kept current; no install scripts, and `govulncheck` was not run for it (needs the network, left to the CI run); size: syscall wrappers only, negligible; no other library on this list does the same job. |
+| `github.com/aymanbagabas/go-pty` | v0 | PTY on macOS, Linux, and Windows (ConPTY), used by `internal/agents/pty` | One API for all three platforms. ConPTY start-up (pseudo console, process attribute lists, environment block) is far beyond 200 lines. Pure Go (`CGO_ENABLED=0` builds and vets for all three were run); its own libraries are `creack/pty`, `golang.org/x/sys`, `golang.org/x/crypto`, and `u-root`. Adds about 1.1 MB to a stripped program, most of it from its SSH helper, which pulls `x/crypto/ssh` into the link though we never use it (probe, 2026-09-25, before `marshald` used it; `pnpm budgets` measures the real daemon). `govulncheck` was not run for it (needs the network; left to CI). |
+| `golang.org/x/sys` (`unix`, `windows`) | v0 | The single-instance lock (`internal/platform/lock_unix.go`, `lock_windows.go`): `unix.Flock` and `windows.LockFileEx`/`UnlockFileEx` | A real OS-held advisory lock, released automatically on a hard kill (unlike a PID file), needs raw syscalls the standard library does not expose. Was already an indirect dependency of `go-pty` and `modernc.org/sqlite`; promoted to direct with `go mod tidy`. Syscall wrappers only, so size is negligible. `govulncheck` was not run (left to CI). |
 | Git command line (not a library) | 2.38 or newer | Worktrees, sparse checkout, merge-tree | Go Git libraries do not fully support these features |
-| `github.com/kardianos/service` | Considered, not used | Installing the daemon as a user service | Its license is zlib ("provided 'as-is'..."), which is not on section 1's allowed list (MIT, Apache-2.0, BSD, ISC, MPL-2.0), and the architecture already excluded it for Windows. Installed as a launchd agent, a systemd user unit, and a Windows scheduled task instead, in our own code (`internal/platform/service_launchd.go`, `service_systemd.go`, `service_schtasks.go`), which keeps all three platforms on one license-clean implementation rather than a third-party library for two of them and custom code for the third. |
+| `github.com/kardianos/service` | Considered, not used | Installing the daemon as a user service | Its license is zlib, which is not on section 1's allowed list, and the architecture already excluded it for Windows. Installed instead as a launchd agent, a systemd user unit, and a Windows scheduled task, in our own code (`internal/platform/service_launchd.go`, `service_systemd.go`, `service_schtasks.go`). That keeps all three platforms on one license-clean implementation, not a library for two and custom code for the third. |
 
 **Notes:**
 
@@ -70,11 +70,11 @@ After adding, add an entry here with the version, purpose, and notes.
 
 | Library | Version | Used for | Why this one |
 |---|---|---|---|
-| `github.com/modelcontextprotocol/go-sdk` | Pin at setup | The internal MCP server, and MCP client for the built-in agent | The official Go SDK |
-| `github.com/coder/acp-go-sdk` | v0.13.5 | Talking to ACP agents, and the stub agent used in tests | Chosen in task 1.6, built early for the stub agent (Phase 0). Generated from the official ACP schema, so method and type names cannot drift. Checks (section 1): needed, since the protocol layer is about 15,000 generated lines; pure Go, no cgo; Apache-2.0; last release June 2026 and maintained by Coder; no install scripts; nothing else on this list overlaps. |
-| `github.com/anthropics/anthropic-sdk-go` | Pin at setup | Anthropic adapter | Official SDK, supports thinking and tool use |
-| `github.com/openai/openai-go` | Pin at setup | OpenAI and all OpenAI-compatible providers (OpenRouter, DeepSeek, Ollama, LM Studio) | Official SDK, base URL can be changed per provider |
-| `google.golang.org/genai` | Pin at setup | Gemini adapter | Official Google Gen AI SDK |
+| `github.com/modelcontextprotocol/go-sdk` | v1 | The internal MCP server, and MCP client for the built-in agent | The official Go SDK |
+| `github.com/coder/acp-go-sdk` | v0 | Talking to ACP agents, and the stub agent used in tests | Chosen in task 1.6, built early for the stub agent (Phase 0). Generated from the official ACP schema, so method and type names cannot drift. The protocol layer is about 15,000 generated lines. Pure Go. |
+| `github.com/anthropics/anthropic-sdk-go` | v1 | Anthropic adapter | Official SDK, supports thinking and tool use |
+| `github.com/openai/openai-go` | v1 | OpenAI and all OpenAI-compatible providers (OpenRouter, DeepSeek, Ollama, LM Studio) | Official SDK, base URL can be changed per provider |
+| `google.golang.org/genai` | v1 | Gemini adapter | Official Google Gen AI SDK |
 
 **Notes:**
 
@@ -86,34 +86,35 @@ After adding, add an entry here with the version, purpose, and notes.
 
 | Library | Version | Used for | Why this one |
 |---|---|---|---|
-| `github.com/google/go-github` | Pin at setup | GitHub API | The most complete Go client |
-| `github.com/bradleyfalzon/ghinstallation/v2` | Pin at setup | GitHub App authentication | Standard way to auth as a GitHub App |
-| `google.golang.org/api` (`gmail/v1`, `calendar/v3`) | v0.299.0 | Gmail and Google Calendar (B8.3) | Official Google clients, used through `.New(httpClient)` (not `NewService`'s `option` transport), so no code here dials gRPC even though it is a transitive dependency. BSD-3-Clause. Checks (section 1): needed (a Discovery-generated REST client for two APIs is well past 200 lines); license BSD-3-Clause; maintained (Google-released); govulncheck not run (needs network, left to CI); daemon size and download-budget impact not measured this pass (needs `go build` + `pnpm budgets`, on the "needs the controller" list in the Phase 8 report) |
-| `golang.org/x/oauth2` (`google` subpackage) | v0.37.0 | OAuth for Google (B8.3) | Standard, BSD-3-Clause, Go-team maintained |
-| `github.com/go-telegram/bot` | Pin at setup | Telegram bot | Maintained, covers the current Bot API, no extra dependencies |
-| `github.com/bwmarrin/discordgo` | Pin at setup | Discord bot | The most used Go Discord library |
+| `github.com/google/go-github` | v88 | GitHub API | The most complete Go client |
+| `github.com/bradleyfalzon/ghinstallation/v2` | v2 | GitHub App authentication | Standard way to auth as a GitHub App |
+| `google.golang.org/api` (`gmail/v1`, `calendar/v3`) | v0 | Gmail and Google Calendar (B8.3) | Official Google clients, used through `.New(httpClient)` (not `NewService`'s `option` transport), so no code here dials gRPC even though it is a transitive dependency. A Discovery-generated REST client for two APIs is well past 200 lines. `govulncheck` not run (needs the network; left to CI). Daemon size and download-budget impact not measured (needs `go build` and `pnpm budgets`). |
+| `golang.org/x/oauth2` (`google` subpackage) | v0 | OAuth for Google (B8.3) | Standard, Go-team maintained |
+| `github.com/go-telegram/bot` | v1 | Telegram bot | Maintained, covers the current Bot API, no extra dependencies |
+| `github.com/bwmarrin/discordgo` | v0 | Discord bot | The most used Go Discord library |
 | Trello | Not a library | Trello REST API | No maintained official Go client. We write a small typed client in `integrations/trello`. |
 
 ### 2.6 Remote and security
 
 | Library | Version | Used for | Why this one |
 |---|---|---|---|
-| `tailscale.com/tsnet` | v1.102.5 (`tailscale.com`) | Joining the tailnet from inside the daemon, and Funnel | The official way to embed Tailscale in a Go program. Wrapped by `internal/tailnet`, which is the only file that imports it, so the API layer reaches it through an interface and is tested with a fake node and no Tailscale anywhere. |
-| `github.com/zalando/go-keyring` | Pin at setup | OS keychain access | Works on macOS, Linux (Secret Service), and Windows |
-| `github.com/zricethezav/gitleaks/v8` | Pin at setup | Secret scanning on agent commits | Well-known rule set, usable as a library |
+| `tailscale.com/tsnet` | v1 (`tailscale.com`) | Joining the tailnet from inside the daemon, and Funnel | The official way to embed Tailscale in a Go program. Wrapped by `internal/tailnet`, the only package that imports it, so the API layer reaches it through an interface and is tested with a fake node and no Tailscale anywhere. |
+| `github.com/zalando/go-keyring` | v0 | OS keychain access | Works on macOS, Linux (Secret Service), and Windows |
+| `github.com/zricethezav/gitleaks/v8` | v8 | Secret scanning on agent commits | Well-known rule set, usable as a library |
 
 **Notes:**
 
-- tsnet adds noticeably to binary size. **Measured for task 9.1 on 2026-09-28** (macOS arm64, `CGO_ENABLED=0`, built by compiling `./cmd/marshald` with and without `internal/tailnet`): **+15,864,240 bytes (+15.13 MiB) stripped** with `-ldflags="-s -w"`, or +23,294,480 bytes (+22.22 MiB) unstripped. The whole daemon is 74,301,890 bytes (70.86 MiB) stripped with tsnet, against the download budget of "under 50 MB" in `architecture.md` section 14 - which the daemon already misses without tsnet, at 58,437,650 bytes (55.73 MiB). The budget is a release-build check and this is a bare Go build, so the real reading is the controller's to take, but both numbers are recorded rather than one. **cgo:** tailscale.com reaches `github.com/tailscale/certstore` on macOS and Windows for one feature Marshal does not use, and that store talks to the Keychain through C, which this Mac's Command Line Tools cannot link (`progress-tracker.md`, 2026-09-25). The daemon's no-cgo invariant is kept by a `replace` in `daemon/go.mod` pointing that module at `daemon/third_party/certstore`, a pure-Go stand-in that answers "not available"; without it `go build ./...` in `daemon/` fails at the link of `marshald`.
+- tsnet adds noticeably to binary size. **Measured for task 9.1 on 2026-09-28** (macOS arm64, `CGO_ENABLED=0`, compiling `./cmd/marshald` with and without `internal/tailnet`): **+15.13 MiB stripped** (`-ldflags="-s -w"`), or +22.22 MiB unstripped. The whole daemon is 70.86 MiB stripped with tsnet, against the download budget of "under 50 MB" in `architecture.md` section 14. The daemon already misses that without tsnet, at 55.73 MiB. The budget is a release-build check and this is a bare Go build, so the real reading is the controller's; both numbers are recorded.
+- **cgo:** `tailscale.com` reaches `github.com/tailscale/certstore` on macOS and Windows for one feature Marshal does not use, and that store talks to the Keychain through C, which this Mac's Command Line Tools cannot link (`progress-tracker.md`, 2026-09-25). The no-cgo rule is kept by a `replace` in `daemon/go.mod` pointing that module at `daemon/third_party/certstore`, a pure-Go stand-in that answers "not available". Without it, `go build ./...` in `daemon/` fails at the link of `marshald`.
 - On Linux without a Secret Service (some headless servers), fall back to an encrypted file, and warn the user.
 
 ### 2.7 Preview and misc
 
 | Library | Version | Used for | Why this one |
 |---|---|---|---|
-| `github.com/chromedp/chromedp` | Pin at setup | Screenshot checks | Drives the user's installed Chrome or Edge, no bundled browser |
-| `github.com/robfig/cron/v3` | Pin at setup | Parsing and running cron schedules | Standard, supports time zones |
-| `github.com/gzuidhof/tygo` (tool) | v0.2.21 | Generating TypeScript types from Go | Keeps `packages/protocol` in sync with the API |
+| `github.com/chromedp/chromedp` | v0 | Screenshot checks | Drives the user's installed Chrome or Edge, no bundled browser |
+| `github.com/robfig/cron/v3` | v3 | Parsing and running cron schedules | Standard, supports time zones |
+| `github.com/gzuidhof/tygo` (tool) | v0 | Generating TypeScript types from Go | Keeps `packages/protocol` in sync with the API |
 
 **Notes:**
 
@@ -121,20 +122,16 @@ After adding, add an entry here with the version, purpose, and notes.
 
 ### 2.8 Development tools (daemon)
 
-| Tool | Version | Used for |
-|---|---|---|
-| `air` | v1.67.4 | Restarting the daemon when Go files change, in `pnpm dev` |
-| `golangci-lint` | v2.14.0 | Go linting and code smell checks (see `code-standards.md` section 12) |
+- `air` (v1): restarts the daemon when Go files change, in `pnpm dev`.
+- `golangci-lint` (v2): Go linting and code smell checks (see `code-standards.md` section 12).
 
-These, plus `sqlc` and `tygo`, are installed into `.tools/` by `pnpm setup:tools`.
+These, plus `sqlc` and `tygo`, are installed into `.tools/` by `pnpm setup:tools`, at the exact versions in `scripts/setup-tools.mjs`.
 
 ### 2.9 Testing (daemon)
 
-| Library | Version | Used for |
-|---|---|---|
-| Go `testing` package | 1.27.1 | All tests |
-| `go.uber.org/goleak` | v1.3.0 | Catching leaked goroutines. It has no release in the last 12 months (v1.3.0, October 2023), but section 1's maintenance check is a goal rather than a rule for a test-only library with no dependencies: it is one small goroutine stack parser, still the standard tool for this job. |
-| `github.com/google/go-cmp` | Considered, not used | Comparing structs in tests. Plain `reflect.DeepEqual` and hand-written field checks turned out to be enough, so it was never added to `go.mod`. |
+- Go `testing` package (1.27): all tests.
+- `go.uber.org/goleak` (v1): catching leaked goroutines. It has no release in the last 12 months (v1.3.0, October 2023), but section 1's maintenance check is a goal, not a rule, for a test-only library with no dependencies: it is one small goroutine stack parser, still the standard tool for this job.
+- `github.com/google/go-cmp`: considered, not used. Plain `reflect.DeepEqual` and hand-written field checks were enough, so it was never added to `go.mod`.
 
 ### 2.10 Open decision: codebase map
 
@@ -146,15 +143,7 @@ The codebase map needs to read symbols from many languages. Options:
 | Universal Ctags as an external tool | Pure external binary, many languages | Less detail, extra install |
 | Tree-sitter compiled to WebAssembly, run in Go | Accurate, no cgo | More setup work, some speed cost |
 
-**Decided 2026-09-27 (task 7.9): universal ctags as an external binary.** The daemon is pure Go with
-no cgo anywhere, and it already prefers an external process over a linked C library wherever it can —
-`gitx` shells out to the real `git`, agents run as external CLI processes, and `internal/proc` and
-`internal/platform` exist to manage child processes. ctags is therefore the option most consistent
-with the codebase and the only one that adds no new runtime; Tree-sitter-to-WASM adds a WASM runtime
-and a grammar-build step, and cgo bindings break the no-cgo rule. The index stays light and
-incremental (a changed file is re-read, never the whole tree), and when no ctags is installed the map
-falls back to a filename-only index with a clear "ctags is not installed" notice rather than failing.
-Recorded in the progress tracker's decisions log.
+**Decided 2026-09-27 (task 7.9): universal ctags as an external binary.** The daemon is pure Go with no cgo anywhere, and it already prefers an external process over a linked C library wherever it can: `gitx` shells out to the real `git`, agents run as external CLI processes, and `internal/proc` and `internal/platform` manage child processes. ctags is the option most consistent with that and the only one that adds no new runtime; Tree-sitter-to-WASM adds a WASM runtime and a grammar-build step, and cgo bindings break the no-cgo rule. The index stays light and incremental (a changed file is re-read, never the whole tree). When no ctags is installed the map falls back to a filename-only index with a clear "ctags is not installed" notice rather than failing. Recorded in the progress tracker's decisions log.
 
 ---
 
@@ -164,21 +153,21 @@ Recorded in the progress tracker's decisions log.
 
 | Library | Version | Used for | Why this one |
 |---|---|---|---|
-| `solid-js` | Pin at setup | UI framework | Small, fast, fine-grained updates suit streaming chat and output |
-| `@solidjs/router` | Pin at setup | Routing between views | Official router |
-| `vite` + `vite-plugin-solid` | Pin at setup | Build and dev server | Fast builds, standard for Solid |
-| `typescript` | Pin at setup | Types | Strict mode on |
-| `tailwindcss` (v4) + `@tailwindcss/vite` | Pin at setup | Styling with tokens | Small output, tokens map to theme variables |
+| `solid-js` | 1 | UI framework | Small, fast, fine-grained updates suit streaming chat and output |
+| `@solidjs/router` | Not added yet | Routing between views | Official router |
+| `vite` + `vite-plugin-solid` | 8 and 2 | Build and dev server | Fast builds, standard for Solid |
+| `typescript` | 7 | Types | Strict mode on |
+| `tailwindcss` + `@tailwindcss/vite` | 4 | Styling with tokens | Small output, tokens map to theme variables |
 
 ### 3.2 Components and data
 
 | Library | Version | Used for | Why this one |
 |---|---|---|---|
-| `@kobalte/core` | Pin at setup | Accessible base parts: dialogs, menus, popovers, tooltips, tabs, selects | Unstyled, accessible, built for Solid |
-| `@tanstack/solid-query` | Pin at setup | Fetching and caching API data | Handles loading, errors, and cache cleanly |
-| `@tanstack/solid-virtual` | Pin at setup | Virtualized lists, logs, and diffs | Keeps long lists fast |
-| `@thisbeyond/solid-dnd` | Pin at setup | Kanban drag and drop | Built for Solid |
-| `lucide-solid` | Pin at setup | Icons | Clean, consistent, tree-shakable |
+| `@kobalte/core` | Not added yet | Accessible base parts: dialogs, menus, popovers, tooltips, tabs, selects | Unstyled, accessible, built for Solid |
+| `@tanstack/solid-query` | Not added yet | Fetching and caching API data | Handles loading, errors, and cache cleanly |
+| `@tanstack/solid-virtual` | Not added yet | Virtualized lists, logs, and diffs | Keeps long lists fast |
+| `@thisbeyond/solid-dnd` | Not added yet | Kanban drag and drop | Built for Solid |
+| `lucide-solid` | 0.x | Icons | Clean, consistent, tree-shakable |
 
 **Notes:**
 
@@ -189,11 +178,11 @@ Recorded in the progress tracker's decisions log.
 
 | Library | Version | Used for | Why this one |
 |---|---|---|---|
-| `@xterm/xterm` + `@xterm/addon-fit` + `@xterm/addon-webgl` | Pin at setup | Terminal view | The standard web terminal. WebGL renderer for speed. |
-| `shiki` | Pin at setup | Syntax highlighting in diffs and code blocks | Accurate highlighting. Lazy loaded, only needed languages. |
-| `marked` | Pin at setup | Rendering markdown in chat | Small and fast |
-| `dompurify` | Pin at setup | Cleaning rendered markdown | Agent output is untrusted, so all rendered HTML is sanitized |
-| `cronstrue` | Pin at setup | Showing cron schedules in plain words | Small, clear output |
+| `@xterm/xterm` + `@xterm/addon-fit` + `@xterm/addon-webgl` | Not added yet | Terminal view | The standard web terminal. WebGL renderer for speed. |
+| `shiki` | Not added yet | Syntax highlighting in diffs and code blocks | Accurate highlighting. Lazy loaded, only needed languages. |
+| `marked` | 18 | Rendering markdown in chat | Small and fast |
+| `dompurify` | 3 | Cleaning rendered markdown | Agent output is untrusted, so all rendered HTML is sanitized |
+| `cronstrue` | Not added yet | Showing cron schedules in plain words | Small, clear output |
 
 **Notes:**
 
@@ -205,48 +194,37 @@ Recorded in the progress tracker's decisions log.
 
 ### 3.4 Desktop shell (Tauri)
 
-| Library | Version | Used for |
-|---|---|---|
-| `tauri` v2 + `@tauri-apps/api` | Pin at setup | Desktop shell |
-| `tauri-plugin-notification` | Pin at setup | OS notifications while the app is open |
-| `tauri-plugin-single-instance` | Pin at setup | Only one app window process |
-| `tauri-plugin-deep-link` | Pin at setup | `marshal://` links from notifications and chat bots |
-| `tauri-plugin-updater` | Pin at setup | App updates |
+- `tauri` (2) and `@tauri-apps/api` (not added yet): desktop shell.
+- `tauri-plugin-notification` (2): OS notifications while the app is open.
+- `tauri-plugin-single-instance` (not added yet): only one app window process.
+- `tauri-plugin-deep-link` (2): `marshal://` links from notifications and chat bots.
+- `tauri-plugin-updater` (2): app updates.
 
 When the desktop app is closed, the daemon sends OS notifications itself through a small platform helper, so notices still arrive.
 
 ### 3.4a Phone app (Tauri mobile)
 
-| Library | Version | Used for |
-|---|---|---|
-| `@tauri-apps/plugin-barcode-scanner` and `tauri-plugin-barcode-scanner` | 2.5.0 and 2 | Reading the pairing QR code with the camera |
-| `@tauri-apps/plugin-haptics` and `tauri-plugin-haptics` | 2.4.0 and 2 | A light tap on approve and a marker on errors |
-| `@tauri-apps/plugin-deep-link` and `tauri-plugin-deep-link` | 2.5.0 and 2 | `marshal://` links and "Share to Marshal" |
-| `qrcode-generator` (web app) | 2.0.4 | Drawing the pairing QR code on the desktop |
+- `@tauri-apps/plugin-barcode-scanner` and `tauri-plugin-barcode-scanner` (2): reading the pairing QR code with the camera.
+- `@tauri-apps/plugin-haptics` and `tauri-plugin-haptics` (2): a light tap on approve and a marker on errors.
+- `@tauri-apps/plugin-deep-link` and `tauri-plugin-deep-link` (2): `marshal://` links and "Share to Marshal".
+- `qrcode-generator` (2, web app): drawing the pairing QR code on the desktop.
 
 The web app loads each plugin on first use (`src/platform/`), so a browser build never needs them. The camera and haptics crates are phone-only dependencies of `apps/mobile`, so a desktop `cargo check` does not build them.
 
 ### 3.5 Fonts
 
-| Font | Used for | License |
-|---|---|---|
-| Atkinson Hyperlegible Next | All UI text | OFL |
-| Atkinson Hyperlegible Mono | Code, paths, branch names, commands, terminal | OFL |
+- Atkinson Hyperlegible Next (OFL): all UI text.
+- Atkinson Hyperlegible Mono (OFL): code, paths, branch names, commands, terminal.
 
 Fonts are bundled as local woff2 files. We never load fonts from a CDN at runtime, because Marshal must work offline.
 
 ### 3.6 Testing and tooling (UI)
 
-| Library | Version | Used for |
-|---|---|---|
-| `vitest` | Pin at setup | Unit tests |
-| `@solidjs/testing-library` | Pin at setup | Component tests |
-| `@playwright/test` | Pin at setup | End-to-end tests |
-| `@biomejs/biome` | Pin at setup | Formatting and linting |
-| `@tauri-apps/cli` | Pin at setup | Running and building the desktop shell |
-| `knip` | Pin at setup | Finding unused files, exports, and dependencies |
-| `jscpd` | Pin at setup | Finding duplicated code across languages. Also used by Marshal's built-in smell checks when a project has no duplication tool. |
-| pnpm | Pinned in `packageManager` | Package manager and script runner |
+- `vitest` (5): unit tests. `@solidjs/testing-library` (0.x): component tests. `@playwright/test` (1): end-to-end tests.
+- `@biomejs/biome` (2): formatting and linting. `@tauri-apps/cli` (2): running and building the desktop shell.
+- `knip` (6): finding unused files, exports, and dependencies.
+- `jscpd` (5): finding duplicated code across languages. Also used by Marshal's built-in smell checks when a project has no duplication tool.
+- pnpm (11, pinned in `packageManager`): package manager and script runner.
 
 ---
 
