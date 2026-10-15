@@ -49,6 +49,7 @@ type fixture struct {
 	claims *fakeClaims
 	agents *fakeAgents
 	code   *fakeCodebase
+	finish *fakeFinisher
 
 	// mode is the card's permission mode. It is read from the fixture on every call, so a test can
 	// change it between two calls and watch the second one be answered differently.
@@ -69,6 +70,7 @@ func newFixture(t *testing.T) *fixture {
 		claims: &fakeClaims{held: map[string][]memory.Claim{}},
 		agents: &fakeAgents{},
 		code:   &fakeCodebase{},
+		finish: &fakeFinisher{},
 		mode:   protocol.PermissionModeAutoEdits,
 		logs:   &bytes.Buffer{},
 	}
@@ -97,7 +99,7 @@ func newFixture(t *testing.T) *fixture {
 	}}
 	server, err := New(
 		Deps{
-			Cards: f.cards, Notes: f.notes, Claims: f.claims, Agents: f.agents, Codebase: f.code,
+			Cards: f.cards, Notes: f.notes, Claims: f.claims, Agents: f.agents, Codebase: f.code, Finisher: f.finish,
 			Harness: f.rules,
 			Logger:  slog.New(slog.NewTextHandler(f.logs, &slog.HandlerOptions{Level: slog.LevelDebug})),
 		},
@@ -467,4 +469,15 @@ func (f *fakeCodebase) Search(_ context.Context, _, query string, limit int) ([]
 		out = out[:limit]
 	}
 	return out, nil
+}
+
+// fakeFinisher records who said they were finished.
+type fakeFinisher struct {
+	said []string
+	err  error
+}
+
+func (f *fakeFinisher) Finish(_ context.Context, cardID, summary string) error {
+	f.said = append(f.said, cardID+": "+summary)
+	return f.err
 }

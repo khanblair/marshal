@@ -68,6 +68,12 @@ func (s *Server) register() (err error) {
 		"Find where a name is written in this project's code - a function, a type, a method - without "+
 			"reading files.",
 		s.searchCodebase)
+	add(s, "finish_card",
+		"Say that this card's work is finished and committed. Marshal then has the changes reviewed, runs "+
+			"the project's checks, and merges them into the project's branch on this machine when this "+
+			"turn ends. Commit first with git add and git commit; do not push. Call it once, with one "+
+			"sentence saying what you did.",
+		s.finishCard)
 	add(s, "report_progress",
 		"Set this card's one-line \"doing now\", which the board shows. An empty line clears it.",
 		s.reportProgress)

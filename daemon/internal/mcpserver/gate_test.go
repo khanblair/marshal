@@ -38,6 +38,7 @@ func mutating() map[string]map[string]any {
 		"ask_agent":           {"cardKey": projectID + "#2", "question": "what are you on?"},
 		"create_card":         {"title": "New work"},
 		"report_progress":     {"doingNow": "writing the route"},
+		"finish_card":         {"summary": "Added the route."},
 		"tick_checklist_item": {"itemId": "item-1", "done": true, "evidence": "commit abc"},
 		"post_comment":        {"body": "done"},
 	}

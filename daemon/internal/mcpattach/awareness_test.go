@@ -210,3 +210,26 @@ func TestClipNeverLengthensAStringAndKeepsItValid(t *testing.T) {
 		})
 	}
 }
+
+// fakeOverlaps answers a fixed forecast of the files two cards have both changed.
+type fakeOverlaps []protocol.CardOverlap
+
+func (f fakeOverlaps) Overlaps(context.Context, string) []protocol.CardOverlap { return f }
+
+func TestTurnAwarenessWarnsAboutAFileAnotherCardHasChangedToo(t *testing.T) {
+	a := awareAttacher(t, []protocol.Card{fixtureCard(), fixtureOther()}, nil, nil)
+	a.deps.Overlaps = fakeOverlaps{
+		{Path: "src/auth.ts", Cards: []string{"web#1", "web#2"}, CardIDs: []string{testCardID, "card-2"}},
+		{Path: "src/other.ts", Cards: []string{"web#2", "web#3"}, CardIDs: []string{"card-2", "card-3"}},
+	}
+
+	got := a.TurnAwareness(context.Background(), testCardID)
+
+	if !strings.Contains(got, "Files you changed that another card has also changed:") ||
+		!strings.Contains(got, "src/auth.ts was also changed by web#2") {
+		t.Errorf("the summary does not warn about the shared file:\n%s", got)
+	}
+	if strings.Contains(got, "src/other.ts") {
+		t.Errorf("the summary names a file this card did not change:\n%s", got)
+	}
+}

@@ -311,3 +311,20 @@ func inOrder(haystack string, needles ...string) bool {
 	}
 	return true
 }
+
+// A card that has the finish tool is told how its work ends: committed in its own folder, then
+// finished with the tool, and never pushed.
+func TestAttachTellsACardWithTheFinishToolHowItsWorkEnds(t *testing.T) {
+	a := newAttacher(t, mcpserver.NewHost(), nil)
+	t.Cleanup(func() { a.Detach(context.Background(), testCardID) })
+
+	got, err := a.Attach(context.Background(), fixtureCard())
+	if err != nil {
+		t.Fatalf("attach: %v", err)
+	}
+	for _, want := range []string{"git commit", "do not push", "finish_card"} {
+		if !strings.Contains(got.Instructions, want) {
+			t.Errorf("the instructions do not say %q:\n%s", want, got.Instructions)
+		}
+	}
+}

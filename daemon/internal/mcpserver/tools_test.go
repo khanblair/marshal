@@ -666,3 +666,26 @@ func TestAToolThatIsNotBuiltIsStillDescribed(t *testing.T) {
 	}
 	t.Fatal("tick_checklist_item is not offered to a client")
 }
+
+func TestFinishCardRecordsThatTheCardsAgentIsFinished(t *testing.T) {
+	f := newFixture(t)
+	out := callOK[finishCardOut](t, f.client(t), "finish_card", map[string]any{"summary": "  Added the route.  "})
+	if len(f.finish.said) != 1 || f.finish.said[0] != "card-1: Added the route." {
+		t.Errorf("the finisher was told %v, want this card and its trimmed summary", f.finish.said)
+	}
+	if !strings.Contains(out.Message, "reviews your changes") {
+		t.Errorf("the answer is %q, want it to say what happens next", out.Message)
+	}
+}
+
+func TestFinishCardNeedsASummaryAndPassesOnTheFinishersRefusal(t *testing.T) {
+	f := newFixture(t)
+	cs := f.client(t)
+	if said, isError := call(t, cs, "finish_card", map[string]any{"summary": "  "}); !isError || !strings.Contains(said, "summary") {
+		t.Errorf("a finish with no summary answered %q (error %v), want it refused for the summary", said, isError)
+	}
+	f.finish.err = errors.New("this card has no running session to finish")
+	if said, isError := call(t, cs, "finish_card", map[string]any{"summary": "Done."}); !isError || !strings.Contains(said, "no running session") {
+		t.Errorf("a refused finish answered %q (error %v), want the reason", said, isError)
+	}
+}

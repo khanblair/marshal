@@ -23,6 +23,7 @@ var section11_4 = []string{
 	"create_card",
 	"search_memory",
 	"search_codebase",
+	"finish_card",
 	"report_progress",
 	"list_checklists",
 	"tick_checklist_item",

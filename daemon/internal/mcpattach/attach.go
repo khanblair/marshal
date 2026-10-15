@@ -55,6 +55,12 @@ type Deps struct {
 	Notes  mcpserver.Notes
 	Claims mcpserver.Claims
 	Agents mcpserver.Agents
+	// Finisher records that a card's agent says it is finished. It may be nil, and finish_card then
+	// says it is not available.
+	Finisher mcpserver.Finisher
+	// Overlaps answers the files that more than one unfinished card of a project has changed. It may
+	// be nil, and a card is then warned only about files it and another card have claimed.
+	Overlaps Overlaps
 	// Panel is the card panel behind the checklist, comment, and attachment tools. It may be nil.
 	Panel mcpserver.Panel
 	// Codebase is the codebase map, nil until internal/codemap exists (slice 4). The tool that needs
@@ -76,6 +82,11 @@ type Deps struct {
 	Logger *slog.Logger
 	// Now is the clock the server stamps times with. The default is time.Now.
 	Now func() time.Time
+}
+
+// Overlaps is the merge queue's forecast of the files two cards have both changed.
+type Overlaps interface {
+	Overlaps(ctx context.Context, projectID string) []protocol.CardOverlap
 }
 
 // Attacher is the session manager's Attacher (internal/session/attach.go), built from the daemon's
@@ -144,7 +155,7 @@ func (a *Attacher) serverDeps(card protocol.Card) mcpserver.Deps {
 	cardID := card.ID
 	return mcpserver.Deps{
 		Cards: a.deps.Cards, Notes: a.deps.Notes, Claims: a.deps.Claims,
-		Agents: a.deps.Agents, Panel: a.deps.Panel, Codebase: a.deps.Codebase,
+		Agents: a.deps.Agents, Finisher: a.deps.Finisher, Panel: a.deps.Panel, Codebase: a.deps.Codebase,
 		Harness: func() (harness.Config, bool) { return a.deps.Harness(cardID) },
 		Now:     a.deps.Now, Logger: a.deps.Logger,
 	}

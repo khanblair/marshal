@@ -53,6 +53,9 @@ const (
 	awarenessTailReserve = 40
 	// awarenessConflictHead introduces the conflict warnings.
 	awarenessConflictHead = "Files you and another card both hold:"
+	// awarenessOverlapHead introduces the files two cards have both changed, which is a merge conflict
+	// on its way.
+	awarenessOverlapHead = "Files you changed that another card has also changed:"
 	// ellipsis marks something that was clipped. Read as one character, it is three bytes, which is
 	// why clip reserves for it.
 	ellipsis = "…"
@@ -90,6 +93,14 @@ func (a *Attacher) context(ctx context.Context, card protocol.Card, tools []stri
 	// later turn (TurnAwareness).
 	if awareness := a.awareness(ctx, card); awareness != "" {
 		fmt.Fprintf(&b, "\n%s\n", awareness)
+	}
+
+	// 4b. How a card's work ends: committed in its own folder, then finished, never pushed.
+	if slices.Contains(tools, "finish_card") {
+		b.WriteString("\nYou work in your own folder on your own branch. Commit your work with git add and git " +
+			"commit as you go, and do not push. When the task is done and committed, call finish_card with one " +
+			"sentence saying what you did: Marshal then has your changes reviewed, runs the project's checks, " +
+			"and merges them into the project's branch on this machine.\n")
 	}
 
 	// 5. The tools the agent has.
@@ -144,6 +155,11 @@ func (a *Attacher) awareness(ctx context.Context, card protocol.Card) string {
 		sections = append(sections, block)
 		// The two bytes are the blank line that will separate this section from the next one, so
 		// what the board is allowed is what will really be left.
+		budget -= len(block) + 2
+	}
+	if lines := a.overlapLines(ctx, card); len(lines) > 0 {
+		block := awarenessOverlapHead + "\n" + strings.Join(lines, "\n")
+		sections = append(sections, block)
 		budget -= len(block) + 2
 	}
 	if section := board.section(card.ID, budget); section != "" {
@@ -359,4 +375,36 @@ func plural(n int, one, many string) string {
 		return one
 	}
 	return many
+}
+
+// overlapLines are the files this card has changed that another card has changed too, each with the
+// cards it shares it with. A merge would conflict on them, so the card is told while it can still
+// agree with the other card (ask_agent) who edits what.
+func (a *Attacher) overlapLines(ctx context.Context, card protocol.Card) []string {
+	if a.deps.Overlaps == nil {
+		return nil
+	}
+	var lines []string
+	hidden := 0
+	for _, overlap := range a.deps.Overlaps.Overlaps(ctx, card.ProjectID) {
+		if !slices.Contains(overlap.CardIDs, card.ID) {
+			continue
+		}
+		if len(lines) >= awarenessConflictMax {
+			hidden++
+			continue
+		}
+		var others []string
+		for i, id := range overlap.CardIDs {
+			if id != card.ID {
+				others = append(others, overlap.Cards[i])
+			}
+		}
+		lines = append(lines, clip(fmt.Sprintf("- %s was also changed by %s; agree who edits it before either of you goes on.",
+			clip(overlap.Path, awarenessPathMax), strings.Join(others, ", ")), awarenessConflictLineMax))
+	}
+	if hidden > 0 {
+		lines = append(lines, fmt.Sprintf("%s and %d more shared %s", ellipsis, hidden, plural(hidden, "file", "files")))
+	}
+	return lines
 }

@@ -180,6 +180,14 @@ type Agents interface {
 	Send(ctx context.Context, cardID, text string) error
 }
 
+// Finisher is what finish_card needs: the way a card's agent says its work is done. The session manager
+// is one; it is a single method so this package never imports internal/session.
+type Finisher interface {
+	// Finish records that the card's agent says it is finished, with a one-sentence summary. What
+	// follows (a review, the checks, the merge) starts when the agent's turn ends.
+	Finish(ctx context.Context, cardID, summary string) error
+}
+
 // Codebase is the codebase map (internal/codemap). A match is one place a name is written.
 type Codebase interface {
 	Search(ctx context.Context, projectID, query string, limit int) ([]CodeMatch, error)
@@ -204,6 +212,9 @@ type Deps struct {
 	Claims Claims
 	// Agents puts a question to another card's agent.
 	Agents Agents
+	// Finisher records that the card's agent is finished. Nil makes finish_card say it is not
+	// available.
+	Finisher Finisher
 	// Panel is the card's checklists, comments, and attachments. It may be nil.
 	Panel Panel
 	// Codebase is the codebase map. The daemon gives every session the real map
