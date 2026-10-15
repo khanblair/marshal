@@ -33,5 +33,25 @@
       "canUndo": true
     }
   ],
+  "settings": {
+    "autoMerge": true,
+    "autoShip": true,
+    "review": true,
+    "checks": true,
+    "allowPush": false
+  },
+  "overlaps": [
+    {
+      "path": "src/auth.ts",
+      "cards": [
+        "web#12",
+        "web#13"
+      ],
+      "cardIds": [
+        "01HZ",
+        "01J0"
+      ]
+    }
+  ],
   "serverTime": "2026-09-27T09:30:00.000Z"
 }

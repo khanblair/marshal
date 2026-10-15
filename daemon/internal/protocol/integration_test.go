@@ -151,6 +151,8 @@ func TestSaveGitHubTokenRequestGolden(t *testing.T) {
 // The Integration view's one read model: a queue with a card mid-merge, and a delivery with its report.
 func TestIntegrationStateGolden(t *testing.T) {
 	testutil.Golden(t, "integration-state", protocol.IntegrationState{
+		Settings:  protocol.IntegrationSettings{AutoMerge: true, AutoShip: true, Review: true, Checks: true},
+		Overlaps:  []protocol.CardOverlap{{Path: "src/auth.ts", Cards: []string{"web#12", "web#13"}, CardIDs: []string{"01HZ", "01J0"}}},
 		ProjectID: "web", Target: "development", IntegratorBranch: protocol.IntegrationBranchName, AheadBy: 2,
 		State: protocol.IntegratorStateMerging, CurrentCardID: "01HZ",
 		Queue: []protocol.IntegrationQueueItem{

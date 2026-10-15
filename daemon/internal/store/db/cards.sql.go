@@ -57,8 +57,9 @@ func (q *Queries) ListMergeBranches(ctx context.Context, projectID string) ([]Li
 const listMergeQueue = `-- name: ListMergeQueue :many
 SELECT id, project_id, number, title, state, branch, merge_phase, merge_note, updated_at
 FROM cards
-WHERE project_id = ? AND state IN ('ready', 'merging')
-ORDER BY CASE state WHEN 'merging' THEN 0 ELSE 1 END, updated_at, number
+WHERE project_id = ?
+  AND (state IN ('ready', 'merging') OR (state = 'review' AND merge_phase IN ('reviewing', 'checking')))
+ORDER BY CASE state WHEN 'merging' THEN 0 WHEN 'ready' THEN 1 ELSE 2 END, updated_at, number
 `
 
 type ListMergeQueueRow struct {
@@ -73,8 +74,9 @@ type ListMergeQueueRow struct {
 	UpdatedAt  int64
 }
 
-// The cards of a project that wait for a merge or are being merged: the one being merged first, the
-// rest in the order they became ready.
+// The cards of a project that wait for a merge or are being merged: the one being merged first, then
+// the ones that are ready in the order they became ready, then the ones still being reviewed or checked
+// on their way there.
 func (q *Queries) ListMergeQueue(ctx context.Context, projectID string) ([]ListMergeQueueRow, error) {
 	rows, err := q.db.QueryContext(ctx, listMergeQueue, projectID)
 	if err != nil {

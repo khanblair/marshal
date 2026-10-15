@@ -3606,6 +3606,10 @@ export interface SaveGitHubTokenRequest {
 // source: integration_flow.go
 
 /** MergePhase is where a card in the merge queue is. */
+/** MergePhaseReviewing means the Reviewer is reading the card's changes. */
+export const MergePhaseReviewing = "reviewing";
+/** MergePhaseChecking means the project's checks are running on the card's changes. */
+export const MergePhaseChecking = "checking";
 /** MergePhaseQueued means the card waits for the Integrator to take it. */
 export const MergePhaseQueued = "queued";
 /** MergePhaseResolving means the Integrator is resolving conflicts. */
@@ -3620,6 +3624,8 @@ export const MergePhaseLanding = "landing";
  */
 export const MergePhaseStopped = "stopped";
 export type MergePhase =
+  | typeof MergePhaseReviewing
+  | typeof MergePhaseChecking
   | typeof MergePhaseQueued
   | typeof MergePhaseResolving
   | typeof MergePhaseTesting
@@ -3627,6 +3633,8 @@ export type MergePhase =
   | typeof MergePhaseStopped;
 /** Every MergePhase, in the order the Go list gives them. */
 export const MergePhaseValues: readonly MergePhase[] = [
+  MergePhaseReviewing,
+  MergePhaseChecking,
   MergePhaseQueued,
   MergePhaseResolving,
   MergePhaseTesting,
@@ -3685,6 +3693,51 @@ export interface IntegrationHistoryItem {
   /** CanUndo is true while the branch tip is still this merge and the folder is clean. */
   canUndo: boolean;
 }
+/**
+ * IntegrationSettings is how a project ships its cards. Everything stays on this machine unless
+ * AllowPush is turned on.
+ */
+export interface IntegrationSettings {
+  /** AutoMerge merges a card that becomes ready without being asked. */
+  autoMerge: boolean;
+  /**
+   * AutoShip sends a card whose agent says it is finished through review, checks, and the merge
+   * by itself. When it is off, the card waits in In review for a person to send it.
+   */
+  autoShip: boolean;
+  /** Review has the Reviewer read a card's changes before it can be merged. */
+  review: boolean;
+  /** Checks runs the project's own checks on a card's changes before it can be merged. */
+  checks: boolean;
+  /**
+   * AllowPush lets agents push and lets Marshal publish a card's branch and pull request to
+   * GitHub. It is off by default: nothing leaves this machine.
+   */
+  allowPush: boolean;
+}
+/**
+ * IntegrationSettingsPatch is the body of PUT /v1/projects/{id}/integration/settings. A field that
+ * is not sent is left as it is.
+ */
+export interface IntegrationSettingsPatch {
+  autoMerge?: boolean;
+  autoShip?: boolean;
+  review?: boolean;
+  checks?: boolean;
+  allowPush?: boolean;
+}
+/**
+ * CardOverlap is one file that more than one card has changed. It is the early warning of a merge
+ * conflict: the cards are told, and the Integration view shows it, while they are still working.
+ */
+export interface CardOverlap {
+  /** Path is the file, relative to the project's folder. */
+  path: string;
+  /** Cards are the keys of the cards that changed it, such as "web#12". There are at least two. */
+  cards: string[];
+  /** CardIDs are the same cards' opaque ids, in the same order. */
+  cardIds: string[];
+}
 /** IntegrationState is the answer to GET /v1/projects/{id}/integration. */
 export interface IntegrationState {
   projectId: string;
@@ -3702,6 +3755,13 @@ export interface IntegrationState {
   queue: IntegrationQueueItem[];
   /** History lists the most recent deliveries, newest first. Never null. */
   history: IntegrationHistoryItem[];
+  /** Settings is how the project ships its cards. */
+  settings: IntegrationSettings;
+  /**
+   * Overlaps are the files that more than one of the project's unfinished cards has changed, as of
+   * each card's last commit. Never null.
+   */
+  overlaps: CardOverlap[];
   /** Message is one plain sentence when State is waiting, such as why it stopped. */
   message?: string;
   /** ServerTime is the daemon's time when the answer was made. */

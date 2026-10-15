@@ -35,6 +35,15 @@ ON CONFLICT (project_id) DO UPDATE SET paused = excluded.paused, updated_at = ex
 INSERT INTO project_merge_settings (project_id, auto_merge, updated_at) VALUES (?, ?, ?)
 ON CONFLICT (project_id) DO UPDATE SET auto_merge = excluded.auto_merge, updated_at = excluded.updated_at;
 
+-- name: SetMergeFlags :exec
+-- Writes every switch of how a project ships its cards at once, so a partial change is read, merged,
+-- and written back whole.
+INSERT INTO project_merge_settings (project_id, auto_merge, auto_ship, review, checks, allow_push, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (project_id) DO UPDATE SET auto_merge = excluded.auto_merge, auto_ship = excluded.auto_ship,
+    review = excluded.review, checks = excluded.checks, allow_push = excluded.allow_push,
+    updated_at = excluded.updated_at;
+
 -- name: SetMergePendingTip :exec
 INSERT INTO project_merge_settings (project_id, pending_tip, updated_at) VALUES (?, ?, ?)
 ON CONFLICT (project_id) DO UPDATE SET pending_tip = excluded.pending_tip, updated_at = excluded.updated_at;

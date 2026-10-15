@@ -7,6 +7,10 @@ package protocol
 type MergePhase string
 
 const (
+	// MergePhaseReviewing means the Reviewer is reading the card's changes.
+	MergePhaseReviewing MergePhase = "reviewing"
+	// MergePhaseChecking means the project's checks are running on the card's changes.
+	MergePhaseChecking MergePhase = "checking"
 	// MergePhaseQueued means the card waits for the Integrator to take it.
 	MergePhaseQueued MergePhase = "queued"
 	// MergePhaseResolving means the Integrator is resolving conflicts.
@@ -20,10 +24,11 @@ const (
 	MergePhaseStopped MergePhase = "stopped"
 )
 
-// MergePhaseValues lists every merge phase, in the order a merge passes through them, then stopped.
+// MergePhaseValues lists every merge phase, in the order a card passes through them, then stopped.
 func MergePhaseValues() []MergePhase {
 	return []MergePhase{
-		MergePhaseQueued, MergePhaseResolving, MergePhaseTesting, MergePhaseLanding, MergePhaseStopped,
+		MergePhaseReviewing, MergePhaseChecking, MergePhaseQueued, MergePhaseResolving,
+		MergePhaseTesting, MergePhaseLanding, MergePhaseStopped,
 	}
 }
 
@@ -82,6 +87,44 @@ type IntegrationHistoryItem struct {
 	CanUndo bool `json:"canUndo"`
 }
 
+// IntegrationSettings is how a project ships its cards. Everything stays on this machine unless
+// AllowPush is turned on.
+type IntegrationSettings struct {
+	// AutoMerge merges a card that becomes ready without being asked.
+	AutoMerge bool `json:"autoMerge"`
+	// AutoShip sends a card whose agent says it is finished through review, checks, and the merge
+	// by itself. When it is off, the card waits in In review for a person to send it.
+	AutoShip bool `json:"autoShip"`
+	// Review has the Reviewer read a card's changes before it can be merged.
+	Review bool `json:"review"`
+	// Checks runs the project's own checks on a card's changes before it can be merged.
+	Checks bool `json:"checks"`
+	// AllowPush lets agents push and lets Marshal publish a card's branch and pull request to
+	// GitHub. It is off by default: nothing leaves this machine.
+	AllowPush bool `json:"allowPush"`
+}
+
+// IntegrationSettingsPatch is the body of PUT /v1/projects/{id}/integration/settings. A field that
+// is not sent is left as it is.
+type IntegrationSettingsPatch struct {
+	AutoMerge *bool `json:"autoMerge,omitempty"`
+	AutoShip  *bool `json:"autoShip,omitempty"`
+	Review    *bool `json:"review,omitempty"`
+	Checks    *bool `json:"checks,omitempty"`
+	AllowPush *bool `json:"allowPush,omitempty"`
+}
+
+// CardOverlap is one file that more than one card has changed. It is the early warning of a merge
+// conflict: the cards are told, and the Integration view shows it, while they are still working.
+type CardOverlap struct {
+	// Path is the file, relative to the project's folder.
+	Path string `json:"path"`
+	// Cards are the keys of the cards that changed it, such as "web#12". There are at least two.
+	Cards []string `json:"cards"`
+	// CardIDs are the same cards' opaque ids, in the same order.
+	CardIDs []string `json:"cardIds"`
+}
+
 // IntegrationState is the answer to GET /v1/projects/{id}/integration.
 type IntegrationState struct {
 	ProjectID string `json:"projectId"`
@@ -99,6 +142,11 @@ type IntegrationState struct {
 	Queue []IntegrationQueueItem `json:"queue"`
 	// History lists the most recent deliveries, newest first. Never null.
 	History []IntegrationHistoryItem `json:"history"`
+	// Settings is how the project ships its cards.
+	Settings IntegrationSettings `json:"settings"`
+	// Overlaps are the files that more than one of the project's unfinished cards has changed, as of
+	// each card's last commit. Never null.
+	Overlaps []CardOverlap `json:"overlaps"`
 	// Message is one plain sentence when State is waiting, such as why it stopped.
 	Message string `json:"message,omitempty"`
 	// ServerTime is the daemon's time when the answer was made.

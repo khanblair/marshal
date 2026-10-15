@@ -35,7 +35,7 @@ func (q *Queries) GetLatestMergeHistoryForCard(ctx context.Context, cardID strin
 }
 
 const getMergeSettings = `-- name: GetMergeSettings :one
-SELECT project_id, paused, auto_merge, pending_tip, updated_at FROM project_merge_settings WHERE project_id = ?
+SELECT project_id, paused, auto_merge, pending_tip, updated_at, auto_ship, review, checks, allow_push FROM project_merge_settings WHERE project_id = ?
 `
 
 func (q *Queries) GetMergeSettings(ctx context.Context, projectID string) (ProjectMergeSetting, error) {
@@ -47,6 +47,10 @@ func (q *Queries) GetMergeSettings(ctx context.Context, projectID string) (Proje
 		&i.AutoMerge,
 		&i.PendingTip,
 		&i.UpdatedAt,
+		&i.AutoShip,
+		&i.Review,
+		&i.Checks,
+		&i.AllowPush,
 	)
 	return i, err
 }
@@ -198,6 +202,39 @@ type SetMergeAutoMergeParams struct {
 
 func (q *Queries) SetMergeAutoMerge(ctx context.Context, arg SetMergeAutoMergeParams) error {
 	_, err := q.db.ExecContext(ctx, setMergeAutoMerge, arg.ProjectID, arg.AutoMerge, arg.UpdatedAt)
+	return err
+}
+
+const setMergeFlags = `-- name: SetMergeFlags :exec
+INSERT INTO project_merge_settings (project_id, auto_merge, auto_ship, review, checks, allow_push, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (project_id) DO UPDATE SET auto_merge = excluded.auto_merge, auto_ship = excluded.auto_ship,
+    review = excluded.review, checks = excluded.checks, allow_push = excluded.allow_push,
+    updated_at = excluded.updated_at
+`
+
+type SetMergeFlagsParams struct {
+	ProjectID string
+	AutoMerge int64
+	AutoShip  int64
+	Review    int64
+	Checks    int64
+	AllowPush int64
+	UpdatedAt int64
+}
+
+// Writes every switch of how a project ships its cards at once, so a partial change is read, merged,
+// and written back whole.
+func (q *Queries) SetMergeFlags(ctx context.Context, arg SetMergeFlagsParams) error {
+	_, err := q.db.ExecContext(ctx, setMergeFlags,
+		arg.ProjectID,
+		arg.AutoMerge,
+		arg.AutoShip,
+		arg.Review,
+		arg.Checks,
+		arg.AllowPush,
+		arg.UpdatedAt,
+	)
 	return err
 }
 

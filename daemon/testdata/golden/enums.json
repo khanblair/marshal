@@ -267,6 +267,8 @@
     "skipped"
   ],
   "MergePhase": [
+    "reviewing",
+    "checking",
     "queued",
     "resolving",
     "testing",

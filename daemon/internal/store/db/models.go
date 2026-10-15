@@ -320,6 +320,10 @@ type ProjectMergeSetting struct {
 	AutoMerge  int64
 	PendingTip string
 	UpdatedAt  int64
+	AutoShip   int64
+	Review     int64
+	Checks     int64
+	AllowPush  int64
 }
 
 type ProjectPreference struct {
