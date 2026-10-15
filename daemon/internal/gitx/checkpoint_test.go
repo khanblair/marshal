@@ -234,3 +234,29 @@ func readFile(t *testing.T, dir, name string) string {
 	}
 	return string(data)
 }
+
+// CommitAll puts what an agent left uncommitted onto the branch and says it did; a clean worktree has
+// nothing to commit and is not a failure.
+func TestCommitAllCommitsWhatIsLeftAndSaysNothingWhenClean(t *testing.T) {
+	repo := fixture(t, "small-repo")
+	g := testGit()
+	ctx := context.Background()
+	before := head(t, repo)
+
+	writeNewFile(t, repo, "docs/note.md", "# Note\n")
+	made, err := g.CommitAll(ctx, repo, "Marshal: Add a note (after turn 1)")
+	if err != nil || !made {
+		t.Fatalf("CommitAll = %v, %v, want a commit", made, err)
+	}
+	if head(t, repo) == before || dirty(t, repo) {
+		t.Errorf("head moved = %v, dirty = %v, want a new commit and a clean worktree", head(t, repo) != before, dirty(t, repo))
+	}
+	if subject := strings.TrimSpace(git(t, repo, "log", "-1", "--format=%s")); subject != "Marshal: Add a note (after turn 1)" {
+		t.Errorf("subject = %q", subject)
+	}
+
+	again, err := g.CommitAll(ctx, repo, "Marshal: nothing")
+	if err != nil || again {
+		t.Errorf("CommitAll on a clean worktree = %v, %v, want no commit and no error", again, err)
+	}
+}

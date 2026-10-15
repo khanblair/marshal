@@ -81,6 +81,36 @@ func (g *Git) Checkpoint(ctx context.Context, worktree, ref, message string) (Ch
 	return CheckpointState{SHA: sha, Created: created}, nil
 }
 
+// CommitAll commits everything a card's worktree holds that its branch does not, and answers whether
+// a commit was made: a clean worktree has nothing to commit and is not a failure. It is how the work
+// an agent left uncommitted at the end of a turn gets onto the card's branch, where a merge reads it.
+//
+// Like a checkpoint, it is made with Marshal's own identity and with signing and hooks turned off, so
+// a machine with no Git identity or a pre-commit hook still commits. It never pushes.
+func (g *Git) CommitAll(ctx context.Context, worktree, message string) (bool, error) {
+	if strings.TrimSpace(worktree) == "" || strings.TrimSpace(message) == "" {
+		return false, errors.New("a commit needs a worktree and a message")
+	}
+	if _, err := g.Run(ctx, worktree, "add", "-A"); err != nil {
+		return false, fmt.Errorf("stage a card's work: %w", err)
+	}
+	clean, err := g.ask(ctx, worktree, "diff", "--cached", "--quiet")
+	if err != nil {
+		return false, fmt.Errorf("see whether a card's worktree has anything to commit: %w", err)
+	}
+	if clean {
+		return false, nil
+	}
+	args := []string{
+		"-c", "user.name=Marshal", "-c", "user.email=marshal@localhost",
+		"-c", "commit.gpgsign=false", "commit", "-m", message, "--no-verify",
+	}
+	if _, err := g.Run(ctx, worktree, args...); err != nil {
+		return false, fmt.Errorf("commit a card's work: %w", err)
+	}
+	return true, nil
+}
+
 // RestoreCheckpoint puts a card's worktree and branch back to a checkpoint's commit: the tracked
 // files are reset to that commit, and files the worktree holds that the commit does not are removed.
 // Ignored files are left alone, because a build folder is not what a restore point is about.
