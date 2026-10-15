@@ -75,6 +75,9 @@ func (r *run) record(ctx context.Context, d delivered) {
 	if err != nil {
 		r.s.log.Error("could not write the merge history", "card_id", r.card.ID, "error", err)
 	}
+	// The merge that just landed is the target's tip, so the ones before it can no longer be undone and
+	// their backup branches are of no use.
+	r.s.sweepBackups(ctx, r.project)
 }
 
 // summary is the paragraph the history shows: what the resolver said, then what the delivery did.

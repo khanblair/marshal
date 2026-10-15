@@ -30,7 +30,7 @@ func (r *run) deliver() (delivered, *stop) {
 	if !descends {
 		return delivered{}, movedStop()
 	}
-	d := delivered{commit: r.tip, prevTip: prev, backup: r.makeBackup()}
+	d := delivered{commit: r.tip, prevTip: prev, backup: r.makeBackup(prev)}
 	where, found, err := g.CheckedOutAt(r.ctx, r.project.Path, r.target)
 	if err != nil {
 		return d, keepStop("Where " + r.target + " is checked out could not be read: " + err.Error())
@@ -48,8 +48,10 @@ func (r *run) deliver() (delivered, *stop) {
 // makeBackup keeps the target's tip on a branch of its own before it moves. The backup is a safety
 // net and not a requirement: one that cannot be made, for example because a retry already made it,
 // does not stop the delivery. It answers the branch's name, or "" when none was made.
-func (r *run) makeBackup() string {
-	name := "marshal/backup/" + r.target + "-" + shortID(r.card.ID)
+func (r *run) makeBackup(prev string) string {
+	// Named by the tip it keeps: two cards made in the same instant share the start of their ids, and a
+	// backup that took the other's name would never be made.
+	name := "marshal/backup/" + r.target + "-" + shortID(prev)
 	err := r.s.git.BackupBranch(r.ctx, r.project.Path, name, r.target)
 	switch {
 	case err == nil:

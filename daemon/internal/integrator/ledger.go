@@ -29,9 +29,30 @@ type Settings struct {
 	Paused bool
 	// AutoMerge is true when a card that becomes ready is merged without being asked.
 	AutoMerge bool
+	// AutoShip is true when a card whose agent says it is finished goes through review, checks, and
+	// the merge by itself.
+	AutoShip bool
+	// Review is true when the Reviewer reads a card's changes before it can be merged.
+	Review bool
+	// Checks is true when the project's checks run on a card's changes before it can be merged.
+	Checks bool
+	// AllowPush is true when agents may push and Marshal may publish to GitHub. Off, nothing leaves
+	// this machine.
+	AllowPush bool
 	// PendingTip is the commit on the integrator branch that passed its tests and waits to be
 	// delivered. Empty when nothing waits.
 	PendingTip string
+}
+
+// Flags are the switches of how a project ships its cards, the part of Settings a person changes.
+type Flags struct {
+	AutoMerge, AutoShip, Review, Checks, AllowPush bool
+}
+
+// DefaultSettings is how a project that never chose is set: everything runs by itself, and nothing
+// is published.
+func DefaultSettings() Settings {
+	return Settings{AutoMerge: true, AutoShip: true, Review: true, Checks: true}
 }
 
 // CardRow is a card as the queue reads it.
@@ -81,6 +102,8 @@ type Ledger interface {
 	SetPaused(ctx context.Context, projectID string, paused bool) error
 	// SetAutoMerge turns a project's automatic merging on or off.
 	SetAutoMerge(ctx context.Context, projectID string, on bool) error
+	// SetFlags writes every switch of how the project ships its cards.
+	SetFlags(ctx context.Context, projectID string, flags Flags) error
 	// SetPendingTip records the tested commit that waits for delivery, or clears it with "".
 	SetPendingTip(ctx context.Context, projectID, tip string) error
 	// AddDelivery writes one delivery to the history.
@@ -133,12 +156,27 @@ func (l *SQLLedger) SetProgress(ctx context.Context, cardID string, p Progress) 
 func (l *SQLLedger) Settings(ctx context.Context, projectID string) (Settings, error) {
 	row, err := l.store.Queries().GetMergeSettings(ctx, projectID)
 	if errors.Is(err, sql.ErrNoRows) {
-		return Settings{AutoMerge: true}, nil
+		return DefaultSettings(), nil
 	}
 	if err != nil {
 		return Settings{}, fmt.Errorf("read the merge settings of project %s: %w", projectID, err)
 	}
-	return Settings{Paused: row.Paused != 0, AutoMerge: row.AutoMerge != 0, PendingTip: row.PendingTip}, nil
+	return Settings{
+		Paused: row.Paused != 0, AutoMerge: row.AutoMerge != 0, PendingTip: row.PendingTip,
+		AutoShip: row.AutoShip != 0, Review: row.Review != 0, Checks: row.Checks != 0,
+		AllowPush: row.AllowPush != 0,
+	}, nil
+}
+
+// SetFlags writes every switch of how a project ships its cards.
+func (l *SQLLedger) SetFlags(ctx context.Context, projectID string, f Flags) error {
+	return l.store.Write(ctx, func(q *db.Queries) error {
+		return q.SetMergeFlags(ctx, db.SetMergeFlagsParams{
+			ProjectID: projectID, AutoMerge: boolInt(f.AutoMerge), AutoShip: boolInt(f.AutoShip),
+			Review: boolInt(f.Review), Checks: boolInt(f.Checks), AllowPush: boolInt(f.AllowPush),
+			UpdatedAt: l.now().UnixMilli(),
+		})
+	})
 }
 
 // SetPaused pauses or resumes a project's merging.
@@ -331,7 +369,13 @@ func (m *memoryLedger) settingsLocked(projectID string) Settings {
 	if s, ok := m.settings[projectID]; ok {
 		return s
 	}
-	return Settings{AutoMerge: true}
+	return DefaultSettings()
+}
+
+func (m *memoryLedger) SetFlags(_ context.Context, projectID string, f Flags) error {
+	return m.update(projectID, func(s *Settings) {
+		s.AutoMerge, s.AutoShip, s.Review, s.Checks, s.AllowPush = f.AutoMerge, f.AutoShip, f.Review, f.Checks, f.AllowPush
+	})
 }
 
 func (m *memoryLedger) update(projectID string, change func(*Settings)) error {

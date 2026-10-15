@@ -41,6 +41,8 @@ func (s *Service) State(ctx context.Context, projectID string) (protocol.Integra
 		AheadBy: s.aheadBy(ctx, project, target), Queue: queueItems(rows), History: history,
 		ServerTime: store.Timestamp(s.now().UnixMilli()),
 	}
+	state.Settings = settingsOf(settings)
+	state.Overlaps = s.Overlaps(ctx, projectID)
 	state.CurrentCardID = currentCard(rows)
 	state.State, state.Message = integratorState(settings, state, stalled)
 	return state, nil
