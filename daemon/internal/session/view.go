@@ -259,7 +259,7 @@ func (m *Manager) swap(ctx context.Context, card protocol.Card, old *liveSession
 
 	resumeCtx, cancelResume := context.WithTimeout(ctx, resumeTimeout)
 	defer cancelResume()
-	handle, err := plan.agent.Resume(resumeCtx, plan.row.AgentSessionID, resumeSpec(card, plan.path, m.attach(ctx, card).Servers))
+	handle, err := plan.agent.Resume(resumeCtx, plan.row.AgentSessionID, m.resumeSpec(ctx, card, plan.path, m.attach(ctx, card).Servers))
 	if err != nil {
 		return protocol.CardView{}, m.failSwitch(ctx, plan.row, err)
 	}

@@ -232,6 +232,7 @@ func (m *Manager) startAgent(ctx context.Context, card protocol.Card, path strin
 		Cwd: path, Model: card.Model, Thinking: thinkingOrEmpty(card.Thinking), PermissionMode: string(card.PermissionMode),
 		Instructions: attached.Instructions, MCPServers: attached.Servers, Label: card.ID,
 	}
+	spec.AllowedTools, spec.DisallowedTools = m.cardRulesFor(ctx, card)
 	return m.launch(ctx, cardOwner(card), card.Agent, spec)
 }
 

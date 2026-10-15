@@ -61,6 +61,17 @@ type liveSession struct {
 	stopMu        sync.Mutex
 	stopRequested bool
 
+	// finishMu guards whether the agent said it is finished, and its summary.
+	finishMu      sync.Mutex
+	finished      bool
+	finishSummary string
+
+	// toolTitles is the title of each tool call this session has made, by call id, and lastDenied is
+	// the title of the call a refused permission ended the turn's work on, or empty. Both are read and
+	// written only by the pump goroutine.
+	toolTitles map[string]string
+	lastDenied string
+
 	// signedOut is set by the pump goroutine when the agent says its login is gone, and read by it at
 	// the turn's end and when the session ends, so it needs no lock.
 	signedOut bool

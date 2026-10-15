@@ -91,6 +91,9 @@ type Manager struct {
 	// awareMu guards awareModule, the module that builds the board-awareness summary a card's agent
 	// is given at the start of every turn (aware.go). It is built after the manager and set once at
 	// start-up with SetAwareness, for the same reason attachModule is.
+	push   pushPolicy
+	finish finishHandler
+
 	awareMu     sync.RWMutex
 	awareModule Awareness
 

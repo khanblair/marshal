@@ -103,7 +103,7 @@ func (m *Manager) resumeRow(ctx context.Context, row db.Session) (protocol.Card,
 	// A resumed session is given the internal MCP server again, because the list is part of the
 	// request that brings the session back; the context is not repeated, because Instructions go to
 	// the agent with the first message of a new session only.
-	handle, err := agent.Resume(rctx, row.AgentSessionID, resumeSpec(card, path, attached.Servers))
+	handle, err := agent.Resume(rctx, row.AgentSessionID, m.resumeSpec(ctx, card, path, attached.Servers))
 	if err != nil {
 		// The agent never came back, so no pump will release what its session was given.
 		m.detachCard(card.ID)
@@ -164,11 +164,13 @@ func (m *Manager) storeResumedNote(card protocol.Card, row db.Session, text stri
 // resumeSpec is how a card's agent is asked to resume its session: in the card's worktree, with the
 // settings the card has now, and given the MCP servers the card's session is handed again (the
 // context is not repeated: it goes with a new session's first message).
-func resumeSpec(card protocol.Card, path string, servers []agents.MCPServer) agents.StartSpec {
-	return agents.StartSpec{
+func (m *Manager) resumeSpec(ctx context.Context, card protocol.Card, path string, servers []agents.MCPServer) agents.StartSpec {
+	spec := agents.StartSpec{
 		Cwd: path, Model: card.Model, Thinking: thinkingOrEmpty(card.Thinking), PermissionMode: string(card.PermissionMode),
 		Instructions: "", MCPServers: servers, Label: card.ID,
 	}
+	spec.AllowedTools, spec.DisallowedTools = m.cardRulesFor(ctx, card)
+	return spec
 }
 
 // failResume records that a resume really failed: the row is marked stopped (nothing is left

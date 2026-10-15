@@ -60,6 +60,30 @@ func (m *Manager) checkpointBeforeTurn(ls *liveSession) {
 	m.makeCheckpoint(ls.cardID, row.WorktreePath, fmt.Sprintf("before turn %d", turns+1))
 }
 
+// commitTurnWork commits what a card's agent left uncommitted when its turn ended, so the card's
+// branch always holds the work and a merge, a review, and a diff all read the same thing. It runs
+// before the turn's secret scan, so the scan reads this commit too. It never returns an error: a
+// commit that cannot be made is logged and the turn ends as it would have.
+func (m *Manager) commitTurnWork(ls *liveSession) {
+	if ls.isChat() {
+		return
+	}
+	row, err := m.store.Queries().GetCard(m.ctx, ls.cardID)
+	if err != nil || row.WorktreePath == "" {
+		return
+	}
+	turns, err := m.store.Queries().CountSessionEventsOfKind(m.ctx, db.CountSessionEventsOfKindParams{
+		CardID: ls.cardID, Kind: string(history.KindUser),
+	})
+	if err != nil {
+		m.log.Warn("could not count a card's turns to name its commit", "card_id", ls.cardID, "error", err)
+	}
+	message := fmt.Sprintf("Marshal: %s (after turn %d)", row.Title, turns)
+	if _, err := m.git.CommitAll(m.ctx, row.WorktreePath, message); err != nil {
+		m.log.Warn("could not commit what a card's agent left at the end of its turn", "card_id", ls.cardID, "error", err)
+	}
+}
+
 // makeCheckpoint commits a card's worktree, records the row, and trims the card's oldest restore
 // points. It returns the checkpoint it made, or nil when one could not be made.
 func (m *Manager) makeCheckpoint(cardID, worktree, label string) *protocol.Checkpoint {

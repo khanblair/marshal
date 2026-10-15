@@ -64,6 +64,7 @@ func (m *Manager) handleEvent(ls *liveSession, ev agents.AgentEvent) {
 	case agents.MessageChunk, agents.ThoughtChunk, agents.PlanUpdate:
 		m.publishOutput(ls, e)
 	case agents.ToolCall, agents.ToolCallUpdate:
+		ls.trackDenial(e)
 		m.publishToolCall(ls, e)
 	case agents.TurnEnded:
 		m.recordUsage(ls, e)
@@ -169,6 +170,7 @@ func (m *Manager) onTurnEnded(ls *liveSession) {
 	if err := m.setSessionState(m.ctx, ls, protocol.SessionStateAwake); err != nil {
 		m.log.Error("could not record that a turn ended", ls.noun()+"_id", ls.key(), "error", err)
 	}
+	m.commitTurnWork(ls)
 	// The turn's bookkeeping is settled before "awake" is announced, so a client that hears the
 	// session is awake sees a session that really is free. Announcing first would leave a window in
 	// which the card reads as awake but a switch is still told a turn is running; the commit scan
@@ -202,6 +204,11 @@ func (m *Manager) onTurnEnded(ls *liveSession) {
 	text, ok := ls.next()
 	m.publishState(ls, protocol.SessionStateAwake, "")
 	if !ok {
+		// Nothing is waiting to be said to the agent, so a card it called finished is handed on now,
+		// and a card whose agent was stopped by a refused command says so instead of sitting idle.
+		if !m.cardFinished(ls) {
+			m.alertIfBlocked(ls)
+		}
 		return
 	}
 	m.deliverQueued(m.ctx, ls, text)
