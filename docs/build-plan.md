@@ -249,7 +249,7 @@ Each task lists:
 | 8.1 | Scheduler: cron, interval, one-time, missed run policy | Jobs run on time and after wake as configured |
 | 8.2 | Event triggers | CI failure, PR comment, Trello card, and labeled email trigger jobs |
 | 8.3 | Loops with hard limits | Loops stop on every limit type |
-| 8.4 | Trello integration with two-way sync, one board per project, including checklists, comments, attachments, and member mapping | Moves, checklists, comments, and attachments sync both ways, and the agent shows as a label |
+| 8.4 | Trello integration: read-only fetch of one board per project, staged changes, and Apply to Trello for the linked account, including checklists, comments, and attachments | Linking fetches the board, local changes stay pending until Apply, a card changed in Trello is flagged and not overwritten, and comments post as the linked person |
 | 8.5 | Google Calendar integration | Events available to briefs and the calendar view |
 | 8.6 | Gmail integration | Labeled emails become cards |
 | 8.7 | Morning and evening briefs across all projects | Briefs deliver on time with only new changes |

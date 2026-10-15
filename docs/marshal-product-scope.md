@@ -184,7 +184,7 @@ stateDiagram-v2
 - **Per project**, to stop one project from using everything.
 - **Global**, because RAM and money are shared across all projects on the machine.
 
-**Trello mapping.** One Marshal project links to one Trello board. This keeps two-way sync simple and predictable.
+**Trello mapping.** One Marshal project links to one Trello board, or to none. A project with no Trello board works as before, and can be linked later. Marshal reads the board and sends changes back only when the person presses Apply to Trello (see [Section 19.2](#192-trello-sync)).
 
 **Briefs cover all projects.** Morning and evening briefs group their content by project, so one brief covers everything (see [Section 18](#18-morning-and-evening-briefs)).
 
@@ -1135,7 +1135,7 @@ You can reply to a brief (in the app or in chat) to create cards or ask question
 | Integration | What Marshal does with it |
 |---|---|
 | **GitHub** | Repos, issues to cards, PRs, reviews, Actions monitoring, merges |
-| **Trello** | Two-way card sync, card creation, brief schedules, brief content |
+| **Trello** | Read-only fetch of the board, staged changes with Apply to Trello, brief schedules, brief content |
 | **Google Calendar** | Brief content, smart brief timing, calendar view |
 | **Gmail** | Labeled emails to cards, briefs by email |
 | **Telegram** | Remote control, approvals, notifications, voice notes, briefs |
@@ -1155,17 +1155,17 @@ You can reply to a brief (in the app or in chat) to create cards or ask question
 
 ### 19.2 Trello sync
 
-- **One Marshal project links to one Trello board.** This keeps sync simple and predictable.
-- The Marshal board and the linked Trello board are kept in sync both ways.
-- **Checklists** sync with Trello checklists both ways: names, items, and ticked state. Who ticked an item is kept in Marshal, since Trello cannot show the agent.
-- **Comments** sync both ways. Comments by the agent appear in Trello starting with the agent's name, for example "Agent (Claude Code):". The "Agent read this" marker is not synced.
-- **Attachments** sync both ways within Trello's size limits. A file too large for Trello syncs as a comment with a note that it is in Marshal.
-- **Members** sync through a mapping between Marshal people and Trello members, set in the Trello integration settings and matched by email where possible. People without a mapping are skipped, and the connection test warns about them.
-- **The agent** is not a Trello member. It shows as a Trello label, for example "Agent: Claude Code".
-- **Conflicts:** when the same item changes on both sides at once, the latest change wins, and the card's activity feed notes it.
-- Moving a card in Trello moves it in Marshal, and the other way around.
-- A new card on a linked Trello list can create a Marshal card automatically.
-- **Why:** teams that already plan in Trello can keep doing so, while agents do the work in Marshal.
+- **One Marshal project links to one Trello board, or to none.** A project with no board keeps working as it does today. A project can be linked to Trello later.
+- **Trello to Marshal is read-only.** On linking, Marshal fetches the board: lists, cards, descriptions, checklists, labels, due dates, comments, and attachments. It then follows Trello by webhook, with polling as a fallback. Marshal keeps a snapshot of each card with Trello's last-activity time.
+- **Marshal works on its own copy.** Moves, checklist ticks, notes, comments, and feedback made in Marshal stay in Marshal. Nothing reaches Trello by itself.
+- **Staged changes.** Each local change is kept as a pending change on its card and in a list for the project. Who made it, a person or the agent, is kept only in Marshal.
+- **Apply to Trello.** A button shows the pending changes as a diff. The person approves all or some, and only then does Marshal write them to Trello. Apply works only for the linked account, and acts as that account. Other board members are not mapped or edited.
+- **Comments post as the linked person.** A note Marshal sends appears in Trello as a normal comment by the linked account, with no agent name or prefix. The agent's name stays in Marshal.
+- **Conflict check on Apply.** If a card changed in Trello after Marshal's snapshot, Marshal flags it and does not overwrite. The person keeps Trello's version, applies anyway, or skips that card.
+- **Existing cards stay local.** When a project with cards is linked, those cards are not matched to Trello cards. Apply can offer to create them in Trello as new cards.
+- **Agents do not start from Trello.** A card fetched or moved in Trello stays idle until the person starts it in Marshal. The card shows that its text came from Trello and who last edited it.
+- **Rate limits:** Trello allows about 100 requests per 10 seconds per token, so fetches and Apply batches are paced.
+- **Why:** the person keeps planning in Trello, agents work in Marshal, and Trello changes only when the person chooses.
 
 ---
 
