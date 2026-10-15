@@ -57,6 +57,35 @@ function BranchLine(props: CardMetaProps) {
   );
 }
 
+/**
+ * The files this card shares with other unfinished cards: a merge would conflict on them. It reads the
+ * project's integration state, which the daemon computes from every card's last commit.
+ */
+function SharedFiles(props: { card: Card }) {
+  const shared = () => {
+    const id = props.card.daemonId;
+    const flow = M.S.integration?.[props.card.p]?.flow;
+    return id && flow ? flow.overlaps.filter((one) => one.cardIds.includes(id)) : [];
+  };
+  const others = () => [
+    ...new Set(shared().flatMap((one) => one.cards.filter((key) => key !== props.card.id))),
+  ];
+  return (
+    <Show when={shared().length > 0}>
+      <IconLabel
+        icon="triangle-alert"
+        class="text-status-needs-you-text"
+        title={shared()
+          .map((one) => one.path)
+          .join("\n")}
+      >
+        Shares {shared().length} {shared().length === 1 ? "file" : "files"} with{" "}
+        {others().join(", ")}
+      </IconLabel>
+    </Show>
+  );
+}
+
 /** Branch, package, pull request, CI, cost, and context, in one wrapping line. */
 export function CardMeta(props: CardMetaProps) {
   return (
@@ -77,6 +106,7 @@ export function CardMeta(props: CardMetaProps) {
           CI <span>{props.c.ciLabel.toLowerCase()}</span>
         </CiStatus>
       </Show>
+      <SharedFiles card={props.card} />
       <IconLabel icon="circle-dollar-sign">{props.c.cost}</IconLabel>
       <ContextMeter ctx={props.card.ctx} />
     </div>

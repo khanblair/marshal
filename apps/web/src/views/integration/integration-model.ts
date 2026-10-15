@@ -11,6 +11,8 @@ interface LaneInfo {
 
 /** The lanes of the queue, named for what is happening to the cards in them. */
 export const ACTIVE_LANES: readonly LaneInfo[] = [
+  { phase: "reviewing", title: "Being reviewed", icon: "eye" },
+  { phase: "checking", title: "Running checks", icon: "list-checks" },
   { phase: "queued", title: "Waiting to merge", icon: "clock" },
   { phase: "resolving", title: "Resolving conflicts", icon: "git-merge" },
   { phase: "testing", title: "Testing", icon: "flask-conical" },

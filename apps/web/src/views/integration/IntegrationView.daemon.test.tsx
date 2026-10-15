@@ -321,3 +321,55 @@ describe("the Integrator chat", () => {
     expect(M.S.route).toMatchObject({ page: "project", pid: "api", view: "chat" });
   });
 });
+
+describe("how cards ship and which cards share files", () => {
+  it("shows the switches as the daemon has them, and changes one through the daemon", async () => {
+    seed("api");
+    show("api");
+    await heading();
+    const pushing = () =>
+      within(region("How cards ship")).getByRole("switch", { name: "Allow pushing to GitHub" });
+    expect(pushing()).toHaveAttribute("aria-checked", "false");
+    expect(
+      within(region("How cards ship")).getByRole("switch", { name: "Review changes" }),
+    ).toHaveAttribute("aria-checked", "true");
+
+    fireEvent.click(pushing());
+    await vi.waitFor(() =>
+      expect(daemon.routes()).toContain("PUT /v1/projects/api/integration/settings"),
+    );
+    await vi.waitFor(() => expect(pushing()).toHaveAttribute("aria-checked", "true"));
+    expect(
+      within(region("How cards ship")).getByRole("switch", { name: "Review changes" }),
+    ).toHaveAttribute("aria-checked", "true");
+  });
+
+  it("names the files two cards have both changed, with the cards", async () => {
+    seed("api", {
+      overlaps: [{ path: "src/auth.ts", cards: ["api#36", "api#41"], cardIds: ["a", "b"] }],
+    });
+    show("api");
+    await heading();
+    const shared = region("Cards touching the same files");
+    expect(within(shared).getByText("src/auth.ts")).toBeInTheDocument();
+    expect(within(shared).getByText("api#36, api#41")).toBeInTheDocument();
+    expect(within(shared).getByText(/would conflict/)).toBeInTheDocument();
+  });
+
+  it("shows a card that is being reviewed or checked in its own lane", async () => {
+    const reviewing = idOf("api#41");
+    seed("api", {
+      queue: [
+        queueItem({
+          cardId: reviewing,
+          key: "api#41",
+          title: titleOf("api#41"),
+          phase: "reviewing",
+        }),
+      ],
+    });
+    show("api");
+    await heading();
+    expect(await screen.findByRole("region", { name: "Being reviewed" })).toBeInTheDocument();
+  });
+});

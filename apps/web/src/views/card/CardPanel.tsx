@@ -1,5 +1,6 @@
 import { createEffect, createMemo, Match, Show, Switch } from "solid-js";
 import { type Card, M } from "~/mock";
+import { reloadMergeFlow } from "~/sync/integration-flow";
 import { ActivityTab } from "./ActivityTab";
 import { BypassBanner } from "./BypassBanner";
 import { CardHeader } from "./CardHeader";
@@ -9,6 +10,7 @@ import { CommentsTab } from "./CommentsTab";
 import { ensureNote } from "./card-note";
 import { DiffTab } from "./DiffTab";
 import { createDiffList } from "./diff-list";
+import { createLiveDiff } from "./live-diff";
 import { NotesTab } from "./NotesTab";
 import { PreviewTab } from "./PreviewTab";
 import { createPanelState } from "./panel-state";
@@ -23,6 +25,10 @@ export interface CardPanelProps {
 export function CardPanel(props: CardPanelProps) {
   const panel = createPanelState();
   const diff = createDiffList(() => props.card);
+  createLiveDiff(() => props.card, diff);
+  // The Integration state carries the files other cards share with this one, so it is read when a card
+  // opens: the card shows them without the Integration view having been visited.
+  createEffect(() => void reloadMergeFlow(props.card.p));
   const c = createMemo(() => M.deco(props.card));
   createEffect(() => ensureNote(props.card));
   return (

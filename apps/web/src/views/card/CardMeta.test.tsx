@@ -39,3 +39,33 @@ describe("CardMeta branch line", () => {
     expect(screen.queryByText("→")).toBeNull();
   });
 });
+
+describe("CardMeta files shared with other cards", () => {
+  const flowWith = (overlaps: { path: string; cards: string[]; cardIds: string[] }[]) => ({
+    api: { flow: { overlaps }, error: "", loading: false },
+  });
+
+  it("names the files another card has also changed, and which cards", () => {
+    cardOf("api#41").daemonId = "01CARD41";
+    M.set({
+      integration: flowWith([
+        { path: "src/auth.ts", cards: ["api#36", "api#41"], cardIds: ["01CARD36", "01CARD41"] },
+        { path: "src/db.ts", cards: ["api#36", "api#41"], cardIds: ["01CARD36", "01CARD41"] },
+      ]) as never,
+    });
+    show();
+    expect(screen.getByText("Shares 2 files with api#36")).toBeInTheDocument();
+    expect(screen.getByTitle(/src\/auth\.ts/)).toBeInTheDocument();
+  });
+
+  it("says nothing for a card whose files no other card has changed", () => {
+    cardOf("api#41").daemonId = "01CARD41";
+    M.set({
+      integration: flowWith([
+        { path: "src/auth.ts", cards: ["api#36", "api#37"], cardIds: ["01CARD36", "01CARD37"] },
+      ]) as never,
+    });
+    show();
+    expect(screen.queryByText(/Shares/)).toBeNull();
+  });
+});

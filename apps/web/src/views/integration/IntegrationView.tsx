@@ -13,6 +13,8 @@ import {
   stoppedCards,
   storeCardOf,
 } from "./integration-model";
+import { OverlapList } from "./OverlapList";
+import { ShipSettings } from "./ShipSettings";
 
 /** What the Integrator is merging for a project, and what it delivered, drawn from the cards. */
 function Flow(props: { projectId: string; flow: MergeFlow; error: string }) {
@@ -30,6 +32,7 @@ function Flow(props: { projectId: string; flow: MergeFlow; error: string }) {
           </Button>
         </Callout>
       </Show>
+      <OverlapList overlaps={props.flow.overlaps} />
       <Show when={quiet()}>
         <p class="m-0 text-secondary">{NOTHING_WAITING}</p>
       </Show>
@@ -51,6 +54,7 @@ function Flow(props: { projectId: string; flow: MergeFlow; error: string }) {
       <Show when={props.flow.delivered.length > 0}>
         <DeliveredList items={props.flow.delivered} cardOf={cardOf} />
       </Show>
+      <ShipSettings projectId={props.projectId} settings={props.flow.settings} />
     </>
   );
 }
