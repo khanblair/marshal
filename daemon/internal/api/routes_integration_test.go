@@ -100,6 +100,18 @@ func (f *fakeMergeQueue) Undo(_ context.Context, cardID string) (protocol.Card, 
 	return fakeCard(cardID, protocol.CardStateReady), nil
 }
 
+func (f *fakeMergeQueue) UpdateSettings(_ context.Context, projectID string, patch protocol.IntegrationSettingsPatch) (protocol.IntegrationState, error) {
+	if err := f.record("settings " + projectID); err != nil {
+		return protocol.IntegrationState{}, err
+	}
+	f.mu.Lock()
+	if patch.AllowPush != nil {
+		f.state.Settings.AllowPush = *patch.AllowPush
+	}
+	f.mu.Unlock()
+	return f.answer(projectID, ""), nil
+}
+
 func (f *fakeMergeQueue) SendToMerge(_ context.Context, cardID string) (protocol.Card, error) {
 	if err := f.record("send " + cardID); err != nil {
 		return protocol.Card{}, err
@@ -231,6 +243,23 @@ func TestRetryAndUndoAnswerTheCard(t *testing.T) {
 		t.Errorf("the reader was asked %v, want %v", calls, want)
 	}
 }
+
+func TestTheSettingsRouteChangesOnlyWhatItIsSentAndAnswersTheState(t *testing.T) {
+	queue := &fakeMergeQueue{}
+	st := newStack(t, withMergeQueue(queue))
+	project, _ := st.addProject("small-repo")
+
+	body := protocol.IntegrationSettingsPatch{AllowPush: boolPtr(true)}
+	state := decode[protocol.IntegrationState](t, st.do(http.MethodPut, "/v1/projects/"+project.ID+"/integration/settings", body).want(t, http.StatusOK))
+	if !state.Settings.AllowPush {
+		t.Errorf("the answered settings = %+v, want push allowed", state.Settings)
+	}
+	if calls := queue.seen(); len(calls) != 1 || calls[0] != "settings "+project.ID {
+		t.Errorf("the reader was asked %v, want one settings change", calls)
+	}
+}
+
+func boolPtr(v bool) *bool { return &v }
 
 func TestSendToMergeAnswersTheCardAndPassesTheRefusalOn(t *testing.T) {
 	queue := &fakeMergeQueue{}

@@ -36,6 +36,28 @@ func (s *Server) resumeIntegration(w http.ResponseWriter, r *http.Request) {
 	lookup[protocol.IntegrationState]{projectIDOf, s.integration.Resume}.serve(s, w, r)
 }
 
+// updateIntegrationSettings is PUT /v1/projects/{id}/integration/settings: change how the project
+// ships its cards (merging, review, checks, and whether anything may be pushed). A switch that is not
+// sent is left as it is, and the answer is the state after the change.
+func (s *Server) updateIntegrationSettings(w http.ResponseWriter, r *http.Request) {
+	id, err := projectIDOf(r)
+	if err != nil {
+		s.writeError(w, err)
+		return
+	}
+	var patch protocol.IntegrationSettingsPatch
+	if err := s.decodeJSON(r, &patch); err != nil {
+		s.writeError(w, err)
+		return
+	}
+	state, err := s.integration.UpdateSettings(r.Context(), id, patch)
+	if err != nil {
+		s.writeError(w, translate(err))
+		return
+	}
+	s.writeJSON(w, http.StatusOK, state)
+}
+
 // retryMerge is POST /v1/cards/{id}/merge/retry: run a card's merge or delivery again after a stop
 // that needed the owner.
 func (s *Server) retryMerge(w http.ResponseWriter, r *http.Request) {

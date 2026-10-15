@@ -6,6 +6,7 @@ import (
 	"log/slog"
 
 	"github.com/khanblair/marshal/daemon/internal/cardpanel"
+	"github.com/khanblair/marshal/daemon/internal/changereview"
 	"github.com/khanblair/marshal/daemon/internal/chats"
 	"github.com/khanblair/marshal/daemon/internal/config"
 	"github.com/khanblair/marshal/daemon/internal/events"
@@ -13,6 +14,7 @@ import (
 	"github.com/khanblair/marshal/daemon/internal/mcpattach"
 	"github.com/khanblair/marshal/daemon/internal/projects"
 	"github.com/khanblair/marshal/daemon/internal/protocol"
+	"github.com/khanblair/marshal/daemon/internal/pullrequest"
 	"github.com/khanblair/marshal/daemon/internal/store"
 )
 
@@ -25,6 +27,10 @@ type mergeDeps struct {
 	core     coreDaemonModules
 	chats    *chats.Service
 	panel    *cardpanel.Service
+	roles    changereview.Roles
+	localCI  workflowRunner
+	// pullReq opens pull requests on GitHub, and is told which projects may publish.
+	pullReq *pullrequest.Service
 }
 
 // mergeModules is the merge queue and the pieces the project chats share with it.
@@ -54,16 +60,26 @@ func buildMergeQueue(d mergeDeps) (mergeModules, error) {
 	if err != nil {
 		return mergeModules{}, fmt.Errorf("start the Integrator agent: %w", err)
 	}
+	reviewer, err := changereview.New(d.core.sessions, d.roles, d.core.git)
+	if err != nil {
+		return mergeModules{}, fmt.Errorf("start the change reviewer: %w", err)
+	}
 	queue, err := integrator.New(integrator.Deps{
 		Cards: d.core.proj, Projects: d.core.proj, Git: d.core.git, DataDir: d.settings.DataDir, Log: d.log,
 		Checklists: d.panel, Ledger: integrator.NewLedger(d.st), Events: d.bus, Workspace: workspace,
-		Resolver: resolver,
+		Resolver: resolver, Reviewer: reviewer, Checker: localChecks{ci: d.localCI},
+		Notes: reviewNotes{panel: d.panel}, Worker: d.core.sessions,
 	})
 	if err != nil {
 		return mergeModules{}, fmt.Errorf("start the merge queue: %w", err)
 	}
 	// A card that reaches Ready to merge goes to the queue by itself (unless merging is paused).
 	d.core.proj.SetOnReadyToMerge(queue.Enqueue)
+	// Agents may push, and Marshal may publish, only for a project that allows it.
+	d.core.sessions.SetPushPolicy(queue)
+	d.pullReq.SetPolicy(queue)
+	// A card whose agent says it is finished goes through review, checks, and the merge by itself.
+	d.core.sessions.SetFinishHandler(queue)
 	return mergeModules{queue: queue, workspace: workspace, tools: resolver}, nil
 }
 

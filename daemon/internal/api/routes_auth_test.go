@@ -203,7 +203,8 @@ func TestARouteIsRegisteredOnlyWhenItsServiceIsThere(t *testing.T) {
 	// only the projects service, which owns the card's folder.
 	mergeStateRoutes := []string{
 		"GET /v1/projects/{id}/integration", "POST /v1/projects/{id}/integration/pause",
-		"POST /v1/projects/{id}/integration/resume", "POST /v1/cards/{id}/merge/retry",
+		"POST /v1/projects/{id}/integration/resume", "PUT /v1/projects/{id}/integration/settings",
+		"POST /v1/cards/{id}/merge/retry",
 		"POST /v1/cards/{id}/merge/undo", "POST /v1/cards/{id}/send-to-merge",
 	}
 	worktreeRoutes := []string{"POST /v1/cards/{id}/worktree/open"}

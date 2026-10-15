@@ -393,6 +393,7 @@ func integrationRoutes() []routeSpec {
 		{"GET /v1/projects/{id}/integration", needsIntegration, (*Server).integrationState},
 		{"POST /v1/projects/{id}/integration/pause", needsIntegration, (*Server).pauseIntegration},
 		{"POST /v1/projects/{id}/integration/resume", needsIntegration, (*Server).resumeIntegration},
+		{"PUT /v1/projects/{id}/integration/settings", needsIntegration, (*Server).updateIntegrationSettings},
 		{"POST /v1/cards/{id}/merge/retry", needsIntegration, (*Server).retryMerge},
 		{"POST /v1/cards/{id}/merge/undo", needsIntegration, (*Server).undoMerge},
 		{"POST /v1/cards/{id}/send-to-merge", needsIntegration, (*Server).sendToMerge},

@@ -415,8 +415,16 @@ func buildLateModules(st *store.Store, bus *events.Bus, settings config.Settings
 		return lateDaemonModules{}, fmt.Errorf("start the card panel: %w", err)
 	}
 	core.proj.SetChecklistGate(panelSvc)
+	// Local CI (B6.5, build-plan 6.5): the project's own workflow files, run in the card's worktree.
+	// It reads the worktree through the projects service and starts each step through internal/proc,
+	// so nothing here needs a forge, a token, or a network. The merge queue runs it on a finished card.
+	localCISvc, err := localci.New(localci.Deps{Projects: core.proj, Log: log, Now: time.Now})
+	if err != nil {
+		return lateDaemonModules{}, fmt.Errorf("start the local CI module: %w", err)
+	}
 	mergeMods, err := buildMergeQueue(mergeDeps{
 		st: st, bus: bus, settings: settings, log: log, core: core, chats: cm.projectChats, panel: panelSvc,
+		roles: cm.roleSvc, localCI: localCISvc, pullReq: pullReq,
 	})
 	if err != nil {
 		return lateDaemonModules{}, err
@@ -489,13 +497,6 @@ func buildLateModules(st *store.Store, bus *events.Bus, settings config.Settings
 	if err != nil {
 		return lateDaemonModules{}, fmt.Errorf("start the Gmail poller: %w", err)
 	}
-	// Local CI (B6.5, build-plan 6.5): the project's own workflow files, run in the card's worktree.
-	// It reads the worktree through the projects service and starts each step through internal/proc,
-	// so nothing here needs a forge, a token, or a network.
-	localCISvc, err := localci.New(localci.Deps{Projects: core.proj, Log: log, Now: time.Now})
-	if err != nil {
-		return lateDaemonModules{}, fmt.Errorf("start the local CI module: %w", err)
-	}
 	// Live preview (B6.6, build-plan 6.6 and 6.7): one dev server per card, on a port picked for it,
 	// in the card's own worktree, with the before and after screenshots kept under the daemon's data
 	// folder. Every seam is left at its real default - the command runner, the browser lookup, the
@@ -531,7 +532,7 @@ func buildLateModules(st *store.Store, bus *events.Bus, settings config.Settings
 	// session ends (internal/session's Attacher).
 	mcpHost := mcpserver.NewHost(mcpserver.WithHostLogger(log))
 	attacher, err := mcpattach.New(mcpattach.Deps{
-		Host: mcpHost, Cards: core.proj, Notes: cm.mem, Claims: cm.mem, Agents: core.sessions, Panel: panelSvc,
+		Host: mcpHost, Cards: core.proj, Notes: cm.mem, Claims: cm.mem, Agents: core.sessions, Finisher: core.sessions, Overlaps: mergeMods.queue, Panel: panelSvc,
 		Codebase: codeMap, Roles: cm.roleSvc, Harness: core.sessions.HarnessConfigFor,
 		Command: daemonExecutable(log), Address: loopbackAddress(settings.Port),
 		Logger: log, Now: time.Now,
