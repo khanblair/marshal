@@ -74,10 +74,20 @@ func TestSendingACardThatCannotBeMergedYetIsRefusedWithTheReason(t *testing.T) {
 	e.refusedWith(e.work("No commits", protocol.CardStateWorking, nil), "send_no_commits")
 }
 
-func TestSendingACardOfAProjectOnGitHubIsRefused(t *testing.T) {
+// A project on GitHub ships locally too: nothing about the origin sends a card anywhere, and a pull
+// request is only one way of getting there.
+func TestSendingACardOfAProjectOnGitHubMergesItLocally(t *testing.T) {
 	e := newEnv(t)
+	e.wireHook()
 	e.run(e.repo, "remote", "add", "origin", "https://github.com/acme/widgets.git")
-	e.refusedWith(e.work("Add retry", protocol.CardStateWorking, map[string]string{"b.txt": "b\n"}), "send_has_github")
+	card := e.work("Add retry", protocol.CardStateWorking, map[string]string{"b.txt": "b by the card\n"})
+	if _, err := e.svc.SendToMerge(e.ctx, card.ID); err != nil {
+		t.Fatalf("SendToMerge: %v", err)
+	}
+	e.svc.Wait()
+	if got := e.state(card.ID).State; got != protocol.CardStateDone {
+		t.Errorf("the card is %s, want done", got)
+	}
 }
 
 func TestSendingAFolderOriginThatIsNotOnGitHubIsAllowed(t *testing.T) {

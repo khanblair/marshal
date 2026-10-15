@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
 
 	"github.com/khanblair/marshal/daemon/internal/github"
 	"github.com/khanblair/marshal/daemon/internal/gitx"
@@ -45,6 +46,12 @@ type Git interface {
 	Inspect(ctx context.Context, path string) (gitx.RepoInfo, error)
 }
 
+// Policy says whether a project may publish. A project that may not has no pull request opened for
+// it: opening one reaches out to GitHub, and by default nothing a project does leaves the machine.
+type Policy interface {
+	AllowPush(ctx context.Context, projectID string) bool
+}
+
 // Deps are the parts the service is built from.
 type Deps struct {
 	// Client talks to the forge.
@@ -72,6 +79,26 @@ type Service struct {
 	git      Git
 	after    func(ctx context.Context, cardID string) error
 	log      *slog.Logger
+
+	policyMu sync.RWMutex
+	policy   Policy
+}
+
+// SetPolicy gives the service the module that says which projects may publish. It is set after the
+// service is built, because the merge queue that keeps the answer is built later. With none set, every
+// project may, which is how the service behaved before projects could choose.
+func (s *Service) SetPolicy(p Policy) {
+	s.policyMu.Lock()
+	s.policy = p
+	s.policyMu.Unlock()
+}
+
+// mayPublish says whether a project may have a pull request opened.
+func (s *Service) mayPublish(ctx context.Context, projectID string) bool {
+	s.policyMu.RLock()
+	policy := s.policy
+	s.policyMu.RUnlock()
+	return policy == nil || policy.AllowPush(ctx, projectID)
 }
 
 // New builds a Service. The forge client and the cards it writes are required.
@@ -110,6 +137,11 @@ func (s *Service) Open(ctx context.Context, cardID string) (protocol.Card, error
 	project, err := s.projects.Get(ctx, card.ProjectID)
 	if err != nil {
 		return protocol.Card{}, err
+	}
+	if !s.mayPublish(ctx, project.ID) {
+		return protocol.Card{}, protocol.Refused(
+			"Publishing is off for this project, so no pull request is opened. Turn on Allow pushing in the project's Integration settings to publish.").
+			With("cardId", cardID).With("reason", "push_not_allowed")
 	}
 	repo, base, err := s.resolve(ctx, project)
 	if err != nil {

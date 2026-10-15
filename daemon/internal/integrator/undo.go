@@ -44,6 +44,7 @@ func (s *Service) Undo(ctx context.Context, cardID string) (protocol.Card, error
 	text := fmt.Sprintf("You undid this merge, so %s is back where it was. Send the card to ready again when you want it delivered.", row.Target)
 	card := protocol.Card{ID: cardID, ProjectID: project.ID}
 	s.stopProgress(ctx, card, text)
+	s.sweepBackups(ctx, project)
 	return s.cards.SetNeeds(ctx, cardID, protocol.NeedsReason{Kind: protocol.NeedsReasonKindConflict, Text: text})
 }
 

@@ -51,6 +51,8 @@ type Cards interface {
 	SetState(ctx context.Context, id string, state protocol.CardState) (protocol.Card, error)
 	// SetNeeds moves a card to Needs you with the reason a person reads.
 	SetNeeds(ctx context.Context, id string, reason protocol.NeedsReason) (protocol.Card, error)
+	// SetCI records the state of a card's checks.
+	SetCI(ctx context.Context, id string, state *protocol.CIState) (protocol.Card, error)
 }
 
 // Projects is the part of the projects module the queue needs to read a project.
@@ -119,6 +121,16 @@ type Deps struct {
 	Tests Tester
 	// Checklists holds a card back while a required checklist is open (B10.5). Nil means none is.
 	Checklists ChecklistGate
+	// Reviewer reads a card's changes before they can be merged. Nil means no review is done, even
+	// when the project asks for one.
+	Reviewer ChangeReviewer
+	// Checker runs the project's own checks on a card's changes. Nil means none are run.
+	Checker ChangeChecker
+	// Notes posts what the Reviewer found on the card, where a person reads it. Nil posts nothing.
+	Notes Notes
+	// Worker sends a message into the card's own session, so a request for changes reaches the agent
+	// that wrote them. Nil sends nothing, and the card then waits for a person.
+	Worker Worker
 	// Resolver resolves conflicts by intent. Nil sends a conflict to Needs you.
 	Resolver ConflictResolver
 	// ResolveTimeout bounds one call to the resolver. Zero means 15 minutes.
@@ -159,15 +171,25 @@ type Service struct {
 	tests    Tester
 	lists    ChecklistGate
 	resolver ConflictResolver
-	briefs   Briefs
-	ledger   Ledger
-	events   Publisher
-	ws       Workspace
-	dataDir  string
-	log      *slog.Logger
-	now      func() time.Time
-	timeout  time.Duration
-	folder   FolderRetry
+	reviewer ChangeReviewer
+	checker  ChangeChecker
+	notes    Notes
+	worker   Worker
+	// shipping holds the cards whose review and checks are running, so a second press does not
+	// start a second run.
+	shipping map[string]bool
+	// overlapMu guards the overlaps kept for a few seconds, by project.
+	overlapMu    sync.Mutex
+	overlapCache map[string]overlapEntry
+	briefs       Briefs
+	ledger       Ledger
+	events       Publisher
+	ws           Workspace
+	dataDir      string
+	log          *slog.Logger
+	now          func() time.Time
+	timeout      time.Duration
+	folder       FolderRetry
 
 	locks keyedlock.Locks
 	idMu  sync.Mutex
@@ -198,7 +220,8 @@ func New(deps Deps) (*Service, error) {
 	}
 	s := &Service{
 		cards: deps.Cards, projects: deps.Projects, git: deps.Git, tests: deps.Tests, lists: deps.Checklists,
-		resolver: deps.Resolver, briefs: deps.Briefs, ledger: deps.Ledger, events: deps.Events,
+		resolver: deps.Resolver, reviewer: deps.Reviewer, checker: deps.Checker, notes: deps.Notes, worker: deps.Worker,
+		shipping: map[string]bool{}, overlapCache: map[string]overlapEntry{}, briefs: deps.Briefs, ledger: deps.Ledger, events: deps.Events,
 		ws: deps.Workspace, dataDir: filepath.Clean(deps.DataDir), log: deps.Log, now: deps.Now,
 		timeout: deps.ResolveTimeout, folder: deps.Folder,
 		waiting: map[string][]string{}, draining: map[string]bool{}, retrying: map[string]bool{},

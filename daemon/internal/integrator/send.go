@@ -3,16 +3,15 @@ package integrator
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/khanblair/marshal/daemon/internal/protocol"
 )
 
-// SendToMerge is how a card of a project with no GitHub origin reaches Ready to merge. A project on
-// GitHub gets there through a pull request, a review and passing checks; one without them has none
-// of those to wait for, so a person decides the card's work is finished. The card is moved the way
-// the daemon moves it, so Enqueue sees it like any other card that became ready, and the merge runs
-// when the project's settings allow it.
+// SendToMerge is how a card reaches Ready to merge on this machine, for any project: a person, or the
+// card's own agent saying it is finished, decides the work is done. Its leftover work is committed,
+// the Reviewer reads it, and the project's own checks run, each as the project's settings say (see
+// ship.go); then the card is moved the way the daemon moves it, so Enqueue sees it like any other card
+// that became ready, and the merge runs when the project's settings allow it. Nothing is pushed.
 //
 // A card that is already in Ready to merge is not moved again, but the queue is asked to look at it,
 // which is what a person who pressed Merge on a waiting card wants. Every refusal is a plain
@@ -29,7 +28,26 @@ func (s *Service) SendToMerge(ctx context.Context, cardID string) (protocol.Card
 	if err := s.canSend(ctx, card); err != nil {
 		return protocol.Card{}, err
 	}
-	return s.cards.SetState(ctx, cardID, protocol.CardStateReady)
+	settings, err := s.ledger.Settings(ctx, card.ProjectID)
+	if err != nil {
+		return protocol.Card{}, err
+	}
+	s.commitLeftovers(ctx, card)
+	wantReview := settings.Review && s.reviewer != nil
+	wantChecks := settings.Checks && s.checker != nil
+	if !wantReview && !wantChecks {
+		return s.cards.SetState(ctx, cardID, protocol.CardStateReady)
+	}
+	moved := card
+	if card.State != protocol.CardStateReview {
+		if moved, err = s.cards.SetState(ctx, cardID, protocol.CardStateReview); err != nil {
+			return protocol.Card{}, err
+		}
+	}
+	if s.startShip(cardID) {
+		s.spawn(func(ctx context.Context) { s.ship(ctx, moved, wantReview, wantChecks) })
+	}
+	return moved, nil
 }
 
 // canSend says why a card cannot be sent to the queue, or nil when it can.
@@ -43,10 +61,6 @@ func (s *Service) canSend(ctx context.Context, card protocol.Card) error {
 	project, err := s.projects.Get(ctx, card.ProjectID)
 	if err != nil {
 		return err
-	}
-	if s.hasGitHubOrigin(ctx, project.Path) {
-		return refusedSend(card.ID, "send_has_github",
-			"This project is on GitHub, so its cards reach Ready to merge through a pull request and a review.")
 	}
 	ahead, err := s.git.CountAhead(ctx, project.Path, project.Target(), card.Branch)
 	if err != nil {
@@ -82,13 +96,6 @@ func sendStateRefusal(card protocol.Card) error {
 			"The agent is still working on this card. Pause it or wait for it to finish, so the merge takes everything it did.")
 	}
 	return nil
-}
-
-// hasGitHubOrigin says whether the project's origin remote is on GitHub. A project with no origin, or
-// one whose origin is somewhere else, has no pull request to wait for.
-func (s *Service) hasGitHubOrigin(ctx context.Context, repo string) bool {
-	url, err := s.git.Run(ctx, repo, "remote", "get-url", "origin")
-	return err == nil && strings.Contains(strings.ToLower(url), "github.com")
 }
 
 // refusedSend is the refusal for a card that cannot be sent to the merge queue.
