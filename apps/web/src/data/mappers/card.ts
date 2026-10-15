@@ -95,6 +95,8 @@ const THINK_MODES: Record<string, ThinkingMode> = {
 
 /** The merge phases in plain words, for the board and a card's header. */
 const MERGE_PHASE_TEXT: Record<MergePhase, string> = {
+  reviewing: "Being reviewed",
+  checking: "Running checks",
   queued: "Waiting for the Integrator",
   resolving: "Resolving conflicts",
   testing: "Testing the merge",

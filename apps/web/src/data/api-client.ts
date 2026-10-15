@@ -339,6 +339,7 @@ type MergeFlowRoute =
   | "retryCardMerge"
   | "undoCardMerge"
   | "sendCardToMerge"
+  | "updateIntegrationSettings"
   | "openCardWorktree";
 
 /**
@@ -354,6 +355,8 @@ function mergeFlowMethods({
     integrationState: (pid, o) => request("GET", `/v1/projects/${id(pid)}/integration`, o),
     pauseIntegration: (pid, o) => request("POST", `/v1/projects/${id(pid)}/integration/pause`, o),
     resumeIntegration: (pid, o) => request("POST", `/v1/projects/${id(pid)}/integration/resume`, o),
+    updateIntegrationSettings: (pid, body, o) =>
+      request("PUT", `/v1/projects/${id(pid)}/integration/settings`, { ...o, body }),
     retryCardMerge: (cid, o) => request("POST", `/v1/cards/${id(cid)}/merge/retry`, slow(o)),
     undoCardMerge: (cid, o) => request("POST", `/v1/cards/${id(cid)}/merge/undo`, slow(o)),
     sendCardToMerge: (cid, o) => request("POST", `/v1/cards/${id(cid)}/send-to-merge`, slow(o)),

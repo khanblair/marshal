@@ -2,6 +2,7 @@ import {
   EventTypeCardMoved,
   EventTypeCardUpdated,
   EventTypeMergeProgress,
+  type IntegrationSettingsPatch,
   type Event as WireEvent,
   type IntegrationState as WireIntegrationState,
 } from "@marshal/protocol";
@@ -248,6 +249,24 @@ async function setPaused(
   const live = liveCtx(ctx);
   const state = await ask(live, `merge-flow:${projectId}`, (api) =>
     paused ? api.pauseIntegration(projectId) : api.resumeIntegration(projectId),
+  );
+  if (!live || !state) return false;
+  applyFlow(live, state);
+  return true;
+}
+
+/**
+ * Changes how a project ships its cards (merging, review, checks, and whether anything may be
+ * pushed) and draws the state the daemon answers. A switch that is not named is left as it is.
+ */
+export async function changeShipSettings(
+  projectId: string,
+  patch: IntegrationSettingsPatch,
+  ctx?: Ctx | null,
+): Promise<boolean> {
+  const live = liveCtx(ctx);
+  const state = await ask(live, `merge-flow:${projectId}`, (api) =>
+    api.updateIntegrationSettings(projectId, patch),
   );
   if (!live || !state) return false;
   applyFlow(live, state);

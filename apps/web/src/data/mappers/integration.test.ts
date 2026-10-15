@@ -29,6 +29,33 @@ describe("toMergeFlow", () => {
     });
   });
 
+  it("has a lane for a card being reviewed or checked, and counts it as waiting", () => {
+    const flow = toMergeFlow({
+      ...idle,
+      queue: [
+        { cardId: "01A", key: "web#20", title: "Add cache", phase: "reviewing", position: 1 },
+        { cardId: "01B", key: "web#21", title: "Add retry", phase: "checking", position: 2 },
+      ],
+    });
+    expect(flow.lanes.reviewing.map((card) => card.key)).toEqual(["web#20"]);
+    expect(flow.lanes.checking.map((card) => card.key)).toEqual(["web#21"]);
+    expect(flow.queued).toBe(2);
+  });
+
+  it("carries how the project ships its cards and the files cards share", () => {
+    const flow = toMergeFlow(wire);
+    expect(flow.settings).toEqual({
+      autoMerge: true,
+      autoShip: true,
+      review: true,
+      checks: true,
+      allowPush: false,
+    });
+    expect(flow.overlaps).toEqual([
+      { path: "src/auth.ts", cards: ["web#12", "web#13"], cardIds: ["01HZ", "01J0"] },
+    ]);
+  });
+
   it("carries the branches, how far ahead the Integrator is, and the daemon's clock", () => {
     const flow = toMergeFlow(wire);
     expect(flow).toMatchObject({

@@ -49,6 +49,7 @@ import type {
   Health,
   HomeSnapshot,
   IntegrationList,
+  IntegrationSettingsPatch,
   IntegrationState,
   Label,
   LabelSnapshot,
@@ -367,6 +368,15 @@ export interface ApiClient {
   pauseIntegration(projectId: string, options?: CallOptions): Promise<IntegrationState>;
   /** Lets the Integrator take cards off the queue again. The answer is the state after the change. */
   resumeIntegration(projectId: string, options?: CallOptions): Promise<IntegrationState>;
+  /**
+   * Changes how the project ships its cards: merging, review, checks, and whether anything may be
+   * pushed. A switch that is not sent is left as it is. The answer is the state after the change.
+   */
+  updateIntegrationSettings(
+    projectId: string,
+    patch: IntegrationSettingsPatch,
+    options?: CallOptions,
+  ): Promise<IntegrationState>;
   /** Runs a card's merge or delivery again after a stop that needed the owner. Answers the card. */
   retryCardMerge(cardId: string, options?: CallOptions): Promise<Card>;
   /** Puts the integration branch back to where it was before the card's merge. Answers the card. */

@@ -14,6 +14,7 @@ import {
   IntegrationBranchName,
   type IntegrationHistoryItem,
   type IntegrationQueueItem,
+  type IntegrationSettingsPatch,
   type IntegrationState,
   IntegratorStateIdle,
   IntegratorStateMerging,
@@ -74,6 +75,8 @@ export function idleFlow(projectId: string, serverTime: string): IntegrationStat
     integratorBranch: IntegrationBranchName,
     aheadBy: 0,
     state: IntegratorStateIdle,
+    settings: { autoMerge: true, autoShip: true, review: true, checks: true, allowPush: false },
+    overlaps: [],
     queue: [],
     history: [],
     serverTime,
@@ -132,6 +135,11 @@ function stateOf(store: MergeFlowStore, projectId: string): IntegrationState {
   return state;
 }
 
+/** The switches a patch sets: one it does not mention is left alone, as the daemon does. */
+function definedOnly(patch: IntegrationSettingsPatch): Partial<IntegrationState["settings"]> {
+  return Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined));
+}
+
 /** What the Integrator does after a change: paused stays paused, else it merges while cards wait. */
 function settle(state: IntegrationState): void {
   if (state.state === IntegratorStatePaused) return;
@@ -139,9 +147,15 @@ function settle(state: IntegrationState): void {
   state.currentCardId = state.queue[0]?.cardId ?? "";
 }
 
-function answerState(store: MergeFlowStore, projectId: string, action: string): Response {
+function answerState(
+  store: MergeFlowStore,
+  projectId: string,
+  action: string,
+  body: IntegrationSettingsPatch = {},
+): Response {
   if (!store.hasProject(projectId)) return notFound();
   const state = stateOf(store, projectId);
+  if (action === "settings") state.settings = { ...state.settings, ...definedOnly(body) };
   if (action === "pause") state.state = IntegratorStatePaused;
   if (action === "resume") {
     state.state = IntegratorStateIdle;
@@ -199,24 +213,32 @@ function undo(store: MergeFlowStore, card: WireCard): Response {
   return jsonAnswer(card);
 }
 
+/** A project route of the merge flow: a read, a pause or resume, or a change of settings. */
+function answerProjectRoute(
+  store: MergeFlowStore,
+  request: FakeRequest,
+  projectId: string,
+  action: string | undefined,
+): Response | null {
+  const reads = request.method === "GET" && !action;
+  const changes = request.method === "PUT" && action === "settings";
+  const presses = request.method === "POST" && !!action && action !== "settings";
+  if (!reads && !changes && !presses) return null;
+  if (reads) return store.hasProject(projectId) ? jsonAnswer(read(store, projectId)) : notFound();
+  const patch = request.body ? (JSON.parse(request.body) as IntegrationSettingsPatch) : {};
+  return answerState(store, projectId, action ?? "", patch);
+}
+
 /** Answers a merge-flow route, or null when the request is not one. */
 export function answerMergeFlowRoute(store: MergeFlowStore, request: FakeRequest): Response | null {
   const path = request.url.replace(/^https?:\/\/[^/]+/, "").split("?")[0] ?? "";
-  const project = /^\/v1\/projects\/([^/]+)\/integration(?:\/(pause|resume))?$/.exec(path);
+  const project = /^\/v1\/projects\/([^/]+)\/integration(?:\/(pause|resume|settings))?$/.exec(path);
   const onCard =
     /^\/v1\/cards\/([^/]+)\/(merge\/retry|merge\/undo|send-to-merge|worktree\/open)$/.exec(path);
   if (!project && !onCard) return null;
   // Opening a folder needs only the card, not the merge queue, so it answers on every daemon.
   if (store.absent && onCard?.[2] !== "worktree/open") return notFound();
-  if (project?.[1]) {
-    const reads = request.method === "GET" && !project[2];
-    const presses = request.method === "POST" && project[2];
-    if (!reads && !presses) return null;
-    if (reads && !store.hasProject(project[1])) return notFound();
-    return reads
-      ? jsonAnswer(read(store, project[1]))
-      : answerState(store, project[1], project[2] ?? "");
-  }
+  if (project?.[1]) return answerProjectRoute(store, request, project[1], project[2]);
   if (!onCard || request.method !== "POST") return null;
   const card = store.cards().find((one) => one.id === onCard[1]);
   if (!card) return noCard();

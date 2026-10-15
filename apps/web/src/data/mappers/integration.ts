@@ -1,11 +1,15 @@
 import {
+  type CardOverlap,
   type IntegrationHistoryItem,
   type IntegrationQueueItem,
+  type IntegrationSettings,
   type IntegratorState,
   type MergePhase,
+  MergePhaseChecking,
   MergePhaseLanding,
   MergePhaseQueued,
   MergePhaseResolving,
+  MergePhaseReviewing,
   MergePhaseStopped,
   MergePhaseTesting,
   type IntegrationState as WireIntegrationState,
@@ -22,6 +26,8 @@ import { toMillis } from "./time";
 
 /** The merge phases in the order a card passes through them, which is the order the lanes draw. */
 const LANE_PHASES: readonly MergePhase[] = [
+  MergePhaseReviewing,
+  MergePhaseChecking,
   MergePhaseQueued,
   MergePhaseResolving,
   MergePhaseTesting,
@@ -77,6 +83,10 @@ export interface MergeFlow {
   currentCardId: string;
   /** The queue, grouped by phase. Every phase has a list, so a lane never reads `undefined`. */
   lanes: Record<MergePhase, MergeQueueCard[]>;
+  /** How the project ships its cards: merging, review, checks, and whether anything may be pushed. */
+  settings: IntegrationSettings;
+  /** The files that more than one unfinished card has changed, as of each card's last commit. */
+  overlaps: CardOverlap[];
   /** How many cards wait or are being merged, in all lanes. */
   queued: number;
   delivered: DeliveredCard[];
@@ -143,6 +153,8 @@ function stateLabelOf(state: WireIntegrationState): string {
 /** Groups the queue by phase, keeping the daemon's order inside each lane. */
 function lanesOf(queue: readonly IntegrationQueueItem[]): Record<MergePhase, MergeQueueCard[]> {
   const lanes: Record<MergePhase, MergeQueueCard[]> = {
+    [MergePhaseReviewing]: [],
+    [MergePhaseChecking]: [],
     [MergePhaseQueued]: [],
     [MergePhaseResolving]: [],
     [MergePhaseTesting]: [],
@@ -166,6 +178,8 @@ export function toMergeFlow(state: WireIntegrationState): MergeFlow {
     message: state.message ?? "",
     currentCardId: state.currentCardId ?? "",
     lanes,
+    settings: state.settings,
+    overlaps: state.overlaps,
     queued: LANE_PHASES.reduce((count, phase) => count + lanes[phase].length, 0),
     delivered: state.history.map(deliveredCard),
     serverTime: toMillis(state.serverTime),
