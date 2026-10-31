@@ -26,7 +26,9 @@
         "thinking": true,
         "mcp": true,
         "approvals": false
-      }
+      },
+      "customPath": "",
+      "off": false
     },
     {
       "kind": "gemini",
@@ -49,7 +51,9 @@
         "thinking": false,
         "mcp": true,
         "approvals": true
-      }
+      },
+      "customPath": "",
+      "off": false
     },
     {
       "kind": "codex",
@@ -72,7 +76,9 @@
         "thinking": false,
         "mcp": false,
         "approvals": false
-      }
+      },
+      "customPath": "",
+      "off": false
     },
     {
       "kind": "builtin",
@@ -115,7 +121,9 @@
         "thinking": true,
         "mcp": false,
         "approvals": true
-      }
+      },
+      "customPath": "",
+      "off": false
     }
   ],
   "tools": [

@@ -59,6 +59,21 @@ type Agent struct {
 	Models []AgentModel `json:"models"`
 	// Capabilities says what Marshal can do with the agent.
 	Capabilities AgentCapabilities `json:"capabilities"`
+	// CustomPath is the program the person chose in Settings. Empty means the one Marshal found on
+	// the computer, whose place is never sent.
+	CustomPath string `json:"customPath"`
+	// Off says the person turned the agent off, so Marshal will not start it for a card.
+	Off bool `json:"off"`
+}
+
+// AgentSettingsRequest is the body of PUT /v1/agents/{id}/settings. Whatever it holds replaces the
+// agent's settings.
+type AgentSettingsRequest struct {
+	// Path is the program to use, or empty for the one found on the computer. It is checked before
+	// it is kept.
+	Path string `json:"path"`
+	// Off turns the agent off for cards.
+	Off bool `json:"off"`
 }
 
 // AgentToolInterface says how another agent program takes its work, which decides whether Marshal

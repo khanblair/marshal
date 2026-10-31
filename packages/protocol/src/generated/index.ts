@@ -77,6 +77,26 @@ export interface Agent {
   models: AgentModel[];
   /** Capabilities says what Marshal can do with the agent. */
   capabilities: AgentCapabilities;
+  /**
+   * CustomPath is the program the person chose in Settings. Empty means the one Marshal found on
+   * the computer, whose place is never sent.
+   */
+  customPath: string;
+  /** Off says the person turned the agent off, so Marshal will not start it for a card. */
+  off: boolean;
+}
+/**
+ * AgentSettingsRequest is the body of PUT /v1/agents/{id}/settings. Whatever it holds replaces the
+ * agent's settings.
+ */
+export interface AgentSettingsRequest {
+  /**
+   * Path is the program to use, or empty for the one found on the computer. It is checked before
+   * it is kept.
+   */
+  path: string;
+  /** Off turns the agent off for cards. */
+  off: boolean;
 }
 /**
  * AgentToolInterface says how another agent program takes its work, which decides whether Marshal
@@ -5078,6 +5098,27 @@ export interface LimitList {
 export interface SetLimitRequest {
   /** Value is the new ceiling, in the unit the path's kind measures. */
   value: number /* int64 */;
+}
+
+//////////
+// source: resend.go
+
+/**
+ * SaveResendRequest is the body that saves the Resend connection. The API key is written to the
+ * keychain and never comes back from any route. The sender address is written to the connection's
+ * own row, because a screen shows it so a person can check which address mail comes from.
+ */
+export interface SaveResendRequest {
+  /**
+   * Key is the Resend API key. Empty keeps the key already saved, so the sender can change
+   * without pasting the key again.
+   */
+  key: string;
+  /**
+   * From is the sender address, such as "Marshal <marshal@example.com>". It must be on a domain
+   * Resend has verified, or Resend's own test sender.
+   */
+  from: string;
 }
 
 //////////
