@@ -41,7 +41,7 @@ export {
   type SegmentOption,
   type SegmentSize,
 } from "./base/SegmentedControl";
-export { Select, type SelectOption, type SelectProps } from "./base/Select";
+export { Select, type SelectChange, type SelectOption, type SelectProps } from "./base/Select";
 export { Skeleton, type SkeletonPercent, type SkeletonProps } from "./base/Skeleton";
 export { SkeletonCard, type SkeletonCardProps } from "./base/SkeletonCard";
 export { SkeletonGroup, type SkeletonGroupProps } from "./base/SkeletonGroup";
