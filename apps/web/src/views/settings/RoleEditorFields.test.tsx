@@ -1,7 +1,8 @@
-import { cleanup, fireEvent, screen, within } from "@solidjs/testing-library";
+import { cleanup, screen } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { M } from "~/mock";
 import { GOLDEN_CATALOG } from "~/testing/agents";
+import { optionsOf, pickValue, valueOf } from "~/testing/dropdown";
 import { useCatalog } from "~/testing/test-store";
 import { showSettings } from "./test-support";
 
@@ -22,10 +23,7 @@ afterEach(() => {
 });
 
 const combo = (name: string) => screen.getByRole("combobox", { name });
-const options = (name: string) =>
-  within(combo(name))
-    .getAllByRole("option")
-    .map((option) => option.textContent);
+const options = (name: string) => optionsOf(combo(name)).map((option) => option.textContent);
 const thinking = () => screen.queryByRole("combobox", { name: "Thinking mode" });
 
 describe("the role editor's pickers with the prototype's agents", () => {
@@ -45,24 +43,24 @@ describe("the role editor's pickers with the prototype's agents", () => {
       "deepseek-chat",
       "qwen2.5-coder:32b",
     ]);
-    expect(combo("Backup model")).toHaveValue("gpt-5");
+    expect(valueOf(combo("Backup model"))).toBe("gpt-5");
     expect(options("Thinking mode")).toEqual(M.THINK);
   });
 
   it("gives the role the new agent's first model, and its models", () => {
     showSettings("roles");
-    fireEvent.change(combo("Agent"), { target: { value: "Gemini CLI" } });
-    expect(combo("Model")).toHaveValue("gemini-2.5-pro");
+    pickValue(combo("Agent"), "Gemini CLI");
+    expect(valueOf(combo("Model"))).toBe("gemini-2.5-pro");
     expect(options("Model")).toEqual(["gemini-2.5-pro", "gemini-2.5-flash"]);
   });
 
   it("offers thinking only while the model has it", () => {
     showSettings("roles");
-    fireEvent.change(combo("Agent"), { target: { value: "Built-in agent" } });
+    pickValue(combo("Agent"), "Built-in agent");
     expect(thinking()).not.toBeNull();
-    fireEvent.change(combo("Model"), { target: { value: "deepseek-chat" } });
+    pickValue(combo("Model"), "deepseek-chat");
     expect(thinking()).toBeNull();
-    fireEvent.change(combo("Model"), { target: { value: "gpt-5-mini" } });
+    pickValue(combo("Model"), "gpt-5-mini");
     expect(thinking()).not.toBeNull();
   });
 });
@@ -81,7 +79,9 @@ describe("the role editor's pickers with the daemon's agents", () => {
       "Built-in agent",
     ]);
     expect(
-      within(combo("Agent")).getByRole("option", { name: "Codex (not installed)" }),
+      optionsOf(combo("Agent")).find(
+        (o) => o.textContent === "Codex (not installed)",
+      ) as HTMLElement,
     ).toBeDisabled();
     expect(
       screen.getByText(/Codex is not installed\. Install it with: npm install -g/),
@@ -90,11 +90,11 @@ describe("the role editor's pickers with the daemon's agents", () => {
 
   it("keeps the role's own model when the catalog lacks it, then lists the catalog's models", () => {
     showSettings("roles");
-    expect(combo("Model")).toHaveValue("claude-sonnet-4-5");
+    expect(valueOf(combo("Model"))).toBe("claude-sonnet-4-5");
     expect(options("Model")).toEqual(["claude-sonnet-4-5", "sonnet", "haiku"]);
-    fireEvent.change(combo("Model"), { target: { value: "haiku" } });
+    pickValue(combo("Model"), "haiku");
     expect(thinking()).toBeNull();
-    fireEvent.change(combo("Model"), { target: { value: "sonnet" } });
+    pickValue(combo("Model"), "sonnet");
     expect(thinking()).not.toBeNull();
   });
 
@@ -120,7 +120,7 @@ describe("the role editor's pickers with the daemon's agents", () => {
     if (!role) throw new Error("no role");
     role.agent = "Aider";
     role.model = "aider-model";
-    expect(combo("Agent")).toHaveValue("Aider");
+    expect(valueOf(combo("Agent"))).toBe("Aider");
     expect(options("Model")).toEqual(["aider-model"]);
     expect(thinking()).toBeNull();
   });

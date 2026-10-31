@@ -1,12 +1,13 @@
 // biome-ignore-all assist/source/organizeImports: the fake daemon's store has to be imported first, so the store `~/mock` builds is the one that follows it (the sleep settings are the daemon's).
 import { ctx, daemon, resetSleep } from "~/testing/daemon-sleep-store";
 import type { SleepSettings } from "@marshal/protocol";
-import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { toSleepChoice } from "~/data/mappers/sleep-settings";
 import { M } from "~/mock";
 import { applySleepChoice } from "~/sync/sleep-settings";
 import { SettingsView } from "./SettingsView";
+import { pickValue, valueOf } from "~/testing/dropdown";
 
 vi.hoisted(() => {
   window.location.hash = "#nosim";
@@ -32,7 +33,7 @@ function showDaemon(sleep: Partial<SleepSettings>): void {
 }
 
 const change = (label: string, value: string): void => {
-  fireEvent.change(screen.getByLabelText(label, { exact: false }), { target: { value } });
+  pickValue(screen.getByLabelText(label, { exact: false }), value);
 };
 
 const toasts = (): string[] => M.S.toasts.map((toast) => toast.msg);
@@ -46,11 +47,11 @@ afterEach(cleanup);
 describe("the sleep settings on the daemon", () => {
   it("draws the daemon's own record, not the mock's", () => {
     showDaemon({ idleMinutes: 30, restore: "manual", channel: "discord" });
-    expect(screen.getByLabelText(RESTORE, { exact: false })).toHaveValue(
+    expect(valueOf(screen.getByLabelText(RESTORE, { exact: false }))).toBe(
       "Show a resume button on each card",
     );
-    expect(screen.getByLabelText(IDLE, { exact: false })).toHaveValue("30");
-    expect(screen.getByLabelText(CHANNEL)).toHaveValue("In app and Discord");
+    expect(valueOf(screen.getByLabelText(IDLE, { exact: false }))).toBe("30");
+    expect(valueOf(screen.getByLabelText(CHANNEL))).toBe("In app and Discord");
   });
 
   it("saves one change as the whole record, and keeps the daemon's answer", async () => {
@@ -67,7 +68,7 @@ describe("the sleep settings on the daemon", () => {
       },
     ]);
     expect(M.S.sleep.idle).toBe(60);
-    expect(screen.getByLabelText(IDLE, { exact: false })).toHaveValue("60");
+    expect(valueOf(screen.getByLabelText(IDLE, { exact: false }))).toBe("60");
   });
 
   it("sends the two labels as the wire values behind them", async () => {
@@ -95,6 +96,6 @@ describe("the sleep settings on the daemon", () => {
     );
     // The daemon still holds 15 minutes, so the store and the panel read 15 again.
     expect(M.S.sleep.idle).toBe(15);
-    expect(screen.getByLabelText(IDLE, { exact: false })).toHaveValue("15");
+    expect(valueOf(screen.getByLabelText(IDLE, { exact: false }))).toBe("15");
   });
 });

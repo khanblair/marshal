@@ -7,6 +7,7 @@ import { M } from "~/mock";
 import { GOLDEN_CATALOG, wireAgent, wireCatalog } from "~/testing/agents";
 import { useCatalog } from "~/testing/test-store";
 import { NewCardDialog } from "./NewCardDialog";
+import { optionsOf, pickValue, valueOf } from "~/testing/dropdown";
 
 vi.hoisted(() => {
   window.location.hash = "#nosim";
@@ -56,9 +57,9 @@ describe("NewCardDialog", () => {
     expect(
       screen.getByText("This becomes the first message in the card's session."),
     ).toBeInTheDocument();
-    expect(combo("Template")).toHaveValue("Blank");
-    expect(combo("Role")).toHaveValue("Worker");
-    expect(combo("Agent")).toHaveValue("Claude Code");
+    expect(valueOf(combo("Template"))).toBe("Blank");
+    expect(valueOf(combo("Role"))).toBe("Worker");
+    expect(valueOf(combo("Agent"))).toBe("Claude Code");
     expect(screen.getByRole("checkbox", { name: "Start the card right away" })).not.toBeChecked();
     expect(create()).toBeDisabled();
     expect(screen.queryByRole("status")).toBeNull();
@@ -67,10 +68,7 @@ describe("NewCardDialog", () => {
   it("offers the template, role, and agent lists", () => {
     M.newCard();
     render(() => <NewCardDialog />);
-    const names = (label: string) =>
-      within(combo(label))
-        .getAllByRole("option")
-        .map((o) => o.textContent);
+    const names = (label: string) => optionsOf(combo(label)).map((o) => o.textContent);
     expect(names("Template")).toEqual([
       "Blank",
       "Bug fix",
@@ -96,9 +94,9 @@ describe("NewCardDialog", () => {
     fireEvent.input(screen.getByRole("textbox", { name: /Description/ }), {
       target: { value: "Refresh before expiry." },
     });
-    fireEvent.change(combo("Template"), { target: { value: "Bug fix" } });
-    fireEvent.change(combo("Role"), { target: { value: M.ROLE_NAMES[1] } });
-    fireEvent.change(combo("Agent"), { target: { value: Object.keys(M.AGENTS)[1] } });
+    pickValue(combo("Template"), "Bug fix");
+    pickValue(combo("Role"), M.ROLE_NAMES[1] as string);
+    pickValue(combo("Agent"), Object.keys(M.AGENTS)[1] as string);
     fireEvent.click(screen.getByRole("checkbox", { name: "Start the card right away" }));
     expect(M.S.newCard).toMatchObject({
       title: "Fix token refresh",
@@ -191,12 +189,10 @@ describe("NewCardDialog with the daemon's agents", () => {
   afterEach(() => restore());
 
   const agentOptions = () =>
-    within(combo("Agent"))
-      .getAllByRole("option")
-      .map((option) => ({
-        text: option.textContent,
-        disabled: (option as HTMLOptionElement).disabled,
-      }));
+    optionsOf(combo("Agent")).map((option) => ({
+      text: option.textContent,
+      disabled: (option as HTMLOptionElement).disabled,
+    }));
 
   it("lists the agents the daemon reports, then the built-in agent, and disables the one that is not installed", () => {
     M.newCard();
@@ -207,7 +203,7 @@ describe("NewCardDialog with the daemon's agents", () => {
       { text: "Codex (not installed)", disabled: true },
       { text: "Built-in agent", disabled: false },
     ]);
-    expect(combo("Agent")).toHaveValue("Claude Code");
+    expect(valueOf(combo("Agent"))).toBe("Claude Code");
   });
 
   it("says how to install an agent that is missing, in the daemon's own sentence, under the pickers", () => {
@@ -223,16 +219,16 @@ describe("NewCardDialog with the daemon's agents", () => {
     render(() => <NewCardDialog />);
     const warning = /Marshal has not been tested with Gemini CLI 0\.36\.0/;
     expect(screen.queryByText(warning)).toBeNull();
-    fireEvent.change(combo("Agent"), { target: { value: "Gemini CLI" } });
+    pickValue(combo("Agent"), "Gemini CLI");
     expect(screen.getByText(warning)).toBeInTheDocument();
-    fireEvent.change(combo("Agent"), { target: { value: "Claude Code" } });
+    pickValue(combo("Agent"), "Claude Code");
     expect(screen.queryByText(warning)).toBeNull();
   });
 
   it("lets an untested agent be chosen, and the card it makes names that agent", async () => {
     M.newCard();
     render(() => <NewCardDialog />);
-    fireEvent.change(combo("Agent"), { target: { value: "Gemini CLI" } });
+    pickValue(combo("Agent"), "Gemini CLI");
     fireEvent.input(titleField(), { target: { value: "Try the untested agent" } });
     fireEvent.submit(screen.getByRole("dialog"));
     await vi.waitFor(() =>
@@ -265,7 +261,7 @@ describe("NewCardDialog with the daemon's agents", () => {
     );
     M.newCard();
     render(() => <NewCardDialog />);
-    expect(combo("Agent")).toHaveValue("Codex");
+    expect(valueOf(combo("Agent"))).toBe("Codex");
     expect(M.S.newCard?.agent).toBe("Codex");
   });
 });

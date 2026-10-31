@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, screen, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { M } from "~/mock";
+import { pickValue, valueOf } from "~/testing/dropdown";
 import { lastToast, showSettings } from "./test-support";
 
 vi.hoisted(() => {
@@ -25,7 +26,7 @@ describe("Profile section", () => {
     expect(screen.getByRole("heading", { name: "Profile", level: 2 })).toBeInTheDocument();
     expect(nameField()).toHaveValue(M.S.profile.name);
     expect(screen.getByLabelText("Email", { exact: false })).toHaveAttribute("type", "email");
-    expect(screen.getByLabelText("Time zone", { exact: false })).toHaveValue(M.S.profile.tz);
+    expect(valueOf(screen.getByLabelText("Time zone", { exact: false }))).toBe(M.S.profile.tz);
     expect(saveButton()).toBeDisabled();
     expect(saveButton()).toHaveAttribute("type", "submit");
     expect(screen.getByLabelText("Your avatar")).toHaveTextContent("AO");
@@ -44,9 +45,7 @@ describe("Profile section", () => {
     fireEvent.input(screen.getByLabelText("Email", { exact: false }), {
       target: { value: " grace@navy.mil " },
     });
-    fireEvent.change(screen.getByLabelText("Time zone", { exact: false }), {
-      target: { value: "Asia/Singapore" },
-    });
+    pickValue(screen.getByLabelText("Time zone", { exact: false }), "Asia/Singapore");
     expect(screen.getByLabelText("Your avatar")).toHaveTextContent("GB");
     expect(saveButton()).toBeEnabled();
     fireEvent.click(saveButton());

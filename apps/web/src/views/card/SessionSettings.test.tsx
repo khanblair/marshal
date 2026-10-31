@@ -1,6 +1,6 @@
 // biome-ignore-all assist/source/organizeImports: the fake daemon's store has to be imported first, so the store `~/mock` builds is the one that follows it (S5a is the daemon's).
 
-import { cleanup, fireEvent, render, screen, within } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { daemon, resetDaemonCards } from "~/testing/daemon-cards-store";
 import { M } from "~/mock";
@@ -9,6 +9,7 @@ import { useCatalog } from "~/testing/test-store";
 import { createPanelState } from "./panel-state";
 import { SessionSettings } from "./SessionSettings";
 import { cardOf, resetStore } from "./test-helpers";
+import { optionsOf, pickValue, valueOf } from "~/testing/dropdown";
 
 vi.hoisted(() => {
   window.location.hash = "#nosim";
@@ -34,10 +35,7 @@ const show = (id = "api#41", expanded = true) => {
   return render(() => <SessionSettings card={cardOf(id)} panel={panel} />);
 };
 const combo = (name: string) => screen.getByRole("combobox", { name });
-const options = (name: string) =>
-  within(combo(name))
-    .getAllByRole("option")
-    .map((option) => option.textContent);
+const options = (name: string) => optionsOf(combo(name)).map((option) => option.textContent);
 
 /** Waits for a setting the panel just changed to come back from the daemon, which is where the card's own fields say so. */
 const saved = (fields: Partial<ReturnType<typeof cardOf>>) =>
@@ -53,7 +51,7 @@ describe("SessionSettings with the prototype's agents", () => {
 
   it("changes the models with the agent, and thinking with the model", async () => {
     show();
-    fireEvent.change(combo("Agent"), { target: { value: "Built-in agent" } });
+    pickValue(combo("Agent"), "Built-in agent");
     await saved({ agent: "Built-in agent" });
     // The daemon's card routes take its own id, not the key the store is kept by.
     expect(daemon.routes()).toContain(
@@ -67,14 +65,14 @@ describe("SessionSettings with the prototype's agents", () => {
       "qwen2.5-coder:32b",
     ]);
     expect(screen.getByRole("combobox", { name: "Thinking mode" })).toBeInTheDocument();
-    fireEvent.change(combo("Model"), { target: { value: "deepseek-chat" } });
+    pickValue(combo("Model"), "deepseek-chat");
     await saved({ model: "deepseek-chat" });
     expect(screen.queryByRole("combobox", { name: "Thinking mode" })).toBeNull();
-    fireEvent.change(combo("Model"), { target: { value: "gpt-5-mini" } });
+    pickValue(combo("Model"), "gpt-5-mini");
     await saved({ model: "gpt-5-mini" });
     // A model that can be told how hard to think, with no setting left on the card, gets the
     // prototype's own Medium back (the panel's rule travels with the change).
-    expect(combo("Thinking mode")).toHaveValue("Medium");
+    expect(valueOf(combo("Thinking mode"))).toBe("Medium");
   });
 
   it("shows no note while every agent can be used", () => {
@@ -96,7 +94,9 @@ describe("SessionSettings with the daemon's agents", () => {
       "Codex (not installed)",
       "Built-in agent",
     ]);
-    const codex = within(combo("Agent")).getByRole("option", { name: "Codex (not installed)" });
+    const codex = optionsOf(combo("Agent")).find(
+      (o) => o.textContent === "Codex (not installed)",
+    ) as HTMLElement;
     expect(codex).toBeDisabled();
     expect(
       screen.getByText(/Codex is not installed\. Install it with: npm install -g/),
@@ -106,7 +106,7 @@ describe("SessionSettings with the daemon's agents", () => {
   it("lists the models of the card's agent, keeping the card's own model when the catalog lacks it", async () => {
     show();
     expect(options("Model")).toEqual(["claude-sonnet-4-5", "sonnet", "haiku"]);
-    fireEvent.change(combo("Agent"), { target: { value: "Gemini CLI" } });
+    pickValue(combo("Agent"), "Gemini CLI");
     await saved({ agent: "Gemini CLI" });
     // Changing the agent carries the model that agent starts its cards on, as the mock's setting
     // did, so the card does not keep another agent's model.
@@ -116,15 +116,15 @@ describe("SessionSettings with the daemon's agents", () => {
 
   it("offers thinking only for a model that has it and whose agent lets Marshal set it", async () => {
     show();
-    fireEvent.change(combo("Model"), { target: { value: "sonnet" } });
+    pickValue(combo("Model"), "sonnet");
     await saved({ model: "sonnet" });
     expect(screen.getByRole("combobox", { name: "Thinking mode" })).toBeInTheDocument();
-    fireEvent.change(combo("Model"), { target: { value: "haiku" } });
+    pickValue(combo("Model"), "haiku");
     await saved({ model: "haiku" });
     expect(screen.queryByRole("combobox", { name: "Thinking mode" })).toBeNull();
     // The agent change already carries Gemini's own model: it thinks, but the agent cannot be told
     // how hard, so the thinking picker stays away and the thinking the card had is cleared.
-    fireEvent.change(combo("Agent"), { target: { value: "Gemini CLI" } });
+    pickValue(combo("Agent"), "Gemini CLI");
     await saved({ agent: "Gemini CLI", model: "gemini-2.5-pro", think: null });
     expect(screen.queryByRole("combobox", { name: "Thinking mode" })).toBeNull();
   });
@@ -132,7 +132,7 @@ describe("SessionSettings with the daemon's agents", () => {
   it("shows the warning of an untested agent while a card uses it", async () => {
     show();
     expect(screen.queryByText(/has not been tested with Gemini CLI/)).toBeNull();
-    fireEvent.change(combo("Agent"), { target: { value: "Gemini CLI" } });
+    pickValue(combo("Agent"), "Gemini CLI");
     await saved({ agent: "Gemini CLI" });
     expect(screen.getByText(/Marshal has not been tested with Gemini CLI 0\.36\.0/)).toBeVisible();
   });
@@ -149,7 +149,7 @@ describe("SessionSettings with the daemon's agents", () => {
       "Codex (not installed)",
       "Built-in agent",
     ]);
-    expect(combo("Agent")).toHaveValue("Aider");
+    expect(valueOf(combo("Agent"))).toBe("Aider");
     expect(options("Model")).toEqual(["aider-model"]);
     expect(screen.queryByRole("combobox", { name: "Thinking mode" })).toBeNull();
   });
@@ -157,9 +157,11 @@ describe("SessionSettings with the daemon's agents", () => {
   it("shows a card whose agent has since gone missing as that agent, disabled but selected", () => {
     cardOf("api#41").agent = "Codex";
     show();
-    expect(combo("Agent")).toHaveValue("Codex");
+    expect(valueOf(combo("Agent"))).toBe("Codex");
     expect(
-      within(combo("Agent")).getByRole("option", { name: "Codex (not installed)" }),
+      optionsOf(combo("Agent")).find(
+        (o) => o.textContent === "Codex (not installed)",
+      ) as HTMLElement,
     ).toBeDisabled();
   });
 });

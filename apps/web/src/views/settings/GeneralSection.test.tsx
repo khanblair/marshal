@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, screen, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { M } from "~/mock";
+import { pickValue, valueOf } from "~/testing/dropdown";
 import { lastToast, showSettings } from "./test-support";
 
 vi.hoisted(() => {
@@ -66,11 +67,11 @@ describe("General section: sessions", () => {
   it("shows the session options from the store", () => {
     showSettings("general");
     expect(screen.getByRole("heading", { name: "Sessions", level: 2 })).toBeInTheDocument();
-    expect(screen.getByLabelText("After a restart", { exact: false })).toHaveValue(
+    expect(valueOf(screen.getByLabelText("After a restart", { exact: false }))).toBe(
       "Auto-restore on startup",
     );
-    expect(screen.getByLabelText("Sleep idle cards after", { exact: false })).toHaveValue("15");
-    expect(screen.getByLabelText("Sleep warnings go to")).toHaveValue("In app only");
+    expect(valueOf(screen.getByLabelText("Sleep idle cards after", { exact: false }))).toBe("15");
+    expect(valueOf(screen.getByLabelText("Sleep warnings go to"))).toBe("In app only");
     expect(
       screen.getByText("You get a notice 2 minutes before a card sleeps."),
     ).toBeInTheDocument();
@@ -78,17 +79,14 @@ describe("General section: sessions", () => {
 
   it("saves each choice and toasts", () => {
     showSettings("general");
-    fireEvent.change(screen.getByLabelText("Sleep idle cards after", { exact: false }), {
-      target: { value: "60" },
-    });
+    pickValue(screen.getByLabelText("Sleep idle cards after", { exact: false }), "60");
     expect(M.S.sleep.idle).toBe(60);
-    fireEvent.change(screen.getByLabelText("After a restart", { exact: false }), {
-      target: { value: "Show a resume button on each card" },
-    });
+    pickValue(
+      screen.getByLabelText("After a restart", { exact: false }),
+      "Show a resume button on each card",
+    );
     expect(M.S.sleep.restore).toBe("Show a resume button on each card");
-    fireEvent.change(screen.getByLabelText("Sleep warnings go to"), {
-      target: { value: "In app and Discord" },
-    });
+    pickValue(screen.getByLabelText("Sleep warnings go to"), "In app and Discord");
     expect(M.S.sleep.channel).toBe("In app and Discord");
     expect(lastToast()).toBe("Saved");
   });

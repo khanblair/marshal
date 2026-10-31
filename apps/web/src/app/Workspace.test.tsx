@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { M, type ViewKey } from "~/mock";
+import { valueOf } from "~/testing/dropdown";
 
 vi.hoisted(() => {
   window.location.hash = "#nosim";
@@ -110,7 +111,9 @@ describe("Workspace split panes", () => {
     render(() => <Workspace />);
     expect(shown()).toEqual(["board", "list", "calendar"]);
     const first = screen.getByRole("region", { name: "Pane 2" });
-    expect(within(first).getByRole("combobox", { name: "View in this pane" })).toHaveValue("list");
+    expect(valueOf(within(first).getByRole("combobox", { name: "View in this pane" }))).toBe(
+      "list",
+    );
     expect(screen.getByRole("region", { name: "Pane 3" })).toBeInTheDocument();
   });
 
@@ -118,23 +121,19 @@ describe("Workspace split panes", () => {
     M.set({ split: ["list"] });
     render(() => <Workspace />);
     const picker = screen.getByRole("combobox", { name: "View in this pane" });
-    expect(
-      within(picker)
-        .getAllByRole("option")
-        .map((o) => o.textContent),
-    ).toEqual(["Chats", "Agents", "Board", "List", "Timeline", "Calendar", "Integration"]);
-    fireEvent.change(picker, { target: { value: "timeline" } });
+    fireEvent.click(picker);
+    expect(screen.getAllByRole("menuitemradio").map((o) => o.textContent)).toEqual([
+      "Chats",
+      "Agents",
+      "Board",
+      "List",
+      "Timeline",
+      "Calendar",
+      "Integration",
+    ]);
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "Timeline" }));
     expect([...M.S.split]).toEqual(["timeline"]);
     expect(shown()).toEqual(["board", "timeline"]);
-  });
-
-  it("ignores a picker value that is not a view", () => {
-    M.set({ split: ["list"] });
-    render(() => <Workspace />);
-    fireEvent.change(screen.getByRole("combobox", { name: "View in this pane" }), {
-      target: { value: "nope" },
-    });
-    expect([...M.S.split]).toEqual(["list"]);
   });
 
   it("closes a pane", () => {

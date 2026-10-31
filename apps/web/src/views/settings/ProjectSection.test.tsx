@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { M } from "~/mock";
+import { optionsOf, pickValue, valueOf } from "~/testing/dropdown";
 import { lastToast, showSettings } from "./test-support";
 
 vi.hoisted(() => {
@@ -27,7 +28,7 @@ describe("Project settings section", () => {
   it("shows the project of the open route, with the design's defaults", () => {
     showSettings("project");
     expect(screen.getByRole("heading", { name: "Project settings", level: 2 })).toBeInTheDocument();
-    expect(projectPicker()).toHaveValue("api");
+    expect(valueOf(projectPicker())).toBe("api");
     expect(nameField()).toHaveValue("api-gateway");
     expect(screen.getByLabelText("Default branch")).toHaveValue("main");
     expect(screen.getByLabelText("Default branch")).toHaveClass("font-mono");
@@ -49,11 +50,9 @@ describe("Project settings section", () => {
 
   it("offers every project, and switches to the one picked", () => {
     showSettings("project");
-    const options = Array.from(projectPicker().querySelectorAll("option")).map(
-      (o) => o.textContent,
-    );
+    const options = optionsOf(projectPicker()).map((o) => o.textContent);
     expect(options).toEqual(["api-gateway", "web-dashboard", "mobile-app"]);
-    fireEvent.change(projectPicker(), { target: { value: "web" } });
+    pickValue(projectPicker(), "web");
     expect(M.S.settingsPid).toBe("web");
     expect(nameField()).toHaveValue("web-dashboard");
     expect(screen.getByLabelText("Dev command", { exact: false })).toHaveValue("pnpm dev");
@@ -68,7 +67,7 @@ describe("Project settings section", () => {
 
   it("falls back to the first project when the open route has none", () => {
     showSettings("project", { route: { page: "settings", pid: null, view: "board" } });
-    expect(projectPicker()).toHaveValue("api");
+    expect(valueOf(projectPicker())).toBe("api");
   });
 
   // The daemon call itself is tested with a daemon in memory (`sync/project-actions.test.ts`). Here the
@@ -107,7 +106,7 @@ describe("Project settings section", () => {
     });
     await vi.waitFor(() => expect(saveButton()).toBeDisabled());
     expect(lastToast()).toBe("Project saved");
-    expect(projectPicker().querySelector("option")?.textContent).toBe("gateway");
+    expect(optionsOf(projectPicker())[0]?.textContent).toBe("gateway");
   });
 
   it("keeps the person's edits when the daemon does not accept them", async () => {
@@ -142,8 +141,8 @@ describe("Project settings section", () => {
   it("drops an edit when another project is picked", () => {
     showSettings("project");
     fireEvent.input(nameField(), { target: { value: "gateway" } });
-    fireEvent.change(projectPicker(), { target: { value: "web" } });
-    fireEvent.change(projectPicker(), { target: { value: "api" } });
+    pickValue(projectPicker(), "web");
+    pickValue(projectPicker(), "api");
     expect(nameField()).toHaveValue("api-gateway");
   });
 

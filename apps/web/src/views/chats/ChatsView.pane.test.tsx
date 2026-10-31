@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, within } from "@solidjs/testing-lib
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { M } from "~/mock";
 import { cardNumber } from "~/mock/card-key";
+import { optionsOf, pickValue, valueOf } from "~/testing/dropdown";
 import { ChatsView } from "./ChatsView";
 import {
   chatByTitle,
@@ -146,12 +147,12 @@ describe("New chat", () => {
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "true");
     const select = screen.getByRole("combobox");
-    expect(select).toHaveValue("Orchestrator");
+    expect(valueOf(select)).toBe("Orchestrator");
     expect(select.closest("form")).toHaveClass("absolute", "top-9.5");
     expect(
       screen.getByText("The Orchestrator plans work and creates cards on this project's board."),
     ).toBeInTheDocument();
-    const options = within(select).getAllByRole("option");
+    const options = optionsOf(select);
     expect(options[0]).toHaveTextContent("Orchestrator");
     expect(options[1]).toHaveTextContent("Worker role");
     expect(options.at(-1)?.textContent).toMatch(/^#\d+ /);
@@ -171,7 +172,7 @@ describe("New chat", () => {
   it("starts a chat with the chosen role, opens it, and focuses its message box", () => {
     render(() => <ChatsView />);
     openForm();
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "Tester" } });
+    pickValue(screen.getByRole("combobox"), "Tester");
     fireEvent.click(screen.getByRole("button", { name: "Start chat" }));
     expect(M.S.newChatOpen).toBe(false);
     const started = M.S.chats.api?.at(-1);
@@ -190,12 +191,12 @@ describe("New chat", () => {
   it("can talk to a card's agent", () => {
     render(() => <ChatsView />);
     openForm();
-    const cardOption = within(screen.getByRole("combobox"))
-      .getAllByRole("option")
+    fireEvent.click(screen.getByRole("combobox"));
+    const cardOption = screen
+      .getAllByRole("menuitemradio")
       .find((option) => option.textContent?.startsWith("#"));
-    fireEvent.change(screen.getByRole("combobox"), {
-      target: { value: cardOption?.getAttribute("value") },
-    });
+    if (!cardOption) throw new Error("the chat picker lists no card");
+    fireEvent.click(cardOption);
     fireEvent.click(screen.getByRole("button", { name: "Start chat" }));
     const started = M.S.chats.api?.at(-1);
     expect(started?.target).toMatch(/^[a-z][a-z0-9-]*#\d+$/);

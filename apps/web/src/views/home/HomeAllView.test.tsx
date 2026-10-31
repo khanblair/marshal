@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, within } from "@solidjs/testing-lib
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { M } from "~/mock";
 import { cardLabel } from "~/mock/card-key";
+import { optionsOf, pickValue, valueOf } from "~/testing/dropdown";
 import { HomeAllView } from "./HomeAllView";
 import { type HomeSnapshot, homeSnapshot, PHONE_WIDTH_PX, resetHome } from "./test-support";
 
@@ -43,13 +44,13 @@ describe("HomeAllView frame", () => {
   it("lists every project after All projects", () => {
     render(() => <HomeAllView />);
     const select = screen.getByRole("combobox", { name: "Project" });
-    expect([...select.querySelectorAll("option")].map((o) => o.textContent)).toEqual([
+    expect(optionsOf(select).map((o) => o.textContent)).toEqual([
       "All projects",
       "api-gateway",
       "web-dashboard",
       "mobile-app",
     ]);
-    expect(select).toHaveValue("all");
+    expect(valueOf(select)).toBe("all");
   });
 
   it("pads 16 px on phones and 24 px elsewhere", () => {
@@ -107,7 +108,7 @@ describe("Recent activity page", () => {
   it("filters by project, and by both", () => {
     render(() => <HomeAllView />);
     const select = screen.getByRole("combobox", { name: "Project" });
-    fireEvent.change(select, { target: { value: "web" } });
+    pickValue(select, "web");
     expect(screen.getAllByRole("listitem")).toHaveLength(
       M.S.feed.filter((f) => f.pid === "web").length,
     );
@@ -119,9 +120,7 @@ describe("Recent activity page", () => {
 
   it("says when nothing matches", () => {
     render(() => <HomeAllView />);
-    fireEvent.change(screen.getByRole("combobox", { name: "Project" }), {
-      target: { value: "api" },
-    });
+    pickValue(screen.getByRole("combobox", { name: "Project" }), "api");
     fireEvent.click(kindButton("Briefs"));
     expect(screen.getByText("No activity matches these filters.")).toBeVisible();
     expect(screen.queryAllByRole("listitem")).toHaveLength(0);
@@ -231,9 +230,7 @@ describe("CI health page", () => {
 
   it("narrows to one project with the select", () => {
     render(() => <HomeAllView />);
-    fireEvent.change(screen.getByRole("combobox", { name: "Project" }), {
-      target: { value: "web" },
-    });
+    pickValue(screen.getByRole("combobox", { name: "Project" }), "web");
     expect(screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual([
       "web-dashboard",
     ]);

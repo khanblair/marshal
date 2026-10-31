@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { M } from "~/mock";
 import { GOLDEN_CATALOG, wireAgent, wireCatalog } from "~/testing/agents";
+import { pickValue } from "~/testing/dropdown";
 import { useCatalog } from "~/testing/test-store";
 import { Onboarding } from "./Onboarding";
 
@@ -229,7 +230,7 @@ describe("Onboarding profile screen", () => {
     render(() => <Onboarding />);
     type(nameInput(), "Ada");
     type(screen.getByPlaceholderText("you@example.com"), "ada@example.com");
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "Asia/Singapore" } });
+    pickValue(screen.getByRole("combobox"), "Asia/Singapore");
     click("Continue");
     await vi.waitFor(() => expect(M.S.profile.tz).toBe("Asia/Singapore"));
   });

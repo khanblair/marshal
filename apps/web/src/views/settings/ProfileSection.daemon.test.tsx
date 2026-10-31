@@ -3,6 +3,7 @@ import { chooser, ctx, daemon } from "~/testing/daemon-person-store";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { M } from "~/mock";
+import { optionsOf, pickValue, valueOf } from "~/testing/dropdown";
 import { wireProfile } from "~/testing/fake-me";
 import { SettingsView } from "./SettingsView";
 
@@ -47,7 +48,7 @@ describe("the Profile section on the daemon", () => {
     render(() => <SettingsView />);
     expect(nameField()).toHaveValue("Ada Okafor");
     expect(emailField()).toHaveValue("ada@example.com");
-    expect(zoneField()).toHaveValue("Europe/London");
+    expect(valueOf(zoneField())).toBe("Europe/London");
     expect(saveButton()).toBeDisabled();
     expect(screen.getByLabelText("Your avatar")).toHaveTextContent("AO");
     expect(screen.queryByText("Paired devices")).toBeNull();
@@ -111,8 +112,8 @@ describe("the Profile section on the daemon", () => {
       preferences: daemon.me.preferences,
       progress: daemon.me.progress,
     });
-    await waitFor(() => expect(zoneField()).toHaveValue("Asia/Tokyo"));
-    const offered = Array.from(zoneField().options).map((option) => option.value);
+    await waitFor(() => expect(valueOf(zoneField())).toBe("Asia/Tokyo"));
+    const offered = optionsOf(zoneField()).map((option) => option.dataset.value ?? "");
     expect(offered.length).toBeGreaterThan(100);
     expect(offered).toContain("Africa/Nairobi");
     expect(offered).toContain("Asia/Tokyo");
@@ -126,10 +127,10 @@ describe("the Profile section on the daemon", () => {
       preferences: daemon.me.preferences,
       progress: daemon.me.progress,
     });
-    await waitFor(() => expect(zoneField()).toHaveValue(""));
-    expect(zoneField().selectedOptions[0]).toHaveTextContent("Not set");
+    await waitFor(() => expect(valueOf(zoneField())).toBe(""));
+    expect(zoneField()).toHaveTextContent("Not set");
     expect(saveButton()).toBeDisabled();
-    fireEvent.change(zoneField(), { target: { value: "Africa/Lagos" } });
+    pickValue(zoneField(), "Africa/Lagos");
     expect(saveButton()).toBeEnabled();
   });
 
