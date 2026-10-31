@@ -1,15 +1,10 @@
 package integrations
 
-// This file is the Trello sync (docs/architecture.md section 19.4, docs/marshal-product-scope.md
-// section 19.2, B8.2). Today it is the Trello-to-Marshal half of the card sync: a card added to the
-// linked board's import list becomes a Marshal card, once, and the pair is remembered in
-// `external_links` so a replayed delivery cannot make a second one.
-//
-// What is deliberately not here yet, and is named so it is not mistaken for done: moving a card
-// between lists (Marshal to Trello and the other way), members, the agent's Trello label, and
-// checklists, comments, and attachments. The last three are blocked on the board module not having
-// those things at all - they arrive in Phase 10 - so a "syncs both ways" claim about them would be
-// false today. See the phase report.
+// This file is the Trello webhook side of the sync (docs/architecture.md section 19.4, docs/marshal-
+// product-scope.md section 19.2, B8.2). A believed delivery for the linked board does not change
+// anything by itself: it asks the poller (trello_poll.go) for a refresh, which reads the board
+// through the same code the timer and the Refresh button use. The pair of a Marshal card and its
+// Trello card is remembered in `external_links`, so a replayed delivery cannot make a second card.
 
 import (
 	"context"
@@ -36,22 +31,16 @@ type TrelloCards interface {
 }
 
 // TrelloOutcome says what one verified Trello delivery did. It is what the route logs and what a test
-// reads instead of guessing from the board, so "a delivery arrived and nothing happened" is a thing
-// the daemon can say out loud.
+// reads instead of guessing, so "a delivery arrived and nothing happened" is a thing the daemon can
+// say out loud.
 type TrelloOutcome string
 
 const (
-	// TrelloOutcomeIgnored is a delivery that was believed and means nothing to the sync: an action
-	// type Marshal does not act on, a card on another board, a card on a list that is not the import
-	// list, or a daemon with no board module attached.
+	// TrelloOutcomeIgnored is a delivery that was believed and means nothing to the sync: a delivery
+	// for another board, or for a daemon with no board linked or no board module attached.
 	TrelloOutcomeIgnored TrelloOutcome = "ignored"
-	// TrelloOutcomeImported is a delivery that made a new Marshal card, and linked it.
-	TrelloOutcomeImported TrelloOutcome = "imported"
-	// TrelloOutcomeKnown is a delivery for a card Marshal already has, which a replay or a repeat
-	// arrives as. Nothing is written.
-	TrelloOutcomeKnown TrelloOutcome = "known"
-	// TrelloOutcomeMoved is a delivery that moved a linked card to Marshal's done column.
-	TrelloOutcomeMoved TrelloOutcome = "moved"
+	// TrelloOutcomeRefresh is a delivery for the linked board, which asked for the board to be read.
+	TrelloOutcomeRefresh TrelloOutcome = "refresh"
 )
 
 // doneListWords are the words a Trello list's name is checked against to recognize it as the
@@ -91,75 +80,11 @@ func (s *Service) SetTrelloCards(cards TrelloCards) {
 	s.trelloCards = cards
 }
 
-// HandleTrelloDelivery applies one verified Trello delivery and answers what it did. Nothing here is
-// an error a delivery should be refused for: a body Marshal cannot act on is an outcome, not a
-// failure, because the delivery is already believed by the time this runs and refusing it would only
-// make Trello redeliver it.
-//
-// The one error it can answer is its own store or board module failing, which the route turns into
-// this daemon's failure and which Trello redelivering will retry.
+// HandleTrelloDelivery answers one verified Trello delivery. Nothing here is an error a delivery
+// should be refused for: a body Marshal cannot act on is an outcome, not a failure, because the
+// delivery is already believed by the time this runs and refusing it would only make Trello
+// redeliver it. The one error it can answer is its own store failing.
 func (s *Service) HandleTrelloDelivery(ctx context.Context, event trello.WebhookEvent) (TrelloOutcome, error) {
-	if list, moved := event.Moved(); moved {
-		return s.handleTrelloMove(ctx, event, list)
-	}
-	if event.Action.Type != trello.ActionCreateCard {
-		return TrelloOutcomeIgnored, nil
-	}
-	card := event.Action.Data.Card
-	if card.ID == "" {
-		return TrelloOutcomeIgnored, nil
-	}
-	link, ok, err := s.TrelloLink(ctx)
-	if err != nil {
-		return "", err
-	}
-	if !ok || link.NewCardListID == "" {
-		// A connection that is not linked to a project, or has no import list, reads Trello and
-		// never writes to it. That is a supported state, not a misconfiguration.
-		return TrelloOutcomeIgnored, nil
-	}
-	if !deliveryMatchesBoard(event, link.BoardID) || card.IDList != link.NewCardListID {
-		return TrelloOutcomeIgnored, nil
-	}
-	// The pair is remembered in external_links, so a replay - which Trello does send - is recognized
-	// instead of making a second Marshal card.
-	if _, known, err := s.ExternalCard(ctx, trello.ID, card.ID); err != nil {
-		return "", err
-	} else if known {
-		return TrelloOutcomeKnown, nil
-	}
-	cards := s.attachedTrelloCards()
-	if cards == nil {
-		s.log.Info("a Trello delivery was believed but no board module is attached, so nothing was imported",
-			"card", card.ID)
-		return TrelloOutcomeIgnored, nil
-	}
-	created, err := cards.CreateCard(ctx, link.ProjectID, protocol.CreateCardRequest{
-		Title: card.Name,
-		Body:  card.Desc,
-	})
-	if err != nil {
-		return "", fmt.Errorf("import the Trello card %s: %w", card.ID, err)
-	}
-	if err := s.LinkExternal(ctx, created.ID, trello.ID, card.ID); err != nil {
-		return "", err
-	}
-	s.log.Info("imported a Trello card",
-		"trello_card", card.ID, "card", created.ID, "project", link.ProjectID)
-	return TrelloOutcomeImported, nil
-}
-
-// handleTrelloMove applies a card moved into list, when the card is already linked and list looks
-// like the board's done column (looksDone). Any other list is ignored: without a per-board setting
-// (the same ruling as doneListWords), only the done move is one this pass acts on.
-func (s *Service) handleTrelloMove(ctx context.Context, event trello.WebhookEvent, list trello.List) (TrelloOutcome, error) {
-	if !looksDone(list.Name) {
-		return TrelloOutcomeIgnored, nil
-	}
-	card := event.Action.Data.Card
-	if card.ID == "" {
-		return TrelloOutcomeIgnored, nil
-	}
 	link, ok, err := s.TrelloLink(ctx)
 	if err != nil {
 		return "", err
@@ -167,24 +92,12 @@ func (s *Service) handleTrelloMove(ctx context.Context, event trello.WebhookEven
 	if !ok || !deliveryMatchesBoard(event, link.BoardID) {
 		return TrelloOutcomeIgnored, nil
 	}
-	cardID, known, err := s.ExternalCard(ctx, trello.ID, card.ID)
-	if err != nil {
-		return "", err
-	}
-	if !known {
+	if !s.kickTrello() {
+		s.log.Info("a Trello delivery was believed but no refresher is running, so nothing was read",
+			"action", event.Action.Type)
 		return TrelloOutcomeIgnored, nil
 	}
-	cards := s.attachedTrelloCards()
-	if cards == nil {
-		s.log.Info("a Trello move was believed but no board module is attached, so nothing moved",
-			"card", card.ID)
-		return TrelloOutcomeIgnored, nil
-	}
-	if _, err := cards.MoveCard(ctx, cardID, protocol.MoveCardRequest{State: protocol.CardStateDone}); err != nil {
-		return "", fmt.Errorf("move the card %s to done: %w", cardID, err)
-	}
-	s.log.Info("moved a card to done from Trello", "trello_card", card.ID, "card", cardID)
-	return TrelloOutcomeMoved, nil
+	return TrelloOutcomeRefresh, nil
 }
 
 // deliveryMatchesBoard reports whether a delivery is about a board Marshal watches. Trello says which

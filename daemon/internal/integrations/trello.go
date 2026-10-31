@@ -39,8 +39,8 @@ type trelloConfig struct {
 	ProjectID string `json:"projectId"`
 	// BoardID is the board Marshal watches.
 	BoardID string `json:"boardId"`
-	// NewCardListID is the list a new Trello card is imported from, or "" when Trello never creates
-	// a Marshal card.
+	// NewCardListID is the list a Marshal card is put on when the person applies it to Trello as a
+	// new card, or "" for the board's first list that does not read as done.
 	NewCardListID string `json:"newCardListId,omitempty"`
 	// CallbackURL is the address the webhook was registered with, exactly as Trello knows it. It is
 	// half of what a delivery's signature is computed over.
@@ -171,11 +171,11 @@ func (s *Service) TrelloLink(ctx context.Context) (link TrelloLinkInfo, ok bool,
 }
 
 // TrelloLinkInfo is one linked board: which Marshal project it writes into, which board it is, and
-// which list a new card is imported from. It is the whole of what the sync needs to know about the
+// which list a new Marshal card is put on in Trello. It is the whole of what the sync needs to know about the
 // connection, so the sync never reads the connection itself.
 //
-// NewCardListID may be empty, which means cards created in Trello are not imported: a link with no
-// list is a read-only connection, and the sync says so rather than guessing at a list.
+// NewCardListID may be empty, which means a Marshal card applied to Trello as a new card goes to the
+// board's first list that does not read as done.
 type TrelloLinkInfo struct {
 	ProjectID     string
 	BoardID       string

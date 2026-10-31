@@ -206,6 +206,18 @@ type Service struct {
 	// believed and ignored rather than refused.
 	trelloCards TrelloCards
 
+	// trelloPanel is how the Trello sync reads and writes a card's checklists and comments, and
+	// trelloNotify tells the event stream a project's Trello state changed. Both are attached by the
+	// daemon (SetTrelloPanel, SetTrelloNotifier); a refresh with no panel attached is refused.
+	trelloPanel  TrelloPanel
+	trelloNotify func(projectID string)
+	// trelloKick asks the Trello poller for a read, once the poller exists.
+	trelloKick func()
+	// trelloMu makes a refresh and an apply run one at a time, and trelloPace is the wait between two
+	// writes to Trello, which keeps a long apply under Trello's rate limit.
+	trelloMu   sync.Mutex
+	trelloPace time.Duration
+
 	// secretsVal is the connection's keychain entry, read once and kept until the connection
 	// changes, so a delivery does not pay for a keychain read. secretsLoaded says whether it has
 	// been read; the zero value is "not read yet".
@@ -237,6 +249,7 @@ func New(st *store.Store, keys security.Keychain, opts Options) (*Service, error
 	if s.now == nil {
 		s.now = time.Now
 	}
+	s.trelloPace = trelloDefaultPace
 	s.gh.configure(opts)
 	s.google.configure(opts)
 	if s.test == nil {

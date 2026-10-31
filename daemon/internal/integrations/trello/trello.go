@@ -13,9 +13,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha1"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -111,15 +109,18 @@ type Board struct {
 	URL  string `json:"url"`
 }
 
-// Card represents a Trello card.
+// Card represents a Trello card. Checklists is filled only by the calls that ask for them.
 type Card struct {
-	ID     string  `json:"id"`
-	Name   string  `json:"name"`
-	Desc   string  `json:"desc"`
-	IDList string  `json:"idList"`
-	Closed bool    `json:"closed"`
-	URL    string  `json:"url"`
-	Labels []Label `json:"labels"`
+	ID               string      `json:"id"`
+	Name             string      `json:"name"`
+	Desc             string      `json:"desc"`
+	IDList           string      `json:"idList"`
+	Closed           bool        `json:"closed"`
+	URL              string      `json:"url"`
+	Labels           []Label     `json:"labels"`
+	Due              string      `json:"due"`
+	DateLastActivity string      `json:"dateLastActivity"`
+	Checklists       []Checklist `json:"checklists"`
 }
 
 // Label represents a Trello label.
@@ -137,24 +138,8 @@ type List struct {
 
 // GetBoard fetches a Trello board by ID.
 func (c *Client) GetBoard(ctx context.Context, boardID string) (Board, error) {
-	u := fmt.Sprintf("%s/boards/%s?key=%s&token=%s", c.baseURL, url.PathEscape(boardID), url.QueryEscape(c.apiKey), url.QueryEscape(c.token))
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
-	if err != nil {
-		return Board{}, err
-	}
-	res, err := c.httpClient.Do(req)
-	if err != nil {
-		return Board{}, err
-	}
-	defer func() { _ = res.Body.Close() }()
-
-	if res.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(res.Body)
-		return Board{}, fmt.Errorf("trello API error %d: %s", res.StatusCode, string(body))
-	}
-
 	var board Board
-	if err := json.NewDecoder(res.Body).Decode(&board); err != nil {
+	if err := c.call(ctx, http.MethodGet, "/boards/"+url.PathEscape(boardID), nil, &board); err != nil {
 		return Board{}, err
 	}
 	return board, nil
@@ -164,22 +149,7 @@ func (c *Client) GetBoard(ctx context.Context, boardID string) (Board, error) {
 // it answers into out. ListCards and ListLists are this call with a different resource and a
 // different array type.
 func (c *Client) boardGet(ctx context.Context, boardID, resource string, out any) error {
-	u := fmt.Sprintf("%s/boards/%s/%s?key=%s&token=%s", c.baseURL, url.PathEscape(boardID), resource, url.QueryEscape(c.apiKey), url.QueryEscape(c.token))
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
-	if err != nil {
-		return err
-	}
-	res, err := c.httpClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = res.Body.Close() }()
-
-	if res.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(res.Body)
-		return fmt.Errorf("trello API error %d: %s", res.StatusCode, string(body))
-	}
-	return json.NewDecoder(res.Body).Decode(out)
+	return c.call(ctx, http.MethodGet, "/boards/"+url.PathEscape(boardID)+"/"+resource, nil, out)
 }
 
 // ListCards fetches cards on a board.
@@ -202,58 +172,19 @@ func (c *Client) ListLists(ctx context.Context, boardID string) ([]List, error) 
 
 // MoveCard moves a card to another list.
 func (c *Client) MoveCard(ctx context.Context, cardID, listID string) error {
-	v := url.Values{}
-	v.Set("key", c.apiKey)
-	v.Set("token", c.token)
-	v.Set("idList", listID)
-
-	u := fmt.Sprintf("%s/cards/%s?%s", c.baseURL, url.PathEscape(cardID), v.Encode())
-	req, err := http.NewRequestWithContext(ctx, http.MethodPut, u, nil)
-	if err != nil {
-		return err
-	}
-	res, err := c.httpClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = res.Body.Close() }()
-
-	if res.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(res.Body)
-		return fmt.Errorf("trello API error %d: %s", res.StatusCode, string(body))
-	}
-	return nil
+	q := url.Values{}
+	q.Set("idList", listID)
+	return c.call(ctx, http.MethodPut, "/cards/"+url.PathEscape(cardID), q, nil)
 }
 
 // CreateCard creates a new card on a list.
 func (c *Client) CreateCard(ctx context.Context, listID, name, desc string) (Card, error) {
-	v := url.Values{}
-	v.Set("key", c.apiKey)
-	v.Set("token", c.token)
-	v.Set("idList", listID)
-	v.Set("name", name)
-	v.Set("desc", desc)
-
-	u := fmt.Sprintf("%s/cards", c.baseURL)
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, strings.NewReader(v.Encode()))
-	if err != nil {
-		return Card{}, err
-	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	res, err := c.httpClient.Do(req)
-	if err != nil {
-		return Card{}, err
-	}
-	defer func() { _ = res.Body.Close() }()
-
-	if res.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(res.Body)
-		return Card{}, fmt.Errorf("trello API error %d: %s", res.StatusCode, string(body))
-	}
-
+	q := url.Values{}
+	q.Set("idList", listID)
+	q.Set("name", name)
+	q.Set("desc", desc)
 	var card Card
-	if err := json.NewDecoder(res.Body).Decode(&card); err != nil {
+	if err := c.call(ctx, http.MethodPost, "/cards", q, &card); err != nil {
 		return Card{}, err
 	}
 	return card, nil
