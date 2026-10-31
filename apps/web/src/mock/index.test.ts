@@ -46,6 +46,12 @@ const API = [
   "readGoogleLink",
   "saveGoogleDrive",
   "uploadGoogleFile",
+  "openTrelloApply",
+  "closeTrelloApply",
+  "reloadTrello",
+  "applyTrelloChanges",
+  "dismissTrelloChanges",
+  "refreshFromTrello",
   "awake",
   "card",
   "cardLabelOf",
@@ -418,6 +424,14 @@ describe("index.ts boot", () => {
       "scheduleCatalog",
       "runSchedule",
       "previewSchedule",
+      // The Apply to Trello flow: the daemon's own read-only copy of a Trello board, and the dialog
+      // that sends chosen changes back. The prototype has no Trello.
+      "openTrelloApply",
+      "closeTrelloApply",
+      "reloadTrello",
+      "applyTrelloChanges",
+      "dismissTrelloChanges",
+      "refreshFromTrello",
     ];
     const proto = loadPrototype("#nosim").keys.filter((k) => !dropped.includes(k));
     expect([...proto, ...added].sort()).toEqual([...API].sort());

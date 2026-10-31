@@ -36,6 +36,7 @@ import { sleepSettingsSyncer } from "./sleep-settings";
 import type { SyncControl } from "./sync-control";
 import type { Syncer } from "./syncer";
 import { followToday } from "./today";
+import { applyTrelloEvent, followTrello } from "./trello-flow";
 
 /**
  * Every section the daemon fills, in the order their snapshots are applied. A section that is
@@ -228,6 +229,8 @@ export function startSync(ctx: Ctx, syncers: readonly Syncer[] = SYNCERS): SyncC
   let resendTerminal: () => void = () => undefined;
   // Reads the merge flow of the project whose Integration view is shown (`integration-flow.ts`).
   let rereadMergeFlow: () => void = () => undefined;
+  // Reads the Trello changes of the project that is shown (`trello-flow.ts`).
+  let rereadTrello: () => void = () => undefined;
   const stops = [
     data.onEvents((events) =>
       batch(() => {
@@ -250,6 +253,8 @@ export function startSync(ctx: Ctx, syncers: readonly Syncer[] = SYNCERS): SyncC
           applyPreviewEvent(ctx, event);
           // A merge moved on, or a card entered or left the queue (the Integration view).
           applyMergeFlowEvent(ctx, event);
+          // What is pending for a project's Trello board, or which cards are linked, changed.
+          applyTrelloEvent(ctx, event);
           for (const syncer of active) syncer.onEvent?.(ctx, event);
         }
       }),
@@ -259,12 +264,14 @@ export function startSync(ctx: Ctx, syncers: readonly Syncer[] = SYNCERS): SyncC
       rereadChat();
       resendTerminal();
       rereadMergeFlow();
+      rereadTrello();
     }),
     data.connection.onReconnected(() => {
       void reload();
       rereadChat();
       resendTerminal();
       rereadMergeFlow();
+      rereadTrello();
     }),
     // A card's terminal channel answered or refused (`card-view.ts`'s `applyTerminalFrame`), for
     // whichever card asked for it — only the open one ever does, since `followOpenCardTerminal`'s
@@ -283,6 +290,8 @@ export function startSync(ctx: Ctx, syncers: readonly Syncer[] = SYNCERS): SyncC
     resendTerminal = followOpenCardTerminal(ctx, data.api, data.stream);
     // The merge flow of the project whose Integration view is shown, and the actions that act on it.
     rereadMergeFlow = followMergeFlow(ctx);
+    // The Trello changes of the project that is shown, for its board and its card panel.
+    rereadTrello = followTrello(ctx);
     // What a section does between snapshots, such as saving a preference the person changed.
     const stopped = active.flatMap((syncer) => syncer.start?.(ctx, data.api) ?? []);
     // The links that open the app at a card or a shared note, from a notice or another app.

@@ -3,6 +3,7 @@ import type { ConnectionState } from "~/data/connection-machine";
 import type { CheckpointRow } from "~/data/mappers/checkpoints";
 import type { MergeFlowSlot } from "~/data/mappers/integration";
 import type { NoteInfo } from "~/data/mappers/notes";
+import type { TrelloSlot } from "~/data/mappers/trello";
 import type { CardKey } from "./card-key";
 import type {
   CalEvent,
@@ -159,6 +160,14 @@ export interface State {
    * whose view was never shown has no entry, and the view draws nothing for a store with no daemon.
    */
   integration?: Record<string, MergeFlowSlot>;
+  /**
+   * A project's Trello changes, by project id: what Marshal changed since it last read the linked
+   * board, and the cards that have a Trello card. It is read whenever a project is shown
+   * (`sync/trello-flow.ts`). A project that was never shown has no entry, which draws nothing.
+   */
+  trello?: Record<string, TrelloSlot>;
+  /** The project whose Apply to Trello dialog is open, or null. */
+  trelloApply?: { pid: string } | null;
   notes?: Record<CardKey, string>;
   /**
    * A card's note, the daemon's own half (section S14): where it really lives in the vault, who

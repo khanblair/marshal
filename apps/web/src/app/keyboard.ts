@@ -28,6 +28,7 @@ function closeTopLayer(inField: boolean, active: Element | null): void {
   else if (S.newCard) M.set({ newCard: null });
   else if (S.newProject) M.set({ newProject: null });
   else if (S.removeProject) M.set({ removeProject: null });
+  else if (S.trelloApply) M.closeTrelloApply();
   else if (S.menu) M.set({ menu: null });
   else if (S.noticesOpen) M.set({ noticesOpen: false });
   else if (S.sideOpen) M.set({ sideOpen: false });
@@ -56,7 +57,7 @@ function modShortcut(e: KeyboardEvent): boolean {
 /** A dialog, the palette, or a draft is open, so single keys belong to it. */
 function layerOpen(): boolean {
   const S = M.S;
-  return !!(S.palette || S.dialog || S.newCard || S.newProject || S.removeProject);
+  return !!(S.palette || S.dialog || S.newCard || S.newProject || S.removeProject || S.trelloApply);
 }
 
 function newCardKey(e: KeyboardEvent): void {

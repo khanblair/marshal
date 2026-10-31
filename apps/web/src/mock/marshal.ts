@@ -33,6 +33,7 @@ import * as savedViews from "~/sync/saved-views";
 import * as scheduleWrites from "~/sync/schedule-actions";
 import { createPaletteSearch } from "~/sync/search";
 import * as sleepWrites from "~/sync/sleep-actions";
+import * as trelloFlow from "~/sync/trello-flow";
 import * as approvals from "./actions/approvals";
 import * as cardCreate from "./actions/card-create";
 import * as cards from "./actions/cards";
@@ -307,6 +308,18 @@ function calendarActions(ctx: Ctx) {
   });
 }
 
+/** The Apply to Trello flow: the dialog, the changes it writes, and the reads of the board. */
+function trelloActions(ctx: Ctx) {
+  return bindActions(ctx, {
+    openTrelloApply: trelloFlow.openTrelloApply,
+    closeTrelloApply: trelloFlow.closeTrelloApply,
+    reloadTrello: trelloFlow.reloadTrello,
+    applyTrelloChanges: trelloFlow.applyTrelloChanges,
+    dismissTrelloChanges: trelloFlow.dismissTrelloChanges,
+    refreshFromTrello: trelloFlow.refreshFromTrello,
+  });
+}
+
 /**
  * Google Drive, Docs, Sheets and Slides (S29i to S29l): each one's consent, the files Marshal made,
  * the Drive folder, and the creates and the read. The daemon's alone: the prototype has none of them.
@@ -514,6 +527,7 @@ export function createMarshalIn(ctx: Ctx) {
     ...appActions(ctx),
     ...calendarActions(ctx),
     ...googleFileActions(ctx),
+    ...trelloActions(ctx),
     ...cardActions(ctx),
     ...chatActions(ctx),
   };

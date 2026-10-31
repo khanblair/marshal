@@ -4,6 +4,8 @@ import type {
   AddChecklistItemRequest,
   AgentCatalog,
   AlertSettings,
+  ApplyTrelloRequest,
+  ApplyTrelloResult,
   AuthorizeURL,
   BoardSnapshot,
   BypassRequest,
@@ -35,6 +37,7 @@ import type {
   DetectTelegramChatAnswer,
   DetectTelegramChatRequest,
   DeviceList,
+  DismissTrelloRequest,
   EditPlanRequest,
   FeedEntry,
   FileHunks,
@@ -76,6 +79,8 @@ import type {
   ProjectListSnapshot,
   ProviderList,
   ReadGoogleLinkRequest,
+  RefreshTrelloRequest,
+  RefreshTrelloResult,
   RemoveProjectRequest,
   RestoreCheckpointRequest,
   Role,
@@ -114,6 +119,7 @@ import type {
   TailnetStatus,
   TestResult,
   TickChecklistItemRequest,
+  TrelloPending,
   UpdateCardRequest,
   UpdateChatRequest,
   UpdateChecklistRequest,
@@ -391,6 +397,37 @@ export interface ApiClient {
    * The daemon answers only a request that comes from that machine.
    */
   openCardWorktree(cardId: string, body: OpenWorktreeRequest, options?: CallOptions): Promise<void>;
+  /**
+   * What Marshal changed since it last read the project's Trello board, and the cards that have a
+   * Trello card. A project with no Trello board answers `linked: false` and empty lists. Nothing
+   * here reaches Trello: the changes are only listed until `applyTrello` writes some of them.
+   */
+  trelloPending(projectId: string, options?: CallOptions): Promise<TrelloPending>;
+  /**
+   * Writes the chosen changes to Trello, as the linked person. A conflicting change is written only
+   * when it is also in `overrideIds`. Answers what was written, what was skipped and why, and what
+   * is still pending.
+   */
+  applyTrello(
+    projectId: string,
+    body: ApplyTrelloRequest,
+    options?: CallOptions,
+  ): Promise<ApplyTrelloResult>;
+  /** Stops showing the chosen changes. They stay in Marshal and are never written to Trello. */
+  dismissTrello(
+    projectId: string,
+    body: DismissTrelloRequest,
+    options?: CallOptions,
+  ): Promise<TrelloPending>;
+  /**
+   * Reads the board again. The cards named in `keepTrelloCardIds` take Trello's title, description,
+   * and ticks, which drops their pending changes of those kinds.
+   */
+  refreshTrello(
+    projectId: string,
+    body: RefreshTrelloRequest,
+    options?: CallOptions,
+  ): Promise<RefreshTrelloResult>;
   /** A card's chat, newest first, one page at a time. */
   messages(cardId: string, page?: PageOptions, options?: CallOptions): Promise<Page<ChatMessage>>;
   /** A card's activity, newest first, one page at a time, optionally one kind of it. */

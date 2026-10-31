@@ -217,7 +217,7 @@ function routeMethods({
   request,
   command,
   bytes,
-}: Transport): Omit<ApiClient, "request" | MergeFlowRoute> {
+}: Transport): Omit<ApiClient, "request" | MergeFlowRoute | TrelloRoute> {
   const id = encodeURIComponent;
   return {
     health: (o) => request("GET", "/v1/health", o),
@@ -365,6 +365,26 @@ function mergeFlowMethods({
   };
 }
 
+type TrelloRoute = "trelloPending" | "applyTrello" | "dismissTrello" | "refreshTrello";
+
+/**
+ * The routes of the Trello apply flow (docs/marshal-product-scope.md section 19.2). Applying writes
+ * to Trello one request at a time at Trello's own pace, and a refresh reads the whole board, so both
+ * take the slow limit.
+ */
+function trelloMethods({ request }: Pick<Transport, "request">): Pick<ApiClient, TrelloRoute> {
+  const id = encodeURIComponent;
+  return {
+    trelloPending: (pid, o) => request("GET", `/v1/projects/${id(pid)}/trello/pending`, o),
+    applyTrello: (pid, body, o) =>
+      request("POST", `/v1/projects/${id(pid)}/trello/apply`, { ...slow(o), body }),
+    dismissTrello: (pid, body, o) =>
+      request("POST", `/v1/projects/${id(pid)}/trello/dismiss`, { ...o, body }),
+    refreshTrello: (pid, body, o) =>
+      request("POST", `/v1/projects/${id(pid)}/trello/refresh`, { ...slow(o), body }),
+  };
+}
+
 /** Every route of the client that acts on one card. `cardMethods` answers exactly these. */
 type CardRoute =
   | "getCard"
@@ -496,7 +516,12 @@ function cardMethods({
  */
 export function createApiClient(options: ApiClientOptions): ApiClient {
   const transport = createTransport(options);
-  return { request: transport.request, ...routeMethods(transport), ...mergeFlowMethods(transport) };
+  return {
+    request: transport.request,
+    ...routeMethods(transport),
+    ...mergeFlowMethods(transport),
+    ...trelloMethods(transport),
+  };
 }
 
 /**

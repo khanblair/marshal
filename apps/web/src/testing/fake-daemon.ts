@@ -35,6 +35,7 @@ import type {
   TerminalInput,
   TerminalResize,
   TestCheck,
+  TrelloPending,
   WhoAmI,
 } from "@marshal/protocol";
 import { vi } from "vitest";
@@ -82,6 +83,7 @@ import {
 import { answerSearchRoute } from "./fake-search";
 import { answerSleepRoute, createSleepStore, type SleepStore } from "./fake-sleep";
 import { createTerminalRouter, type TerminalRouter } from "./fake-terminal";
+import { answerTrelloRoute, createTrelloStore, type TrelloStore } from "./fake-trello";
 import { wireProject } from "./projects";
 
 /** The token the fake daemon accepts, and the one the page starts with. It is not a real token. */
@@ -162,6 +164,8 @@ export interface FakeDaemonOptions {
   previews?: readonly Preview[];
   /** The Integrator state it starts with, one per project (the Integration view). None: all idle. */
   mergeFlows?: readonly IntegrationState[];
+  /** The Trello changes it starts with, one per linked project (the Apply to Trello flow). None: no project is linked. */
+  trello?: Readonly<Record<string, TrelloPending>>;
   /** Whether Marshal can find a browser to shoot with. True by default, so a screenshot is taken. */
   previewBrowser?: boolean;
   /** True to run in dev mode, which is what the first-launch reset route needs. False by default. */
@@ -228,6 +232,8 @@ export interface FakeDaemon {
   previews: PreviewStore;
   /** Every project's merge queue and delivered cards it holds now, and the folders opened. */
   mergeFlow: MergeFlowStore;
+  /** Every linked project's Trello changes it holds now, and what was written to Trello. */
+  trello: TrelloStore;
   /** Makes every call fail like a daemon that is not running, until `start`. */
   stop(): void;
   start(): void;
@@ -419,6 +425,7 @@ interface Router {
   ci: CIStore;
   previews: PreviewStore;
   mergeFlow: MergeFlowStore;
+  trello: TrelloStore;
 }
 
 /**
@@ -652,6 +659,9 @@ function answer(router: Router, request: FakeRequest): Response {
   // A project's merge queue and a card's retry, undo, and worktree (the Integration view).
   const mergeFlow = answerMergeFlowRoute(router.mergeFlow, request);
   if (mergeFlow) return mergeFlow;
+  // A project's pending Trello changes, and the apply, dismiss, and refresh that change them.
+  const trello = answerTrelloRoute(router.trello, request);
+  if (trello) return trello;
   const cards = answerCardRoute(
     router.cards,
     request,
@@ -820,6 +830,7 @@ interface Slices {
   ci: CIStore;
   previews: PreviewStore;
   mergeFlow: MergeFlowStore;
+  trello: TrelloStore;
 }
 
 /**
@@ -884,6 +895,12 @@ function createSlices(
     mergeFlow: createMergeFlowStore({
       states: options.mergeFlows,
       cards: () => cards,
+      hasProject: (projectId) => projects.some((project) => project.id === projectId),
+      publish: emit,
+      now,
+    }),
+    trello: createTrelloStore({
+      states: options.trello,
       hasProject: (projectId) => projects.some((project) => project.id === projectId),
       publish: emit,
       now,
@@ -1005,20 +1022,7 @@ export function createFakeDaemon(options: FakeDaemonOptions = {}): FakeDaemon {
     activity,
     diffs,
     checkpoints,
-    me: slices.me,
-    providers: slices.providers,
-    integrations: slices.integrations,
-    googleFiles: slices.googleFiles,
-    limits: slices.limits,
-    roles: slices.roles,
-    notices: slices.notices,
-    sleep: slices.sleep,
-    schedules: slices.schedules,
-    alerts: slices.alerts,
-    cardPanel: slices.cardPanel,
-    ci: slices.ci,
-    previews: slices.previews,
-    mergeFlow: slices.mergeFlow,
+    ...slices,
     ...switches(state),
     refuseNext: meddle.refuseNext,
     holdNext: meddle.holdNext,
