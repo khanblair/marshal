@@ -353,18 +353,15 @@ func startAutomationWatchers(ctx context.Context, mods daemonModules) (func() er
 	if err := mods.schedules.Start(ctx); err != nil {
 		return nil, fmt.Errorf("start the scheduler: %w", err)
 	}
-	if err := mods.trelloOutbound.Start(ctx); err != nil {
-		mods.schedules.Stop()
-		return nil, fmt.Errorf("start the Trello outbound sync: %w", err)
-	}
+	mods.trelloPoller.Start(ctx)
 	mods.gmailPoller.Start(ctx)
 	return func() error {
 		var stopErr error
 		if closeErr := mods.gmailPoller.Close(); closeErr != nil {
 			stopErr = errors.Join(stopErr, fmt.Errorf("stop the Gmail poller: %w", closeErr))
 		}
-		if closeErr := mods.trelloOutbound.Close(); closeErr != nil {
-			stopErr = errors.Join(stopErr, fmt.Errorf("stop the Trello outbound sync: %w", closeErr))
+		if closeErr := mods.trelloPoller.Close(); closeErr != nil {
+			stopErr = errors.Join(stopErr, fmt.Errorf("stop the Trello poller: %w", closeErr))
 		}
 		mods.schedules.Stop()
 		return stopErr

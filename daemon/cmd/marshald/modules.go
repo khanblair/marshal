@@ -100,11 +100,10 @@ type daemonModules struct {
 	// GitHub App today, and later phases' services (B6.1, B6.7, architecture.md section 18). It
 	// holds the GitHub delivery receiver, which is what the webhook route hands deliveries to.
 	integrations *integrations.Service
-	// trelloOutbound watches Marshal's own card.moved events and mirrors a card that reaches done
-	// onto its linked Trello card (B8.2, the Marshal-to-Trello direction). It is always built -
-	// nothing here needs Trello to be connected, only the event bus - and a card that is not linked
-	// to Trello is the ordinary path its own apply takes, not an error.
-	trelloOutbound *integrations.OutboundSync
+	// trelloPoller reads the linked Trello board on a timer and when a webhook asks (B8.2). It only
+	// ever changes Marshal: what Marshal changed goes to Trello when the person applies it. It is
+	// always built, and a daemon with no board linked reads nothing.
+	trelloPoller *integrations.TrelloPoller
 	// gmailPoller reads Gmail's watched label on a timer and turns a message into a card, once
 	// (B8.3). It is always built - nothing here needs Gmail to be connected, only a store to poll
 	// against - and every poll with nothing set up answers nothing, quietly.
@@ -379,7 +378,7 @@ type lateDaemonModules struct {
 	mergeQueue     *integrator.Service
 	qualitySvc     *quality.Service
 	integrationSvc *integrations.Service
-	trelloOutbound *integrations.OutboundSync
+	trelloPoller   *integrations.TrelloPoller
 	gmailPoller    *integrations.GmailPoller
 	ciSvc          *ci.Service
 	localCISvc     *localci.Service
@@ -485,11 +484,9 @@ func buildLateModules(st *store.Store, bus *events.Bus, settings config.Settings
 	// never depends on the board module. Without it a believed delivery is logged and nothing else,
 	// which is why attaching it is not optional in a real daemon.
 	integrationSvc.SetTrelloCards(trelloCards{svc: core.proj})
-	// The Marshal-to-Trello half of the move sync (B8.2): watches card.moved on the event bus and
-	// mirrors a card reaching done onto its linked Trello card, once Start runs (main.go).
-	trelloOutbound, err := integrations.NewOutboundSync(integrationSvc, bus)
+	trelloPoller, err := wireTrello(integrationSvc, panelSvc, bus)
 	if err != nil {
-		return lateDaemonModules{}, fmt.Errorf("start the Trello outbound sync: %w", err)
+		return lateDaemonModules{}, err
 	}
 	// Gmail's inbound half (B8.3): a labeled message becomes a card, on a timer (docs/marshal-
 	// product-scope.md 19.1's "cheap polling as a backup" - Gmail has no webhook Marshal can take).
@@ -578,7 +575,7 @@ func buildLateModules(st *store.Store, bus *events.Bus, settings config.Settings
 	schedSvc.SetCalendar(scheduleCalendar{integrationSvc})
 	return lateDaemonModules{
 		pullReq: pullReq, reviewSvc: reviewSvc, mergeQueue: mergeMods.queue, qualitySvc: qualitySvc,
-		integrationSvc: integrationSvc, trelloOutbound: trelloOutbound, gmailPoller: gmailPoller,
+		integrationSvc: integrationSvc, trelloPoller: trelloPoller, gmailPoller: gmailPoller,
 		ciSvc: ciSvc, localCISvc: localCISvc, panelSvc: panelSvc, previewSvc: previewSvc,
 		codeMap: codeMap, mcpHost: mcpHost, schedSvc: schedSvc,
 	}, nil
@@ -602,6 +599,22 @@ func (c scheduleCalendar) Events(ctx context.Context, start, end time.Time) ([]s
 	return events, true
 }
 
+// wireTrello attaches the card panel and the event notifier to the Trello sync and builds its poller
+// (B8.2). The poller reads the linked board on a timer and when a webhook asks, and only changes
+// Marshal: what Marshal changed goes to Trello when the person applies it.
+func wireTrello(svc *integrations.Service, panel *cardpanel.Service, bus *events.Bus) (*integrations.TrelloPoller, error) {
+	svc.SetTrelloPanel(trelloPanel{svc: panel})
+	svc.SetTrelloNotifier(func(projectID string) {
+		bus.Publish(string(protocol.ProjectTopic(projectID)), string(protocol.EventTypeTrelloChanged),
+			map[string]string{"projectId": projectID}, false)
+	})
+	poller, err := integrations.NewTrelloPoller(svc)
+	if err != nil {
+		return nil, fmt.Errorf("start the Trello poller: %w", err)
+	}
+	return poller, nil
+}
+
 // trelloCards is the board work the Trello sync writes through, answered by the projects service.
 // It exists because the two signatures differ in a way Go will not adapt: the projects service's
 // CreateCard takes its own options variadically, so it does not structurally satisfy the sync's
@@ -614,12 +627,52 @@ func (t trelloCards) CreateCard(ctx context.Context, projectID string, in protoc
 	return t.svc.CreateCard(ctx, projectID, in)
 }
 
+// MoveCard sets the column directly. The manual move refuses Done and out of Done, which is what a
+// person may not do by hand, but Trello's own done list is the one move this sync makes, so it goes
+// through SetState, which keeps only the rules a daemon move must keep.
 func (t trelloCards) MoveCard(ctx context.Context, id string, in protocol.MoveCardRequest) (protocol.Card, error) {
-	return t.svc.MoveCard(ctx, id, in)
+	return t.svc.SetState(ctx, id, in.State)
 }
 
 func (t trelloCards) Card(ctx context.Context, id string) (protocol.Card, error) {
 	return t.svc.Card(ctx, id)
+}
+
+func (t trelloCards) Cards(ctx context.Context, projectID string) ([]protocol.Card, error) {
+	return t.svc.Cards(ctx, projectID)
+}
+
+func (t trelloCards) UpdateCard(ctx context.Context, id string, in protocol.UpdateCardRequest) (protocol.Card, error) {
+	return t.svc.UpdateCard(ctx, id, in)
+}
+
+// trelloPanel is the card panel the Trello sync reads and writes checklists and comments through.
+type trelloPanel struct {
+	svc *cardpanel.Service
+}
+
+func (t trelloPanel) Checklists(ctx context.Context, cardID string) (protocol.ChecklistList, error) {
+	return t.svc.Checklists(ctx, cardID)
+}
+
+func (t trelloPanel) CreateChecklist(ctx context.Context, cardID, name string) (protocol.ChecklistList, error) {
+	return t.svc.CreateChecklist(ctx, cardID, protocol.CreateChecklistRequest{Name: name})
+}
+
+func (t trelloPanel) AddItem(ctx context.Context, cardID, listID, text string) (protocol.ChecklistList, error) {
+	return t.svc.AddItem(ctx, cardID, listID, protocol.AddChecklistItemRequest{Text: text})
+}
+
+func (t trelloPanel) SetItem(ctx context.Context, cardID, listID, itemID string, done bool, userID string) (protocol.ChecklistList, error) {
+	return t.svc.Tick(ctx, cardID, listID, itemID, done, cardpanel.Actor{UserID: userID})
+}
+
+func (t trelloPanel) Comments(ctx context.Context, cardID string) (protocol.CommentList, error) {
+	return t.svc.Comments(ctx, cardID)
+}
+
+func (t trelloPanel) ImportComment(ctx context.Context, cardID, body, userID string, at time.Time) (string, error) {
+	return t.svc.ImportComment(ctx, cardID, body, userID, at)
 }
 
 // buildModules makes git, projects, the agent registry and catalog, and the session manager, in
@@ -645,7 +698,7 @@ func buildModules(ctx context.Context, st *store.Store, bus *events.Bus, setting
 		auditlog: cm.auditRead, providers: core.providerSvc, costLimits: core.costLimits,
 		connectionTests: core.connectionTests, roles: cm.roleSvc, pullRequests: late.pullReq,
 		review: late.reviewSvc, integrator: late.mergeQueue, sleepSettings: core.sleepSettingsSvc,
-		quality: late.qualitySvc, integrations: late.integrationSvc, trelloOutbound: late.trelloOutbound,
+		quality: late.qualitySvc, integrations: late.integrationSvc, trelloPoller: late.trelloPoller,
 		gmailPoller: late.gmailPoller,
 		ci:          late.ciSvc, localCI: late.localCISvc, cardPanel: late.panelSvc,
 		preview: late.previewSvc, memory: cm.mem, mcpHost: late.mcpHost, codemap: late.codeMap,

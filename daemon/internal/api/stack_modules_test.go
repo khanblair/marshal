@@ -322,6 +322,10 @@ func (st *stack) startModules() {
 			t.Fatalf("make the card panel: %v", err)
 		}
 		deps.CardPanel = panel
+		// The Trello sync reads a card's checklists and comments through the same panel.
+		if st.integrations != nil {
+			st.integrations.SetTrelloPanel(stackTrelloPanel{svc: panel})
+		}
 	}
 	if !st.cfg.noPreview && !st.cfg.noProjects {
 		// The preview module is built the way cmd/marshald builds it: over the projects service,
