@@ -173,7 +173,7 @@ func TestTheStartersAreMadeOnceSwitchedOffAndAreNotMadeAgainAfterOneIsDeleted(t 
 		if sched.Template == "" || sched.Kind != "brief" || len(sched.Sections) == 0 || sched.Project != "" {
 			t.Errorf("starter %q is incomplete: %+v", sched.Name, sched)
 		}
-		if !slices.Equal(sched.Deliver, []string{"telegram", "discord", "ntfy"}) {
+		if !slices.Equal(sched.Deliver, []string{"telegram", "discord", "ntfy", "resend"}) {
 			t.Errorf("starter %q delivers to %v, want every chat", sched.Name, sched.Deliver)
 		}
 	}

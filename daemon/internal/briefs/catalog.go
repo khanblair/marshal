@@ -20,11 +20,13 @@ const (
 	SectionStale    = "stale"
 )
 
-// The chat channels a brief can be sent to. They are the connections' own ids.
+// The channels a brief can be sent to. They are the connections' own ids. Email goes through the
+// Resend connection, so its id is that connection's id.
 const (
 	ChannelTelegram = "telegram"
 	ChannelDiscord  = "discord"
 	ChannelNtfy     = "ntfy"
+	ChannelEmail    = "resend"
 )
 
 // The starter templates' keys, and the key of a schedule made from nothing (empty).
@@ -58,6 +60,7 @@ func Channels() []protocol.ScheduleChannel {
 		{ID: ChannelTelegram, Label: "Telegram"},
 		{ID: ChannelDiscord, Label: "Discord"},
 		{ID: ChannelNtfy, Label: "ntfy"},
+		{ID: ChannelEmail, Label: "Email"},
 	}
 }
 
