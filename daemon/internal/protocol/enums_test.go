@@ -52,6 +52,7 @@ func allEnums() map[string][]string {
 		"CheckStatus":           names(protocol.CheckStatusValues()),
 		"AttachmentKind":        names(protocol.AttachmentKindValues()),
 		"AuthorKind":            names(protocol.AuthorKindValues()),
+		"TrelloChangeKind":      names(protocol.TrelloChangeKindValues()),
 		"ChatTargetKind":        names(protocol.ChatTargetKindValues()),
 		"ChatRefusalReason":     names(protocol.ChatRefusalReasonValues()),
 		"HoldRefusalReason":     names(protocol.HoldRefusalReasonValues()),

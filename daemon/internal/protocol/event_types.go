@@ -34,6 +34,9 @@ const (
 	EventTypeCardMoved EventType = "card.moved"
 	// EventTypeCardDeleted is sent when a card is removed from its board.
 	EventTypeCardDeleted EventType = "card.deleted"
+	// EventTypeTrelloChanged is sent on a project's topic when what is pending for its Trello board,
+	// or which cards are linked to it, changes.
+	EventTypeTrelloChanged EventType = "trello.changed"
 	// EventTypeLabelUpdated is sent when a project's labels change, including one being deleted.
 	EventTypeLabelUpdated EventType = "label.updated"
 	// EventTypeSavedViewUpdated is sent when a project's saved views change, including one being
@@ -96,6 +99,7 @@ func EventTypeValues() []EventType {
 		EventTypeChatCreated, EventTypeChatUpdated, EventTypeChatArchived, EventTypeChatDeleted,
 		EventTypeActivityCreated,
 		EventTypeCardCreated, EventTypeCardUpdated, EventTypeCardMoved, EventTypeCardDeleted,
+		EventTypeTrelloChanged,
 		EventTypeLabelUpdated, EventTypeSavedViewUpdated, EventTypeMeUpdated, EventTypeCardMembersChanged,
 		EventTypeChecklistUpdated, EventTypeCommentCreated, EventTypeCommentReadByAgent,
 		EventTypeSessionStateChanged, EventTypeSessionOutput, EventTypeSessionToolCall,

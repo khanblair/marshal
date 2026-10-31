@@ -122,9 +122,9 @@ type SaveTrelloRequest struct {
 	ProjectID string `json:"projectId"`
 	// BoardID is the board Marshal watches: the one cards are read from and written to.
 	BoardID string `json:"boardId"`
-	// NewCardListID is the board list a new Trello card is imported from: a card added there becomes
-	// a Marshal card in ProjectID. Empty means Trello never creates a Marshal card, which is the
-	// honest state of a connection that only reads.
+	// NewCardListID is the board list a Marshal card is put on when the person applies it to Trello as a
+	// new card. Empty means the board's first list that does not read as done. Reading the board does
+	// not use it: every open card on the board is read.
 	NewCardListID string `json:"newCardListId,omitempty"`
 	// WebhookSecret is what Trello signs a delivery to this connection with. It is the `secret`
 	// chosen when the webhook is made.

@@ -475,6 +475,34 @@ type Template struct {
 	UpdatedAt int64
 }
 
+type TrelloDismissed struct {
+	ProjectID   string
+	ChangeID    string
+	DismissedAt int64
+}
+
+type TrelloItemLink struct {
+	CardID    string
+	Kind      string
+	MarshalID string
+	TrelloID  string
+}
+
+type TrelloSnapshot struct {
+	CardID       string
+	TrelloCardID string
+	Url          string
+	FromTrello   int64
+	SnapshotJSON string
+	FetchedAt    int64
+}
+
+type TrelloSyncState struct {
+	ProjectID string
+	BoardName string
+	FetchedAt int64
+}
+
 type Usage struct {
 	ID           string
 	CardID       string

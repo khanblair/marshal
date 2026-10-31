@@ -149,6 +149,7 @@
     "card.updated",
     "card.moved",
     "card.deleted",
+    "trello.changed",
     "label.updated",
     "saved_view.updated",
     "me.updated",
@@ -452,6 +453,15 @@
     "card",
     "chat",
     "me"
+  ],
+  "TrelloChangeKind": [
+    "createCard",
+    "moveDone",
+    "updateCard",
+    "addComment",
+    "setItem",
+    "addItem",
+    "addChecklist"
   ],
   "ViewRefusalReason": [
     "view_no_agent",

@@ -2327,6 +2327,11 @@ export const EventTypeCardUpdated = "card.updated";
 export const EventTypeCardMoved = "card.moved";
 /** EventTypeCardDeleted is sent when a card is removed from its board. */
 export const EventTypeCardDeleted = "card.deleted";
+/**
+ * EventTypeTrelloChanged is sent on a project's topic when what is pending for its Trello board,
+ * or which cards are linked to it, changes.
+ */
+export const EventTypeTrelloChanged = "trello.changed";
 /** EventTypeLabelUpdated is sent when a project's labels change, including one being deleted. */
 export const EventTypeLabelUpdated = "label.updated";
 /**
@@ -2403,6 +2408,7 @@ export type EventType =
   | typeof EventTypeCardUpdated
   | typeof EventTypeCardMoved
   | typeof EventTypeCardDeleted
+  | typeof EventTypeTrelloChanged
   | typeof EventTypeLabelUpdated
   | typeof EventTypeSavedViewUpdated
   | typeof EventTypeMeUpdated
@@ -2439,6 +2445,7 @@ export const EventTypeValues: readonly EventType[] = [
   EventTypeCardUpdated,
   EventTypeCardMoved,
   EventTypeCardDeleted,
+  EventTypeTrelloChanged,
   EventTypeLabelUpdated,
   EventTypeSavedViewUpdated,
   EventTypeMeUpdated,
@@ -3480,9 +3487,9 @@ export interface SaveTrelloRequest {
   /** BoardID is the board Marshal watches: the one cards are read from and written to. */
   boardId: string;
   /**
-   * NewCardListID is the board list a new Trello card is imported from: a card added there becomes
-   * a Marshal card in ProjectID. Empty means Trello never creates a Marshal card, which is the
-   * honest state of a connection that only reads.
+   * NewCardListID is the board list a Marshal card is put on when the person applies it to Trello as a
+   * new card. Empty means the board's first list that does not read as done. Reading the board does
+   * not use it: every open card on the board is read.
    */
   newCardListId?: string;
   /**
@@ -6500,3 +6507,154 @@ export const HomeTopic: Topic = "home";
  * between devices.
  */
 export const MeTopic: Topic = "me";
+
+//////////
+// source: trello_apply.go
+
+/** TrelloChangeKind says what a pending change would do in Trello. */
+/** TrelloChangeKindCreateCard makes a Trello card for a Marshal card that has none. */
+export const TrelloChangeKindCreateCard = "createCard";
+/** TrelloChangeKindMoveDone moves the Trello card to the board's done list. */
+export const TrelloChangeKindMoveDone = "moveDone";
+/** TrelloChangeKindUpdateCard writes a new title or description. */
+export const TrelloChangeKindUpdateCard = "updateCard";
+/** TrelloChangeKindAddComment posts a comment as the linked person. */
+export const TrelloChangeKindAddComment = "addComment";
+/** TrelloChangeKindSetItem ticks or reopens one checklist item. */
+export const TrelloChangeKindSetItem = "setItem";
+/** TrelloChangeKindAddItem adds one item to a checklist that is already on the Trello card. */
+export const TrelloChangeKindAddItem = "addItem";
+/** TrelloChangeKindAddChecklist adds a whole checklist, with its items, to the Trello card. */
+export const TrelloChangeKindAddChecklist = "addChecklist";
+export type TrelloChangeKind =
+  | typeof TrelloChangeKindCreateCard
+  | typeof TrelloChangeKindMoveDone
+  | typeof TrelloChangeKindUpdateCard
+  | typeof TrelloChangeKindAddComment
+  | typeof TrelloChangeKindSetItem
+  | typeof TrelloChangeKindAddItem
+  | typeof TrelloChangeKindAddChecklist;
+/** Every TrelloChangeKind, in the order the Go list gives them. */
+export const TrelloChangeKindValues: readonly TrelloChangeKind[] = [
+  TrelloChangeKindCreateCard,
+  TrelloChangeKindMoveDone,
+  TrelloChangeKindUpdateCard,
+  TrelloChangeKindAddComment,
+  TrelloChangeKindSetItem,
+  TrelloChangeKindAddItem,
+  TrelloChangeKindAddChecklist,
+];
+/** TrelloChange is one thing Marshal would do in Trello. */
+export interface TrelloChange {
+  /**
+   * ID names the change. It stays the same while the change stays the same, and it changes when
+   * the change does, so a dismissed change that is edited shows up again.
+   */
+  id: string;
+  /** CardID is the Marshal card the change belongs to. */
+  cardId: string;
+  /** CardTitle is that card's title, for the list. */
+  cardTitle: string;
+  /** Kind says what the change does. */
+  kind: TrelloChangeKind;
+  /** Summary is one line that says what the change does, such as "Move to Done". */
+  summary: string;
+  /**
+   * Detail is the text that would be written, such as a comment's body. Empty when the summary
+   * says it all.
+   */
+  detail: string;
+  /**
+   * ByKind is "person" or "agent" for who made the change in Marshal, and empty when that is not
+   * known. Trello never shows it: everything is written as the linked person.
+   */
+  byKind: string;
+  /**
+   * Conflict says Trello changed the same thing since Marshal last read it. Applying it would
+   * overwrite that, so it is only done when the person chooses to.
+   */
+  conflict: boolean;
+  /**
+   * ConflictNote says what changed in Trello, such as "Trello moved this card to Review." Empty
+   * when Conflict is false.
+   */
+  conflictNote: string;
+}
+/** TrelloLinkedCard is a Marshal card that came from, or was sent to, a Trello card. */
+export interface TrelloLinkedCard {
+  /** CardID is the Marshal card. */
+  cardId: string;
+  /** URL is the Trello card's address. */
+  url: string;
+  /** ListName is the Trello list the card was on when Marshal last read the board. */
+  listName: string;
+  /**
+   * FromTrello says the card was first made in Trello. It is false for a Marshal card that was
+   * pushed to Trello later.
+   */
+  fromTrello: boolean;
+}
+/** TrelloPending is the answer to the Trello calls of a project. */
+export interface TrelloPending {
+  /** Linked says the project is linked to a Trello board. Everything below is empty when it is not. */
+  linked: boolean;
+  /** BoardName is the linked board's name. */
+  boardName: string;
+  /** Changes are the pending changes, card by card, in the order they would be applied. Never null. */
+  changes: TrelloChange[];
+  /** Cards are the project's cards that have a Trello card. Never null. */
+  cards: TrelloLinkedCard[];
+  /** FetchedAt is when Marshal last read the board. Null if it never did. */
+  fetchedAt?: Timestamp | null;
+  /** ServerTime is the daemon's time when the answer was made. */
+  serverTime: Timestamp;
+}
+/** ApplyTrelloRequest is the body of POST /v1/projects/{id}/trello/apply. */
+export interface ApplyTrelloRequest {
+  /** ChangeIDs are the changes to write to Trello. A change not listed is left pending. */
+  changeIds: string[];
+  /**
+   * OverrideIDs are the listed changes that are in conflict and should be written anyway. A
+   * conflicting change that is not named here is skipped.
+   */
+  overrideIds: string[];
+}
+/** TrelloApplySkip is a change that was not written, and why. */
+export interface TrelloApplySkip {
+  /** ChangeID is the change. */
+  changeId: string;
+  /** Reason says why, in a sentence for the person. */
+  reason: string;
+}
+/** ApplyTrelloResult is the answer to an apply. */
+export interface ApplyTrelloResult {
+  /** Applied are the changes that were written. Never null. */
+  applied: string[];
+  /** Skipped are the changes that were not written. Never null. */
+  skipped: TrelloApplySkip[];
+  /** Pending is what is still pending afterwards. */
+  pending: TrelloPending;
+}
+/** DismissTrelloRequest is the body of POST /v1/projects/{id}/trello/dismiss. */
+export interface DismissTrelloRequest {
+  /** ChangeIDs are the changes to stop showing. They stay in Marshal and are never written. */
+  changeIds: string[];
+}
+/** RefreshTrelloRequest is the body of POST /v1/projects/{id}/trello/refresh. */
+export interface RefreshTrelloRequest {
+  /**
+   * KeepTrelloCardIDs are Marshal cards whose title, description, and ticks are set back to
+   * what Trello holds, which drops their pending changes of those kinds. Empty reads the board
+   * and changes nothing Marshal has edited.
+   */
+  keepTrelloCardIds: string[];
+}
+/** RefreshTrelloResult is the answer to a refresh. */
+export interface RefreshTrelloResult {
+  /** Imported is how many cards were made from Trello cards Marshal had not seen. */
+  imported: number /* int */;
+  /** Updated is how many Marshal cards took a change from Trello. */
+  updated: number /* int */;
+  /** Pending is what is pending afterwards. */
+  pending: TrelloPending;
+}
