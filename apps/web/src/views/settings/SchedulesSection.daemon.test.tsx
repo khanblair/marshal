@@ -8,6 +8,7 @@ import { golden } from "~/data/testing/golden";
 import { M } from "~/mock";
 import { createScheduleStore } from "~/testing/fake-schedules";
 import { SettingsView } from "./SettingsView";
+import { pickValue } from "~/testing/dropdown";
 
 vi.hoisted(() => {
   window.location.hash = "#nosim";
@@ -64,7 +65,7 @@ describe("New schedule", () => {
       project: "",
       template: "wind-down",
       sections: ["finished", "needs-you", "calendar"],
-      deliver: ["telegram", "discord", "ntfy"],
+      deliver: ["telegram", "discord", "ntfy", "resend"],
     });
     expect(M.S.toasts.at(-1)?.msg).toContain("switched off");
   });
@@ -146,9 +147,7 @@ describe("the schedule editor", () => {
 
   it("gives an Event schedule words it can read, and refuses ones it cannot", async () => {
     await openMorningEditor();
-    fireEvent.change(screen.getByRole("combobox", { name: "Trigger" }), {
-      target: { value: "Event" },
-    });
+    pickValue(screen.getByRole("combobox", { name: "Trigger" }), "Event");
     const words = screen.getByLabelText("When, in words");
     expect(words).toHaveValue("When 30 minutes before my first calendar event");
     fireEvent.input(words, { target: { value: "Every weekday at 9:00" } });

@@ -18,6 +18,7 @@ import {
   GMAIL_ID,
   NTFY_ID,
   OBSIDIAN_ID,
+  RESEND_ID,
   TELEGRAM_ID,
   TRELLO_ID,
 } from "~/sync/integrations";
@@ -39,6 +40,7 @@ import {
 } from "./integrations-view";
 import { NtfyConnectDialog } from "./NtfyConnectDialog";
 import { ObsidianPanel } from "./ObsidianPanel";
+import { ResendConnectDialog } from "./ResendConnectDialog";
 import { TelegramConnectDialog } from "./TelegramConnectDialog";
 import { TestChecks } from "./TestChecks";
 import { TrelloConnectDialog } from "./TrelloConnectDialog";
@@ -195,6 +197,9 @@ function IntegrationForm(props: { integration: Integration; edit: EditState }) {
       </Match>
       <Match when={props.integration.id === NTFY_ID}>
         <NtfyConnectDialog integration={props.integration} edit={props.edit} />
+      </Match>
+      <Match when={props.integration.id === RESEND_ID}>
+        <ResendConnectDialog integration={props.integration} edit={props.edit} />
       </Match>
     </Switch>
   );

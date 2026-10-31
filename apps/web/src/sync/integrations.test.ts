@@ -95,6 +95,36 @@ describe("the integrations section", () => {
     expect(ctx.S.integrations[0]?.detail).toBe("GitHub App installed on 3 repositories");
   });
 
+  it("makes the email row when the daemon reports it, and the daemon owns it so its form opens", () => {
+    const store = createTestMarshal();
+    const ctx = contextOf(store);
+    expect(ctx.S.integrations.some((integration) => integration.id === "resend")).toBe(false);
+    expect(connectionOnDaemon(ctx, "resend")).toBe(true);
+    applyIntegrationStates(ctx, [
+      {
+        id: "resend",
+        st: "connected",
+        detail: "Sends from marshal@kolaborate.co",
+        target: "marshal@kolaborate.co",
+      },
+    ]);
+    const resend = ctx.S.integrations.find((integration) => integration.id === "resend");
+    expect(resend).toMatchObject({
+      name: "Email (Resend)",
+      st: "connected",
+      target: "marshal@kolaborate.co",
+    });
+    applyIntegrationStates(ctx, [{ id: "resend", st: "none", detail: "" }]);
+    expect(ctx.S.integrations.filter((integration) => integration.id === "resend")).toHaveLength(1);
+  });
+
+  it("does not make the email row while the connections are still the mock's", () => {
+    const ctx = contextOf(createTestMarshal({ sections: { ...sectionStatus, S29h: "mock" } }));
+    applyIntegrationStates(ctx, [{ id: "resend", st: "connected", detail: "x" }]);
+    expect(ctx.S.integrations.some((integration) => integration.id === "resend")).toBe(false);
+    expect(connectionOnDaemon(ctx, "resend")).toBe(false);
+  });
+
   it("copies what the daemon answered, so one answer can be kept and reused", () => {
     const ctx = contextOf(createTestMarshal());
     const answer = structuredClone(list);

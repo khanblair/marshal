@@ -65,6 +65,9 @@ export const DISCORD_ID = "discord";
 /** The ntfy connection's own id (section S29h). */
 export const NTFY_ID = "ntfy";
 
+/** The Resend email connection's own id. Email briefs go through it, to the owner's profile address. */
+export const RESEND_ID = "resend";
+
 /** The Google Drive connection's own id (section S29i). */
 export const GDRIVE_ID = "gdrive";
 
@@ -101,9 +104,14 @@ export function applyIntegrationList(ctx: Ctx, list: IntegrationList): void {
 export function applyIntegrationStates(ctx: Ctx, states: readonly IntegrationState[]): void {
   const table = sectionsOf(ctx.env);
   for (const state of states) {
-    const section = CONNECTION_SECTIONS[state.id];
+    const section = sectionOfConnection(state.id);
     if (!section || !isDaemon(section, table)) continue;
-    const row = ctx.S.integrations.find((integration) => integration.id === state.id);
+    let row = ctx.S.integrations.find((integration) => integration.id === state.id);
+    // Email is not in the prototype's list, so its row is made the first time the daemon reports it.
+    if (!row && state.id === RESEND_ID) {
+      row = { id: RESEND_ID, name: "Email (Resend)", icon: "mail", st: "none", detail: "" };
+      ctx.S.integrations.push(row);
+    }
     if (!row) continue;
     row.st = state.st;
     row.detail = state.detail;
@@ -114,6 +122,14 @@ export function applyIntegrationStates(ctx: Ctx, states: readonly IntegrationSta
 
 /** True when the daemon owns this connection's row: its own section is switched. */
 export function connectionOnDaemon(ctx: Ctx, id: string): boolean {
-  const section = CONNECTION_SECTIONS[id];
+  const section = sectionOfConnection(id);
   return section !== undefined && isDaemon(section, sectionsOf(ctx.env));
+}
+
+/**
+ * The section that switches a connection to the daemon. Email has none of its own, because it is not
+ * in the design's section table, so it follows the other notification connections' section (ntfy).
+ */
+function sectionOfConnection(id: string): SectionId | undefined {
+  return id === RESEND_ID ? CONNECTION_SECTIONS.ntfy : CONNECTION_SECTIONS[id];
 }

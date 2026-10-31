@@ -101,6 +101,7 @@ export const FAKE_CATALOG: ScheduleCatalog = {
     { id: "telegram", label: "Telegram" },
     { id: "discord", label: "Discord" },
     { id: "ntfy", label: "ntfy" },
+    { id: "resend", label: "Email" },
   ],
   serverTime: "2026-09-28T12:00:00.000Z",
 };
