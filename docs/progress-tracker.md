@@ -406,3 +406,4 @@ Things found during work that are outside the current task. Each one should beco
 | Date | Note | Found during |
 |---|---|---|
 | | | |
+| 2026-10-31 | Trello review fixes: board calls go through one helper (no key or token in errors, typed API errors); a Trello-driven Done move uses SetState; a failed write keeps what reached Trello in the snapshot; bookkeeping ignores cancel; each change clears only its own conflict; a words change flags a Trello description edit; both sides in Done is agreement. Doc change: a copied Trello comment is read by the agent when it next runs (code), not never. | Found in the 2026-10-15 review. Open question for the owner: should an agent read copied Trello comments at all? Lower review items (debounce coalescing, WriteTimeout 60s vs 180s, title over 200 chars, dismiss link check) still open. |

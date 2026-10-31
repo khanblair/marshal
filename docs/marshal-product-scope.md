@@ -1156,7 +1156,7 @@ You can reply to a brief (in the app or in chat) to create cards or ask question
 ### 19.2 Trello sync
 
 - **One Marshal project links to one Trello board, or to none.** A project with no board keeps working as it does today. A project can be linked to Trello later.
-- **Trello to Marshal is read-only.** On linking, Marshal fetches the board: lists, cards, descriptions, checklists, labels, due dates, comments, and attachments. It then follows Trello by webhook, with polling as a fallback. Marshal keeps a snapshot of each card with Trello's last-activity time.
+- **Trello to Marshal is read-only.** On linking, Marshal fetches the board: lists, cards, descriptions, checklists, labels, due dates, comments, and attachments. It then follows Trello by webhook, with polling as a fallback. Marshal keeps a snapshot of each card's title, description, list, checklists, and comments as Trello held them when Marshal last read them, and compares fields against it, not a last-activity time.
 - **Marshal works on its own copy.** Moves, checklist ticks, notes, comments, and feedback made in Marshal stay in Marshal. Nothing reaches Trello by itself.
 - **Staged changes.** Each local change is kept as a pending change on its card and in a list for the project. Who made it, a person or the agent, is kept only in Marshal.
 - **Apply to Trello.** A button shows the pending changes as a diff. The person approves all or some, and only then does Marshal write them to Trello. Apply works only for the linked account, and acts as that account. Other board members are not mapped or edited.
