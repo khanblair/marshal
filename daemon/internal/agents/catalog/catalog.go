@@ -38,6 +38,10 @@ type Detected struct {
 	Warning string
 	// Startable says that the agent is installed and Marshal has an adapter that can start it.
 	Startable bool
+	// Off says the person turned the agent off in Settings.
+	Off bool
+	// CustomPath is the program the person chose, or empty for the one found on the computer.
+	CustomPath string
 }
 
 // Source is what the API layer and the session manager need from a catalog. Both the real Catalog
@@ -70,6 +74,8 @@ type Options struct {
 	// BuiltinModels lists the models of the built-in agent, which are the models of the providers
 	// that are set up (see BuiltinModels). Nil means none are, and the row lists no models.
 	BuiltinModels BuiltinModels
+	// Preferences is what the person set for each agent. Nil means nothing is set.
+	Preferences Preferences
 }
 
 // Catalog detects the installed agents and keeps the answer. It is safe for concurrent use.
@@ -80,6 +86,7 @@ type Catalog struct {
 	timeout       time.Duration
 	log           *slog.Logger
 	builtinModels BuiltinModels
+	prefs         Preferences
 
 	mu     sync.Mutex
 	cached *snapshot
@@ -106,7 +113,7 @@ type flight struct {
 func New(opts Options) *Catalog {
 	c := &Catalog{
 		probe: opts.Probe, now: opts.Now, ttl: opts.TTL, timeout: opts.Timeout, log: opts.Logger,
-		builtinModels: opts.BuiltinModels,
+		builtinModels: opts.BuiltinModels, prefs: opts.Preferences,
 	}
 	if c.probe == nil {
 		c.probe = DefaultProbe()
@@ -164,6 +171,17 @@ func (c *Catalog) get(ctx context.Context, force bool) (snapshot, error) {
 		return snap, nil
 	}
 	f := c.flight
+	if f != nil && force {
+		// A run already in flight may have read the settings before they were saved, so a refresh
+		// waits for it to finish and then looks again.
+		c.mu.Unlock()
+		select {
+		case <-f.done:
+		case <-ctx.Done():
+			return snapshot{}, fmt.Errorf("wait for the agent check: %w", ctx.Err())
+		}
+		return c.get(ctx, true)
+	}
 	if f == nil {
 		f = &flight{done: make(chan struct{})}
 		c.flight = f
@@ -216,8 +234,9 @@ func (c *Catalog) detectOne(ctx context.Context, kind protocol.AgentKind) Detect
 		c.log.Info("agent checked", "kind", string(kind), "status", string(d.Status))
 		return d
 	}
-	found, err := c.probe.Probe(ctx, kind)
-	d := Detected{Kind: kind, Status: protocol.AgentStatusMissing}
+	pref := c.preferenceOf(ctx, kind)
+	found, err := c.probeOf(ctx, kind, pref.Path)
+	d := Detected{Kind: kind, Status: protocol.AgentStatusMissing, CustomPath: pref.Path}
 	switch {
 	case err == nil:
 		d.Path, d.Version = found.Path, found.Version.String()
@@ -230,8 +249,44 @@ func (c *Catalog) detectOne(ctx context.Context, kind protocol.AgentKind) Detect
 		// The reason is for the log. It can name a folder, so only the daemon's own log gets it.
 		c.log.Info("could not read the version of an agent", "kind", string(kind), "err", err)
 	}
+	if pref.Off {
+		d.Off, d.Startable = true, false
+		d.Warning = offWarning(sp.name)
+	}
 	c.log.Info("agent checked", "kind", string(kind), "status", string(d.Status), "version", d.Version)
 	return d
+}
+
+// preferenceOf reads the person's choice for an agent. A choice that cannot be read is logged and
+// treated as the default, so a broken setting never stops detection.
+func (c *Catalog) preferenceOf(ctx context.Context, kind protocol.AgentKind) Preference {
+	if c.prefs == nil {
+		return Preference{}
+	}
+	pref, err := c.prefs.Preference(ctx, kind)
+	if err != nil {
+		c.log.Warn("could not read the agent settings", "kind", string(kind), "err", err)
+		return Preference{}
+	}
+	return pref
+}
+
+// probeOf looks for the program. A path the person chose is checked alone, and the folders are not
+// searched, so the choice is what runs.
+func (c *Catalog) probeOf(ctx context.Context, kind protocol.AgentKind, path string) (Found, error) {
+	if path == "" {
+		return c.probe.Probe(ctx, kind)
+	}
+	op, ok := c.probe.(OverrideProbe)
+	if !ok {
+		return Found{}, ErrNotFound
+	}
+	return op.ProbePath(ctx, kind, path)
+}
+
+// offWarning is the sentence for an agent the person turned off.
+func offWarning(name string) string {
+	return name + " is turned off in Settings, so Marshal will not start it for a card."
 }
 
 // classify decides the status of an installed agent from its version.
@@ -282,7 +337,7 @@ func agentOf(d Detected, builtin BuiltinModels) protocol.Agent {
 	models := modelsFor(d.Kind, builtin)
 	agent := protocol.Agent{
 		Kind: d.Kind, Name: sp.name, Version: d.Version, Status: d.Status, Warning: d.Warning,
-		Models: models, Capabilities: sp.capabilities,
+		Models: models, Capabilities: sp.capabilities, CustomPath: d.CustomPath, Off: d.Off,
 	}
 	if d.Status == protocol.AgentStatusMissing {
 		agent.InstallHint = sp.installHint

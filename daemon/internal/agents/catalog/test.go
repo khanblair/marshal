@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -103,7 +104,7 @@ func (c *Catalog) checksFor(ctx context.Context, t target) []protocol.TestCheck 
 		return []protocol.TestCheck{{Name: "Installed", State: protocol.CheckStateFailed,
 			Message: "Marshal cannot look for programs in this mode."}}
 	}
-	found, err := prober.ProbeProgram(ctx, t.program)
+	found, err := c.probeFor(ctx, prober, t)
 	if errors.Is(err, ErrNotFound) {
 		return []protocol.TestCheck{{Name: "Installed", State: protocol.CheckStateFailed,
 			Message: t.name + " is not installed on this computer.", Fix: installFix(t)}}
@@ -159,7 +160,7 @@ func (c *Catalog) interfaceCheck(ctx context.Context, t target, path string) pro
 		agent, err := acpHello(hello, path, t.acpArgs)
 		if err != nil {
 			return protocol.TestCheck{Name: "Agent Client Protocol", State: protocol.CheckStateFailed,
-				Message: "Started with \"" + t.program + " " + strings.Join(t.acpArgs, " ") + "\" but it did not answer the greeting: " + err.Error(),
+				Message: "Started with \"" + t.program + " " + strings.Join(t.acpArgs, " ") + "\" but it did not answer the greeting: " + redact(err.Error(), path),
 				Fix:     "Run \"" + t.program + " " + strings.Join(t.acpArgs, " ") + "\" in a terminal to see what it says."}
 		}
 		took := time.Since(started).Round(100 * time.Millisecond)
@@ -177,11 +178,28 @@ func (c *Catalog) interfaceCheck(ctx context.Context, t target, path string) pro
 	return protocol.TestCheck{Name: "Mode", State: protocol.CheckStateWarning, Message: "Marshal has no mode to check for it."}
 }
 
+// probeFor looks for the program the test is about: the path the person chose when there is one, so
+// the test checks the program a card would run, and otherwise the programs on PATH and in the folders.
+func (c *Catalog) probeFor(ctx context.Context, prober ProgramProber, t target) (Found, error) {
+	if t.kind != "" {
+		if pref := c.preferenceOf(ctx, t.kind); pref.Path != "" {
+			return c.probeOf(ctx, t.kind, pref.Path)
+		}
+	}
+	return prober.ProbeProgram(ctx, t.program)
+}
+
+// redact replaces a program's full path in an error text with its file name, so a check's words never
+// carry the place of a program the person did not choose to show.
+func redact(text, path string) string {
+	return strings.ReplaceAll(text, path, filepath.Base(path))
+}
+
 func helpCheck(ctx context.Context, t target, path, want, name string) protocol.TestCheck {
 	help, err := readHelp(ctx, path)
 	switch {
 	case err != nil:
-		return protocol.TestCheck{Name: name, State: protocol.CheckStateWarning, Message: "Could not read its help: " + err.Error()}
+		return protocol.TestCheck{Name: name, State: protocol.CheckStateWarning, Message: "Could not read its help: " + redact(err.Error(), path)}
 	case strings.Contains(strings.ToLower(help), want):
 		return protocol.TestCheck{Name: name, State: protocol.CheckStatePassed, Message: "Its help lists " + want + "."}
 	}

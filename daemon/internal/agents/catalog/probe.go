@@ -5,8 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"time"
 
 	"github.com/khanblair/marshal/daemon/internal/proc"
@@ -48,6 +51,11 @@ type Probe interface {
 	// installed, and one that wraps ErrUnreadable, together with the path, when the program is
 	// there but gives no version.
 	Probe(ctx context.Context, kind protocol.AgentKind) (Found, error)
+}
+
+// OverrideProbe is a probe that can also check one program at a path the person chose.
+type OverrideProbe interface {
+	ProbePath(ctx context.Context, kind protocol.AgentKind, path string) (Found, error)
 }
 
 // ProbeOptions sets how a ProgramProbe looks for programs.
@@ -104,6 +112,61 @@ func (p *ProgramProbe) Probe(ctx context.Context, kind protocol.AgentKind) (Foun
 		return Found{Path: path}, fmt.Errorf("read the version of %s: %w: %w", program, ErrUnreadable, err)
 	}
 	return Found{Path: path, Version: version}, nil
+}
+
+// ProbePath reads the program at a path the person chose. It must be a file that can be run; the
+// folders are not searched. A missing or unrunnable file wraps ErrNotFound.
+func (p *ProgramProbe) ProbePath(ctx context.Context, kind protocol.AgentKind, path string) (Found, error) {
+	if err := checkRunnable(path); err != nil {
+		return Found{}, fmt.Errorf("%w: %w", ErrNotFound, err)
+	}
+	version, err := p.readVersion(ctx, path)
+	if err != nil {
+		return Found{Path: path}, fmt.Errorf("read the version of %s: %w: %w", filepath.Base(path), ErrUnreadable, err)
+	}
+	return Found{Path: path, Version: version}, nil
+}
+
+// CheckProgram says whether a path the person chose is the program of an agent: a file that can be
+// run, that gives a version, and whose help names the program. It returns the version it found.
+func CheckProgram(ctx context.Context, kind protocol.AgentKind, path string) (Semver, error) {
+	program := specFor(kind).program
+	if program == "" {
+		return Semver{}, fmt.Errorf("%w: there is no program for %q", ErrUnknownAgent, kind)
+	}
+	if err := checkRunnable(path); err != nil {
+		return Semver{}, err
+	}
+	probe := DefaultProbe()
+	version, err := probe.readVersion(ctx, path)
+	if err != nil {
+		return Semver{}, fmt.Errorf("that file did not give a version: %w", err)
+	}
+	helpCtx, cancel := context.WithTimeout(ctx, DefaultProbe().timeout)
+	defer cancel()
+	help, err := readHelp(helpCtx, path)
+	if err != nil || !strings.Contains(strings.ToLower(help), strings.ToLower(program)) {
+		return Semver{}, fmt.Errorf("that file is not %s: its help does not name it", program)
+	}
+	return version, nil
+}
+
+// checkRunnable says whether a path is a regular file that can be run, with a plain reason when not.
+func checkRunnable(path string) error {
+	if !filepath.IsAbs(path) {
+		return errors.New("the path must be absolute")
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return fmt.Errorf("there is no file at that path: %w", err)
+	}
+	if !info.Mode().IsRegular() {
+		return errors.New("that path is not a file")
+	}
+	if runtime.GOOS != "windows" && info.Mode().Perm()&0o111 == 0 {
+		return errors.New("that file is not marked as runnable")
+	}
+	return nil
 }
 
 // locate looks for a program on PATH first, and then in the well-known folders.
