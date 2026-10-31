@@ -136,7 +136,7 @@ func TestScheduleRoutesRefuseNonsense(t *testing.T) {
 func TestTheScheduleCatalogListsStartersPartsAndChats(t *testing.T) {
 	st := newStack(t)
 	catalog := decode[protocol.ScheduleCatalog](t, st.do(http.MethodGet, "/v1/schedules/catalog", nil).want(t, http.StatusOK))
-	if len(catalog.Templates) != 7 || len(catalog.Sections) == 0 || len(catalog.Channels) != 3 {
+	if len(catalog.Templates) != 7 || len(catalog.Sections) == 0 || len(catalog.Channels) != 4 {
 		t.Fatalf("the catalog = %d templates, %d sections, %d channels", len(catalog.Templates), len(catalog.Sections), len(catalog.Channels))
 	}
 	if catalog.Templates[0].Key != "morning" || len(catalog.Templates[0].Sections) == 0 {

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/khanblair/marshal/daemon/internal/accounts"
+	"github.com/khanblair/marshal/daemon/internal/agentprefs"
 	"github.com/khanblair/marshal/daemon/internal/agents/catalog"
 	"github.com/khanblair/marshal/daemon/internal/agents/trust"
 	"github.com/khanblair/marshal/daemon/internal/audit"
@@ -55,18 +56,20 @@ import (
 // the bus are ready.
 type daemonModules struct {
 	// clock tells time in the zone the person chose in their profile.
-	clock     *zone.Clock
-	proj      *projects.Service
-	sessions  *session.Manager
-	catalog   catalog.Source
-	dashboard *dashboard.Service
-	homeSub   *dashboard.Subscriber
-	history   *cardhistory.Service
-	diff      *diff.Service
-	chats     *chats.Service
-	search    *search.Service
-	accounts  *accounts.Service
-	auditlog  *auditlog.Service
+	clock    *zone.Clock
+	proj     *projects.Service
+	sessions *session.Manager
+	catalog  catalog.Source
+	// agentPrefs saves the agent choices of Settings, beside the catalog that reads them.
+	agentPrefs catalog.PreferenceStore
+	dashboard  *dashboard.Service
+	homeSub    *dashboard.Subscriber
+	history    *cardhistory.Service
+	diff       *diff.Service
+	chats      *chats.Service
+	search     *search.Service
+	accounts   *accounts.Service
+	auditlog   *auditlog.Service
 	// providers holds the keychain and the keys in it, and costLimits the cost and awake ceilings.
 	// They are separate services: a ceiling needs only the store, so limits work with no key saved.
 	providers  *providers.Service
@@ -157,6 +160,7 @@ type coreDaemonModules struct {
 	sleepSettingsSvc *sleepsettings.Service
 	connectionTests  *connectiontest.Runner
 	catalogSrc       catalog.Source
+	agentPrefs       catalog.PreferenceStore
 	historyStore     *history.Store
 	auditRec         *audit.Recorder
 	sessions         *session.Manager
@@ -216,7 +220,11 @@ func buildCoreModules(st *store.Store, bus *events.Bus, settings config.Settings
 	// 18): a model provider today, and later phases' integrations and MCP servers through the same
 	// ones, because the cooldown, the time limit, and the saved result are the same for all of them.
 	connectionTests := connectiontest.New(st, connectiontest.Options{Logger: log, Now: time.Now})
-	registry, catalogSrc, err := buildAgents(settings, env, log, providerSvc)
+	agentPrefs, err := agentprefs.New(st)
+	if err != nil {
+		return coreDaemonModules{}, fmt.Errorf("start the agent settings: %w", err)
+	}
+	registry, catalogSrc, err := buildAgents(settings, env, log, providerSvc, agentPrefs)
 	if err != nil {
 		return coreDaemonModules{}, err
 	}
@@ -250,7 +258,7 @@ func buildCoreModules(st *store.Store, bus *events.Bus, settings config.Settings
 	late.manager.Store(sessions)
 	return coreDaemonModules{
 		git: git, lateMem: lateMem, proj: proj, providerSvc: providerSvc, costLimits: costLimits,
-		sleepSettingsSvc: sleepSettingsSvc, connectionTests: connectionTests, catalogSrc: catalogSrc,
+		sleepSettingsSvc: sleepSettingsSvc, connectionTests: connectionTests, catalogSrc: catalogSrc, agentPrefs: agentPrefs,
 		historyStore: historyStore, auditRec: auditRec, sessions: sessions, clock: clock,
 	}, nil
 }
@@ -455,7 +463,8 @@ func buildLateModules(st *store.Store, bus *events.Bus, settings config.Settings
 	integrationSvc, err := integrations.New(st, security.NewOSKeychain(platform.AppName(settings.Mode)),
 		integrations.Options{
 			Logger: log, Now: core.clock.Now, VaultRoot: cm.mem.Root(), GCalRedirectURL: gcalRedirect,
-			GitHubClientID: os.Getenv("MARSHAL_GITHUB_CLIENT_ID"), GitHubAppSlug: os.Getenv("MARSHAL_GITHUB_APP_SLUG"),
+			ResendRecipient: func(ctx context.Context) (string, error) { return ownerEmail(ctx, st) },
+			GitHubClientID:  os.Getenv("MARSHAL_GITHUB_CLIENT_ID"), GitHubAppSlug: os.Getenv("MARSHAL_GITHUB_APP_SLUG"),
 			GoogleClientID:     os.Getenv("MARSHAL_GOOGLE_CLIENT_ID"),
 			GoogleClientSecret: os.Getenv("MARSHAL_GOOGLE_CLIENT_SECRET"),
 		})
@@ -693,7 +702,7 @@ func buildModules(ctx context.Context, st *store.Store, bus *events.Bus, setting
 		return daemonModules{}, err
 	}
 	return daemonModules{
-		proj: core.proj, sessions: core.sessions, catalog: core.catalogSrc, dashboard: cm.home, homeSub: cm.homeSub,
+		proj: core.proj, sessions: core.sessions, catalog: core.catalogSrc, agentPrefs: core.agentPrefs, dashboard: cm.home, homeSub: cm.homeSub,
 		history: cm.cards, diff: cm.cardDiff, chats: cm.projectChats, search: cm.finder, accounts: cm.you,
 		auditlog: cm.auditRead, providers: core.providerSvc, costLimits: core.costLimits,
 		connectionTests: core.connectionTests, roles: cm.roleSvc, pullRequests: late.pullReq,

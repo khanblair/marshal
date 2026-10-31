@@ -42,14 +42,17 @@ import (
 // stackConfig is what a test changes about the stack it builds. The default is a dev daemon with
 // every service, the real stub agent behind the default card agent, and the stub catalog.
 type stackConfig struct {
-	normal     bool // a normal daemon: the token comes from the owner token file and the database
-	limits     api.Limits
-	port       int            // the port the daemon reports serving on; zero is the test default
-	agent      agents.Factory // replaces the stub agent behind claude
-	catalog    catalog.Source
-	noProjects bool
-	noSessions bool
-	noCatalog  bool
+	normal  bool // a normal daemon: the token comes from the owner token file and the database
+	limits  api.Limits
+	port    int            // the port the daemon reports serving on; zero is the test default
+	agent   agents.Factory // replaces the stub agent behind claude
+	catalog catalog.Source
+	// catalogProbe, when set, builds a real catalog over this probe, with the agent settings kept in
+	// the stack's store, so a saved setting shows in the list.
+	catalogProbe catalog.Probe
+	noProjects   bool
+	noSessions   bool
+	noCatalog    bool
 	// noDashboard leaves the dashboard service out, so the Home route is not registered.
 	noDashboard bool
 	// noHistory leaves the history store and the service that reads it out, so the routes that
@@ -216,23 +219,27 @@ func withCatalog(src catalog.Source) stackOption { return func(c *stackConfig) {
 func withoutProjects() stackOption               { return func(c *stackConfig) { c.noProjects = true } }
 func withoutSessions() stackOption               { return func(c *stackConfig) { c.noSessions = true } }
 func withoutCatalog() stackOption                { return func(c *stackConfig) { c.noCatalog = true } }
-func withoutDashboard() stackOption              { return func(c *stackConfig) { c.noDashboard = true } }
-func withoutHistory() stackOption                { return func(c *stackConfig) { c.noHistory = true } }
-func withoutDiff() stackOption                   { return func(c *stackConfig) { c.noDiff = true } }
-func withoutChats() stackOption                  { return func(c *stackConfig) { c.noChats = true } }
-func withoutSearch() stackOption                 { return func(c *stackConfig) { c.noSearch = true } }
-func withoutAccounts() stackOption               { return func(c *stackConfig) { c.noAccounts = true } }
-func withoutAudit() stackOption                  { return func(c *stackConfig) { c.noAudit = true } }
-func withoutProviders() stackOption              { return func(c *stackConfig) { c.noProviders = true } }
-func withoutCostLimits() stackOption             { return func(c *stackConfig) { c.noCostLimits = true } }
-func withoutConnectionTests() stackOption        { return func(c *stackConfig) { c.noConnectionTests = true } }
-func withoutRoles() stackOption                  { return func(c *stackConfig) { c.noRoles = true } }
-func withoutPullRequests() stackOption           { return func(c *stackConfig) { c.noPullRequests = true } }
-func withoutIntegrator() stackOption             { return func(c *stackConfig) { c.noIntegrator = true } }
-func withoutReview() stackOption                 { return func(c *stackConfig) { c.noReview = true } }
-func withoutSleepSettings() stackOption          { return func(c *stackConfig) { c.noSleepSettings = true } }
-func withoutAlerts() stackOption                 { return func(c *stackConfig) { c.noAlerts = true } }
-func withoutCardPanel() stackOption              { return func(c *stackConfig) { c.noCardPanel = true } }
+
+func withRealCatalog(probe catalog.Probe) stackOption {
+	return func(c *stackConfig) { c.catalogProbe = probe }
+}
+func withoutDashboard() stackOption       { return func(c *stackConfig) { c.noDashboard = true } }
+func withoutHistory() stackOption         { return func(c *stackConfig) { c.noHistory = true } }
+func withoutDiff() stackOption            { return func(c *stackConfig) { c.noDiff = true } }
+func withoutChats() stackOption           { return func(c *stackConfig) { c.noChats = true } }
+func withoutSearch() stackOption          { return func(c *stackConfig) { c.noSearch = true } }
+func withoutAccounts() stackOption        { return func(c *stackConfig) { c.noAccounts = true } }
+func withoutAudit() stackOption           { return func(c *stackConfig) { c.noAudit = true } }
+func withoutProviders() stackOption       { return func(c *stackConfig) { c.noProviders = true } }
+func withoutCostLimits() stackOption      { return func(c *stackConfig) { c.noCostLimits = true } }
+func withoutConnectionTests() stackOption { return func(c *stackConfig) { c.noConnectionTests = true } }
+func withoutRoles() stackOption           { return func(c *stackConfig) { c.noRoles = true } }
+func withoutPullRequests() stackOption    { return func(c *stackConfig) { c.noPullRequests = true } }
+func withoutIntegrator() stackOption      { return func(c *stackConfig) { c.noIntegrator = true } }
+func withoutReview() stackOption          { return func(c *stackConfig) { c.noReview = true } }
+func withoutSleepSettings() stackOption   { return func(c *stackConfig) { c.noSleepSettings = true } }
+func withoutAlerts() stackOption          { return func(c *stackConfig) { c.noAlerts = true } }
+func withoutCardPanel() stackOption       { return func(c *stackConfig) { c.noCardPanel = true } }
 func withPanelAgent(a cardpanel.Agent) stackOption {
 	return func(c *stackConfig) { c.panelAgent = a }
 }

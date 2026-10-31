@@ -256,7 +256,7 @@ func serve(ctx context.Context, settings config.Settings, env platform.Env, log 
 // unregistered, and they answer "nothing at that address" with no other sign (the card notes did).
 func moduleDeps(mods daemonModules) api.Deps {
 	return api.Deps{
-		Projects: mods.proj, Sessions: mods.sessions, Catalog: mods.catalog,
+		Projects: mods.proj, Sessions: mods.sessions, Catalog: mods.catalog, AgentPrefs: mods.agentPrefs,
 		Dashboard: mods.dashboard, History: mods.history, Diff: mods.diff, Chats: mods.chats,
 		Search: mods.search, Memory: mods.memory, Accounts: mods.accounts, Auditlog: mods.auditlog,
 		Providers: mods.providers, CostLimits: mods.costLimits, ConnectionTests: mods.connectionTests,
@@ -898,7 +898,7 @@ func restoreSessions(ctx context.Context, sessions *session.Manager, log *slog.L
 // (agents/claude, agents/gemini), and builtin is Marshal's own agent, which runs here in the daemon
 // (agents/builtin) and so has no program to find. Codex is left unregistered, so choosing it gives
 // agents.ErrUnknownKind, which is the correct, honest answer until agents/codex has a real adapter.
-func buildAgents(settings config.Settings, env platform.Env, log *slog.Logger, providerSvc *providers.Service) (*agents.Registry, catalog.Source, error) {
+func buildAgents(settings config.Settings, env platform.Env, log *slog.Logger, providerSvc *providers.Service, prefs catalog.Preferences) (*agents.Registry, catalog.Source, error) {
 	registry := agents.NewRegistry()
 	if settings.Agent == config.AgentStub {
 		return registerStubAgents(registry, settings, env, log)
@@ -906,7 +906,7 @@ func buildAgents(settings config.Settings, env platform.Env, log *slog.Logger, p
 	// BuiltinModels is the key store's own list: the built-in agent can run the models of exactly the
 	// providers that have a key saved, so its row is asked again on every List and shows a key the
 	// person saved a moment ago.
-	cat := catalog.New(catalog.Options{Logger: log, BuiltinModels: providerSvc.Models})
+	cat := catalog.New(catalog.Options{Logger: log, BuiltinModels: providerSvc.Models, Preferences: prefs})
 	for _, kind := range []protocol.AgentKind{protocol.AgentKindClaude, protocol.AgentKindGemini} {
 		if err := registry.Register(kind, realAgentFactory(cat, kind, log)); err != nil {
 			return nil, nil, fmt.Errorf("register the %s agent: %w", kind, err)
@@ -1002,6 +1002,9 @@ func realAgentFactory(cat catalog.Source, kind protocol.AgentKind, log *slog.Log
 // realAgentOf starts the real adapter for a detected agent, or reports agents.ErrUnknownKind when
 // it is not installed or Marshal cannot start it yet.
 func realAgentOf(kind protocol.AgentKind, d catalog.Detected, log *slog.Logger) (agents.Agent, error) {
+	if d.Off {
+		return nil, fmt.Errorf("%w: %s is turned off in Settings", agents.ErrUnknownKind, kind)
+	}
 	if !d.Startable {
 		return nil, fmt.Errorf("%w: %s is not installed, or Marshal cannot start it yet", agents.ErrUnknownKind, kind)
 	}

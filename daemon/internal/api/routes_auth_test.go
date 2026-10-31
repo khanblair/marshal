@@ -160,7 +160,7 @@ func TestARouteIsRegisteredOnlyWhenItsServiceIsThere(t *testing.T) {
 	}
 	searchRoutes := []string{"GET /v1/search"}
 	startRoute := []string{"POST /v1/cards/{id}/start"}
-	agentRoutes := []string{"GET /v1/agents", "POST /v1/agents/refresh", "POST /v1/agents/{id}/test"}
+	agentRoutes := []string{"GET /v1/agents", "POST /v1/agents/refresh", "POST /v1/agents/{id}/test", "PUT /v1/agents/{id}/settings"}
 	accountRoutes := []string{
 		"GET /v1/me", "PATCH /v1/me", "POST /v1/me/avatar", "DELETE /v1/me/avatar", "GET /v1/users",
 		"GET /v1/users/{id}/avatar", "GET /v1/me/progress", "PATCH /v1/me/progress",
@@ -176,7 +176,7 @@ func TestARouteIsRegisteredOnlyWhenItsServiceIsThere(t *testing.T) {
 	connectionTestRoutes := []string{"POST /v1/providers/{id}/test"}
 	// The connection routes list, save, and remove the connections Marshal is set up with: they
 	// follow the connections service the GitHub app is reached through.
-	integrationRoutes := []string{"POST /v1/integrations/telegram/detect-chat",
+	integrationRoutes := []string{"POST /v1/integrations/telegram/detect-chat", "POST /v1/integrations/resend/send-test",
 		"GET /v1/integrations", "PUT /v1/integrations/{id}", "DELETE /v1/integrations/{id}",
 		"GET /v1/integrations/gcal/authorize", "GET /v1/integrations/gmail/authorize", "GET /v1/integrations/{id}/authorize",
 		"GET /v1/google/files", "POST /v1/google/docs", "POST /v1/google/sheets", "POST /v1/google/slides",
@@ -275,6 +275,12 @@ func TestARouteIsRegisteredOnlyWhenItsServiceIsThere(t *testing.T) {
 	// The tailnet status needs no service - the server holds the node or holds nothing - so it is
 	// registered on every stack that has a store at all.
 	tailnetRoutes := []string{"GET /v1/tailnet", "GET /v1/tailnet/peers"}
+	// The Trello routes read and write one project's linked board, so they need the connections
+	// service and the projects service together.
+	trelloRoutes := []string{
+		"GET /v1/projects/{id}/trello/pending", "POST /v1/projects/{id}/trello/apply",
+		"POST /v1/projects/{id}/trello/dismiss", "POST /v1/projects/{id}/trello/refresh",
+	}
 	groups := map[string][]string{
 		"projects": projectRoutes, "sessions": sessionRoutes, "hold": holdRoutes, "start": startRoute,
 		"cards": cardRoutes, "labels": labelRoutes, "home": homeRoutes,
@@ -290,7 +296,7 @@ func TestARouteIsRegisteredOnlyWhenItsServiceIsThere(t *testing.T) {
 		"notices": noticeRoutes, "sleep settings": sleepSettingsRoutes, "alerts": alertRoutes, "card panel": panelRoutes, "quality": qualityRoutes,
 		"ci": ciRoutes, "ci simulation": ciSimulateRoutes, "local ci": localCIRoutes,
 		"preview": previewRoutes, "schedules": scheduleRoutes, "calendar": calendarRoutes, "devices": deviceRoutes,
-		"tailnet": tailnetRoutes,
+		"tailnet": tailnetRoutes, "trello": trelloRoutes,
 	}
 	count := 0
 	for _, group := range groups {
@@ -361,6 +367,7 @@ func TestARouteIsRegisteredOnlyWhenItsServiceIsThere(t *testing.T) {
 			// also needs the runner that runs the test.
 			have["integrations"] = !st.cfg.noIntegrations
 			have["integration tests"] = !st.cfg.noIntegrations && !st.cfg.noConnectionTests
+			have["trello"] = !st.cfg.noIntegrations && !st.cfg.noProjects
 			// The pull-request route needs both services and a GitHub client, so it follows the pair.
 			have["pull requests"] = !st.cfg.noPullRequests && !st.cfg.noProjects
 			// The review route follows the review service, which the stack builds only with the

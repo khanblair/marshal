@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/khanblair/marshal/daemon/internal/accounts"
+	"github.com/khanblair/marshal/daemon/internal/agentprefs"
 	"github.com/khanblair/marshal/daemon/internal/agents/catalog"
 	"github.com/khanblair/marshal/daemon/internal/api"
 	"github.com/khanblair/marshal/daemon/internal/auditlog"
@@ -224,7 +225,15 @@ func (st *stack) startModules() {
 		deps.Auditlog = auditRead
 	}
 	if !st.cfg.noCatalog {
+		prefs, err := agentprefs.New(st.store)
+		if err != nil {
+			t.Fatalf("make the agent settings: %v", err)
+		}
+		deps.AgentPrefs = prefs
 		deps.Catalog = st.cfg.catalog
+		if st.cfg.catalogProbe != nil {
+			deps.Catalog = catalog.New(catalog.Options{Probe: st.cfg.catalogProbe, Preferences: prefs})
+		}
 		if deps.Catalog == nil {
 			deps.Catalog = catalog.NewStub()
 		}

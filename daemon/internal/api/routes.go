@@ -17,6 +17,9 @@ const (
 	needsProjects routeNeeds = 1 << iota
 	needsSessions
 	needsCatalog
+	// needsAgentPrefs registers the route that saves an agent's path and on or off choice in
+	// Settings. It needs the store, so it is a bit of its own beside needsCatalog.
+	needsAgentPrefs
 	needsDashboard
 	needsHistory
 	needsDiff
@@ -213,6 +216,7 @@ func homeAgentAndChatRoutes() []routeSpec {
 		{"DELETE /v1/labels/{id}", needsProjects, (*Server).deleteLabel},
 		{"POST /v1/agents/refresh", needsCatalog, (*Server).refreshAgents},
 		{"POST /v1/agents/{id}/test", needsCatalog, (*Server).testAgent},
+		{"PUT /v1/agents/{id}/settings", needsCatalog | needsAgentPrefs, (*Server).saveAgentSettings},
 		{"GET /v1/projects/{id}/chats", needsChats, (*Server).listChats},
 		{"POST /v1/projects/{id}/chats", needsChats, (*Server).createChat},
 		{"PATCH /v1/chats/{id}", needsChats, (*Server).updateChat},
@@ -329,6 +333,7 @@ func ciPreviewAndIntegrationRoutes() []routeSpec {
 		{"PUT /v1/integrations/{id}", needsIntegrations, (*Server).saveIntegration},
 		{"DELETE /v1/integrations/{id}", needsIntegrations, (*Server).removeIntegration},
 		{"POST /v1/integrations/{id}/test", needsIntegrations | needsConnectionTests, (*Server).testIntegration},
+		{"POST /v1/integrations/resend/send-test", needsIntegrations, (*Server).sendResendTest},
 		{"GET /v1/integrations/gcal/authorize", needsIntegrations, (*Server).authorizeGoogleCalendar},
 		{"GET /v1/integrations/gmail/authorize", needsIntegrations, (*Server).authorizeGmail},
 		{"GET /v1/integrations/{id}/authorize", needsIntegrations, (*Server).authorizeGoogleFile},
@@ -438,6 +443,8 @@ func (s *Server) hasCoreServices(needs routeNeeds) bool {
 	case needs&needsSessions != 0 && s.sessions == nil:
 		return false
 	case needs&needsCatalog != 0 && s.catalog == nil:
+		return false
+	case needs&needsAgentPrefs != 0 && s.agentPrefs == nil:
 		return false
 	case needs&needsDashboard != 0 && s.dashboard == nil:
 		return false

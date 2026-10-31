@@ -79,6 +79,9 @@ type Deps struct {
 	// Catalog lists the agents this daemon can start: the real Catalog in real mode, the Stub in
 	// dev mode. When it is set, the routes to list and refresh the agents are registered.
 	Catalog catalog.Source
+	// AgentPrefs saves what the person set for each agent in Settings. When it is set, along with
+	// Catalog, the route to save those settings is registered.
+	AgentPrefs catalog.PreferenceStore
 	// Dashboard builds Home's answer. When it is set, the routes that read Home are registered.
 	Dashboard *dashboard.Service
 	// History serves a card's chat and its activity. When it is set, the routes that page a card's
@@ -237,18 +240,19 @@ type Server struct {
 	// The services that the domain routes call. Each is nil when its dependency was not given, and
 	// a route that needs one is then not registered. The server only holds them: the rules are in
 	// the services.
-	projects  *projects.Service
-	sessions  *session.Manager
-	catalog   catalog.Source
-	dashboard *dashboard.Service
-	history   *cardhistory.Service
-	diff      *diff.Service
-	chats     *chats.Service
-	search    *search.Service
-	memory    *memory.Service
-	cardPanel *cardpanel.Service
-	accounts  *accounts.Service
-	auditlog  *auditlog.Service
+	projects   *projects.Service
+	sessions   *session.Manager
+	catalog    catalog.Source
+	agentPrefs catalog.PreferenceStore
+	dashboard  *dashboard.Service
+	history    *cardhistory.Service
+	diff       *diff.Service
+	chats      *chats.Service
+	search     *search.Service
+	memory     *memory.Service
+	cardPanel  *cardpanel.Service
+	accounts   *accounts.Service
+	auditlog   *auditlog.Service
 
 	providers  *providers.Service
 	costLimits *providers.Limits
@@ -291,7 +295,7 @@ type Server struct {
 func New(settings config.Settings, log *slog.Logger, now func() time.Time, deps Deps) *Server {
 	s := &Server{
 		settings: settings, log: log, now: now, limits: deps.Limits.withDefaults(),
-		projects: deps.Projects, sessions: deps.Sessions, catalog: deps.Catalog,
+		projects: deps.Projects, sessions: deps.Sessions, catalog: deps.Catalog, agentPrefs: deps.AgentPrefs,
 		dashboard: deps.Dashboard, history: deps.History, diff: deps.Diff, chats: deps.Chats,
 		search: deps.Search, memory: deps.Memory, accounts: deps.Accounts, auditlog: deps.Auditlog,
 		providers: deps.Providers, costLimits: deps.CostLimits,

@@ -128,6 +128,12 @@ func (s *Server) saveOneIntegration(r *http.Request, id string) error {
 			return err
 		}
 		return s.integrations.SaveNtfy(r.Context(), req)
+	case integrations.ResendID:
+		var req protocol.SaveResendRequest
+		if err := s.decodeJSON(r, &req); err != nil {
+			return err
+		}
+		return s.integrations.SaveResend(r.Context(), req)
 	default:
 		return protocol.NotFound("connection").With("id", id)
 	}
@@ -371,4 +377,16 @@ func (s *Server) detectTelegramChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.writeJSON(w, http.StatusOK, answer)
+}
+
+// sendResendTest is POST /v1/integrations/resend/send-test: send one email to the owner's address. It
+// is the only route that sends mail, and it runs only when the person presses Send test email. The
+// answer is a test result, so the screen shows what happened in the same way as the other checks.
+func (s *Server) sendResendTest(w http.ResponseWriter, r *http.Request) {
+	result, err := s.integrations.SendResendTest(r.Context())
+	if err != nil {
+		s.writeError(w, translate(err))
+		return
+	}
+	s.writeJSON(w, http.StatusOK, result)
 }
