@@ -101,6 +101,8 @@ func (s *Service) testFor(ctx context.Context, info Info) (protocol.TestResult, 
 		return s.testGoogleFiles(ctx, info)
 	case KindTelegram, KindDiscord, KindNtfy:
 		return s.testChat(ctx, info)
+	case KindResend:
+		return s.testResend(ctx, info)
 	default:
 		return protocol.TestResult{}, protocol.NotFound("connection").With("id", info.ID)
 	}

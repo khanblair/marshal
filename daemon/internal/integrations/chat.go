@@ -105,6 +105,13 @@ func (s *Service) SaveNtfy(ctx context.Context, req protocol.SaveNtfyRequest) er
 // chatTarget is the chat, channel, or topic a chat connection's stored settings send to, for a screen
 // to show back. It is empty for any other connection and for settings it cannot read.
 func chatTarget(id, configJSON string) string {
+	if id == ResendID {
+		var sender resendConfig
+		if err := json.Unmarshal([]byte(configJSON), &sender); err != nil {
+			return ""
+		}
+		return sender.From
+	}
 	if id != TelegramID && id != DiscordID && id != NtfyID {
 		return ""
 	}

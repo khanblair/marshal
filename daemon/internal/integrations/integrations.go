@@ -78,6 +78,7 @@ func known() []Info {
 		{ID: TelegramID, Kind: KindTelegram, Wired: true},
 		{ID: DiscordID, Kind: KindDiscord, Wired: true},
 		{ID: NtfyID, Kind: KindNtfy, Wired: true},
+		{ID: ResendID, Kind: KindResend, Wired: true},
 		{ID: ObsidianID, Kind: KindObsidian, Wired: true},
 	}
 }
@@ -149,6 +150,13 @@ type Options struct {
 	// NtfyHTTPClient overrides how an ntfy server is reached, for the same reason. Nil uses the real
 	// one, which is what the daemon does.
 	NtfyHTTPClient *http.Client
+	// ResendBaseURL and ResendHTTPClient point the Resend connection at a fake in a test. Empty and
+	// nil use the real API, which is what the daemon does.
+	ResendBaseURL    string
+	ResendHTTPClient *http.Client
+	// ResendRecipient answers the address in the owner's profile, which is where email goes. Nil
+	// means there is no address, so no email can be sent.
+	ResendRecipient func(ctx context.Context) (string, error)
 	// GitHubClientID and GitHubAppSlug name the public Marshal GitHub App people sign in with. Empty
 	// uses Marshal's own, which is what the daemon does.
 	GitHubClientID string
@@ -184,6 +192,13 @@ type Service struct {
 	telegramBase  string
 	discordClient *http.Client
 	ntfyClient    *http.Client
+	resendBase    string
+	resendHTTP    *http.Client
+	// resendRecipient reads the owner's address for email (resend.go).
+	resendRecipient func(ctx context.Context) (string, error)
+	// resendMu guards lastResendTest, the time of the last test email, which sets its cooldown.
+	resendMu       sync.Mutex
+	lastResendTest time.Time
 	// google is what the Google connections keep in memory: consent flows under way and what was
 	// last read (google.go).
 	google googleState
@@ -242,6 +257,7 @@ func New(st *store.Store, keys security.Keychain, opts Options) (*Service, error
 		filesBase:    opts.GoogleFilesBaseURL,
 		telegramBase: opts.TelegramBaseURL, discordClient: opts.DiscordHTTPClient,
 		ntfyClient: opts.NtfyHTTPClient,
+		resendBase: opts.ResendBaseURL, resendHTTP: opts.ResendHTTPClient, resendRecipient: opts.ResendRecipient,
 	}
 	if s.log == nil {
 		s.log = slog.Default()
