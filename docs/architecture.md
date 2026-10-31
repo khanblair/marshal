@@ -578,7 +578,7 @@ Rules for every route:
   - A word that reads as a number matches card numbers first: `#41` finds card 41 of every project, and while typed, numbers starting with 41; `api#41` names one card; bare digits beat titles holding them.
   - No index and no table: it reads through the projects and chats services on every request, so it is never behind (reason and timing: the package doc).
 - `GET /v1/home/dashboard?range=`, `GET /v1/home/activity?cursor=`: dashboard data; activity stream, paged (Phase 2).
-- `GET /v1/agents`, `POST /v1/agents/refresh`: list the agents this machine can start, from the answer the daemon keeps; look again.
+- `GET /v1/agents`, `POST /v1/agents/refresh`: list the agents this machine can start, from the answer the daemon keeps; look again. `PUT /v1/agents/{id}/settings` saves the program an agent uses (checked first: a runnable file whose help names the agent) and whether it is on for cards. The settings live in the `settings` table under `agent.<kind>`, and the catalog reads them each run.
 
 **The person, devices, tailnet**
 
