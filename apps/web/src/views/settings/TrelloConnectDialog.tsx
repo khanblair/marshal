@@ -81,7 +81,7 @@ function ConnectionTab(props: { integration: Integration; trello: TrelloConnectC
   );
 }
 
-/** The second tab: which list imports new cards, and the webhook that lets Trello tell Marshal at once. */
+/** The second tab: which list new Marshal cards go on in Trello, and the webhook that lets Trello tell Marshal at once. */
 function SyncTab(props: { integration: Integration; trello: TrelloConnectController }) {
   const trello = () => props.trello;
   return (
@@ -97,7 +97,7 @@ function SyncTab(props: { integration: Integration; trello: TrelloConnectControl
       </Show>
       <ValueField
         label="Import list id"
-        hint="A card added here becomes a Marshal card. Optional."
+        hint="A Marshal card you apply to Trello as a new card goes on this list. Optional."
         name="newCardListId"
         value={trello().draft.newCardListId}
         onValue={(value) => trello().set("newCardListId", value)}

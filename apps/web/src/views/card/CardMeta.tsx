@@ -2,6 +2,7 @@ import { CiStatus, IconLabel, ProgressBar } from "@marshal/ui";
 import { Show } from "solid-js";
 import { type Card, type CardView, M } from "~/mock";
 import { shortBranch } from "./merge-model";
+import { TrelloMarker } from "./TrelloMarker";
 
 export interface CardMetaProps {
   card: Card;
@@ -106,6 +107,7 @@ export function CardMeta(props: CardMetaProps) {
           CI <span>{props.c.ciLabel.toLowerCase()}</span>
         </CiStatus>
       </Show>
+      <TrelloMarker card={props.card} />
       <SharedFiles card={props.card} />
       <IconLabel icon="circle-dollar-sign">{props.c.cost}</IconLabel>
       <ContextMeter ctx={props.card.ctx} />

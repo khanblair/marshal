@@ -1,6 +1,7 @@
 import { Button, cx, EmptyState, NoResults } from "@marshal/ui";
 import { For, Show } from "solid-js";
 import { M } from "~/mock";
+import { TrelloBar } from "~/views/trello/TrelloBar";
 import { BoardLane } from "./BoardLane";
 import { boardPid, mobileColumn } from "./board-state";
 import { ColumnHeaders } from "./ColumnHeaders";
@@ -28,6 +29,7 @@ export function BoardView() {
   );
   return (
     <div class="absolute inset-0 flex flex-col bg-canvas">
+      <TrelloBar pid={boardPid()} />
       <Show when={M.mobile}>
         <ColumnTabs counts={board.counts()} />
       </Show>

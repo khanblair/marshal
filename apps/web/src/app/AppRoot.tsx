@@ -13,6 +13,7 @@ import { ConfirmDialog } from "./dialogs/ConfirmDialog";
 import { NewCardDialog } from "./dialogs/NewCardDialog";
 import { NewProjectDialog } from "./dialogs/NewProjectDialog";
 import { RemoveProjectDialog } from "./dialogs/RemoveProjectDialog";
+import { TrelloApplyDialog } from "./dialogs/TrelloApplyDialog";
 import { FilterBar } from "./FilterBar";
 import { useGlobalKeys } from "./keyboard";
 import { NoticesPanel } from "./notices/NoticesPanel";
@@ -54,6 +55,7 @@ function AppFrame() {
       <NewCardDialog />
       <NewProjectDialog />
       <RemoveProjectDialog />
+      <TrelloApplyDialog />
       <Show when={M.S.onboarding}>
         <div class="absolute inset-0 z-onboarding bg-canvas pt-[var(--safe-top)]">
           <Onboarding />
