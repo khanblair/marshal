@@ -135,6 +135,7 @@ func domainRoutes() []routeSpec {
 	routes = append(routes, mergeNoticeAndQualityRoutes()...)
 	routes = append(routes, ciPreviewAndIntegrationRoutes()...)
 	routes = append(routes, schedulesAndCalendarRoutes()...)
+	routes = append(routes, trelloRoutes()...)
 	routes = append(routes, deviceAndTailnetRoutes()...)
 	routes = append(routes, integrationRoutes()...)
 	return routes

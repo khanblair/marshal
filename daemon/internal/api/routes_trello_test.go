@@ -5,10 +5,13 @@ import (
 	"crypto/hmac"
 	"crypto/sha1"
 	"encoding/base64"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
+	"github.com/khanblair/marshal/daemon/internal/cardpanel"
 	"github.com/khanblair/marshal/daemon/internal/integrations/trello"
 	"github.com/khanblair/marshal/daemon/internal/projects"
 	"github.com/khanblair/marshal/daemon/internal/protocol"
@@ -30,6 +33,46 @@ func (c stackTrelloCards) MoveCard(ctx context.Context, id string, in protocol.M
 
 func (c stackTrelloCards) Card(ctx context.Context, id string) (protocol.Card, error) {
 	return c.proj.Card(ctx, id)
+}
+
+func (c stackTrelloCards) Cards(ctx context.Context, projectID string) ([]protocol.Card, error) {
+	return c.proj.Cards(ctx, projectID)
+}
+
+func (c stackTrelloCards) UpdateCard(ctx context.Context, id string, in protocol.UpdateCardRequest) (protocol.Card, error) {
+	return c.proj.UpdateCard(ctx, id, in)
+}
+
+// stackTrelloPanel is the card panel as the Trello sync reads it. The route tests never copy a
+// checklist or a comment into a card, so the writes are refused.
+type stackTrelloPanel struct {
+	svc *cardpanel.Service
+}
+
+var errStackPanelReadOnly = errors.New("the stack's Trello panel only reads")
+
+func (p stackTrelloPanel) Checklists(ctx context.Context, cardID string) (protocol.ChecklistList, error) {
+	return p.svc.Checklists(ctx, cardID)
+}
+
+func (p stackTrelloPanel) Comments(ctx context.Context, cardID string) (protocol.CommentList, error) {
+	return p.svc.Comments(ctx, cardID)
+}
+
+func (stackTrelloPanel) CreateChecklist(context.Context, string, string) (protocol.ChecklistList, error) {
+	return protocol.ChecklistList{}, errStackPanelReadOnly
+}
+
+func (stackTrelloPanel) AddItem(context.Context, string, string, string) (protocol.ChecklistList, error) {
+	return protocol.ChecklistList{}, errStackPanelReadOnly
+}
+
+func (stackTrelloPanel) SetItem(context.Context, string, string, string, bool, string) (protocol.ChecklistList, error) {
+	return protocol.ChecklistList{}, errStackPanelReadOnly
+}
+
+func (stackTrelloPanel) ImportComment(context.Context, string, string, string, time.Time) (string, error) {
+	return "", errStackPanelReadOnly
 }
 
 // The Trello connection over the API (B8.2, build-plan 8.2): saving it, testing it, and believing a
@@ -153,57 +196,38 @@ func TestTrelloSaveNeedsBothHalvesOfAWebhook(t *testing.T) {
 		apiError(t, http.StatusBadRequest, protocol.ErrorCodeInvalidArgument)
 }
 
-// TestTrelloDeliveryImportsACardIntoTheLinkedProject proves the whole inbound half of the sync over
-// the wire: a signed delivery for a card on the linked board's import list makes a real Marshal card
-// in the linked project, and Trello redelivering the same event does not make a second one.
-func TestTrelloDeliveryImportsACardIntoTheLinkedProject(t *testing.T) {
+// TestABelievedTrelloDeliveryIsAnsweredAndChangesNothingByItself proves a delivery for the linked board
+// only asks for a read (it makes no card, even sent twice), so Trello redelivering is harmless. The
+// stack runs no poller, which is the daemon's state before the poller is built.
+func TestABelievedTrelloDeliveryIsAnsweredAndChangesNothingByItself(t *testing.T) {
 	const secret = "a-trello-webhook-secret"
 	st := newTrelloStack(t)
 	project, _ := st.addProject("small-repo")
-
-	save := trelloRequest(secret, project.ID)
-	save.NewCardListID = "list-new"
-	st.do(http.MethodPut, "/v1/integrations/trello", save).want(t, http.StatusOK)
+	st.do(http.MethodPut, "/v1/integrations/trello", trelloRequest(secret, project.ID)).want(t, http.StatusOK)
 
 	body := []byte(`{"action":{"type":"createCard","id":"a1","data":{"board":{"id":"board-1"},` +
-		`"card":{"id":"trello-card-1","name":"Fix the flaky test","desc":"It fails one run in ten.",` +
-		`"idList":"list-new"}}},"model":{"id":"board-1"}}`)
+		`"card":{"id":"trello-card-1","name":"Fix the flaky test","idList":"list-new"}}},"model":{"id":"board-1"}}`)
 	st.deliverTrello(t, trelloSign(secret, body), body).want(t, http.StatusOK)
-	st.deliverTrello(t, trelloSign(secret, body), body).want(t, http.StatusOK)
-
-	board := decode[protocol.BoardSnapshot](t,
-		st.do(http.MethodGet, "/v1/projects/"+project.ID+"/board", nil).want(t, http.StatusOK))
-	if len(board.Cards) != 1 {
-		t.Fatalf("the board has %d cards, want the one imported card: %+v", len(board.Cards), board.Cards)
-	}
-	imported := board.Cards[0]
-	if imported.Title != "Fix the flaky test" || imported.Body != "It fails one run in ten." {
-		t.Errorf("the imported card = %+v, want the Trello card's name and description", imported)
-	}
-	if imported.State != protocol.CardStateBacklog {
-		t.Errorf("the imported card is in %q, want the backlog", imported.State)
-	}
-}
-
-// TestTrelloDeliveryForAnotherListImportsNothing proves a card added to a list Marshal does not watch
-// is not imported: the import list is a choice, not every list on the board.
-func TestTrelloDeliveryForAnotherListImportsNothing(t *testing.T) {
-	const secret = "a-trello-webhook-secret"
-	st := newTrelloStack(t)
-	project, _ := st.addProject("small-repo")
-	save := trelloRequest(secret, project.ID)
-	save.NewCardListID = "list-new"
-	st.do(http.MethodPut, "/v1/integrations/trello", save).want(t, http.StatusOK)
-
-	body := []byte(`{"action":{"type":"createCard","id":"a2","data":{"board":{"id":"board-1"},` +
-		`"card":{"id":"trello-card-2","name":"Not for Marshal","idList":"list-someday"}}},"model":{"id":"board-1"}}`)
 	st.deliverTrello(t, trelloSign(secret, body), body).want(t, http.StatusOK)
 
 	board := decode[protocol.BoardSnapshot](t,
 		st.do(http.MethodGet, "/v1/projects/"+project.ID+"/board", nil).want(t, http.StatusOK))
 	if len(board.Cards) != 0 {
-		t.Errorf("a card on an unwatched list was imported: %+v", board.Cards)
+		t.Errorf("a delivery made cards by itself: %+v", board.Cards)
 	}
+}
+
+// TestATrelloDeliveryForAnotherBoardIsAnsweredToo proves a believed delivery Marshal has no use for is
+// an answer and not a refusal, because a refusal makes Trello send it again and again.
+func TestATrelloDeliveryForAnotherBoardIsAnsweredToo(t *testing.T) {
+	const secret = "a-trello-webhook-secret"
+	st := newTrelloStack(t)
+	project, _ := st.addProject("small-repo")
+	st.do(http.MethodPut, "/v1/integrations/trello", trelloRequest(secret, project.ID)).want(t, http.StatusOK)
+
+	body := []byte(`{"action":{"type":"updateCard","id":"a2","data":{"board":{"id":"board-other"},` +
+		`"card":{"id":"trello-card-2","name":"Not for Marshal"}}},"model":{"id":"board-other"}}`)
+	st.deliverTrello(t, trelloSign(secret, body), body).want(t, http.StatusOK)
 }
 
 // integrationRowFor reads one connection's row out of GET /v1/integrations.
