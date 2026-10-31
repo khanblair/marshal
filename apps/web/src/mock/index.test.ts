@@ -76,6 +76,8 @@ const API = [
   "connectTelegram",
   "pairingOnDaemon",
   "connectNtfy",
+  "connectResend",
+  "sendResendTest",
   "connectTrello",
   "connectionOnDaemon",
   "readGitHubConnect",
@@ -171,6 +173,7 @@ const API = [
   "openAttachment",
   "scanAgents",
   "testAgent",
+  "saveAgentSettings",
   "browseFolders",
   "detectTelegramChat",
   "saveCardNote",
@@ -327,6 +330,7 @@ describe("index.ts boot", () => {
       // Looking for agent programs again and testing one (S4): the prototype had a fixed list.
       "scanAgents",
       "testAgent",
+      "saveAgentSettings",
       // Browsing the daemon's folders to pick a repository: the prototype had a typed path only.
       "browseFolders",
       // Finding a Telegram bot's chat from its token: a daemon call the prototype never drew.
@@ -378,6 +382,8 @@ describe("index.ts boot", () => {
       "connectTelegram",
       "pairingOnDaemon",
       "connectNtfy",
+      "connectResend",
+      "sendResendTest",
       "connectDiscord",
       "disconnectIntegration",
       "testIntegration",

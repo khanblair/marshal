@@ -5,6 +5,7 @@ import type {
   SaveGmailRequest,
   SaveGoogleCalendarRequest,
   SaveNtfyRequest,
+  SaveResendRequest,
   SaveTelegramRequest,
   SaveTrelloRequest,
 } from "@marshal/protocol";
@@ -130,4 +131,17 @@ export function connectNtfy(body: SaveNtfyRequest): Promise<boolean> {
     if (saved) M.toast("ntfy connected");
     return saved;
   });
+}
+
+/** Stores the Resend connection and says so. Nothing is sent when it is saved. */
+export function connectResend(body: SaveResendRequest): Promise<boolean> {
+  return M.connectResend(body).then((saved) => {
+    if (saved) M.toast("Email connected");
+    return saved;
+  });
+}
+
+/** Sends the test email to the owner's address. The answer is what the send found, never nothing. */
+export function sendResendTest(): Promise<ProviderTest> {
+  return M.sendResendTest();
 }

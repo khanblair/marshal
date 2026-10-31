@@ -6,6 +6,7 @@ export type SectionKey =
   | "project"
   | "roles"
   | "providers"
+  | "agents"
   | "limits"
   | "schedules"
   | "integrations"
@@ -27,6 +28,7 @@ export const SECTIONS: readonly SectionSpec[] = [
   { key: "project", label: "Project settings", icon: "folder-cog" },
   { key: "roles", label: "Roles", icon: "users" },
   { key: "providers", label: "Provider keys", icon: "key-round" },
+  { key: "agents", label: "Agents", icon: "terminal-square" },
   { key: "limits", label: "Cost and awake limits", icon: "gauge" },
   { key: "schedules", label: "Schedules", icon: "clock" },
   { key: "integrations", label: "Integrations", icon: "plug" },

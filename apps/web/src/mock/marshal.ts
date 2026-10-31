@@ -230,6 +230,7 @@ function appActions(ctx: Ctx) {
     browseFolders,
     scanAgents: agentWrites.scanAgents,
     testAgent: agentWrites.testAgent,
+    saveAgentSettings: agentWrites.saveAgentSettings,
     saveProviderKey: providerWrites.saveProviderKey,
     testProviderKey: providerWrites.testProviderKey,
     // The connections (S29a for GitHub) are the daemon's once their section is switched: the
@@ -247,6 +248,8 @@ function appActions(ctx: Ctx) {
     connectTelegram: integrationWrites.connectTelegram,
     detectTelegramChat: integrationWrites.detectTelegramChat,
     connectNtfy: integrationWrites.connectNtfy,
+    connectResend: integrationWrites.connectResend,
+    sendResendTest: integrationWrites.sendResendTest,
     connectDiscord: integrationWrites.connectDiscord,
     // The paired devices (S2b): the list is the daemon's once its section is switched, and the
     // pairing code and a revoke are its own calls - the prototype's hardcoded code is gone.

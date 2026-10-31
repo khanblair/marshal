@@ -1,5 +1,6 @@
 import { Match, Switch } from "solid-js";
 import { M } from "~/mock";
+import { AgentsSection } from "./AgentsSection";
 import { AlertsSection } from "./AlertsSection";
 import type { EditState } from "./edit-state";
 import { GeneralSection } from "./GeneralSection";
@@ -52,6 +53,9 @@ export function SectionContent(props: { drafts: SettingsDrafts }) {
       </Match>
       <Match when={is("providers")}>
         <ProvidersSection edit={props.drafts.providerEdit} />
+      </Match>
+      <Match when={is("agents")}>
+        <AgentsSection />
       </Match>
       <Match when={is("limits")}>
         <LimitsSection draft={props.drafts.limits} />

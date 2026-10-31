@@ -2,7 +2,9 @@ import type {
   ActivityItem,
   AddCardCheckRequest,
   AddChecklistItemRequest,
+  Agent,
   AgentCatalog,
+  AgentSettingsRequest,
   AlertSettings,
   ApplyTrelloRequest,
   ApplyTrelloResult,
@@ -98,6 +100,7 @@ import type {
   SaveNoteRequest,
   SaveNtfyRequest,
   SaveProviderRequest,
+  SaveResendRequest,
   SaveScheduleRequest,
   SaveTelegramRequest,
   SaveTrelloRequest,
@@ -524,6 +527,7 @@ export interface ApiClient {
   /** Looks at one agent program again, by its kind or tool id, and says what it found. It sends no prompt. */
   testAgent(id: string, options?: CallOptions): Promise<TestResult>;
   refreshAgents(options?: CallOptions): Promise<AgentCatalog>;
+  saveAgentSettings(id: string, body: AgentSettingsRequest, options?: CallOptions): Promise<Agent>;
   /** A project's chats. `archived` asks for the archived ones instead of the live ones. */
   listChats(
     projectId: string,
@@ -665,9 +669,12 @@ export interface ApiClient {
       | SaveGmailRequest
       | SaveTelegramRequest
       | SaveDiscordRequest
-      | SaveNtfyRequest,
+      | SaveNtfyRequest
+      | SaveResendRequest,
     options?: CallOptions,
   ): Promise<IntegrationList>;
+  /** Sends one test email from the Resend connection to the owner's profile address. The only live send. */
+  sendResendTest(options?: CallOptions): Promise<TestResult>;
   /** Forgets a connection's settings and its secret. Removing one that was never set up is not an error. */
   removeIntegration(id: string, options?: CallOptions): Promise<IntegrationList>;
   /**

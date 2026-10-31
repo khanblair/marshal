@@ -1,3 +1,4 @@
+import type { Agent, AgentSettingsRequest } from "@marshal/protocol";
 import { ApiError } from "~/data/api-error";
 import { type ProviderTest, toProviderTest } from "~/data/mappers/providers";
 import type { Ctx } from "~/mock/context";
@@ -42,6 +43,30 @@ export async function testAgent(ctx: Ctx, id: string): Promise<ProviderTest | nu
   }
   try {
     return toProviderTest(await api.testAgent(id));
+  } catch (error) {
+    toast(ctx, sentenceOf(error));
+    return null;
+  }
+}
+
+/**
+ * Saves an agent's program and on or off choice. The daemon checks the program first and answers the
+ * reason when it refuses it. Answers the agent as it is now, or null when nothing was saved.
+ */
+export async function saveAgentSettings(
+  ctx: Ctx,
+  id: string,
+  body: AgentSettingsRequest,
+): Promise<Agent | null> {
+  const api = ctx.env.data?.api;
+  if (!api) {
+    toast(ctx, NOT_CONNECTED);
+    return null;
+  }
+  try {
+    const saved = await api.saveAgentSettings(id, body);
+    ctx.S.agents = ctx.S.agents.map((agent) => (agent.kind === saved.kind ? saved : agent));
+    return saved;
   } catch (error) {
     toast(ctx, sentenceOf(error));
     return null;

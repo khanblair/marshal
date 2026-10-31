@@ -9,6 +9,7 @@ import type {
   SaveGmailRequest,
   SaveGoogleCalendarRequest,
   SaveNtfyRequest,
+  SaveResendRequest,
   SaveTelegramRequest,
   SaveTrelloRequest,
 } from "@marshal/protocol";
@@ -24,6 +25,7 @@ import {
   GITHUB_ID,
   GMAIL_ID,
   NTFY_ID,
+  RESEND_ID,
   TELEGRAM_ID,
   TRELLO_ID,
 } from "./integrations";
@@ -284,4 +286,37 @@ export async function connectNtfy(c: Ctx, body: SaveNtfyRequest): Promise<boolea
   const api = c.env.data?.api;
   if (!api) return false;
   return write(c, `integration:${NTFY_ID}`, () => api.saveIntegration(NTFY_ID, body));
+}
+
+/**
+ * Stores the Resend connection: the sender address and, when given, the API key. The daemon checks
+ * nothing that sends mail here, and answers the whole list.
+ */
+export async function connectResend(c: Ctx, body: SaveResendRequest): Promise<boolean> {
+  const api = c.env.data?.api;
+  if (!api) return false;
+  return write(c, `integration:${RESEND_ID}`, () => api.saveIntegration(RESEND_ID, body));
+}
+
+/**
+ * Sends one test email to the owner's profile address and answers what happened. It is the only
+ * action that sends mail from the Resend connection, so it runs only when the person asks for it.
+ */
+export async function sendResendTest(c: Ctx): Promise<ProviderTest> {
+  const failed = (message: string): ProviderTest => ({
+    ok: false,
+    checks: [{ name: "Send test email", state: "failed", message }],
+  });
+  const api = c.env.data?.api;
+  if (!api) return failed("Marshal is not connected to its daemon, so no email was sent.");
+  try {
+    return toProviderTest(await api.sendResendTest());
+  } catch (error) {
+    // The answer may not have come back although the mail went out, so the person is told to look.
+    return failed(
+      error instanceof ApiError
+        ? error.message
+        : "Marshal did not get an answer. Check your inbox before sending again.",
+    );
+  }
 }

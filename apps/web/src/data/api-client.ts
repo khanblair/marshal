@@ -262,6 +262,8 @@ function routeMethods({
     folders: (path, o) =>
       request("GET", `/v1/folders${path ? `?${new URLSearchParams({ path })}` : ""}`, o),
     testAgent: (aid, o) => request("POST", `/v1/agents/${id(aid)}/test`, slow(o)),
+    saveAgentSettings: (aid, body, o) =>
+      request("PUT", `/v1/agents/${id(aid)}/settings`, { ...o, body }),
     listChats: (pid, archived, o) =>
       request("GET", `/v1/projects/${id(pid)}/chats${archived ? "?archived=true" : ""}`, o),
     createChat: (pid, body, o) => request("POST", `/v1/projects/${id(pid)}/chats`, { ...o, body }),
@@ -314,6 +316,7 @@ function routeMethods({
     // The connections Marshal can be set up with (section S29a). Saving is slow because the daemon
     // runs the connection's own test right after it stores the settings.
     listIntegrations: (o) => request("GET", "/v1/integrations", o),
+    sendResendTest: (o) => request("POST", "/v1/integrations/resend/send-test", slow(o)),
     saveIntegration: (iid, body, o) =>
       request("PUT", `/v1/integrations/${id(iid)}`, { ...slow(o), body }),
     removeIntegration: (iid, o) => request("DELETE", `/v1/integrations/${id(iid)}`, o),
