@@ -1,0 +1,19 @@
+{
+  "applied": [
+    "chg-comment-1"
+  ],
+  "skipped": [
+    {
+      "changeId": "chg-move-1",
+      "reason": "The Trello card was deleted."
+    }
+  ],
+  "pending": {
+    "linked": true,
+    "boardName": "Mobile app",
+    "changes": [],
+    "cards": [],
+    "fetchedAt": null,
+    "serverTime": "2026-09-27T09:30:00.000Z"
+  }
+}

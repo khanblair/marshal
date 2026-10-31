@@ -1,0 +1,38 @@
+{
+  "linked": true,
+  "boardName": "Mobile app",
+  "changes": [
+    {
+      "id": "chg-move-1",
+      "cardId": "01M3C107JB041061050R3GG28A",
+      "cardTitle": "Fix the report export",
+      "kind": "moveDone",
+      "summary": "Move to Done",
+      "detail": "",
+      "byKind": "person",
+      "conflict": true,
+      "conflictNote": "Trello moved this card to Review."
+    },
+    {
+      "id": "chg-comment-1",
+      "cardId": "01M3C107JB041061050R3GG28A",
+      "cardTitle": "Fix the report export",
+      "kind": "addComment",
+      "summary": "Add a comment",
+      "detail": "The export now streams rows, so large reports no longer time out.",
+      "byKind": "agent",
+      "conflict": false,
+      "conflictNote": ""
+    }
+  ],
+  "cards": [
+    {
+      "cardId": "01M3C107JB041061050R3GG28A",
+      "url": "https://trello.com/c/Ab12CdEf",
+      "listName": "In review",
+      "fromTrello": true
+    }
+  ],
+  "fetchedAt": "2026-09-27T09:26:00.000Z",
+  "serverTime": "2026-09-27T09:30:00.000Z"
+}
