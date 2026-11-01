@@ -213,20 +213,20 @@ func (s *Service) AddItem(ctx context.Context, cardID, listID string, req protoc
 	return s.changed(ctx, cardID)
 }
 
-// itemOf finds one line of a checklist, as not found when it is not in it.
-func (s *Service) itemOf(ctx context.Context, listID, itemID string) (db.ChecklistItem, error) {
+// checkItem checks that a line is in a checklist, and answers not found when it is not.
+func (s *Service) checkItem(ctx context.Context, listID, itemID string) error {
 	var row db.ChecklistItem
 	err := s.store.Read(ctx, func(q *db.Queries) (err error) {
 		row, err = q.GetChecklistItem(ctx, itemID)
 		return err
 	})
 	if store.IsNotFound(err) || (err == nil && row.ChecklistID != listID) {
-		return db.ChecklistItem{}, protocol.NotFound("checklist item").With("id", itemID)
+		return protocol.NotFound("checklist item").With("id", itemID)
 	}
 	if err != nil {
-		return db.ChecklistItem{}, fmt.Errorf("read checklist item %s: %w", itemID, err)
+		return fmt.Errorf("read checklist item %s: %w", itemID, err)
 	}
-	return row, nil
+	return nil
 }
 
 // RemoveItem removes a line.
@@ -234,7 +234,7 @@ func (s *Service) RemoveItem(ctx context.Context, cardID, listID, itemID string)
 	if _, err := s.checklistOf(ctx, cardID, listID); err != nil {
 		return protocol.ChecklistList{}, err
 	}
-	if _, err := s.itemOf(ctx, listID, itemID); err != nil {
+	if err := s.checkItem(ctx, listID, itemID); err != nil {
 		return protocol.ChecklistList{}, err
 	}
 	if err := s.store.Write(ctx, func(q *db.Queries) error { return q.DeleteChecklistItem(ctx, itemID) }); err != nil {
@@ -252,7 +252,7 @@ func (s *Service) Tick(ctx context.Context, cardID, listID, itemID string, done 
 	if by.Agent && flag(list.PeopleOnly) {
 		return protocol.ChecklistList{}, protocol.Forbidden(messagePeopleOnly)
 	}
-	if _, err := s.itemOf(ctx, listID, itemID); err != nil {
+	if err := s.checkItem(ctx, listID, itemID); err != nil {
 		return protocol.ChecklistList{}, err
 	}
 	return s.writeTick(ctx, cardID, itemID, done, by, "")
@@ -268,7 +268,7 @@ func (s *Service) TickWithCheck(ctx context.Context, cardID, listID, itemID, che
 	if flag(list.PeopleOnly) {
 		return protocol.ChecklistList{}, protocol.Forbidden(messagePeopleOnly)
 	}
-	if _, err := s.itemOf(ctx, listID, itemID); err != nil {
+	if err := s.checkItem(ctx, listID, itemID); err != nil {
 		return protocol.ChecklistList{}, err
 	}
 	var check db.CardCheck

@@ -38,7 +38,7 @@ const (
 // DefaultTargets are the addresses the default check connects to. A connection to any one of them
 // means the internet is reachable. Nothing is sent: the connection is closed as soon as it opens.
 // MARSHAL_NETWORK_PROBE replaces them, or turns the check off with "off".
-var DefaultTargets = []string{"1.1.1.1:443", "8.8.8.8:443"}
+func DefaultTargets() []string { return []string{"1.1.1.1:443", "8.8.8.8:443"} }
 
 // Status is whether the computer can reach the internet, and since when that has been true.
 type Status struct {
@@ -83,7 +83,7 @@ func New(ctx context.Context, opts Options) *Monitor {
 		online: true, changed: make(chan struct{}),
 	}
 	if m.probe == nil {
-		m.probe = TargetProbe(DefaultTargets)
+		m.probe = TargetProbe(DefaultTargets())
 	}
 	if m.sleep == nil {
 		m.sleep = sleepFor
@@ -337,7 +337,7 @@ func ParseTargets(value string) []string {
 	value = strings.TrimSpace(value)
 	switch strings.ToLower(value) {
 	case "":
-		return DefaultTargets
+		return DefaultTargets()
 	case "off":
 		return nil
 	}
@@ -350,16 +350,20 @@ func ParseTargets(value string) []string {
 	return out
 }
 
-// connectionWords are pieces of an error's text that mean a connection could not be made or was
+// connectionWords returns pieces of an error's text that mean a connection could not be made or was
 // lost, for errors that a library flattened to plain text so errors.As cannot see what they were.
-var connectionWords = []string{
-	"no such host", "connection refused", "network is unreachable", "no route to host",
-	"i/o timeout", "tls handshake timeout", "connection reset by peer",
+func connectionWords() []string {
+	return []string{
+		"no such host", "connection refused", "network is unreachable", "no route to host",
+		"i/o timeout", "tls handshake timeout", "connection reset by peer",
+	}
 }
 
-// agentWords are more of the ways an agent describes the network failing, in the words it prints. They
+// agentWords returns more of the ways an agent describes the network failing, in the words it prints. They
 // are only read from an agent's own message, never from an error a library returned.
-var agentWords = []string{"unable to connect", "fetch failed", "econnreset", "enotfound", "econnrefused", "etimedout"}
+func agentWords() []string {
+	return []string{"unable to connect", "fetch failed", "econnreset", "enotfound", "econnrefused", "etimedout"}
+}
 
 // IsNetworkError reports whether err looks like the network failing: no route, no answer, a dropped
 // connection. It is a first filter, not a verdict: an error aimed at one server, such as a local model
@@ -394,13 +398,13 @@ func IsNetworkError(err error) bool {
 			return true
 		}
 	}
-	return hasWords(err.Error(), connectionWords)
+	return hasWords(err.Error(), connectionWords())
 }
 
 // HasNetworkWords reports whether text says the network failed. It is for a message that came back as
 // words, such as the last line an agent printed as it failed.
 func HasNetworkWords(text string) bool {
-	return hasWords(text, connectionWords) || hasWords(text, agentWords)
+	return hasWords(text, connectionWords()) || hasWords(text, agentWords())
 }
 
 func hasWords(text string, words []string) bool {

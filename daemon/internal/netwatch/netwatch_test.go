@@ -340,7 +340,7 @@ func TestMarkOnlineBringsAnOfflineMonitorBackWhateverItsOwnCheckSays(t *testing.
 }
 
 func TestParseTargetsReadsTheOverrideAndOff(t *testing.T) {
-	if got := ParseTargets(""); len(got) != len(DefaultTargets) {
+	if got := ParseTargets(""); len(got) != len(DefaultTargets()) {
 		t.Errorf("empty = %v, want the defaults", got)
 	}
 	if got := ParseTargets(" OFF "); got != nil {

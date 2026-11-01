@@ -8,7 +8,6 @@ package integrations
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,7 +15,6 @@ import (
 
 	"github.com/khanblair/marshal/daemon/internal/integrations/trello"
 	"github.com/khanblair/marshal/daemon/internal/protocol"
-	"github.com/khanblair/marshal/daemon/internal/security"
 	"github.com/khanblair/marshal/daemon/internal/store/db"
 )
 
@@ -206,40 +204,7 @@ func (s *Service) testTrello(ctx context.Context, info Info) (protocol.TestResul
 // readTrello reads the stored config and secrets. A missing row or a missing keychain entry is not an
 // error: both mean "nothing is stored", which is what a connection nobody has set up looks like.
 func (s *Service) readTrello(ctx context.Context) (trelloConfig, trelloSecrets, error) {
-	var config trelloConfig
-	var found bool
-	err := s.store.Read(ctx, func(q *db.Queries) error {
-		row, err := q.GetIntegration(ctx, TrelloID)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil
-			}
-			return fmt.Errorf("read the Trello connection's settings: %w", err)
-		}
-		found = true
-		if row.ConfigJSON == "" {
-			return nil
-		}
-		return json.Unmarshal([]byte(row.ConfigJSON), &config)
-	})
-	if err != nil {
-		return trelloConfig{}, trelloSecrets{}, err
-	}
-	if !found {
-		return trelloConfig{}, trelloSecrets{}, nil
-	}
-	raw, err := s.keys.Get(TrelloID)
-	if err != nil && !errors.Is(err, security.ErrNoKey) {
-		return trelloConfig{}, trelloSecrets{}, fmt.Errorf(
-			"read the Trello connection's secrets from the keychain: %w", err)
-	}
-	var secrets trelloSecrets
-	if raw != "" {
-		if err := json.Unmarshal([]byte(raw), &secrets); err != nil {
-			return trelloConfig{}, trelloSecrets{}, fmt.Errorf("read the Trello connection's secrets: %w", err)
-		}
-	}
-	return config, secrets, nil
+	return readConnection[trelloConfig, trelloSecrets](ctx, s, TrelloID, "Trello")
 }
 
 // forgetTrello drops nothing cached, because nothing about this connection is cached (TrelloClient).

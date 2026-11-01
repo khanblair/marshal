@@ -103,68 +103,85 @@ func validLink(raw string) bool {
 // stage checks every attachment of a new comment before anything is written, and adds the links the
 // text holds. A file is data: it is kept under the card's folder and never run.
 func (s *Service) stage(card db.Card, req protocol.PostCommentRequest) ([]stagedAttachment, error) {
-	seen := map[string]bool{}
-	var out []stagedAttachment
-	var total int
-	addLink := func(raw string) error {
-		if seen[raw] {
-			return nil
-		}
-		if !validLink(raw) {
-			return protocol.InvalidArgument("That link is not a web address.")
-		}
-		seen[raw] = true
-		id, err := s.newID()
-		if err != nil {
-			return err
-		}
-		out = append(out, stagedAttachment{
-			id: id, name: strings.TrimPrefix(strings.TrimPrefix(raw, "https://"), "http://"),
-			mime: linkMime, path: raw,
-		})
-		return nil
-	}
+	g := &stager{svc: s, card: card, seen: map[string]bool{}}
 	for _, a := range req.Attachments {
+		var err error
 		if a.Kind == protocol.AttachmentKindLink {
-			if err := addLink(strings.TrimSpace(a.URL)); err != nil {
-				return nil, err
-			}
-			continue
+			err = g.addLink(strings.TrimSpace(a.URL))
+		} else {
+			err = g.addFile(a)
 		}
-		if s.files == "" {
-			return nil, protocol.Unavailable(messageNoFiles)
-		}
-		data, err := base64.StdEncoding.DecodeString(a.Data)
-		if err != nil || len(data) == 0 || len(data) > protocol.MaxAttachmentBytes {
-			return nil, protocol.InvalidArgument("A file must hold something and be at most 5 MB.")
-		}
-		if total += len(data); total > protocol.MaxCommentFileBytes {
-			return nil, protocol.InvalidArgument("The files of one comment can hold at most 6 MB together.")
-		}
-		id, err := s.newID()
 		if err != nil {
 			return nil, err
 		}
-		name := unsafeName.ReplaceAllString(filepath.Base(a.Name), "_")
-		if name == "" || name == "." || name == ".." {
-			name = "file"
-		}
-		mime := a.MimeType
-		if mime == "" || mime == linkMime {
-			mime = "application/octet-stream"
-		}
-		rel := filepath.Join(card.ProjectID, card.ID, id+"-"+name)
-		out = append(out, stagedAttachment{id: id, name: name, mime: mime, path: rel, size: int64(len(data)), data: data})
 	}
 	for _, raw := range linkInText.FindAllString(req.Body, -1) {
-		if err := addLink(strings.TrimRight(raw, ".,;:!?")); err != nil {
+		if err := g.addLink(strings.TrimRight(raw, ".,;:!?")); err != nil {
 			return nil, err
 		}
 	}
-	if len(out) > maxAttachments {
+	if len(g.out) > maxAttachments {
 		return nil, protocol.InvalidArgument("A comment can have at most 10 attachments.")
 	}
-	return out, nil
+	return g.out, nil
+}
+
+// stager collects one comment's attachments as each is checked.
+type stager struct {
+	svc   *Service
+	card  db.Card
+	seen  map[string]bool
+	out   []stagedAttachment
+	total int
+}
+
+// addLink adds a web link once, however many times it is given.
+func (g *stager) addLink(raw string) error {
+	if g.seen[raw] {
+		return nil
+	}
+	if !validLink(raw) {
+		return protocol.InvalidArgument("That link is not a web address.")
+	}
+	g.seen[raw] = true
+	id, err := g.svc.newID()
+	if err != nil {
+		return err
+	}
+	g.out = append(g.out, stagedAttachment{
+		id: id, name: strings.TrimPrefix(strings.TrimPrefix(raw, "https://"), "http://"),
+		mime: linkMime, path: raw,
+	})
+	return nil
+}
+
+// addFile checks one file's size and name and adds it.
+func (g *stager) addFile(a protocol.NewAttachment) error {
+	if g.svc.files == "" {
+		return protocol.Unavailable(messageNoFiles)
+	}
+	data, err := base64.StdEncoding.DecodeString(a.Data)
+	if err != nil || len(data) == 0 || len(data) > protocol.MaxAttachmentBytes {
+		return protocol.InvalidArgument("A file must hold something and be at most 5 MB.")
+	}
+	if g.total += len(data); g.total > protocol.MaxCommentFileBytes {
+		return protocol.InvalidArgument("The files of one comment can hold at most 6 MB together.")
+	}
+	id, err := g.svc.newID()
+	if err != nil {
+		return err
+	}
+	name := unsafeName.ReplaceAllString(filepath.Base(a.Name), "_")
+	if name == "" || name == "." || name == ".." {
+		name = "file"
+	}
+	mime := a.MimeType
+	if mime == "" || mime == linkMime {
+		mime = "application/octet-stream"
+	}
+	rel := filepath.Join(g.card.ProjectID, g.card.ID, id+"-"+name)
+	g.out = append(g.out, stagedAttachment{id: id, name: name, mime: mime, path: rel, size: int64(len(data)), data: data})
+	return nil
 }
 
 // Post adds a comment. A comment that mentions @agent or asks a question is put in front of the

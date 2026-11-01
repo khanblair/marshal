@@ -7,7 +7,6 @@ package integrations
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,9 +16,11 @@ import (
 
 	"github.com/khanblair/marshal/daemon/internal/protocol"
 	"github.com/khanblair/marshal/daemon/internal/resend"
-	"github.com/khanblair/marshal/daemon/internal/security"
 	"github.com/khanblair/marshal/daemon/internal/store/db"
 )
+
+// checkSender names the check of the sender address in a Resend test.
+const checkSender = "Sender"
 
 // ResendID is the Resend connection's own id, and the id its row, its keychain entry, and its test
 // result are filed under.
@@ -99,39 +100,7 @@ func (s *Service) SaveResend(ctx context.Context, req protocol.SaveResendRequest
 
 // readResend reads the Resend settings and key. Nothing saved answers empty values, not an error.
 func (s *Service) readResend(ctx context.Context) (resendConfig, resendSecrets, error) {
-	var config resendConfig
-	var found bool
-	err := s.store.Read(ctx, func(q *db.Queries) error {
-		row, err := q.GetIntegration(ctx, ResendID)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil
-			}
-			return fmt.Errorf("read the Resend connection's settings: %w", err)
-		}
-		found = true
-		if row.ConfigJSON == "" {
-			return nil
-		}
-		return json.Unmarshal([]byte(row.ConfigJSON), &config)
-	})
-	if err != nil {
-		return resendConfig{}, resendSecrets{}, err
-	}
-	if !found {
-		return resendConfig{}, resendSecrets{}, nil
-	}
-	raw, err := s.keys.Get(ResendID)
-	if err != nil && !errors.Is(err, security.ErrNoKey) {
-		return resendConfig{}, resendSecrets{}, fmt.Errorf("read the Resend key from the keychain: %w", err)
-	}
-	var secrets resendSecrets
-	if raw != "" {
-		if err := json.Unmarshal([]byte(raw), &secrets); err != nil {
-			return resendConfig{}, resendSecrets{}, fmt.Errorf("read the Resend connection's secrets: %w", err)
-		}
-	}
-	return config, secrets, nil
+	return readConnection[resendConfig, resendSecrets](ctx, s, ResendID, "Resend")
 }
 
 // resendClient builds the client from what is saved. It answers ErrNotConnected when no key or no
@@ -256,7 +225,7 @@ func (s *Service) testResend(ctx context.Context, info Info) (protocol.TestResul
 		return protocol.NewTestResult(info.ID, []protocol.TestCheck{
 			{Name: "API key", State: protocol.CheckStatePassed,
 				Message: "Resend accepts the key. It is a sending-only key, so it can send mail but cannot list your domains."},
-			{Name: "Sender", State: protocol.CheckStateWarning,
+			{Name: checkSender, State: protocol.CheckStateWarning,
 				Message: "Marshal cannot check the sender's domain with a sending-only key.",
 				Fix:     "Press Send test email to check that mail leaves from " + config.From + "."},
 		}, s.now()), nil
@@ -283,17 +252,17 @@ func senderCheck(from string, domains []resend.Domain) protocol.TestCheck {
 	}
 	domain := address[strings.LastIndex(address, "@")+1:]
 	if domain == resendTestDomain {
-		return protocol.TestCheck{Name: "Sender", State: protocol.CheckStateWarning,
+		return protocol.TestCheck{Name: checkSender, State: protocol.CheckStateWarning,
 			Message: "Mail is sent from Resend's test address, which only reaches the account owner until a domain is verified.",
 			Fix:     "Verify your own domain at resend.com/domains, then send from an address on it."}
 	}
 	for _, d := range domains {
 		if strings.EqualFold(d.Name, domain) && d.Status == "verified" {
-			return protocol.TestCheck{Name: "Sender", State: protocol.CheckStatePassed,
+			return protocol.TestCheck{Name: checkSender, State: protocol.CheckStatePassed,
 				Message: "Mail can be sent from " + domain + "."}
 		}
 	}
-	return protocol.TestCheck{Name: "Sender", State: protocol.CheckStateFailed,
+	return protocol.TestCheck{Name: checkSender, State: protocol.CheckStateFailed,
 		Message: domain + " is not a verified domain on this Resend account, so Resend refuses mail from it.",
 		Fix:     "Verify " + domain + " at resend.com/domains, then try again."}
 }

@@ -27,34 +27,60 @@ func (s *Service) SetState(ctx context.Context, id string, state protocol.CardSt
 	if !state.Valid() {
 		return protocol.Card{}, protocol.InvalidArgument("That is not a card state Marshal knows.").With("state", string(state))
 	}
-	if state == protocol.CardStateReview {
-		card, err := s.Card(ctx, id)
-		if err != nil {
-			return protocol.Card{}, err
-		}
-		if card.State != protocol.CardStateReview {
-			if refusal := s.checkQuality(ctx, id); refusal != nil {
-				s.log.Info("kept a card out of review", "project_id", card.ProjectID, "card_id", id,
-					"from", card.State, "reason", refusal.Details["reason"])
-				return protocol.Card{}, refusal
-			}
-		}
+	if err := s.gateMove(ctx, id, state); err != nil {
+		return protocol.Card{}, err
 	}
-	if state == protocol.CardStateReady {
-		card, err := s.Card(ctx, id)
-		if err != nil {
-			return protocol.Card{}, err
-		}
-		if card.State != protocol.CardStateReady {
-			if refusal := s.checkChecklists(ctx, id); refusal != nil {
-				s.log.Info("kept a card out of ready", "project_id", card.ProjectID, "card_id", id,
-					"from", card.State, "reason", refusal.Details["reason"])
-				return protocol.Card{}, refusal
-			}
-		}
+	before, after, err := s.storeState(ctx, id, state)
+	if err != nil {
+		return protocol.Card{}, err
 	}
-	var before, after db.Card
-	err := s.store.Write(ctx, func(q *db.Queries) error {
+	card, err := s.cardWithLabels(ctx, after)
+	if err != nil {
+		return protocol.Card{}, err
+	}
+	if before.State == after.State {
+		return card, nil
+	}
+	from := protocol.CardState(before.State)
+	s.log.Info("moved a card", "project_id", card.ProjectID, "card_id", id, "from", from, "to", state)
+	s.publish(protocol.ProjectTopic(card.ProjectID), protocol.EventTypeCardMoved,
+		protocol.CardMovedEventData{Card: card, From: from}, true)
+	s.announceBadges(ctx, card.ProjectID, from, state)
+	s.notifyMoved(ctx, id, state)
+	return card, nil
+}
+
+// gateMove runs the rule a card must pass to move into state, if there is one: In review passes the
+// quality gate and Ready passes the checklists. It answers the refusal, or nil.
+func (s *Service) gateMove(ctx context.Context, id string, state protocol.CardState) error {
+	var check func(context.Context, string) *protocol.Error
+	var where string
+	switch state {
+	case protocol.CardStateReview:
+		check, where = s.checkQuality, "review"
+	case protocol.CardStateReady:
+		check, where = s.checkChecklists, "ready"
+	default:
+		return nil
+	}
+	card, err := s.Card(ctx, id)
+	if err != nil {
+		return err
+	}
+	if card.State == state {
+		return nil
+	}
+	if refusal := check(ctx, id); refusal != nil {
+		s.log.Info("kept a card out of "+where, "project_id", card.ProjectID, "card_id", id,
+			"from", card.State, "reason", refusal.Details["reason"])
+		return refusal
+	}
+	return nil
+}
+
+// storeState writes a card's new state and answers the card as it was and as it is now.
+func (s *Service) storeState(ctx context.Context, id string, state protocol.CardState) (before, after db.Card, err error) {
+	err = s.store.Write(ctx, func(q *db.Queries) error {
 		row, err := q.GetCard(ctx, id)
 		if err != nil {
 			return notFound(fmt.Errorf("read card %s: %w", id, err), notFoundCard(id))
@@ -82,23 +108,7 @@ func (s *Service) SetState(ctx context.Context, id string, state protocol.CardSt
 		}
 		return nil
 	})
-	if err != nil {
-		return protocol.Card{}, err
-	}
-	card, err := s.cardWithLabels(ctx, after)
-	if err != nil {
-		return protocol.Card{}, err
-	}
-	if before.State == after.State {
-		return card, nil
-	}
-	from := protocol.CardState(before.State)
-	s.log.Info("moved a card", "project_id", card.ProjectID, "card_id", id, "from", from, "to", state)
-	s.publish(protocol.ProjectTopic(card.ProjectID), protocol.EventTypeCardMoved,
-		protocol.CardMovedEventData{Card: card, From: from}, true)
-	s.announceBadges(ctx, card.ProjectID, from, state)
-	s.notifyMoved(ctx, id, state)
-	return card, nil
+	return before, after, err
 }
 
 // announceBadges publishes the project again when a card moved into or out of "needs", because

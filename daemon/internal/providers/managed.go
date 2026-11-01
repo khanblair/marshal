@@ -190,73 +190,110 @@ func backoffFor(base time.Duration, try int) time.Duration {
 func withRetry[T any](ctx context.Context, pol retryPolicy, sleep sleepFunc, attempt func() (T, error)) (T, error) {
 	var zero T
 	var last error
-	kind := failureOther
-	tries := max(pol.attempts, 1)
-	otherLimit := min(tries, defaultOtherAttempts)
-	started := time.Now()
-	observe := observerFrom(ctx)
-	defer observe(RetryInfo{})
-	var networkTries, otherFailures int
-retries:
-	for try := 0; try < tries; try++ {
+	run := newRetryRun(ctx, pol, sleep)
+	defer run.observe(RetryInfo{})
+	for try := 0; try < run.tries; try++ {
 		if try > 0 {
-			spent := pol.budget > 0 && time.Since(started) >= pol.budget
-			switch kind {
-			case failureOffline:
-				networkTries++
-				if spent {
-					break retries
-				}
-				observe(RetryInfo{Attempt: try + 1, Max: tries, Network: true, Offline: true})
-				// A minute at most, then the request tries anyway: a monitor whose own check cannot get
-				// out (a proxy-only network) would otherwise keep a working connection waiting.
-				pol.net.WaitOnline(ctx, offlinePatience(pol.budget, started))
-				if err := ctx.Err(); err != nil {
-					return zero, err
-				}
-			default:
-				network := kind == failureNetwork
-				wait := backoffFor(pol.backoff, max(try-networkTries, 1))
-				if network {
-					networkTries++
-					wait = backoffFor(networkBackoff, networkTries)
-				}
-				if pol.budget > 0 && (spent || time.Since(started)+wait > pol.budget) {
-					break retries
-				}
-				attemptsMax := otherLimit
-				if network {
-					attemptsMax = tries
-				}
-				observe(RetryInfo{Attempt: try + 1, Max: attemptsMax, Wait: wait, Network: network})
-				if err := sleep(ctx, wait); err != nil {
-					return zero, err
-				}
+			stop, err := run.pause(ctx, try)
+			if err != nil {
+				return zero, err
+			}
+			if stop {
+				break
 			}
 		}
 		value, err := attempt()
 		if err == nil {
-			if kind != failureOther && last != nil && pol.net != nil {
+			if run.kind != failureOther && last != nil && pol.net != nil {
 				pol.net.MarkOnline()
 			}
 			return value, nil
 		}
 		last = err
-		if !retryable(err) || ctx.Err() != nil {
+		if run.settle(ctx, err) {
 			break
-		}
-		kind = pol.classify(ctx, err)
-		if kind == failureOther {
-			otherFailures++
-			if otherFailures >= otherLimit {
-				break
-			}
 		}
 	}
 	if err := ctx.Err(); err != nil {
 		return zero, err
 	}
 	return zero, last
+}
+
+// retryRun is the state of one withRetry call: what kind of failure the last try was, and how many
+// tries each kind has used.
+type retryRun struct {
+	pol          retryPolicy
+	sleep        sleepFunc
+	observe      func(RetryInfo)
+	started      time.Time
+	tries        int
+	otherLimit   int
+	kind         failureKind
+	networkTries int
+	otherFails   int
+}
+
+func newRetryRun(ctx context.Context, pol retryPolicy, sleep sleepFunc) *retryRun {
+	tries := max(pol.attempts, 1)
+	return &retryRun{
+		pol: pol, sleep: sleep, observe: observerFrom(ctx), started: time.Now(),
+		tries: tries, otherLimit: min(tries, defaultOtherAttempts),
+	}
+}
+
+// settle records a failed try and says whether to stop trying: the failure will not change, the
+// context is done, or the short tries for a provider's own failures are used up.
+func (r *retryRun) settle(ctx context.Context, err error) bool {
+	if !retryable(err) || ctx.Err() != nil {
+		return true
+	}
+	r.kind = r.pol.classify(ctx, err)
+	if r.kind != failureOther {
+		return false
+	}
+	r.otherFails++
+	return r.otherFails >= r.otherLimit
+}
+
+// pause waits before try number try, which is at least 1. It answers stop when the budget is spent, so
+// there should be no more tries, and the context's error when it ended during the wait.
+func (r *retryRun) pause(ctx context.Context, try int) (stop bool, err error) {
+	spent := r.pol.budget > 0 && time.Since(r.started) >= r.pol.budget
+	if r.kind == failureOffline {
+		return r.waitOffline(ctx, try, spent)
+	}
+	return r.waitBackoff(ctx, try, spent)
+}
+
+// waitOffline waits for the internet to return, without using up tries.
+func (r *retryRun) waitOffline(ctx context.Context, try int, spent bool) (bool, error) {
+	r.networkTries++
+	if spent {
+		return true, nil
+	}
+	r.observe(RetryInfo{Attempt: try + 1, Max: r.tries, Network: true, Offline: true})
+	// A minute at most, then the request tries anyway: a monitor whose own check cannot get
+	// out (a proxy-only network) would otherwise keep a working connection waiting.
+	r.pol.net.WaitOnline(ctx, offlinePatience(r.pol.budget, r.started))
+	return false, ctx.Err()
+}
+
+// waitBackoff waits a growing time before the next try of a failure the internet did not cause.
+func (r *retryRun) waitBackoff(ctx context.Context, try int, spent bool) (bool, error) {
+	network := r.kind == failureNetwork
+	wait := backoffFor(r.pol.backoff, max(try-r.networkTries, 1))
+	limit := r.otherLimit
+	if network {
+		r.networkTries++
+		wait = backoffFor(networkBackoff, r.networkTries)
+		limit = r.tries
+	}
+	if r.pol.budget > 0 && (spent || time.Since(r.started)+wait > r.pol.budget) {
+		return true, nil
+	}
+	r.observe(RetryInfo{Attempt: try + 1, Max: limit, Wait: wait, Network: network})
+	return false, r.sleep(ctx, wait)
 }
 
 // failureKind is why a try failed, as far as the retry can tell.
