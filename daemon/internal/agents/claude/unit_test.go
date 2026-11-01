@@ -2,8 +2,11 @@ package claude
 
 import (
 	"encoding/json"
+	"io"
+	"log/slog"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/khanblair/marshal/daemon/internal/agents"
 )
@@ -202,5 +205,47 @@ func TestUsageOfSaysNothingWhenTheLineHasNoUsage(t *testing.T) {
 	// A field of the wrong type must not matter: the turn ends either way.
 	if got := usageOf([]byte(`{"type":"result","total_cost_usd":"lots"}`)); got != nil {
 		t.Errorf("usage = %+v, want nil for an unreadable field", got)
+	}
+}
+
+// apiRetrySession is a session that holds only what handleAPIRetry uses, and its sink's events.
+func apiRetrySession(t *testing.T) (*session, <-chan agents.AgentEvent) {
+	t.Helper()
+	sink := agents.NewEventSink(8)
+	s := &session{log: slog.New(slog.NewTextHandler(io.Discard, nil)), sink: sink}
+	return s, sink.C()
+}
+
+func TestAnApiRetryLineWithNoStatusIsTheNetworkFailing(t *testing.T) {
+	s, events := apiRetrySession(t)
+	s.handleSystem("api_retry", []byte(`{"type":"system","subtype":"api_retry","attempt":3,"max_retries":10,`+
+		`"retry_delay_ms":4000,"error_status":null,"error":"unknown"}`), func() {})
+	got, ok := (<-events).(agents.Retrying)
+	if !ok {
+		t.Fatalf("no Retrying event was emitted")
+	}
+	want := agents.Retrying{Attempt: 3, Max: 10, Wait: 4 * time.Second, Network: true}
+	if got != want {
+		t.Errorf("event = %+v, want %+v", got, want)
+	}
+}
+
+func TestAnApiRetryLineWithAStatusIsTheModelBeingBusyNotTheNetwork(t *testing.T) {
+	s, events := apiRetrySession(t)
+	s.handleSystem("api_retry", []byte(`{"type":"system","subtype":"api_retry","attempt":1,"max_retries":10,`+
+		`"retry_delay_ms":500,"error_status":529,"error":"server_error"}`), func() {})
+	got := (<-events).(agents.Retrying)
+	if got.Network {
+		t.Errorf("event = %+v, want a retry that is not the network", got)
+	}
+}
+
+func TestAnApiRetryLineThatCannotBeReadIsSkipped(t *testing.T) {
+	s, events := apiRetrySession(t)
+	s.handleSystem("api_retry", []byte(`not json`), func() {})
+	select {
+	case ev := <-events:
+		t.Errorf("an event %+v was emitted for a line that could not be read", ev)
+	default:
 	}
 }

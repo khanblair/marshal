@@ -18,10 +18,21 @@ type lineHead struct {
 
 // systemLine is a "system" message. The one this adapter waits for is subtype "init", which
 // carries the session id and arrives once near the start of the process's output, ahead of any
-// input this adapter has to send. Other subtypes, such as "api_retry" and "plugin_install", are
-// read as far as lineHead and then skipped: Marshal has no event for them yet.
+// input this adapter has to send. "api_retry" is read into a Retrying event. Other subtypes, such as
+// "plugin_install", are read as far as lineHead and then skipped: Marshal has no event for them yet.
 type systemLine struct {
 	SessionID string `json:"session_id"`
+}
+
+// apiRetryLine is a "system" line with the subtype "api_retry": a request to the model failed and
+// Claude Code is waiting to ask again. ErrorStatus is null when no answer came back at all, which is
+// the network failing; a number is an answer the API gave, such as 429 or 529.
+type apiRetryLine struct {
+	Attempt      int    `json:"attempt"`
+	MaxRetries   int    `json:"max_retries"`
+	RetryDelayMs int    `json:"retry_delay_ms"`
+	ErrorStatus  *int   `json:"error_status"`
+	Error        string `json:"error"`
 }
 
 // streamEventLine is a "stream_event" message: a raw Claude API streaming event, present only

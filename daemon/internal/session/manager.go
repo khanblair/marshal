@@ -284,6 +284,9 @@ func (m *Manager) goLive(ls *liveSession) error {
 		m.pumpWG.Add(1)
 	}
 	m.mu.Unlock()
+	// A wait line left by an earlier session that never said it ended is taken off before this one
+	// shows anything. It is done here, in the caller, and not on the pump, so the pump starts at once.
+	m.clearStaleRetry(ls)
 	go m.pump(ls)
 	if ls.term != nil {
 		go m.pumpTerminalInput(ls)

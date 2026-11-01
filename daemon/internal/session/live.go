@@ -75,6 +75,15 @@ type liveSession struct {
 	// signedOut is set by the pump goroutine when the agent says its login is gone, and read by it at
 	// the turn's end and when the session ends, so it needs no lock.
 	signedOut bool
+	// sawNetworkRetry is set when the agent waited to retry because of the network, and cleared when it
+	// does anything else. retryShown says the card's "doing now" line shows a wait. networkFailed says
+	// the turn that is ending was killed by the network, and networkStopped that the process is being
+	// ended for it. All four are read and written only by the pump goroutine, so they need no lock.
+	sawNetworkRetry bool
+	retryShown      bool
+	priorDoing      string
+	networkFailed   bool
+	networkStopped  bool
 	// failureCause is the last line of the most recent failure the agent reported, for the sentence
 	// a card says if the session then ends. It is read and written only by the pump goroutine.
 	failureCause string

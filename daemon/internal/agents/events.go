@@ -1,5 +1,7 @@
 package agents
 
+import "time"
+
 // MaxContentBytes is the most text one event carries from a tool: its output and the text of its
 // diffs together. Events stay small because they cross the event bus, and what does not fit is
 // cut off with the Truncated flag set. The full output belongs in the session logs.
@@ -184,6 +186,22 @@ type TerminalOutput struct {
 	Data []byte
 }
 
+// Retrying says the agent's request to its model failed and the agent is waiting to ask again. It is
+// not history: it is the state of the wait, so a card can say the agent is waiting for the network
+// rather than looking busy. The next event of any other kind says the wait is over.
+type Retrying struct {
+	// Attempt is the number of the retry that is coming, counting the first retry as one.
+	Attempt int
+	// Max is the most retries the agent makes.
+	Max int
+	// Wait is how long the agent waits before it asks again.
+	Wait time.Duration
+	// Network says the request never got an answer at all, so the network is what failed. A request
+	// the model answered with an error, such as being busy, is not this.
+	Network bool
+}
+
+func (Retrying) agentEvent()            {}
 func (TerminalOutput) agentEvent()      {}
 func (MessageChunk) agentEvent()        {}
 func (ThoughtChunk) agentEvent()        {}

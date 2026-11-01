@@ -56,24 +56,37 @@ func (m *Manager) waitPump(ls *liveSession) bool {
 // handleEvent logs and rings every event, publishes the ones that carry content, and reacts to the
 // ones that change state.
 func (m *Manager) handleEvent(ls *liveSession, ev agents.AgentEvent) {
+	if retrying, ok := ev.(agents.Retrying); ok {
+		// A wait is a status, not history, so it is neither logged nor kept: it is put on the card.
+		m.onRetrying(ls, retrying)
+		return
+	}
 	m.logEvent(ls, ev)
 	// The stuck detector watches the same events the person's chat does, in the same order, so a
 	// loop it catches is one the chat shows too (B5.3).
 	m.feedStuckDetector(ls, ev)
 	switch e := ev.(type) {
 	case agents.MessageChunk, agents.ThoughtChunk, agents.PlanUpdate:
+		m.clearRetry(ls)
+		ls.sawNetworkRetry = false
 		m.publishOutput(ls, e)
 	case agents.ToolCall, agents.ToolCallUpdate:
+		m.clearRetry(ls)
+		ls.sawNetworkRetry = false
 		ls.trackDenial(e)
 		m.publishToolCall(ls, e)
 	case agents.TurnEnded:
 		m.recordUsage(ls, e)
 		m.onTurnEnded(ls)
 	case agents.TerminalOutput:
+		m.clearRetry(ls)
+		ls.sawNetworkRetry = false
 		m.publishTerminalOutput(ls, e)
 	case agents.PermissionRequested:
 		// The agent is blocked until a person answers, so this is where an approval is recorded,
-		// held, and announced (B3.4).
+		// held, and announced (B3.4). It got an answer from its model, so a wait is over.
+		m.clearRetry(ls)
+		ls.sawNetworkRetry = false
 		m.onPermissionRequested(ls, e)
 	case agents.Failed:
 		// A failure that kills the process is followed by its Exited, which finishPump reacts to.
@@ -82,6 +95,8 @@ func (m *Manager) handleEvent(ls *liveSession, ev agents.AgentEvent) {
 		// of its turn ends it (see onTurnEnded).
 		ls.signedOut = e.SignedOut && !ls.isChat()
 		ls.failureCause = failureCause(e.Detail)
+		ls.networkFailed = ls.failedByNetwork(e) && !e.SignedOut
+		ls.sawNetworkRetry = false
 	}
 	// agents.Exited needs no case here; finishPump reacts to it once the loop ends, which covers
 	// every way the loop can end.
@@ -158,7 +173,16 @@ func (m *Manager) publishToolCall(ls *liveSession, ev agents.AgentEvent) {
 func (m *Manager) onTurnEnded(ls *liveSession) {
 	// A failure that left the process running was said in the chat; it is not why a later exit happened.
 	ls.failureCause = ""
+	m.clearRetry(ls)
+	ls.sawNetworkRetry = false
 	if ls.wasStopRequested() {
+		return
+	}
+	if ls.networkFailed {
+		// The network killed this turn. The agent has nothing to work with, so it is ended and the card
+		// waits for the person to press Resume agent; see endNetworkFailed.
+		ls.networkFailed = false
+		m.endNetworkFailed(ls)
 		return
 	}
 	if ls.signedOut {
@@ -260,6 +284,8 @@ func (m *Manager) finishPump(ls *liveSession) {
 	// Any request this session was still waiting on is answered as the daemon, so no approval is
 	// left waiting for an agent that no longer exists (B3.4).
 	m.withdrawApprovals(m.ctx, ls)
+	// A wait the agent was showing ends with its session, however the session ended.
+	m.clearRetry(ls)
 	if ls.wasStopRequested() {
 		return
 	}
@@ -275,6 +301,9 @@ func (m *Manager) finishPump(ls *liveSession) {
 	note := "The agent stopped unexpectedly."
 	if ls.signedOut {
 		note = signedOutNote
+	}
+	if ls.networkStopped {
+		note = networkStoppedNote
 	}
 	m.publishState(ls, protocol.SessionStateStopped, note)
 	m.log.Warn("an agent session exited unexpectedly", ls.noun()+"_id", ls.key(), "signed_out", ls.signedOut)
@@ -300,6 +329,9 @@ func (m *Manager) stoppedReason(ls *liveSession) string {
 	label := "this card"
 	if card, err := m.projects.Card(m.ctx, ls.cardID); err == nil && card.Key != "" {
 		label = card.Key
+	}
+	if ls.networkStopped {
+		return networkStoppedReason(label)
 	}
 	if ls.signedOut {
 		return fmt.Sprintf("Claude is signed out on this Mac, so the agent for %s could not do any work. "+

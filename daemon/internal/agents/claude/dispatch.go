@@ -2,14 +2,19 @@ package claude
 
 import (
 	"encoding/json"
+	"time"
 
 	"github.com/khanblair/marshal/daemon/internal/agents"
 )
 
-// handleSystem reads a "system" line. The only subtype this adapter waits for is "init", which
-// carries the session id and unblocks awaitReady; every other subtype ("api_retry",
-// "plugin_install", and so on) is read this far and dropped, since Marshal has no event for them.
+// handleSystem reads a "system" line. "init" carries the session id and unblocks awaitReady, and
+// "api_retry" becomes a Retrying event. Every other subtype ("plugin_install", and so on) is read
+// this far and dropped, since Marshal has no event for them.
 func (s *session) handleSystem(subtype string, line []byte, closeReady func()) {
+	if subtype == "api_retry" {
+		s.handleAPIRetry(line)
+		return
+	}
 	if subtype != "init" {
 		s.log.Debug("skipped a system line from claude code", "subtype", subtype)
 		return
@@ -96,4 +101,18 @@ func (s *session) handleResult(line []byte) {
 		return
 	}
 	s.endTurn(m, usageOf(line))
+}
+
+// handleAPIRetry turns Claude Code's "api_retry" line into a Retrying event, so a card can say its agent
+// is waiting for the network. A line that cannot be read is skipped: the retry is only a status.
+func (s *session) handleAPIRetry(line []byte) {
+	var m apiRetryLine
+	if err := json.Unmarshal(line, &m); err != nil {
+		s.log.Debug("could not read claude code's api_retry line", "err", err)
+		return
+	}
+	s.emit(agents.Retrying{
+		Attempt: m.Attempt, Max: m.MaxRetries, Wait: time.Duration(m.RetryDelayMs) * time.Millisecond,
+		Network: m.ErrorStatus == nil,
+	})
 }

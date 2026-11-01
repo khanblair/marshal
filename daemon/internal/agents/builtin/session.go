@@ -193,7 +193,19 @@ func (s *session) takeTurn() (context.Context, error) {
 	s.interrupted = false
 	ctx, cancel := context.WithCancel(s.life)
 	s.turnCancel = cancel
+	// A model call that waits to be tried again says so, so the card shows the wait.
+	ctx = providers.WithRetryObserver(ctx, s.onRetry)
 	return ctx, nil
+}
+
+// onRetry turns a model call's wait into a Retrying event. The call counts its first try as one, and
+// an agent's retries start after it, so the numbers are one less. The end of a wait is not an event:
+// the next thing the agent does says it is over.
+func (s *session) onRetry(info providers.RetryInfo) {
+	if info.Attempt < 2 {
+		return
+	}
+	s.emit(agents.Retrying{Attempt: info.Attempt - 1, Max: max(info.Max-1, 0), Wait: info.Wait, Network: info.Network})
 }
 
 // endTurn clears the turn state and reports how the turn ended. The state is cleared before the
