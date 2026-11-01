@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { M } from "~/mock";
-import { pickValue, valueOf } from "~/testing/dropdown";
+import { pickValue, selectedValue } from "~/testing/dropdown";
 import { lastToast, showSettings } from "./test-support";
 
 vi.hoisted(() => {
@@ -26,7 +26,9 @@ describe("Profile section", () => {
     expect(screen.getByRole("heading", { name: "Profile", level: 2 })).toBeInTheDocument();
     expect(nameField()).toHaveValue(M.S.profile.name);
     expect(screen.getByLabelText("Email", { exact: false })).toHaveAttribute("type", "email");
-    expect(valueOf(screen.getByLabelText("Time zone", { exact: false }))).toBe(M.S.profile.tz);
+    expect(selectedValue(screen.getByLabelText("Time zone", { exact: false }))).toBe(
+      M.S.profile.tz,
+    );
     expect(saveButton()).toBeDisabled();
     expect(saveButton()).toHaveAttribute("type", "submit");
     expect(screen.getByLabelText("Your avatar")).toHaveTextContent("AO");

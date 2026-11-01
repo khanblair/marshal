@@ -7,7 +7,7 @@ import { toSleepChoice } from "~/data/mappers/sleep-settings";
 import { M } from "~/mock";
 import { applySleepChoice } from "~/sync/sleep-settings";
 import { SettingsView } from "./SettingsView";
-import { pickValue, valueOf } from "~/testing/dropdown";
+import { pickValue, selectedValue } from "~/testing/dropdown";
 
 vi.hoisted(() => {
   window.location.hash = "#nosim";
@@ -47,11 +47,11 @@ afterEach(cleanup);
 describe("the sleep settings on the daemon", () => {
   it("draws the daemon's own record, not the mock's", () => {
     showDaemon({ idleMinutes: 30, restore: "manual", channel: "discord" });
-    expect(valueOf(screen.getByLabelText(RESTORE, { exact: false }))).toBe(
+    expect(selectedValue(screen.getByLabelText(RESTORE, { exact: false }))).toBe(
       "Show a resume button on each card",
     );
-    expect(valueOf(screen.getByLabelText(IDLE, { exact: false }))).toBe("30");
-    expect(valueOf(screen.getByLabelText(CHANNEL))).toBe("In app and Discord");
+    expect(selectedValue(screen.getByLabelText(IDLE, { exact: false }))).toBe("30");
+    expect(selectedValue(screen.getByLabelText(CHANNEL))).toBe("In app and Discord");
   });
 
   it("saves one change as the whole record, and keeps the daemon's answer", async () => {
@@ -68,7 +68,7 @@ describe("the sleep settings on the daemon", () => {
       },
     ]);
     expect(M.S.sleep.idle).toBe(60);
-    expect(valueOf(screen.getByLabelText(IDLE, { exact: false }))).toBe("60");
+    expect(selectedValue(screen.getByLabelText(IDLE, { exact: false }))).toBe("60");
   });
 
   it("sends the two labels as the wire values behind them", async () => {
@@ -96,6 +96,6 @@ describe("the sleep settings on the daemon", () => {
     );
     // The daemon still holds 15 minutes, so the store and the panel read 15 again.
     expect(M.S.sleep.idle).toBe(15);
-    expect(valueOf(screen.getByLabelText(IDLE, { exact: false }))).toBe("15");
+    expect(selectedValue(screen.getByLabelText(IDLE, { exact: false }))).toBe("15");
   });
 });

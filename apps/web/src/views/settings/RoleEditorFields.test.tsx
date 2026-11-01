@@ -2,7 +2,7 @@ import { cleanup, screen } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { M } from "~/mock";
 import { GOLDEN_CATALOG } from "~/testing/agents";
-import { optionsOf, pickValue, valueOf } from "~/testing/dropdown";
+import { optionsOf, pickValue, selectedValue } from "~/testing/dropdown";
 import { useCatalog } from "~/testing/test-store";
 import { showSettings } from "./test-support";
 
@@ -43,14 +43,14 @@ describe("the role editor's pickers with the prototype's agents", () => {
       "deepseek-chat",
       "qwen2.5-coder:32b",
     ]);
-    expect(valueOf(combo("Backup model"))).toBe("gpt-5");
+    expect(selectedValue(combo("Backup model"))).toBe("gpt-5");
     expect(options("Thinking mode")).toEqual(M.THINK);
   });
 
   it("gives the role the new agent's first model, and its models", () => {
     showSettings("roles");
     pickValue(combo("Agent"), "Gemini CLI");
-    expect(valueOf(combo("Model"))).toBe("gemini-2.5-pro");
+    expect(selectedValue(combo("Model"))).toBe("gemini-2.5-pro");
     expect(options("Model")).toEqual(["gemini-2.5-pro", "gemini-2.5-flash"]);
   });
 
@@ -90,7 +90,7 @@ describe("the role editor's pickers with the daemon's agents", () => {
 
   it("keeps the role's own model when the catalog lacks it, then lists the catalog's models", () => {
     showSettings("roles");
-    expect(valueOf(combo("Model"))).toBe("claude-sonnet-4-5");
+    expect(selectedValue(combo("Model"))).toBe("claude-sonnet-4-5");
     expect(options("Model")).toEqual(["claude-sonnet-4-5", "sonnet", "haiku"]);
     pickValue(combo("Model"), "haiku");
     expect(thinking()).toBeNull();
@@ -120,7 +120,7 @@ describe("the role editor's pickers with the daemon's agents", () => {
     if (!role) throw new Error("no role");
     role.agent = "Aider";
     role.model = "aider-model";
-    expect(valueOf(combo("Agent"))).toBe("Aider");
+    expect(selectedValue(combo("Agent"))).toBe("Aider");
     expect(options("Model")).toEqual(["aider-model"]);
     expect(thinking()).toBeNull();
   });

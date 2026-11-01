@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { M } from "~/mock";
-import { optionsOf, pickValue, valueOf } from "~/testing/dropdown";
+import { optionsOf, pickValue, selectedValue } from "~/testing/dropdown";
 import { lastToast, showSettings } from "./test-support";
 
 vi.hoisted(() => {
@@ -28,7 +28,7 @@ describe("Project settings section", () => {
   it("shows the project of the open route, with the design's defaults", () => {
     showSettings("project");
     expect(screen.getByRole("heading", { name: "Project settings", level: 2 })).toBeInTheDocument();
-    expect(valueOf(projectPicker())).toBe("api");
+    expect(selectedValue(projectPicker())).toBe("api");
     expect(nameField()).toHaveValue("api-gateway");
     expect(screen.getByLabelText("Default branch")).toHaveValue("main");
     expect(screen.getByLabelText("Default branch")).toHaveClass("font-mono");
@@ -67,7 +67,7 @@ describe("Project settings section", () => {
 
   it("falls back to the first project when the open route has none", () => {
     showSettings("project", { route: { page: "settings", pid: null, view: "board" } });
-    expect(valueOf(projectPicker())).toBe("api");
+    expect(selectedValue(projectPicker())).toBe("api");
   });
 
   // The daemon call itself is tested with a daemon in memory (`sync/project-actions.test.ts`). Here the

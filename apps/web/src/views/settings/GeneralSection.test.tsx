@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { M } from "~/mock";
-import { pickValue, valueOf } from "~/testing/dropdown";
+import { pickValue, selectedValue } from "~/testing/dropdown";
 import { lastToast, showSettings } from "./test-support";
 
 vi.hoisted(() => {
@@ -67,11 +67,13 @@ describe("General section: sessions", () => {
   it("shows the session options from the store", () => {
     showSettings("general");
     expect(screen.getByRole("heading", { name: "Sessions", level: 2 })).toBeInTheDocument();
-    expect(valueOf(screen.getByLabelText("After a restart", { exact: false }))).toBe(
+    expect(selectedValue(screen.getByLabelText("After a restart", { exact: false }))).toBe(
       "Auto-restore on startup",
     );
-    expect(valueOf(screen.getByLabelText("Sleep idle cards after", { exact: false }))).toBe("15");
-    expect(valueOf(screen.getByLabelText("Sleep warnings go to"))).toBe("In app only");
+    expect(selectedValue(screen.getByLabelText("Sleep idle cards after", { exact: false }))).toBe(
+      "15",
+    );
+    expect(selectedValue(screen.getByLabelText("Sleep warnings go to"))).toBe("In app only");
     expect(
       screen.getByText("You get a notice 2 minutes before a card sleeps."),
     ).toBeInTheDocument();

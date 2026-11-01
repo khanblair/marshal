@@ -3,7 +3,7 @@ import { chooser, ctx, daemon } from "~/testing/daemon-person-store";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { M } from "~/mock";
-import { optionsOf, pickValue, valueOf } from "~/testing/dropdown";
+import { optionsOf, pickValue, selectedValue } from "~/testing/dropdown";
 import { wireProfile } from "~/testing/fake-me";
 import { SettingsView } from "./SettingsView";
 
@@ -48,7 +48,7 @@ describe("the Profile section on the daemon", () => {
     render(() => <SettingsView />);
     expect(nameField()).toHaveValue("Ada Okafor");
     expect(emailField()).toHaveValue("ada@example.com");
-    expect(valueOf(zoneField())).toBe("Europe/London");
+    expect(selectedValue(zoneField())).toBe("Europe/London");
     expect(saveButton()).toBeDisabled();
     expect(screen.getByLabelText("Your avatar")).toHaveTextContent("AO");
     expect(screen.queryByText("Paired devices")).toBeNull();
@@ -112,7 +112,7 @@ describe("the Profile section on the daemon", () => {
       preferences: daemon.me.preferences,
       progress: daemon.me.progress,
     });
-    await waitFor(() => expect(valueOf(zoneField())).toBe("Asia/Tokyo"));
+    await waitFor(() => expect(selectedValue(zoneField())).toBe("Asia/Tokyo"));
     const offered = optionsOf(zoneField()).map((option) => option.dataset.value ?? "");
     expect(offered.length).toBeGreaterThan(100);
     expect(offered).toContain("Africa/Nairobi");
@@ -127,7 +127,7 @@ describe("the Profile section on the daemon", () => {
       preferences: daemon.me.preferences,
       progress: daemon.me.progress,
     });
-    await waitFor(() => expect(valueOf(zoneField())).toBe(""));
+    await waitFor(() => expect(selectedValue(zoneField())).toBe(""));
     expect(zoneField()).toHaveTextContent("Not set");
     expect(saveButton()).toBeDisabled();
     pickValue(zoneField(), "Africa/Lagos");
