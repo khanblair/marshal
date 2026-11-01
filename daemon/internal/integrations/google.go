@@ -54,7 +54,7 @@ var ErrNoGoogleClient = errors.New("no Google OAuth client is saved")
 // ErrNeedsReconnect means Google no longer accepts the stored access: the person revoked it, or the
 // refresh token expired (an app in Google's Testing mode loses it after about a week). Only a new
 // consent fixes it.
-var ErrNeedsReconnect = errors.New("Google no longer accepts Marshal's access")
+var ErrNeedsReconnect = errors.New("Google no longer accepts Marshal's access") //nolint:staticcheck // the person reads this text, so it starts with a capital
 
 type gcalConfig struct {
 	ClientID string `json:"clientId"`

@@ -240,13 +240,10 @@ func withoutReview() stackOption          { return func(c *stackConfig) { c.noRe
 func withoutSleepSettings() stackOption   { return func(c *stackConfig) { c.noSleepSettings = true } }
 func withoutAlerts() stackOption          { return func(c *stackConfig) { c.noAlerts = true } }
 func withoutCardPanel() stackOption       { return func(c *stackConfig) { c.noCardPanel = true } }
-func withPanelAgent(a cardpanel.Agent) stackOption {
-	return func(c *stackConfig) { c.panelAgent = a }
-}
-func withoutQuality() stackOption      { return func(c *stackConfig) { c.noQuality = true } }
-func withoutIntegrations() stackOption { return func(c *stackConfig) { c.noIntegrations = true } }
-func withoutCI() stackOption           { return func(c *stackConfig) { c.noCI = true } }
-func withoutLocalCI() stackOption      { return func(c *stackConfig) { c.noLocalCI = true } }
+func withoutQuality() stackOption         { return func(c *stackConfig) { c.noQuality = true } }
+func withoutIntegrations() stackOption    { return func(c *stackConfig) { c.noIntegrations = true } }
+func withoutCI() stackOption              { return func(c *stackConfig) { c.noCI = true } }
+func withoutLocalCI() stackOption         { return func(c *stackConfig) { c.noLocalCI = true } }
 func withLocalCIRunner(r localci.Runner) stackOption {
 	return func(c *stackConfig) { c.localCIRunner = r }
 }

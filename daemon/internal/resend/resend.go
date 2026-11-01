@@ -53,10 +53,10 @@ func New(cfg Config) (*Client, error) {
 	key := strings.TrimSpace(cfg.Key)
 	from := strings.TrimSpace(cfg.From)
 	if key == "" {
-		return nil, errors.New("Resend needs an API key")
+		return nil, errors.New("Resend needs an API key") //nolint:staticcheck // the person reads this text, so it starts with a capital
 	}
 	if from == "" {
-		return nil, errors.New("Resend needs a sender address")
+		return nil, errors.New("Resend needs a sender address") //nolint:staticcheck // the person reads this text, so it starts with a capital
 	}
 	base := strings.TrimRight(strings.TrimSpace(cfg.BaseURL), "/")
 	if base == "" {

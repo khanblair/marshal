@@ -63,10 +63,7 @@ func (g *Git) Checkpoint(ctx context.Context, worktree, ref, message string) (Ch
 	}
 	created := !clean
 	if created {
-		args := []string{
-			"-c", "user.name=Marshal", "-c", "user.email=marshal@localhost",
-			"-c", "commit.gpgsign=false", "commit", "-m", message, "--no-verify",
-		}
+		args := append(identityArgs(), "commit", "-m", message, "--no-verify")
 		if _, err := g.Run(ctx, worktree, args...); err != nil {
 			return CheckpointState{}, fmt.Errorf("make a checkpoint commit: %w", err)
 		}
@@ -101,10 +98,7 @@ func (g *Git) CommitAll(ctx context.Context, worktree, message string) (bool, er
 	if clean {
 		return false, nil
 	}
-	args := []string{
-		"-c", "user.name=Marshal", "-c", "user.email=marshal@localhost",
-		"-c", "commit.gpgsign=false", "commit", "-m", message, "--no-verify",
-	}
+	args := append(identityArgs(), "commit", "-m", message, "--no-verify")
 	if _, err := g.Run(ctx, worktree, args...); err != nil {
 		return false, fmt.Errorf("commit a card's work: %w", err)
 	}

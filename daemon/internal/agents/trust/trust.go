@@ -126,7 +126,7 @@ func editJSON(path string, change func(map[string]json.RawMessage) (bool, error)
 	if err != nil {
 		return err
 	}
-	defer os.Remove(tmp.Name())
+	defer func() { _ = os.Remove(tmp.Name()) }()
 	if _, err := tmp.Write(out); err != nil {
 		_ = tmp.Close()
 		return err

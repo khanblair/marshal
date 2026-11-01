@@ -21,6 +21,8 @@ import (
 // changes nothing.
 
 const (
+	// checkInstalled names the check that the agent program is there to run.
+	checkInstalled = "Installed"
 	// testTimeout bounds one test. Gemini CLI takes over half a minute to answer its greeting on a
 	// machine with MCP servers, so the greeting is given a minute.
 	testTimeout     = 75 * time.Second
@@ -80,15 +82,15 @@ func (c *Catalog) Test(ctx context.Context, id string) (protocol.TestResult, err
 		return protocol.TestResult{}, fmt.Errorf("%w: %s", ErrUnknownAgent, id)
 	}
 	if t.kind == protocol.AgentKindBuiltin {
-		return protocol.NewTestResult(id, c.builtinChecks(ctx), c.now()), nil
+		return protocol.NewTestResult(id, c.builtinChecks(), c.now()), nil
 	}
 	ctx, cancel := context.WithTimeout(ctx, testTimeout)
 	defer cancel()
 	return protocol.NewTestResult(id, c.checksFor(ctx, t), c.now()), nil
 }
 
-func (c *Catalog) builtinChecks(ctx context.Context) []protocol.TestCheck {
-	checks := []protocol.TestCheck{{Name: "Installed", State: protocol.CheckStatePassed,
+func (c *Catalog) builtinChecks() []protocol.TestCheck {
+	checks := []protocol.TestCheck{{Name: checkInstalled, State: protocol.CheckStatePassed,
 		Message: "The built-in agent is part of Marshal, so there is nothing to install."}}
 	if c.builtinModels != nil && len(c.builtinModels()) > 0 {
 		return append(checks, protocol.TestCheck{Name: "Models", State: protocol.CheckStatePassed,
@@ -101,15 +103,15 @@ func (c *Catalog) builtinChecks(ctx context.Context) []protocol.TestCheck {
 func (c *Catalog) checksFor(ctx context.Context, t target) []protocol.TestCheck {
 	prober, ok := c.probe.(ProgramProber)
 	if !ok {
-		return []protocol.TestCheck{{Name: "Installed", State: protocol.CheckStateFailed,
+		return []protocol.TestCheck{{Name: checkInstalled, State: protocol.CheckStateFailed,
 			Message: "Marshal cannot look for programs in this mode."}}
 	}
 	found, err := c.probeFor(ctx, prober, t)
 	if errors.Is(err, ErrNotFound) {
-		return []protocol.TestCheck{{Name: "Installed", State: protocol.CheckStateFailed,
+		return []protocol.TestCheck{{Name: checkInstalled, State: protocol.CheckStateFailed,
 			Message: t.name + " is not installed on this computer.", Fix: installFix(t)}}
 	}
-	checks := []protocol.TestCheck{{Name: "Installed", State: protocol.CheckStatePassed,
+	checks := []protocol.TestCheck{{Name: checkInstalled, State: protocol.CheckStatePassed,
 		Message: t.name + " is on this computer."}}
 	if err != nil {
 		return append(checks, protocol.TestCheck{Name: "Version", State: protocol.CheckStateFailed,

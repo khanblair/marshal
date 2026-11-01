@@ -25,7 +25,7 @@ const Scope = calendar.CalendarReadonlyScope
 
 // Endpoint is Google's own OAuth2 endpoint. A test passes another, so the consent flow can be run
 // against a fake server.
-var Endpoint = oauthgoogle.Endpoint
+var Endpoint = oauthgoogle.Endpoint //nolint:gochecknoglobals // a test swaps in a fake server's endpoint
 
 // Config builds the OAuth2 config for a Google connection. redirectURL is the daemon's own callback
 // address. scopes are exactly what is asked for, and nothing more: Calendar asks for its own scope
@@ -256,7 +256,7 @@ func joinURL(item *calendar.Event) string {
 
 // retryDelay is how long the first retry waits; each one waits twice as long as the one before. A
 // test shortens it.
-var retryDelay = 300 * time.Millisecond
+var retryDelay = 300 * time.Millisecond //nolint:gochecknoglobals // a test shortens it
 
 const maxTries = 3
 

@@ -181,10 +181,7 @@ func (g *Git) MergeInto(ctx context.Context, worktree, branch, message string) (
 	if strings.TrimSpace(message) == "" {
 		message = "Marshal: merge " + branch
 	}
-	args := []string{
-		"-c", "user.name=Marshal", "-c", "user.email=marshal@localhost",
-		"-c", "commit.gpgsign=false", "merge", "--no-ff", "--no-edit", "-m", message, "--", branch,
-	}
+	args := append(identityArgs(), "merge", "--no-ff", "--no-edit", "-m", message, "--", branch)
 	out, code, err := g.runOutput(ctx, worktree, args...)
 	if err != nil {
 		return "", fmt.Errorf("merge %s: %w", branch, err)

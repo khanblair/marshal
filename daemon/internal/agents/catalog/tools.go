@@ -53,7 +53,7 @@ func toolByID(id string) (tool, bool) {
 	return tool{}, false
 }
 
-// ProgramProbe finds a program by name and reads its version. It is the part of a probe that the
+// ProgramProber finds a program by name and reads its version. It is the part of a probe that the
 // tools need: they are not agent kinds, so they are found by program name.
 type ProgramProber interface {
 	ProbeProgram(ctx context.Context, program string) (Found, error)
