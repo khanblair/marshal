@@ -350,7 +350,7 @@ func TestTheIntegratorChatDoesNotStartWithoutAWorkspaceOrInTheOwnersFolder(t *te
 			chat := k.integrator(t)
 			tc.setup(k)
 			err := k.chats.Send(context.Background(), chat.ID, "Merge task t-1")
-			wantCode(t, err, protocol.ErrorCodeUnavailable)
+			_ = wantCode(t, err, protocol.ErrorCodeUnavailable)
 			if got := fakeStarts(k.agent); got != 0 {
 				t.Errorf("%d agents were started, want none", got)
 			}
