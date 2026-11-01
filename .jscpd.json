@@ -16,6 +16,8 @@
     "**/*_test.go",
     "**/testdata/**",
     "packages/tokens/src/themes.ts",
+    "apps/mobile/splash/theme.css",
+    "apps/desktop/src-tauri/splash/theme.css",
     "apps/web/src/mock/seed/**",
     "daemon/internal/store/db/**",
     "packages/protocol/src/generated/**",

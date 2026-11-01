@@ -8,12 +8,12 @@
       "ignoreBinaries": ["go"]
     },
     "apps/desktop": {
-      "ignoreBinaries": ["rustc"]
+      "ignoreBinaries": ["rustc", "lipo"]
     },
     "apps/mobile": {
       "entry": ["splash/*.js", "splash/*.test.mjs", "scripts/*.mjs"],
       "project": ["splash/**/*.{js,mjs}", "scripts/**/*.mjs"],
-      "ignoreBinaries": ["rustup", "tauri"]
+      "ignoreBinaries": ["rustup"]
     },
     "apps/web": {
       "entry": ["src/**/*.test.{ts,tsx}", "e2e/**/*.ts"],

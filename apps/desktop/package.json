@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tauri dev",
     "build": "node scripts/bundle-sidecar.mjs && tauri build",
+    "build:universal": "node scripts/bundle-sidecar.mjs --universal && tauri build --target universal-apple-darwin",
     "icons": "tauri icon src-tauri/icons/icon.png -o src-tauri/icons",
     "typecheck": "true"
   },

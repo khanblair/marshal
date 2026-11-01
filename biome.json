@@ -15,6 +15,9 @@
       "!pnpm-lock.yaml",
       "!packages/tokens/dist",
       "!apps/mobile/splash/theme.css",
+      "!apps/desktop/src-tauri/splash/theme.css",
+      "!apps/mobile/src-tauri/gen",
+      "!daemon/internal/integrations/googleclient/files/client.json",
       "!apps/web/test-results",
       "!apps/web/playwright-report",
       "!apps/desktop/src-tauri/target",
@@ -98,7 +101,8 @@
         "tools/**",
         "scripts/**",
         "packages/tokens/scripts/**",
-        "apps/desktop/scripts/**"
+        "apps/desktop/scripts/**",
+        "apps/mobile/scripts/**"
       ],
       "linter": {
         "rules": { "suspicious": { "noConsole": "off" }, "style": { "noMagicNumbers": "off" } }

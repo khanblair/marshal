@@ -14,6 +14,8 @@ describe("the agent catalog golden file from the daemon", () => {
       status: "supported",
       warning: "",
       installHint: "",
+      customPath: "",
+      off: false,
       models: [
         { id: "sonnet", name: "Sonnet (latest)", thinking: true },
         { id: "haiku", name: "Haiku (latest)", thinking: false },
@@ -35,6 +37,8 @@ describe("the agent catalog golden file from the daemon", () => {
       warning:
         "Marshal has not been tested with Gemini CLI 0.36.0. It usually works, but if something looks wrong, try version 0.35.1.",
       installHint: "",
+      customPath: "",
+      off: false,
       models: [{ id: "gemini-2.5-pro", name: "Gemini 2.5 Pro", thinking: true }],
       capabilities: {
         resume: true,
@@ -52,6 +56,8 @@ describe("the agent catalog golden file from the daemon", () => {
       status: "missing",
       warning: "",
       installHint: "Codex is not installed. Install it with: npm install -g @openai/codex",
+      customPath: "",
+      off: false,
       models: [{ id: "gpt-5-codex", name: "GPT-5 Codex", thinking: true }],
       capabilities: {
         resume: false,
@@ -69,6 +75,8 @@ describe("the agent catalog golden file from the daemon", () => {
       status: "supported",
       warning: "",
       installHint: "",
+      customPath: "",
+      off: false,
       models: [
         { id: "claude-sonnet-4-5", name: "Claude Sonnet 4.5", thinking: true },
         { id: "gpt-5-mini", name: "GPT-5 mini", thinking: true },
@@ -87,6 +95,15 @@ describe("the agent catalog golden file from the daemon", () => {
     };
     const sample: AgentCatalog = {
       agents: [claude, gemini, codex, builtin],
+      tools: [
+        {
+          id: "qwen",
+          name: "Qwen Code",
+          version: "0.15.6",
+          interface: "acp",
+          note: "It speaks the Agent Client Protocol. Marshal has no adapter switched on for it yet.",
+        },
+      ],
       serverTime: "2026-09-25T10:20:00.000Z",
     };
     expect(golden("agents")).toEqual(sample);

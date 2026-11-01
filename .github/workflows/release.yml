@@ -9,8 +9,12 @@
 # repository's Releases page with notes generated from the commits since the last release. The
 # phone job below attaches to the same release without turning it back into a draft.
 #
-# The build step is the same command a person runs locally (`pnpm --filter desktop build`,
-# apps/desktop/package.json): this workflow only adds the environment Tauri's own macOS bundler
+# The dmg is a universal build: one app that runs on both Intel and Apple silicon Macs
+# (`pnpm --filter desktop build:universal`, apps/desktop/package.json). The runner is Apple silicon;
+# the Intel half is cross-compiled, and the daemon's two programs are built for both chips and
+# joined by apps/desktop/scripts/bundle-sidecar.mjs --universal.
+#
+# The build step is the same command a person runs locally: this workflow only adds the environment Tauri's own macOS bundler
 # reads to sign and notarize, rather than wrapping the build in a separate signing action. Code
 # signing and notarization turn on automatically once these repository secrets exist (Settings ->
 # Secrets and variables -> Actions), and the build stays ad-hoc signed (installable, but with a
@@ -76,6 +80,8 @@ jobs:
       - run: pnpm setup:tools
 
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: apps/desktop/src-tauri
@@ -128,7 +134,7 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: pnpm --filter desktop build
+        run: pnpm --filter desktop build:universal
 
       - name: Publish the release
         uses: softprops/action-gh-release@v2
@@ -140,7 +146,7 @@ jobs:
           draft: false
           make_latest: true
           files: |
-            apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg
+            apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
 
   android:
     name: Android (apk, aab)
