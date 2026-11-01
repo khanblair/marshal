@@ -1207,6 +1207,9 @@ You can reply to a brief (in the app or in chat) to create cards or ask question
 - **Members:** card members get notices for their cards. See [Section 9.15](#915-members).
 - **Grouping:** related notices are combined, so you are not spammed.
 - **Priorities:** high priority (main branch broken, cost limit reached, approval needed) can break through. Low priority (card sleeping) stays in the app.
+- **When the internet is down:** a notice or an email brief that cannot be sent is saved and sent when the internet is back, oldest first, marked as sent late, and dropped after a day. The top bar shows an Offline badge while the internet is out.
+- **Agents and the network:** a card whose agent is waiting to ask its model again shows "Waiting for network, retry 3 of 10" as a badge, and keeps its column. If the network ends the agent's turn, the agent stops and the card moves to Needs you with a Resume agent button. Marshal never restarts it by itself, because a restart costs tokens.
+- **Email:** briefs can go to the address in your profile through Resend. Resend's own sender only delivers to the account owner until a domain is verified.
 
 ---
 

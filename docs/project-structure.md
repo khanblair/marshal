@@ -98,6 +98,7 @@ daemon/                       Go module (go.mod pins the toolchain). package.jso
       acp/, pty/, claude/, gemini/   Agent Client Protocol; a CLI in a pseudo-terminal (ring of the last 256 KiB); Claude Code over stream-json (its session ids are UUIDs, not Marshal's ULIDs); Gemini CLI over ACP
       codex/                  Detected and reported only. It cannot start until it has an adapter
       builtin/, catalog/, trust/   Marshal's own agent over a provider API; which agents are installed and tested (cached five minutes); marks a folder trusted in a CLI's settings
+    agentprefs/               What the person set for each agent in Settings: a chosen program path and an off switch, one settings row each. The catalog reads it (architecture.md 19.7)
     harness/, security/, secrets/   The permission decision for each agent request; the blocklist, permission profile, and deploy rule; the secret scan of committed text
     providers/                Model provider APIs, rate limits, usage, pricing. Thinking modes are mapped per provider here and nowhere else
     mcpserver/, mcpattach/    The internal MCP server for one card's agent; gives a session that server and its starting context
@@ -110,6 +111,7 @@ daemon/                       Go module (go.mod pins the toolchain). package.jso
     # Connections and notices
     integrations/             Saved connections: github/, trello/, googleclient/ (Marshal's own OAuth client), googlecal/, gmailread/, googlefiles/ (Drive, Docs, Sheets, Slides)
     connectiontest/           The shared connection-test machinery: time limit, cooldown, saved result
+    netwatch/, outbox/, resend/   Whether the internet is reachable, checked only after a failure; notices and briefs saved while it was down and sent when it is back; the Resend email client (architecture.md 19.5, 19.6)
     notify/, chatbot/, chatcmd/   Which notices reach a person and where; the Telegram and Discord bots; chat replies turned into approvals
     audit/, auditlog/         The append-only audit log, and reading it back
     tailnet/                  Joins the daemon to the person's Tailscale tailnet from inside the process

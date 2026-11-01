@@ -107,6 +107,7 @@ The dev server also hands the browser the dev token, so there is nothing to past
 | `MARSHAL_PORT` | 47801 | Use another port |
 | `MARSHAL_AGENT` | `stub` | Set to `real` to use installed CLI agents |
 | `MARSHAL_LOG_LEVEL` | `debug` | `debug`, `info`, `warn`, or `error` |
+| `MARSHAL_NETWORK_PROBE` | `1.1.1.1:443,8.8.8.8:443` | Where the daemon connects to check the internet after a call failed (architecture.md 19.5). A comma-separated list of `host:port`, or `off` to turn the check off |
 | `MARSHAL_FIXTURE` | none | Load a fixture on start (or pass `--fixture`). The only one is `prototype`. Dev mode only; a normal install ignores it. Safe on every start. `pnpm dev` does not pass it. |
 
 `MARSHAL_FIXTURE=prototype` loads the three prototype projects (`daemon/internal/fixture/fixture.go`) as the projects `api`, `web`, and `mobile`, built from `daemon/testdata/repos`, which the daemon finds from the checkout it was built from, so run a daemon built from a checkout (`pnpm dev` does). It also writes the prototype's 29 cards (11 in `api`, 9 in `web`, 9 in `mobile`) with their numbers, states, labels, dates, pull requests, CI states, and needs-you reasons, and a session row for each of the 20 cards that has started.
