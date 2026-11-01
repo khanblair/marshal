@@ -2,8 +2,12 @@
 # result, so a signed .dmg never has to be built on the owner's own Mac.
 #
 # Triggers: pushing a tag that looks like a version ("v0.1.0"), or running this workflow by hand
-# from the Actions tab with a "tag" input (useful to test the pipeline without cutting a real
-# release; it still makes a draft release, which nobody sees until it is published).
+# from the Actions tab with a "tag" input.
+#
+# A release is published, not left as a draft, the moment its build succeeds: the publish step runs
+# only after every earlier step passed, so a failed build never makes a release. It shows on the
+# repository's Releases page with notes generated from the commits since the last release. The
+# phone job below attaches to the same release without turning it back into a draft.
 #
 # The build step is the same command a person runs locally (`pnpm --filter desktop build`,
 # apps/desktop/package.json): this workflow only adds the environment Tauri's own macOS bundler
@@ -19,7 +23,7 @@
 #   APPLE_TEAM_ID                 The Apple Developer team ID
 #
 # The Android job (apps/mobile) builds the phone app the same way, on a Linux runner, and attaches a
-# signed .apk (direct install) and .aab (Google Play) to the same draft release. The phone app does
+# signed .apk (direct install) and .aab (Google Play) to the same release. The phone app does
 # not embed the web app or the daemon - it opens the page the daemon serves - so this job needs
 # neither. It signs when these repository secrets exist, and leaves the build unsigned when they do
 # not (an unsigned .apk cannot be installed, so the job says so instead of publishing one):
@@ -35,7 +39,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Version tag for this build (e.g. v0.1.0). Makes a draft release."
+        description: "Version tag for this build (e.g. v0.1.0). Publishes a release when the build succeeds."
         required: true
 
 permissions:
@@ -126,13 +130,15 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: pnpm --filter desktop build
 
-      - name: Publish the draft release
+      - name: Publish the release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.name }}
           name: "Marshal ${{ steps.tag.outputs.name }}"
-          body: "Built by this workflow from ${{ github.sha }}. See the commit log for what changed."
-          draft: true
+          body: "Built by this workflow from ${{ github.sha }}."
+          generate_release_notes: true
+          draft: false
+          make_latest: true
           files: |
             apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg
 
@@ -214,13 +220,13 @@ jobs:
       - name: Build the apk and aab
         run: pnpm --filter mobile exec tauri android build --apk --aab
 
-      - name: Publish to the draft release
+      - name: Attach to the release
         if: steps.signing.outputs.signed == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.name }}
           name: "Marshal ${{ steps.tag.outputs.name }}"
-          draft: true
+          draft: false
           files: |
             apps/mobile/src-tauri/gen/android/app/build/outputs/apk/universal/release/*.apk
             apps/mobile/src-tauri/gen/android/app/build/outputs/bundle/universalRelease/*.aab
