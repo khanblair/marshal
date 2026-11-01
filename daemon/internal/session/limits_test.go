@@ -118,8 +118,10 @@ func TestARolesRoundCeilingStopsTheCardOnTheTurnPastIt(t *testing.T) {
 	if rows := countAction(t, e, audit.ActionLimitReached); rows != 1 {
 		t.Errorf("the audit log has %d limit rows, want one", rows)
 	}
+	// The history is written after the state changes, so the note is waited for.
+	waitFor(t, "the system note", func() bool { return len(systemNotes(t, e, card.ID)) == 1 })
 	notes := systemNotes(t, e, card.ID)
-	if len(notes) != 1 || !strings.Contains(notes[0].Summary, "past the role's limit") {
+	if !strings.Contains(notes[0].Summary, "past the role's limit") {
 		t.Errorf("the card's own notes = %+v, want the reason the harness stopped it", summaries(notes))
 	}
 }

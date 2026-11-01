@@ -381,6 +381,19 @@ func (w *wire) read(ctx context.Context) error {
 	return nil
 }
 
+// ready reads until the daemon's first Resync has come. The daemon subscribes for the Hello before it
+// sends that frame, so an event made after ready returns is not missed.
+func (w *wire) ready() {
+	w.t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), streamTimeout)
+	defer cancel()
+	for len(w.resyncs) == 0 {
+		if err := w.read(ctx); err != nil {
+			w.t.Fatalf("waiting for the first resync: %v", err)
+		}
+	}
+}
+
 // until reads events, in the order they came, until one matches, and returns every event it
 // read on the way, the matching one last. Events read earlier and not yet used come first.
 func (w *wire) until(match func(protocol.Event) bool) []protocol.Event {

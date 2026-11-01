@@ -33,6 +33,7 @@ func TestAFullLifeThroughHTTP(t *testing.T) {
 	before := digestTree(t, repo)
 
 	stream := st.dial(protocol.HomeTopic, protocol.ProjectTopic(project.ID))
+	stream.ready()
 	card := st.addCard(project.ID, "Fix the token bug")
 	created := stream.until(ofType(protocol.EventTypeCardCreated))
 	if got := dataOf[protocol.CardEventData](t, created[len(created)-1]).Card; got.ID != card.ID {
