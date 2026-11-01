@@ -235,7 +235,7 @@ Add `--dev` to manage the dev daemon's own, separate service, so it can run besi
 |---|---|---|
 | Light steps (generated files, format, lint, type check, code smells, token contrast) | First, one after another, on your OS | First, in the `lint` job on Linux only, so a small mistake stops the run before the slow jobs |
 | Generated files | Runs `pnpm gen` a second time and fails if it changes anything (works on an uncommitted tree) | Runs `pnpm gen`, then fails if the generated files differ from what Git holds |
-| Tests, coverage floors, build, budgets | After the light steps, on your OS. The budgets watch the idle daemon for 10 seconds. | In the `check` job on macOS, Linux, and Windows, once `lint` passes. The budgets watch for 60 seconds. |
+| Tests, coverage floors, build, budgets | After the light steps, on your OS. The budgets watch the idle daemon for 10 seconds. | In the `check` job on macOS only (Linux and Windows are off while Marshal is macOS first; add them to the matrix in `ci.yml` to turn them back on), once `lint` passes. The budgets watch for 60 seconds. |
 | Browser suite (`pnpm test:e2e`) | Not part of `pnpm check` | The `e2e` job on Linux after `check`; then `e2e-macos.yml` on macOS after `ci` passes on `main` (never on a pull request) |
 | Real agent smoke test | Not part of `pnpm check` | `nightly-agent-smoke.yml`, off until you turn it on (see its header) |
 
