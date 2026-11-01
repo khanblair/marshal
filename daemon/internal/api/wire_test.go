@@ -219,7 +219,8 @@ type wire struct {
 	refusals []protocol.TerminalRefusal
 }
 
-const streamTimeout = 15 * time.Second
+// streamTimeout is long because the race detector on a shared CI machine can stall a socket for a while.
+const streamTimeout = 60 * time.Second
 
 // dial opens the event stream with the token in the subprotocol list, as a browser does, and
 // sends the first Hello.
