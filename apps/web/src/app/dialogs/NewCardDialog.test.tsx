@@ -7,7 +7,7 @@ import { M } from "~/mock";
 import { GOLDEN_CATALOG, wireAgent, wireCatalog } from "~/testing/agents";
 import { useCatalog } from "~/testing/test-store";
 import { NewCardDialog } from "./NewCardDialog";
-import { optionsOf, pickValue, valueOf } from "~/testing/dropdown";
+import { optionsOf, pickValue, selectedValue } from "~/testing/dropdown";
 
 vi.hoisted(() => {
   window.location.hash = "#nosim";
@@ -57,9 +57,9 @@ describe("NewCardDialog", () => {
     expect(
       screen.getByText("This becomes the first message in the card's session."),
     ).toBeInTheDocument();
-    expect(valueOf(combo("Template"))).toBe("Blank");
-    expect(valueOf(combo("Role"))).toBe("Worker");
-    expect(valueOf(combo("Agent"))).toBe("Claude Code");
+    expect(selectedValue(combo("Template"))).toBe("Blank");
+    expect(selectedValue(combo("Role"))).toBe("Worker");
+    expect(selectedValue(combo("Agent"))).toBe("Claude Code");
     expect(screen.getByRole("checkbox", { name: "Start the card right away" })).not.toBeChecked();
     expect(create()).toBeDisabled();
     expect(screen.queryByRole("status")).toBeNull();
@@ -203,7 +203,7 @@ describe("NewCardDialog with the daemon's agents", () => {
       { text: "Codex (not installed)", disabled: true },
       { text: "Built-in agent", disabled: false },
     ]);
-    expect(valueOf(combo("Agent"))).toBe("Claude Code");
+    expect(selectedValue(combo("Agent"))).toBe("Claude Code");
   });
 
   it("says how to install an agent that is missing, in the daemon's own sentence, under the pickers", () => {
@@ -261,7 +261,7 @@ describe("NewCardDialog with the daemon's agents", () => {
     );
     M.newCard();
     render(() => <NewCardDialog />);
-    expect(valueOf(combo("Agent"))).toBe("Codex");
+    expect(selectedValue(combo("Agent"))).toBe("Codex");
     expect(M.S.newCard?.agent).toBe("Codex");
   });
 });

@@ -9,7 +9,7 @@ import { useCatalog } from "~/testing/test-store";
 import { createPanelState } from "./panel-state";
 import { SessionSettings } from "./SessionSettings";
 import { cardOf, resetStore } from "./test-helpers";
-import { optionsOf, pickValue, valueOf } from "~/testing/dropdown";
+import { optionsOf, pickValue, selectedValue } from "~/testing/dropdown";
 
 vi.hoisted(() => {
   window.location.hash = "#nosim";
@@ -72,7 +72,7 @@ describe("SessionSettings with the prototype's agents", () => {
     await saved({ model: "gpt-5-mini" });
     // A model that can be told how hard to think, with no setting left on the card, gets the
     // prototype's own Medium back (the panel's rule travels with the change).
-    expect(valueOf(combo("Thinking mode"))).toBe("Medium");
+    expect(selectedValue(combo("Thinking mode"))).toBe("Medium");
   });
 
   it("shows no note while every agent can be used", () => {
@@ -149,7 +149,7 @@ describe("SessionSettings with the daemon's agents", () => {
       "Codex (not installed)",
       "Built-in agent",
     ]);
-    expect(valueOf(combo("Agent"))).toBe("Aider");
+    expect(selectedValue(combo("Agent"))).toBe("Aider");
     expect(options("Model")).toEqual(["aider-model"]);
     expect(screen.queryByRole("combobox", { name: "Thinking mode" })).toBeNull();
   });
@@ -157,7 +157,7 @@ describe("SessionSettings with the daemon's agents", () => {
   it("shows a card whose agent has since gone missing as that agent, disabled but selected", () => {
     cardOf("api#41").agent = "Codex";
     show();
-    expect(valueOf(combo("Agent"))).toBe("Codex");
+    expect(selectedValue(combo("Agent"))).toBe("Codex");
     expect(
       optionsOf(combo("Agent")).find(
         (o) => o.textContent === "Codex (not installed)",

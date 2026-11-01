@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { M, type ViewKey } from "~/mock";
-import { valueOf } from "~/testing/dropdown";
+import { selectedValue } from "~/testing/dropdown";
 
 vi.hoisted(() => {
   window.location.hash = "#nosim";
@@ -111,7 +111,7 @@ describe("Workspace split panes", () => {
     render(() => <Workspace />);
     expect(shown()).toEqual(["board", "list", "calendar"]);
     const first = screen.getByRole("region", { name: "Pane 2" });
-    expect(valueOf(within(first).getByRole("combobox", { name: "View in this pane" }))).toBe(
+    expect(selectedValue(within(first).getByRole("combobox", { name: "View in this pane" }))).toBe(
       "list",
     );
     expect(screen.getByRole("region", { name: "Pane 3" })).toBeInTheDocument();

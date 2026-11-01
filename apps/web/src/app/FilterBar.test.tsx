@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { M, type ViewKey } from "~/mock";
-import { pickValue, valueOf } from "~/testing/dropdown";
+import { pickValue, selectedValue } from "~/testing/dropdown";
 import { FilterBar } from "./FilterBar";
 
 vi.hoisted(() => {
@@ -119,7 +119,7 @@ describe("FilterBar swimlanes and columns", () => {
   it("offers Swimlanes on the board, and changing it unselects the saved view", () => {
     render(() => <FilterBar />);
     const select = screen.getByRole("combobox");
-    expect(valueOf(select)).toBe("none");
+    expect(selectedValue(select)).toBe("none");
     pickValue(select, "role");
     expect(M.S.swim.api).toBe("role");
     expect(M.S.savedView.api).toBeNull();

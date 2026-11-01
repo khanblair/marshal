@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, within } from "@solidjs/testing-lib
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { M } from "~/mock";
 import { cardLabel } from "~/mock/card-key";
-import { optionsOf, pickValue, valueOf } from "~/testing/dropdown";
+import { optionsOf, pickValue, selectedValue } from "~/testing/dropdown";
 import { HomeAllView } from "./HomeAllView";
 import { type HomeSnapshot, homeSnapshot, PHONE_WIDTH_PX, resetHome } from "./test-support";
 
@@ -50,7 +50,7 @@ describe("HomeAllView frame", () => {
       "web-dashboard",
       "mobile-app",
     ]);
-    expect(valueOf(select)).toBe("all");
+    expect(selectedValue(select)).toBe("all");
   });
 
   it("pads 16 px on phones and 24 px elsewhere", () => {

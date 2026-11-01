@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, within } from "@solidjs/testing-lib
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { M } from "~/mock";
 import { cardNumber } from "~/mock/card-key";
-import { optionsOf, pickValue, valueOf } from "~/testing/dropdown";
+import { optionsOf, pickValue, selectedValue } from "~/testing/dropdown";
 import { ChatsView } from "./ChatsView";
 import {
   chatByTitle,
@@ -147,7 +147,7 @@ describe("New chat", () => {
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "true");
     const select = screen.getByRole("combobox");
-    expect(valueOf(select)).toBe("Orchestrator");
+    expect(selectedValue(select)).toBe("Orchestrator");
     expect(select.closest("form")).toHaveClass("absolute", "top-9.5");
     expect(
       screen.getByText("The Orchestrator plans work and creates cards on this project's board."),

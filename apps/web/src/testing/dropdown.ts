@@ -14,7 +14,7 @@ export function pickValue(trigger: HTMLElement, value: string): void {
 }
 
 /** The value a dropdown holds, read from the field it keeps for forms. */
-export function valueOf(trigger: HTMLElement): string {
+export function selectedValue(trigger: HTMLElement): string {
   const field = trigger.parentElement?.querySelector<HTMLInputElement>('input[type="hidden"]');
   if (!field) throw new Error("this is not a dropdown");
   return field.value;
