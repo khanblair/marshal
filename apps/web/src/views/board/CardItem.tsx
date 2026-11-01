@@ -2,6 +2,7 @@ import { Badge, IconLabel, ProgressBar, StatusDot, StatusLabel } from "@marshal/
 import { Show } from "solid-js";
 import type { CardView } from "~/mock";
 import { CardFooter } from "./CardFooter";
+import { isNetworkWait } from "./network-wait";
 
 export interface CardItemProps {
   /** The card's view model, `M.deco(card)`. Read through props so it stays reactive. */
@@ -47,10 +48,20 @@ function Activity(props: CardItemProps) {
   return (
     <>
       <Show when={props.c.showDoing}>
-        <div class="flex items-center gap-2 text-small leading-4.5 text-primary">
-          <StatusDot state={props.c.state} />
-          <span class="flex-1 min-w-0 truncate">{props.c.doing}</span>
-        </div>
+        <Show
+          when={isNetworkWait(props.c.doing)}
+          fallback={
+            <div class="flex items-center gap-2 text-small leading-4.5 text-primary">
+              <StatusDot state={props.c.state} />
+              <span class="flex-1 min-w-0 truncate">{props.c.doing}</span>
+            </div>
+          }
+        >
+          {/* The agent is waiting for the network: a badge, so it does not read as ordinary work. */}
+          <Badge tone="needs-you" size={20} icon="clock" class="self-start max-w-full">
+            <span class="min-w-0 truncate">{props.c.doing}</span>
+          </Badge>
+        </Show>
       </Show>
       <Show when={props.c.paused}>
         <IconLabel icon="pause" gap={6} class="text-small leading-4.5 text-secondary">

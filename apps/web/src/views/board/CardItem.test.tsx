@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, within } from "@solidjs/testing-library";
 import { createMemo } from "solid-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type Card, M } from "~/mock";
@@ -185,5 +185,21 @@ describe("CardItem", () => {
     findCard(CARD_WORKING).title = "Renamed on the board";
     expect(screen.getByText("Renamed on the board")).toBeInTheDocument();
     expect(cardEl(CARD_WORKING)).toBe(el);
+  });
+});
+
+describe("CardItem while its agent waits for the network", () => {
+  it("shows the wait as a badge, not as ordinary work", () => {
+    findCard(CARD_WORKING).doing = "Waiting for network, retry 3 of 10";
+    render(() => <LiveCard id={CARD_WORKING} />);
+    const text = within(cardEl(CARD_WORKING)).getByText("Waiting for network, retry 3 of 10");
+    expect(text.closest("[class*='bg-status-needs-you']")).not.toBeNull();
+  });
+
+  it("draws any other doing now line as it always did", () => {
+    findCard(CARD_WORKING).doing = "Reading the routes";
+    render(() => <LiveCard id={CARD_WORKING} />);
+    const text = within(cardEl(CARD_WORKING)).getByText("Reading the routes");
+    expect(text.closest("[class*='bg-status-needs-you']")).toBeNull();
   });
 });
