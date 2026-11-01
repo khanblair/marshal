@@ -298,6 +298,16 @@ type NotesFt struct {
 	Body      string
 }
 
+type Outbox struct {
+	ID          string
+	Kind        string
+	Target      string
+	PayloadJSON string
+	Attempts    int64
+	LastError   string
+	CreatedAt   int64
+}
+
 type Project struct {
 	ID                string
 	Name              string

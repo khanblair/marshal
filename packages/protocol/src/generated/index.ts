@@ -2415,6 +2415,11 @@ export const EventTypeNoticeDismissed = "notice.dismissed";
 export const EventTypeUsageUpdated = "usage.updated";
 /** EventTypeBudgetWarning is sent when a cost or awake limit is close. */
 export const EventTypeBudgetWarning = "budget.warning";
+/**
+ * EventTypeNetworkChanged is sent on the home topic when this computer loses the internet or gets
+ * it back.
+ */
+export const EventTypeNetworkChanged = "network.changed";
 export type EventType =
   | typeof EventTypeProjectCreated
   | typeof EventTypeProjectUpdated
@@ -2450,7 +2455,8 @@ export type EventType =
   | typeof EventTypeNoticeCreated
   | typeof EventTypeNoticeDismissed
   | typeof EventTypeUsageUpdated
-  | typeof EventTypeBudgetWarning;
+  | typeof EventTypeBudgetWarning
+  | typeof EventTypeNetworkChanged;
 /** Every EventType, in the order the Go list gives them. */
 export const EventTypeValues: readonly EventType[] = [
   EventTypeProjectCreated,
@@ -2488,6 +2494,7 @@ export const EventTypeValues: readonly EventType[] = [
   EventTypeNoticeDismissed,
   EventTypeUsageUpdated,
   EventTypeBudgetWarning,
+  EventTypeNetworkChanged,
 ];
 
 //////////
@@ -4385,6 +4392,25 @@ export interface MeUpdatedEventData {
   preferences: Preferences;
   /** Progress is the progress as it is now. */
   progress: Progress;
+}
+
+//////////
+// source: network.go
+
+/**
+ * RetryDoingNowPrefix starts the "doing now" line of a card whose agent is waiting for the network,
+ * such as "Waiting for network, retry 3 of 10". A screen shows a line that starts with it as a badge.
+ */
+export const RetryDoingNowPrefix = "Waiting for network";
+/**
+ * NetworkStatus is whether this computer can reach the internet. The daemon checks only after a call
+ * failed, so Online stays true until something reports a failure the check can repeat.
+ */
+export interface NetworkStatus {
+  /** Online says the internet is reachable. */
+  online: boolean;
+  /** Since is when Online last changed. */
+  since: Timestamp;
 }
 
 //////////

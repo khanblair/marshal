@@ -171,7 +171,8 @@
     "notice.created",
     "notice.dismissed",
     "usage.updated",
-    "budget.warning"
+    "budget.warning",
+    "network.changed"
   ],
   "FeedKind": [
     "brief",

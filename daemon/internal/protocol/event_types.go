@@ -90,6 +90,9 @@ const (
 	EventTypeUsageUpdated EventType = "usage.updated"
 	// EventTypeBudgetWarning is sent when a cost or awake limit is close.
 	EventTypeBudgetWarning EventType = "budget.warning"
+	// EventTypeNetworkChanged is sent on the home topic when this computer loses the internet or gets
+	// it back.
+	EventTypeNetworkChanged EventType = "network.changed"
 )
 
 // EventTypeValues lists every event type, in the order of docs/architecture.md section 11.2.
@@ -108,7 +111,7 @@ func EventTypeValues() []EventType {
 		EventTypePreviewStateChanged,
 		EventTypeQualityChecked, EventTypeMergeProgress, EventTypeNoticeCreated,
 		EventTypeNoticeDismissed,
-		EventTypeUsageUpdated, EventTypeBudgetWarning,
+		EventTypeUsageUpdated, EventTypeBudgetWarning, EventTypeNetworkChanged,
 	}
 }
 
