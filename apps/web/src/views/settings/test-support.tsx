@@ -61,11 +61,4 @@ export function showSettings(section: string, patch: Partial<State> = {}, width?
   return render(() => <SettingsView />);
 }
 
-/** Runs the open confirm dialog's action, as its button would. */
-export function confirmDialog(): void {
-  const dialog = M.S.dialog;
-  if (!dialog) throw new Error("no dialog is open");
-  dialog.run();
-}
-
 export const lastToast = (): string | undefined => M.S.toasts.at(-1)?.msg;

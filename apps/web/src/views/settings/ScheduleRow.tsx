@@ -30,13 +30,13 @@ function remove(schedule: Schedule): void {
 }
 
 /** When a schedule runs, with the zone after a clock time: "Every day at 8:00 EAT". */
-export function whenLine(schedule: Schedule): string {
+function whenLine(schedule: Schedule): string {
   const hasClock = schedule.trigger === "Cron" || schedule.trigger === "One-time";
   return hasClock ? `${schedule.when} ${zoneLabel()}` : schedule.when;
 }
 
 /** The chats a brief is sent to, by name, for a line under it. */
-export function sendsTo(schedule: Schedule, catalog: ScheduleCatalog | null): string {
+function sendsTo(schedule: Schedule, catalog: ScheduleCatalog | null): string {
   if (!catalog || schedule.kind !== "brief") return "";
   const names = (schedule.deliver ?? []).map(
     (id) => catalog.channels.find((channel) => channel.id === id)?.label ?? id,

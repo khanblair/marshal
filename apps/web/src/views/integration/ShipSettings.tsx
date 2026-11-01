@@ -11,7 +11,7 @@ interface Row {
 }
 
 /** The switches in the order a card meets them. Everything but pushing is on until it is turned off. */
-export const SHIP_ROWS: readonly Row[] = [
+const SHIP_ROWS: readonly Row[] = [
   {
     key: "autoShip",
     label: "Ship finished cards by themselves",

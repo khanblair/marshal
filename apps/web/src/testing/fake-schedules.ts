@@ -41,7 +41,7 @@ const WEEKDAYS = Array.from({ length: FRIDAY - MONDAY + 1 }, (_, i) => MONDAY + 
  * What the real daemon's catalog lists, trimmed to three starters. The parts and chats are the real
  * ones, so an editor test sees what a person sees.
  */
-export const FAKE_CATALOG: ScheduleCatalog = {
+const FAKE_CATALOG: ScheduleCatalog = {
   templates: [
     {
       key: "morning",

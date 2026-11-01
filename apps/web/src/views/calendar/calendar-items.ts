@@ -68,7 +68,7 @@ function scheduleItems(src: CalSource, dow: number, off: number): CalItem[] {
 }
 
 /** When an event is, in words: "all day", "at 09:30", or "09:30 to 10:00". */
-export function eventWhen(e: CalEvent): string {
+function eventWhen(e: CalEvent): string {
   if (e.allDay) return "All day";
   return e.endTime ? `${e.time} to ${e.endTime}` : e.time;
 }

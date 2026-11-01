@@ -66,5 +66,3 @@ export function createResendConnect(integration: Integration, edit: EditState) {
     },
   };
 }
-
-export type ResendConnectController = ReturnType<typeof createResendConnect>;

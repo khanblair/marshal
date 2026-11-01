@@ -78,7 +78,7 @@ export const GOOGLE_FILE_SERVICES: Readonly<Record<string, { name: string; kind:
 };
 
 /** The folder Marshal puts the files it makes in, until Google Drive's own setting says another. */
-export const DEFAULT_DRIVE_FOLDER = "Marshal";
+const DEFAULT_DRIVE_FOLDER = "Marshal";
 const FOLDER_NAME = /^[^\p{Cc}]{1,100}$/u;
 
 /**
