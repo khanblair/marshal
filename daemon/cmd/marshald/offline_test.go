@@ -58,7 +58,7 @@ func TestANetworkFailureIsSavedAndAnythingElseIsLeftToTheCaller(t *testing.T) {
 			if tc.withBox {
 				use = box
 			}
-			saved, err := saveIfOffline(ctx, use, nil, outbox.KindNotice, "ntfy", "hello", tc.err)
+			saved, err := saveIfOffline(ctx, offline{box: use}, outbox.KindNotice, "ntfy", "hello", tc.err)
 			if saved != tc.wantSaved || err != nil {
 				t.Errorf("saveIfOffline = %v, %v; want saved=%v and no error", saved, err, tc.wantSaved)
 			}
@@ -74,7 +74,7 @@ func TestANetworkFailureIsSavedAndAnythingElseIsLeftToTheCaller(t *testing.T) {
 func TestASavedNoticeGoesOutLateWithANoteWhenTheInternetReturns(t *testing.T) {
 	ctx := context.Background()
 	box := openBox(t)
-	if saved, err := saveIfOffline(ctx, box, nil, outbox.KindNotice, "ntfy", map[string]string{"Title": "Card needs you", "Body": "Pick one."}, errDown); !saved || err != nil {
+	if saved, err := saveIfOffline(ctx, offline{box: box}, outbox.KindNotice, "ntfy", map[string]string{"Title": "Card needs you", "Body": "Pick one."}, errDown); !saved || err != nil {
 		t.Fatalf("saveIfOffline = %v, %v", saved, err)
 	}
 	var sentBody string
@@ -111,14 +111,14 @@ func TestANetworkLookingErrorIsNotSavedWhileTheInternetIsReachable(t *testing.T)
 	box := openBox(t)
 
 	up.Store(true)
-	saved, err := saveIfOffline(ctx, box, monitor, outbox.KindNotice, "ntfy", "x", errDown)
+	saved, err := saveIfOffline(ctx, offline{network: monitor, box: box}, outbox.KindNotice, "ntfy", "x", errDown)
 	if saved || err != nil || pending(t, box) != 0 {
 		t.Errorf("with the internet up: saved=%v err=%v pending=%d, want nothing saved", saved, err, pending(t, box))
 	}
 
 	up.Store(false)
 	skew.Add(60)
-	saved, err = saveIfOffline(ctx, box, monitor, outbox.KindNotice, "ntfy", "x", errDown)
+	saved, err = saveIfOffline(ctx, offline{network: monitor, box: box}, outbox.KindNotice, "ntfy", "x", errDown)
 	if !saved || err != nil || pending(t, box) != 1 {
 		t.Errorf("with the internet down: saved=%v err=%v pending=%d, want it saved", saved, err, pending(t, box))
 	}
@@ -132,7 +132,7 @@ func TestAPermanentErrorIsNeverSaved(t *testing.T) {
 		&url.Error{Op: "Post", URL: "ftp://x", Err: errors.New(`unsupported protocol scheme "ftp"`)},
 		context.DeadlineExceeded,
 	} {
-		if saved, _ := saveIfOffline(context.Background(), box, nil, outbox.KindNotice, "ntfy", "x", err); saved {
+		if saved, _ := saveIfOffline(context.Background(), offline{box: box}, outbox.KindNotice, "ntfy", "x", err); saved {
 			t.Errorf("%v was saved, want it left to the caller", err)
 		}
 	}

@@ -34,7 +34,7 @@ type briefPayload struct {
 // internet is down it saves the message and answers briefs.ErrQueued.
 func (d chatDeliverer) Deliver(ctx context.Context, channel, title, body string) error {
 	err := d.deliverNow(ctx, channel, title, body)
-	saved, saveErr := saveIfOffline(ctx, d.box, d.network, outbox.KindBrief, channel, briefPayload{Title: title, Body: body}, err)
+	saved, saveErr := saveIfOffline(ctx, offline{network: d.network, box: d.box}, outbox.KindBrief, channel, briefPayload{Title: title, Body: body}, err)
 	switch {
 	case !saved:
 		return err

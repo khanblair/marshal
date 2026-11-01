@@ -17,6 +17,13 @@ import (
 	"github.com/khanblair/marshal/daemon/internal/outbox"
 )
 
+// offline is what a sender needs when the internet may be down: the monitor that confirms it and the
+// outbox that holds what could not go. Either may be nil, as in a test.
+type offline struct {
+	network *netwatch.Monitor
+	box     *outbox.Service
+}
+
 // saveIfOffline saves a message to the outbox when err is the network failing and the internet really
 // is down. A network-looking error is not enough: a bad address, a certificate nobody trusts, or one
 // server that is down all look like it, and saving those would only make the outbox retry them for a
@@ -24,14 +31,14 @@ import (
 // saving, if any, joined to the network error. Anything else, including no error, is not its to handle:
 // it answers false and the caller reports err as it is. A nil outbox never saves, and with no monitor a
 // network-looking error is taken at its word.
-func saveIfOffline(ctx context.Context, box *outbox.Service, network *netwatch.Monitor, kind, target string, payload any, err error) (bool, error) {
-	if err == nil || box == nil || !netwatch.IsNetworkError(err) {
+func saveIfOffline(ctx context.Context, off offline, kind, target string, payload any, err error) (bool, error) {
+	if err == nil || off.box == nil || !netwatch.IsNetworkError(err) {
 		return false, nil
 	}
-	if network != nil && network.Check(ctx) {
+	if off.network != nil && off.network.Check(ctx) {
 		return false, nil
 	}
-	if saveErr := box.Enqueue(ctx, kind, target, payload); saveErr != nil {
+	if saveErr := off.box.Enqueue(ctx, kind, target, payload); saveErr != nil {
 		return true, errors.Join(err, saveErr)
 	}
 	return true, nil

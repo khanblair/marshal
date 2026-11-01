@@ -50,7 +50,9 @@ func buildTestModules(t *testing.T, stub string) (daemonModules, *store.Store, *
 		return ""
 	}}
 	settings := config.Settings{Mode: platform.ModeDev, DataDir: dir, Agent: config.AgentStub}
-	mods, err := buildModules(t.Context(), st, bus, settings, env, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, nil)
+	mods, err := buildModules(t.Context(), moduleInputs{
+		st: st, bus: bus, settings: settings, env: env, log: slog.New(slog.NewTextHandler(io.Discard, nil)),
+	})
 	if err != nil {
 		t.Fatalf("build the daemon's modules: %v", err)
 	}

@@ -527,18 +527,9 @@ func buildLateModules(st *store.Store, bus *events.Bus, settings config.Settings
 	// symbols, so an agent asks where a name is instead of reading the tree to find it. Symbols come
 	// from universal ctags when the machine has it, and from file names alone when it does not
 	// (internal/codemap says so in every answer).
-	codeMap, err := codemap.New(codemap.Deps{
-		Roots: func(ctx context.Context, projectID string) (string, error) {
-			project, err := core.proj.Get(ctx, projectID)
-			if err != nil {
-				return "", err
-			}
-			return project.Path, nil
-		},
-		Logger: log,
-	})
+	codeMap, err := buildCodeMap(core.proj, log)
 	if err != nil {
-		return lateDaemonModules{}, fmt.Errorf("start the codebase map: %w", err)
+		return lateDaemonModules{}, err
 	}
 	// The internal MCP server (B7.1, architecture.md section 11.4): one server per live card, served
 	// over the daemon's own listener and reached by that card's own agent through `marshald mcp`. The
@@ -563,6 +554,36 @@ func buildLateModules(st *store.Store, bus *events.Bus, settings config.Settings
 	// on the attacher because a daemon that could not resolve its own executable still gives its
 	// sessions the summary, and because it is read per turn rather than once (session/aware.go).
 	core.sessions.SetAwareness(attacher)
+	schedSvc := buildSchedules(st, log, core, integrationSvc, ciSvc)
+	return lateDaemonModules{
+		pullReq: pullReq, reviewSvc: reviewSvc, mergeQueue: mergeMods.queue, qualitySvc: qualitySvc,
+		integrationSvc: integrationSvc, trelloPoller: trelloPoller, gmailPoller: gmailPoller,
+		ciSvc: ciSvc, localCISvc: localCISvc, panelSvc: panelSvc, previewSvc: previewSvc,
+		codeMap: codeMap, mcpHost: mcpHost, schedSvc: schedSvc,
+	}, nil
+}
+
+// buildCodeMap makes the codebase map, which finds each project's folder through the projects service.
+func buildCodeMap(proj *projects.Service, log *slog.Logger) (*codemap.Map, error) {
+	codeMap, err := codemap.New(codemap.Deps{
+		Roots: func(ctx context.Context, projectID string) (string, error) {
+			project, err := proj.Get(ctx, projectID)
+			if err != nil {
+				return "", err
+			}
+			return project.Path, nil
+		},
+		Logger: log,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("start the codebase map: %w", err)
+	}
+	return codeMap, nil
+}
+
+// buildSchedules makes the scheduler and the briefs it runs, and wires the calendar and the chat
+// delivery they need.
+func buildSchedules(st *store.Store, log *slog.Logger, core coreDaemonModules, integrationSvc *integrations.Service, ciSvc *ci.Service) *schedules.Service {
 	// The scheduler (B8.1, build-plan 8.1): the scheduled jobs and briefs, and the cron that runs
 	// them. It needs only the store - the rows are what it runs - and it is built here so that the
 	// routes that edit a schedule and the cron that runs one are the same object.
@@ -590,12 +611,7 @@ func buildLateModules(st *store.Store, bus *events.Bus, settings config.Settings
 	// An Event schedule waits on Google Calendar: smart brief times, and a brief or job that starts
 	// with an event. The scheduler reads the calendar through the same cached read as the screens.
 	schedSvc.SetCalendar(scheduleCalendar{integrationSvc})
-	return lateDaemonModules{
-		pullReq: pullReq, reviewSvc: reviewSvc, mergeQueue: mergeMods.queue, qualitySvc: qualitySvc,
-		integrationSvc: integrationSvc, trelloPoller: trelloPoller, gmailPoller: gmailPoller,
-		ciSvc: ciSvc, localCISvc: localCISvc, panelSvc: panelSvc, previewSvc: previewSvc,
-		codeMap: codeMap, mcpHost: mcpHost, schedSvc: schedSvc,
-	}, nil
+	return schedSvc
 }
 
 // scheduleCalendar is what the scheduler reads Google Calendar through: the integrations service's
@@ -692,13 +708,25 @@ func (t trelloPanel) ImportComment(ctx context.Context, cardID, body, userID str
 	return t.svc.ImportComment(ctx, cardID, body, userID, at)
 }
 
+// moduleInputs is what the modules are built on: the store, the event bus, the settings and platform,
+// the log, and the pair that copes with the internet being down.
+type moduleInputs struct {
+	st       *store.Store
+	bus      *events.Bus
+	settings config.Settings
+	env      platform.Env
+	log      *slog.Logger
+	off      offline
+}
+
 // buildModules makes git, projects, the agent registry and catalog, and the session manager, in
 // the order each depends on the last, in three stages kept as separate functions so each stays
 // readable on its own. ctx is the daemon's own context, which the long-lived watchers it starts -
 // the vault watcher - stop with.
-func buildModules(ctx context.Context, st *store.Store, bus *events.Bus, settings config.Settings, env platform.Env, log *slog.Logger, network *netwatch.Monitor, box *outbox.Service) (daemonModules, error) {
-	core, err := buildCoreModules(st, bus, settings, env, log, network)
-	core.network, core.outbox = network, box
+func buildModules(ctx context.Context, in moduleInputs) (daemonModules, error) {
+	st, bus, settings, log := in.st, in.bus, in.settings, in.log
+	core, err := buildCoreModules(st, bus, settings, in.env, log, in.off.network)
+	core.network, core.outbox = in.off.network, in.off.box
 	if err != nil {
 		return daemonModules{}, err
 	}

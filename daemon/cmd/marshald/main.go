@@ -14,40 +14,24 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strconv"
-	"sync/atomic"
 	"syscall"
 	"time"
 
-	"github.com/khanblair/marshal/daemon/internal/agents"
-	"github.com/khanblair/marshal/daemon/internal/agents/acp"
-	"github.com/khanblair/marshal/daemon/internal/agents/builtin"
-	"github.com/khanblair/marshal/daemon/internal/agents/catalog"
-	"github.com/khanblair/marshal/daemon/internal/agents/claude"
-	"github.com/khanblair/marshal/daemon/internal/agents/gemini"
 	"github.com/khanblair/marshal/daemon/internal/api"
 	"github.com/khanblair/marshal/daemon/internal/buildinfo"
 	"github.com/khanblair/marshal/daemon/internal/chatbot"
 	"github.com/khanblair/marshal/daemon/internal/chatcmd"
-	"github.com/khanblair/marshal/daemon/internal/ci"
 	"github.com/khanblair/marshal/daemon/internal/config"
 	"github.com/khanblair/marshal/daemon/internal/devices"
 	"github.com/khanblair/marshal/daemon/internal/events"
 	"github.com/khanblair/marshal/daemon/internal/fixture"
-	"github.com/khanblair/marshal/daemon/internal/github"
-	"github.com/khanblair/marshal/daemon/internal/gitx"
 	"github.com/khanblair/marshal/daemon/internal/integrations"
-	"github.com/khanblair/marshal/daemon/internal/memory"
 	"github.com/khanblair/marshal/daemon/internal/netwatch"
 	"github.com/khanblair/marshal/daemon/internal/notify"
 	"github.com/khanblair/marshal/daemon/internal/outbox"
 	"github.com/khanblair/marshal/daemon/internal/platform"
 	"github.com/khanblair/marshal/daemon/internal/projects"
 	"github.com/khanblair/marshal/daemon/internal/protocol"
-	"github.com/khanblair/marshal/daemon/internal/providers"
-	"github.com/khanblair/marshal/daemon/internal/pullrequest"
-	"github.com/khanblair/marshal/daemon/internal/review"
-	"github.com/khanblair/marshal/daemon/internal/roles"
-	"github.com/khanblair/marshal/daemon/internal/security"
 	"github.com/khanblair/marshal/daemon/internal/session"
 	sleepsettings "github.com/khanblair/marshal/daemon/internal/settings"
 	"github.com/khanblair/marshal/daemon/internal/store"
@@ -152,7 +136,7 @@ func serve(ctx context.Context, settings config.Settings, env platform.Env, log 
 	})
 	// What could not be sent while the internet was down waits here, and goes when it is back.
 	box := outbox.New(st, outbox.Options{Network: network, Logger: log})
-	mods, err := buildModules(ctx, st, bus, settings, env, log, network, box)
+	mods, err := buildModules(ctx, moduleInputs{st: st, bus: bus, settings: settings, env: env, log: log, off: offline{network: network, box: box}})
 	if err != nil {
 		return err
 	}
@@ -234,7 +218,7 @@ func serve(ctx context.Context, settings config.Settings, env platform.Env, log 
 	// things is one message, and an approval sent at once. It talks to no service itself - the
 	// connections service builds the bot for the channel - so a daemon with no chat connected routes
 	// to nowhere rather than failing, and it runs for as long as the daemon does.
-	alerts := buildNotifications(ctx, log, mods.integrations, bus, mods.sleepSettings, linkBase(node, settings.Port), network, box)
+	alerts := buildNotifications(ctx, log, mods, bus, linkBase(node, settings.Port), offline{network: network, box: box})
 	// The outbox sends what was saved while the internet was down. It starts after the notices and the
 	// briefs can be sent, flushes at start, and again each time the internet returns.
 	registerOutbox(box, mods.integrations)
@@ -510,13 +494,13 @@ const tailnetIdentityInterval = 10 * time.Second
 // connected means the notice goes nowhere, which is a logged nothing rather than an error - so a
 // daemon with no chat set up still serves the app exactly as it did before.
 func buildNotifications(
-	ctx context.Context, log *slog.Logger, links *integrations.Service, bus *events.Bus,
-	saved notify.RouteStore, base func() string, network *netwatch.Monitor, box *outbox.Service,
+	ctx context.Context, log *slog.Logger, mods daemonModules, bus *events.Bus, base func() string, off offline,
 ) api.AlertSettings {
+	links := mods.integrations
 	sender := notify.SenderFunc(func(callCtx context.Context, channel notify.Channel, notice chatbot.Notice) error {
 		err := sendNotice(callCtx, links, channel, notice)
 		// The internet is down: the notice is saved and sent when it is back, not lost.
-		if saved, saveErr := saveIfOffline(callCtx, box, network, outbox.KindNotice, string(channel), notice, err); saved {
+		if saved, saveErr := saveIfOffline(callCtx, off, outbox.KindNotice, string(channel), notice, err); saved {
 			return saveErr
 		}
 		return err
@@ -528,7 +512,7 @@ func buildNotifications(
 		return nil
 	}
 	go router.Follow(ctx, bus)
-	return alertSettings(ctx, log, router, links, saved)
+	return alertSettings(ctx, log, router, links, mods.sleepSettings)
 }
 
 // alertSettings makes the router's routing table something a screen can read and change, and
@@ -662,191 +646,6 @@ func daemonExecutable(log *slog.Logger) string {
 	return exe
 }
 
-// appForge is the CI monitor's forge, answered from the GitHub App saved in Settings (B6.2,
-// architecture.md section 9). It resolves the App on every call rather than holding a client, so
-// connecting, replacing, or removing GitHub in Settings takes effect without a restart, and a daemon
-// nobody has connected answers ci.ErrNoForge - which the monitor treats as "there is nothing to ask"
-// rather than as a failure.
-type appForge struct {
-	svc *integrations.Service
-}
-
-// client answers the connected GitHub client, or ci.ErrNoForge when none is usable.
-func (f appForge) client(ctx context.Context) (integrations.GitHubClient, error) {
-	client, err := f.svc.GitHubClient(ctx)
-	if errors.Is(err, integrations.ErrNotConnected) || errors.Is(err, integrations.ErrGitHubReconnect) {
-		return nil, ci.ErrNoForge
-	}
-	return client, err
-}
-
-// ListWorkflowRuns lists one branch's workflow runs, newest first.
-func (f appForge) ListWorkflowRuns(ctx context.Context, repo github.Repository, branch string) ([]github.WorkflowRun, error) {
-	client, err := f.client(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return client.ListWorkflowRuns(ctx, repo, branch)
-}
-
-// RerunFailedJobs asks GitHub to run one run's failed jobs again.
-func (f appForge) RerunFailedJobs(ctx context.Context, repo github.Repository, runID int64) error {
-	client, err := f.client(ctx)
-	if err != nil {
-		return err
-	}
-	return client.RerunFailedJobs(ctx, repo, runID)
-}
-
-// FailedLog reads the log of one run's first failed job, cut to maxBytes.
-func (f appForge) FailedLog(ctx context.Context, repo github.Repository, runID int64, maxBytes int) (string, error) {
-	client, err := f.client(ctx)
-	if err != nil {
-		return "", err
-	}
-	return client.FailedLog(ctx, repo, runID, maxBytes)
-}
-
-// lateGitHub is the pull-request and review services' GitHub client. It asks the connections service
-// for the connected client on every call, so connecting GitHub in Settings works without a restart.
-// It answers github.ErrNotConnected until the service is attached and while nothing is connected.
-type lateGitHub struct {
-	svc atomic.Pointer[integrations.Service]
-}
-
-func (l *lateGitHub) client(ctx context.Context) (github.Client, error) {
-	svc := l.svc.Load()
-	if svc == nil {
-		return nil, github.ErrNotConnected
-	}
-	client, err := svc.GitHubClient(ctx)
-	switch {
-	case errors.Is(err, integrations.ErrNotConnected):
-		return nil, github.ErrNotConnected
-	case errors.Is(err, integrations.ErrGitHubReconnect):
-		return nil, github.ErrReconnect
-	case err != nil:
-		return nil, err
-	}
-	return client, nil
-}
-
-func (l *lateGitHub) CreatePullRequest(ctx context.Context, req github.NewPullRequest) (github.PullRequest, error) {
-	client, err := l.client(ctx)
-	if err != nil {
-		return github.PullRequest{}, err
-	}
-	return client.CreatePullRequest(ctx, req)
-}
-
-func (l *lateGitHub) GetPullRequest(ctx context.Context, repo github.Repository, number int) (github.PullRequest, error) {
-	client, err := l.client(ctx)
-	if err != nil {
-		return github.PullRequest{}, err
-	}
-	return client.GetPullRequest(ctx, repo, number)
-}
-
-func (l *lateGitHub) CreateReviewComment(ctx context.Context, req github.NewReviewComment) (github.ReviewComment, error) {
-	client, err := l.client(ctx)
-	if err != nil {
-		return github.ReviewComment{}, err
-	}
-	return client.CreateReviewComment(ctx, req)
-}
-
-func (l *lateGitHub) ListChecks(ctx context.Context, repo github.Repository, ref string) ([]github.Check, error) {
-	client, err := l.client(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return client.ListChecks(ctx, repo, ref)
-}
-
-var _ github.Client = (*lateGitHub)(nil)
-
-// buildForge builds the two services that talk to GitHub: the pull-request service, which opens a
-// card's branch as a pull request, and the review service, which runs the Reviewer role over every
-// pull request. Both are always built and reach GitHub through client, so with nothing connected a
-// request is refused with a sentence that says to connect GitHub.
-//
-// The review is wired into the pull-request service's After hook, so a pull request is read as soon
-// as it exists (build-plan 5.7).
-func buildForge(client github.Client, proj *projects.Service, git *gitx.Git, roleSvc *roles.Service, sessions *session.Manager, log *slog.Logger) (*pullrequest.Service, *review.Service, error) {
-	checker, err := review.NewChecksReviewer(client)
-	if err != nil {
-		return nil, nil, fmt.Errorf("start the review module: %w", err)
-	}
-	reviewSvc, err := review.New(review.Deps{
-		Cards: proj, Projects: proj, Roles: roleSvc, Git: git, Forge: client,
-		Reviews: checker, Worker: sessions, Log: log,
-	})
-	if err != nil {
-		return nil, nil, fmt.Errorf("start the review service: %w", err)
-	}
-	svc, err := pullrequest.New(pullrequest.Deps{
-		Client: client, Cards: proj, Projects: proj, Git: git, Log: log,
-		After: func(ctx context.Context, cardID string) error {
-			_, err := reviewSvc.Review(ctx, cardID)
-			return err
-		},
-	})
-	if err != nil {
-		return nil, nil, fmt.Errorf("start the pull-request service: %w", err)
-	}
-	log.Info("the pull-request and review services are ready")
-	return svc, reviewSvc, nil
-}
-
-// lateSessions lets the projects service reach the session manager, which is built after it
-// because the manager needs the projects service. It does nothing until the manager is set.
-type lateSessions struct {
-	manager atomic.Pointer[session.Manager]
-}
-
-func (l *lateSessions) StopCardSession(ctx context.Context, cardID string) error {
-	if m := l.manager.Load(); m != nil {
-		return m.StopCardSession(ctx, cardID)
-	}
-	return nil
-}
-
-func (l *lateSessions) RemoveCardLogs(ctx context.Context, cardID string) error {
-	if m := l.manager.Load(); m != nil {
-		return m.RemoveCardLogs(ctx, cardID)
-	}
-	return nil
-}
-
-func (l *lateSessions) StopProjectSessions(ctx context.Context, projectID string) error {
-	if m := l.manager.Load(); m != nil {
-		return m.StopProjectSessions(ctx, projectID)
-	}
-	return nil
-}
-
-func (l *lateSessions) AwakeCards(ctx context.Context, projectID string) (int, error) {
-	if m := l.manager.Load(); m != nil {
-		return m.AwakeCards(ctx, projectID)
-	}
-	return 0, nil
-}
-
-// lateMemory lets the projects service reach the memory module, which is built after it because the
-// module reads a project's cards through the projects service. It does nothing until the module is
-// set, which means a project removed before then leaves its memory folder alone - a folder the
-// person can delete themselves, where deleting it on a guess is not something to do.
-type lateMemory struct {
-	svc atomic.Pointer[memory.Service]
-}
-
-func (l *lateMemory) RemoveProjectMemory(ctx context.Context, projectID string) error {
-	if s := l.svc.Load(); s != nil {
-		return s.RemoveProjectMemory(ctx, projectID)
-	}
-	return nil
-}
-
 // applyResumeSetting gives the session manager the "After a restart" setting a person saved on
 // Settings > Sleep (B5.6), which decides what RestoreAll does with the sessions that were awake
 // when the daemon last stopped (docs/architecture.md 5.3). It outranks the flag the daemon was
@@ -899,133 +698,6 @@ func restoreSessions(ctx context.Context, sessions *session.Manager, log *slog.L
 	defer cancel()
 	if err := sessions.RestoreAll(rctx); err != nil {
 		log.Error("could not restore agent sessions", "error", err)
-	}
-}
-
-// buildAgents makes the agent registry the session manager starts processes through, and the
-// catalog the API layer will list agents from. In stub mode (settings.Agent == config.AgentStub)
-// every kind is registered behind the stub agent binary. In real mode the three kinds with a real
-// adapter get a factory: claude and gemini are CLI programs the catalog finds on the machine
-// (agents/claude, agents/gemini), and builtin is Marshal's own agent, which runs here in the daemon
-// (agents/builtin) and so has no program to find. Codex is left unregistered, so choosing it gives
-// agents.ErrUnknownKind, which is the correct, honest answer until agents/codex has a real adapter.
-func buildAgents(settings config.Settings, env platform.Env, log *slog.Logger, providerSvc *providers.Service, prefs catalog.Preferences) (*agents.Registry, catalog.Source, error) {
-	registry := agents.NewRegistry()
-	if settings.Agent == config.AgentStub {
-		return registerStubAgents(registry, settings, env, log)
-	}
-	// BuiltinModels is the key store's own list: the built-in agent can run the models of exactly the
-	// providers that have a key saved, so its row is asked again on every List and shows a key the
-	// person saved a moment ago.
-	cat := catalog.New(catalog.Options{Logger: log, BuiltinModels: providerSvc.Models, Preferences: prefs})
-	for _, kind := range []protocol.AgentKind{protocol.AgentKindClaude, protocol.AgentKindGemini} {
-		if err := registry.Register(kind, realAgentFactory(cat, kind, log)); err != nil {
-			return nil, nil, fmt.Errorf("register the %s agent: %w", kind, err)
-		}
-	}
-	if err := registry.Register(protocol.AgentKindBuiltin, builtinAgentFactory(log, providerSvc)); err != nil {
-		return nil, nil, fmt.Errorf("register the built-in agent: %w", err)
-	}
-	return registry, cat, nil
-}
-
-// builtinAgentFactory returns the factory for Marshal's own agent. It runs in the daemon, so there
-// is no path to resolve and nothing to detect: what it needs is a model provider.
-//
-// The resolver is the provider service itself, which is the one place that knows which providers
-// have a key saved: builtin.Resolver and providers.Service.Resolve have the same shape on purpose,
-// so the key store the screens write and the resolver the agent reads are the same object. A model
-// no saved key can run is reported as one nobody can run, in plain words, rather than pretending to
-// start.
-func builtinAgentFactory(log *slog.Logger, resolver builtin.Resolver) agents.Factory {
-	return builtin.Factory(builtin.Config{
-		Resolver: resolver,
-		Profile:  security.DefaultProfile(),
-		Logger:   log,
-	})
-}
-
-// registerStubAgents registers every kind catalog.Kinds() lists behind the same agents/acp
-// adapter configuration, pointed at the built stub agent binary (catalog.Stub's own doc comment:
-// "The session manager starts the scripted stub agent behind each kind"). Its --state-dir is a
-// fixed folder under the data directory, so its own sessions resume across a daemon restart the
-// same way real ones do.
-func registerStubAgents(registry *agents.Registry, settings config.Settings, env platform.Env, log *slog.Logger) (*agents.Registry, catalog.Source, error) {
-	path, err := stubAgentPath(env)
-	if err != nil {
-		return nil, nil, err
-	}
-	stateDir := filepath.Join(settings.DataDir, "dev-agent-state")
-	args := []string{"--state-dir", stateDir, "--speed", stubAgentSpeed}
-	factory := func() (agents.Agent, error) {
-		return acp.New(acp.Config{Path: path, Args: args, Logger: log})
-	}
-	for _, kind := range catalog.Kinds() {
-		if err := registry.Register(kind, factory); err != nil {
-			return nil, nil, fmt.Errorf("register the stub agent for %s: %w", kind, err)
-		}
-	}
-	return registry, catalog.NewStub(), nil
-}
-
-// stubAgentPath resolves the stub agent binary: the MARSHAL_STUB_AGENT environment override if
-// set, else a file named stub-agent (stub-agent.exe on Windows) in the same folder as the running
-// marshald executable. It fails with a clear, actionable message if neither is found: the stub
-// agent is never built at runtime.
-func stubAgentPath(env platform.Env) (string, error) {
-	if override := env.Getenv(stubAgentEnv); override != "" {
-		return override, nil
-	}
-	exe, err := os.Executable()
-	if err != nil {
-		return "", fmt.Errorf("find the running program: %w", err)
-	}
-	name := stubAgentBinary
-	if env.GOOS == "windows" {
-		name += ".exe"
-	}
-	path := filepath.Join(filepath.Dir(exe), name)
-	if _, statErr := os.Stat(path); statErr != nil {
-		return "", fmt.Errorf(
-			"find the stub agent at %s: run `pnpm build` first, or set %s to its path: %w", path, stubAgentEnv, statErr)
-	}
-	return path, nil
-}
-
-// realAgentFactory returns a Factory that detects the installed agents the first time it is
-// called, never at start-up (the catalog package's own doc comment: detection "never runs when
-// the daemon starts"), and starts the real adapter for kind if it is installed and startable.
-func realAgentFactory(cat catalog.Source, kind protocol.AgentKind, log *slog.Logger) agents.Factory {
-	return func() (agents.Agent, error) {
-		detected, err := cat.Detect(context.Background())
-		if err != nil {
-			return nil, fmt.Errorf("detect installed agents: %w", err)
-		}
-		for _, d := range detected {
-			if d.Kind == kind {
-				return realAgentOf(kind, d, log)
-			}
-		}
-		return nil, fmt.Errorf("%w: %s", agents.ErrUnknownKind, kind)
-	}
-}
-
-// realAgentOf starts the real adapter for a detected agent, or reports agents.ErrUnknownKind when
-// it is not installed or Marshal cannot start it yet.
-func realAgentOf(kind protocol.AgentKind, d catalog.Detected, log *slog.Logger) (agents.Agent, error) {
-	if d.Off {
-		return nil, fmt.Errorf("%w: %s is turned off in Settings", agents.ErrUnknownKind, kind)
-	}
-	if !d.Startable {
-		return nil, fmt.Errorf("%w: %s is not installed, or Marshal cannot start it yet", agents.ErrUnknownKind, kind)
-	}
-	switch kind {
-	case protocol.AgentKindClaude:
-		return claude.New(claude.Config{Path: d.Path, Logger: log})
-	case protocol.AgentKindGemini:
-		return gemini.New(gemini.Config{Path: d.Path, Logger: log})
-	default:
-		return nil, fmt.Errorf("%w: %s", agents.ErrUnknownKind, kind)
 	}
 }
 
