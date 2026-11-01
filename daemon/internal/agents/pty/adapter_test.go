@@ -400,6 +400,26 @@ func TestTheWorkingFolderIsRespected(t *testing.T) {
 	}
 }
 
+func TestAProgramThatEndsBeforeEventsIsAskedForStillReportsItsExit(t *testing.T) {
+	a := newAdapter(t, Config{Args: []string{"lines", "1"}})
+	h, err := a.Start(context.Background(), agents.StartSpec{Cwd: t.TempDir(), Label: "test"})
+	if err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	for deadline := time.Now().Add(eventTimeout); a.isRunning(h.ID); time.Sleep(5 * time.Millisecond) {
+		if time.Now().After(deadline) {
+			t.Fatal("the program did not end")
+		}
+	}
+	r := watch(t, a, h)
+	if exit := r.waitExit(); exit.Code != 0 || !strings.Contains(r.output(), "line 1") {
+		t.Errorf("Exited = %+v with output %q, want code 0 after line 1", exit, r.output())
+	}
+	if _, open := <-a.Events(h); open {
+		t.Error("Events gave the ended session's channel a second time")
+	}
+}
+
 func TestEnvironment(t *testing.T) {
 	const secret = "MARSHAL_TEST_SECRET_TOKEN"
 	t.Setenv(secret, "the-daemon-secret")

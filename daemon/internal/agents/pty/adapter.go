@@ -18,6 +18,7 @@ import (
 	"os"
 	"slices"
 	"sync"
+	"time"
 
 	gopty "github.com/aymanbagabas/go-pty"
 
@@ -34,6 +35,19 @@ type Adapter struct {
 
 	mu       sync.Mutex
 	sessions map[string]*session
+	// unclaimed holds the events of a session that ended before anyone called Events, so a program
+	// that exits at once still reports how it ended. Each entry goes when Events takes it, or
+	// after unclaimedTTL.
+	unclaimed map[string]unclaimedEvents
+}
+
+// unclaimedTTL is how long the events of an ended session wait for Events to ask for them.
+const unclaimedTTL = time.Minute
+
+// unclaimedEvents is the event channel of a session that ended before Events was called.
+type unclaimedEvents struct {
+	events <-chan agents.AgentEvent
+	at     time.Time
 }
 
 var (
@@ -47,7 +61,9 @@ func New(cfg Config) (*Adapter, error) {
 	if err != nil {
 		return nil, err
 	}
-	a := &Adapter{cfg: cfg, log: cfg.Logger, sessions: make(map[string]*session)}
+	a := &Adapter{
+		cfg: cfg, log: cfg.Logger, sessions: make(map[string]*session), unclaimed: make(map[string]unclaimedEvents),
+	}
 	if cfg.Tee != nil {
 		a.tee = &teeWriter{w: cfg.Tee}
 	}
@@ -150,16 +166,23 @@ func (a *Adapter) Interrupt(ctx context.Context, h agents.SessionHandle) error {
 
 // Events returns the session's event channel: TerminalOutput while the program prints, then
 // Exited, and then it is closed. Take it once, right after Start or Resume, and keep reading until
-// it closes: a full channel slows the program down. For a session that is not running it returns
-// a channel that is already closed and empty.
+// it closes: a full channel slows the program down. A session that ended before the first call
+// still gives its events, once. Any other session that is not running gives a channel that is
+// already closed and empty.
 func (a *Adapter) Events(h agents.SessionHandle) <-chan agents.AgentEvent {
-	s, err := a.find(h)
-	if err != nil {
-		closed := make(chan agents.AgentEvent)
-		close(closed)
-		return closed
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if s, ok := a.sessions[h.ID]; ok {
+		s.claimed = true
+		return s.events
 	}
-	return s.events
+	if ended, ok := a.unclaimed[h.ID]; ok {
+		delete(a.unclaimed, h.ID)
+		return ended.events
+	}
+	closed := make(chan agents.AgentEvent)
+	close(closed)
+	return closed
 }
 
 // Snapshot returns the last RingBytes of output of a running session, oldest first, so that a
@@ -311,8 +334,18 @@ func (a *Adapter) register(id string, s *session) error {
 func (a *Adapter) forget(id string, s *session) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if a.sessions[id] == s {
-		delete(a.sessions, id)
+	if a.sessions[id] != s {
+		return
+	}
+	delete(a.sessions, id)
+	now := time.Now()
+	for key, ended := range a.unclaimed {
+		if now.Sub(ended.at) > unclaimedTTL {
+			delete(a.unclaimed, key)
+		}
+	}
+	if !s.claimed {
+		a.unclaimed[id] = unclaimedEvents{events: s.events, at: now}
 	}
 }
 

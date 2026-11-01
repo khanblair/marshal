@@ -46,7 +46,9 @@ type session struct {
 
 	// events is what the caller reads. chunks carries reads from the pump to the batcher.
 	events chan agents.AgentEvent
-	chunks chan []byte
+	// claimed is set, under the adapter's lock, once Events has handed the channel out.
+	claimed bool
+	chunks  chan []byte
 	// abort releases senders that wait for a reader who is not there.
 	abort     chan struct{}
 	abortOnce sync.Once
