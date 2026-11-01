@@ -17,6 +17,11 @@ import (
 
 const longSleep = time.Hour
 
+// exitLinger is how long a program that has printed everything waits before it ends. On macOS the
+// terminal drops output that nobody has read yet when the last program on it ends, so a loaded
+// machine could lose the last lines of a program that exits at once.
+const exitLinger = 300 * time.Millisecond
+
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Println("usage: helper <mode> [arguments]")
@@ -29,6 +34,7 @@ func main() {
 		os.Exit(2)
 	}
 	run(rest)
+	time.Sleep(exitLinger)
 }
 
 // modes lists what the helper can do.
@@ -133,7 +139,9 @@ func graceful([]string) {
 // exit prints a line and ends with the code that it is given.
 func exit(args []string) {
 	fmt.Println("exiting")
-	os.Exit(number(args, 0))
+	code := number(args, 0)
+	time.Sleep(exitLinger)
+	os.Exit(code)
 }
 
 // printArgs prints the arguments after the mode, then waits for input so that a session stays up.
