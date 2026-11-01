@@ -22,6 +22,8 @@ const fakeEnv = "MARSHAL_FAKE_GEMINI"
 type fakeGemini struct {
 	flags map[string]bool
 	conn  *sdk.AgentSideConnection
+	// ready closes once conn is set, which can be after the connection already took a request.
+	ready chan struct{}
 
 	mu   sync.Mutex
 	mode string
@@ -32,11 +34,12 @@ var _ sdk.AgentLoader = (*fakeGemini)(nil)
 
 // runFakeGemini serves the protocol on standard input and output until the client goes away.
 func runFakeGemini(spec string) {
-	f := &fakeGemini{flags: map[string]bool{}, mode: "default"}
+	f := &fakeGemini{flags: map[string]bool{}, mode: "default", ready: make(chan struct{})}
 	for _, flag := range strings.Split(spec, ",") {
 		f.flags[flag] = true
 	}
 	f.conn = sdk.NewAgentSideConnection(f, os.Stdout, os.Stdin)
+	close(f.ready)
 	<-f.conn.Done()
 }
 
@@ -130,6 +133,7 @@ func (f *fakeGemini) Prompt(ctx context.Context, req sdk.PromptRequest) (sdk.Pro
 	f.mu.Unlock()
 	summary := fmt.Sprintf("mode=%s model=%s no_browser=%s args=%s",
 		mode, os.Getenv("GEMINI_MODEL"), os.Getenv("NO_BROWSER"), strings.Join(os.Args[1:], " "))
+	<-f.ready
 	err := f.conn.SessionUpdate(ctx, sdk.SessionNotification{
 		SessionId: req.SessionId, Update: sdk.UpdateAgentMessageText(summary),
 	})

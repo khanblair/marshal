@@ -2,6 +2,7 @@ package api_test
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strings"
 	"testing"
@@ -242,23 +243,56 @@ func TestALaterHelloChangesTheTopics(t *testing.T) {
 	project, repo := st.addProject("small-repo")
 	w := st.dialRaw()
 	w.hello(protocol.ProjectTopic(project.ID))
+	w.ready()
 	st.addCard(project.ID, "Seen at first")
 	w.until(ofType(protocol.EventTypeCardCreated))
 
 	w.sendRaw(websocket.MessageText, `{"type":"hello","subscribe":["home"],"sinceSeq":0,"epoch":""}`)
-	// A home event proves the change was applied, because home was not followed before it.
+	// The daemon applies the Hello on its own time, so home events are made until one arrives. A home
+	// event proves the change was applied, because home was not followed before it.
 	other := st.addProjectAt(cloneOf(t, st, repo))
-	seen := w.until(func(ev protocol.Event) bool {
-		return ev.Type == protocol.EventTypeProjectCreated && dataOf[protocol.ProjectEventData](t, ev).Project.ID == other.ID
-	})
+	stop, stopped := st.renameUntilStopped(other.ID)
+	w.until(ofType(protocol.EventTypeProjectUpdated))
+	close(stop)
+	<-stopped
+
 	st.addCard(project.ID, "No longer followed")
 	st.do(http.MethodPatch, "/v1/projects/"+other.ID, `{"name":"Renamed"}`).want(t, http.StatusOK)
-	seen = append(seen, w.until(ofType(protocol.EventTypeProjectUpdated))...)
+	seen := w.until(func(ev protocol.Event) bool {
+		return ev.Type == protocol.EventTypeProjectUpdated && dataOf[protocol.ProjectEventData](t, ev).Project.Name == "Renamed"
+	})
 	for _, ev := range seen {
 		if ev.Type == protocol.EventTypeCardCreated {
 			t.Errorf("a card event arrived for a topic that is no longer followed: %s", describeEvents(seen))
 		}
 	}
+}
+
+// renameUntilStopped renames a project every few milliseconds, which makes a home event each time,
+// until stop is closed. It answers stop and a channel that closes when the last rename is done.
+func (st *stack) renameUntilStopped(projectID string) (stop chan struct{}, stopped chan struct{}) {
+	stop, stopped = make(chan struct{}), make(chan struct{})
+	go func() {
+		defer close(stopped)
+		for i := 0; ; i++ {
+			select {
+			case <-stop:
+				return
+			case <-time.After(25 * time.Millisecond):
+			}
+			body := strings.NewReader(fmt.Sprintf(`{"name":"Moving %d"}`, i))
+			req, err := http.NewRequestWithContext(context.Background(), http.MethodPatch, st.base+"/v1/projects/"+projectID, body)
+			if err != nil {
+				return
+			}
+			req.Header.Set("Authorization", "Bearer "+st.token)
+			req.Header.Set("Content-Type", "application/json")
+			if resp, err := http.DefaultClient.Do(req); err == nil {
+				_ = resp.Body.Close()
+			}
+		}
+	}()
+	return stop, stopped
 }
 
 // cloneOf makes a second copy of a repository, as another project's folder.

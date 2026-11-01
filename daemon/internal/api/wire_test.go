@@ -222,8 +222,8 @@ type wire struct {
 // streamTimeout is long because the race detector on a shared CI machine can stall a socket for a while.
 const streamTimeout = 60 * time.Second
 
-// dial opens the event stream with the token in the subprotocol list, as a browser does, and
-// sends the first Hello.
+// dial opens the event stream with the token in the subprotocol list, as a browser does, sends the
+// first Hello, and waits for the first Resync, so an event made after dial returns is not missed.
 func (st *stack) dial(subscribe ...protocol.Topic) *wire {
 	st.t.Helper()
 	return st.dialWith(st.token, subscribe...)
@@ -242,6 +242,7 @@ func (st *stack) dialWith(token string, subscribe ...protocol.Topic) *wire {
 	}
 	w := st.track(conn)
 	w.hello(subscribe...)
+	w.ready()
 	return w
 }
 

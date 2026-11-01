@@ -25,6 +25,8 @@ const (
 type fakeAgent struct {
 	flags map[string]bool
 	conn  *sdk.AgentSideConnection
+	// ready closes once conn is set, which can be after the connection already took a request.
+	ready chan struct{}
 
 	mu       sync.Mutex
 	signedIn bool
@@ -40,7 +42,9 @@ var _ sdk.AgentLoader = (*fakeAgent)(nil)
 
 // runFakeAgent serves the protocol on standard input and output until the client goes away.
 func runFakeAgent(spec string) {
-	f := &fakeAgent{flags: map[string]bool{}, mode: "default", model: "sonnet", thinking: "low"}
+	f := &fakeAgent{
+		flags: map[string]bool{}, mode: "default", model: "sonnet", thinking: "low", ready: make(chan struct{}),
+	}
 	for _, flag := range strings.Split(spec, ",") {
 		f.flags[flag] = true
 	}
@@ -49,6 +53,7 @@ func runFakeAgent(spec string) {
 		os.Exit(3)
 	}
 	f.conn = sdk.NewAgentSideConnection(f, os.Stdout, os.Stdin)
+	close(f.ready)
 	<-f.conn.Done()
 }
 
@@ -117,6 +122,7 @@ func (f *fakeAgent) LoadSession(ctx context.Context, req sdk.LoadSessionRequest)
 	for _, update := range []sdk.SessionUpdate{
 		sdk.UpdateUserMessageText("old question"), sdk.UpdateAgentMessageText("old answer"),
 	} {
+		<-f.ready
 		if err := f.conn.SessionUpdate(ctx, sdk.SessionNotification{SessionId: req.SessionId, Update: update}); err != nil {
 			return sdk.LoadSessionResponse{}, err
 		}
@@ -278,6 +284,7 @@ func stopReasonIn(text string) sdk.StopReason {
 
 // update sends one session update.
 func (f *fakeAgent) update(ctx context.Context, id sdk.SessionId, u sdk.SessionUpdate) error {
+	<-f.ready
 	return f.conn.SessionUpdate(ctx, sdk.SessionNotification{SessionId: id, Update: u})
 }
 
@@ -310,6 +317,7 @@ func (f *fakeAgent) richTurn(ctx context.Context, id sdk.SessionId) error {
 			return err
 		}
 	}
+	<-f.ready
 	_, err := f.conn.ReadTextFile(ctx, sdk.ReadTextFileRequest{SessionId: id, Path: "/etc/hosts"})
 	verdict := "the client read the file"
 	if re, ok := err.(*sdk.RequestError); ok && re.Code == -32601 {
