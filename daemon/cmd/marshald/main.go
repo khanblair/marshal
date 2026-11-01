@@ -37,7 +37,9 @@ import (
 	"github.com/khanblair/marshal/daemon/internal/gitx"
 	"github.com/khanblair/marshal/daemon/internal/integrations"
 	"github.com/khanblair/marshal/daemon/internal/memory"
+	"github.com/khanblair/marshal/daemon/internal/netwatch"
 	"github.com/khanblair/marshal/daemon/internal/notify"
+	"github.com/khanblair/marshal/daemon/internal/outbox"
 	"github.com/khanblair/marshal/daemon/internal/platform"
 	"github.com/khanblair/marshal/daemon/internal/projects"
 	"github.com/khanblair/marshal/daemon/internal/protocol"
@@ -139,7 +141,18 @@ func serve(ctx context.Context, settings config.Settings, env platform.Env, log 
 		}
 	}()
 
-	mods, err := buildModules(ctx, st, bus, settings, env, log)
+	// The internet monitor is built first, because the model calls and the notices both report to it.
+	// It checks only after a failure, so it costs nothing while the internet works.
+	network := netwatch.New(ctx, netwatch.Options{
+		Probe:  netwatch.TargetProbe(netwatch.ParseTargets(env.Getenv("MARSHAL_NETWORK_PROBE"))),
+		Logger: log,
+	})
+	network.Subscribe(func(status netwatch.Status) {
+		bus.Publish(string(protocol.HomeTopic), string(protocol.EventTypeNetworkChanged), api.NetworkStatusOf(status), false)
+	})
+	// What could not be sent while the internet was down waits here, and goes when it is back.
+	box := outbox.New(st, outbox.Options{Network: network, Logger: log})
+	mods, err := buildModules(ctx, st, bus, settings, env, log, network, box)
 	if err != nil {
 		return err
 	}
@@ -221,7 +234,11 @@ func serve(ctx context.Context, settings config.Settings, env platform.Env, log 
 	// things is one message, and an approval sent at once. It talks to no service itself - the
 	// connections service builds the bot for the channel - so a daemon with no chat connected routes
 	// to nowhere rather than failing, and it runs for as long as the daemon does.
-	alerts := buildNotifications(ctx, log, mods.integrations, bus, mods.sleepSettings, linkBase(node, settings.Port))
+	alerts := buildNotifications(ctx, log, mods.integrations, bus, mods.sleepSettings, linkBase(node, settings.Port), network, box)
+	// The outbox sends what was saved while the internet was down. It starts after the notices and the
+	// briefs can be sent, flushes at start, and again each time the internet returns.
+	registerOutbox(box, mods.integrations)
+	go box.Run(ctx)
 
 	// The chat receive loops (B9.3): Telegram and Discord can answer an approval the same way a
 	// screen does. They start the first time a connection for them is saved, so a person who adds a
@@ -245,7 +262,7 @@ func serve(ctx context.Context, settings config.Settings, env platform.Env, log 
 		tailnetNode = node
 	}
 	deps := moduleDeps(mods)
-	deps.Store, deps.Bus, deps.Dev, deps.Alerts = st, bus, dev, alerts
+	deps.Store, deps.Bus, deps.Dev, deps.Alerts, deps.Network = st, bus, dev, alerts, network
 	deps.Devices, deps.Tailnet, deps.Funnel, deps.WebUI = pairedDevices, tailnetNode, settings.Funnel, webUIFS()
 	deps.HostTailscale = tailnet.NewHost()
 	return api.New(settings, log, time.Now, deps).Run(ctx)
@@ -494,21 +511,15 @@ const tailnetIdentityInterval = 10 * time.Second
 // daemon with no chat set up still serves the app exactly as it did before.
 func buildNotifications(
 	ctx context.Context, log *slog.Logger, links *integrations.Service, bus *events.Bus,
-	saved notify.RouteStore, base func() string,
+	saved notify.RouteStore, base func() string, network *netwatch.Monitor, box *outbox.Service,
 ) api.AlertSettings {
 	sender := notify.SenderFunc(func(callCtx context.Context, channel notify.Channel, notice chatbot.Notice) error {
-		if links == nil {
-			return nil
+		err := sendNotice(callCtx, links, channel, notice)
+		// The internet is down: the notice is saved and sent when it is back, not lost.
+		if saved, saveErr := saveIfOffline(callCtx, box, network, outbox.KindNotice, string(channel), notice, err); saved {
+			return saveErr
 		}
-		bot, err := links.ChatBot(callCtx, chatbot.Kind(channel))
-		if err != nil {
-			if errors.Is(err, integrations.ErrNotConnected) {
-				return nil
-			}
-			return err
-		}
-		defer func() { _ = bot.Close() }()
-		return bot.Notify(callCtx, notice)
+		return err
 	})
 	router, err := notify.New(sender, notify.Options{Logger: log, LinkBase: base})
 	if err != nil {

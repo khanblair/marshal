@@ -9,15 +9,44 @@ import (
 	"github.com/khanblair/marshal/daemon/internal/briefs"
 	"github.com/khanblair/marshal/daemon/internal/chatbot"
 	"github.com/khanblair/marshal/daemon/internal/integrations"
+	"github.com/khanblair/marshal/daemon/internal/netwatch"
+	"github.com/khanblair/marshal/daemon/internal/outbox"
 	"github.com/khanblair/marshal/daemon/internal/store"
 )
 
 // chatDeliverer sends a brief through whichever chat connection a person saved. A chat nobody set up
 // answers briefs.ErrNotConnected, which a brief reports as skipped and not as a failure.
-type chatDeliverer struct{ links *integrations.Service }
+type chatDeliverer struct {
+	links *integrations.Service
+	// box and network are what a brief does when the internet is down: it is saved and sent when the
+	// internet is back. Both may be nil, and then a failed send is reported as it is.
+	box     *outbox.Service
+	network *netwatch.Monitor
+}
 
-// Deliver sends one message to the channel's chat, or one email when the channel is email.
+// briefPayload is a brief as the outbox keeps it.
+type briefPayload struct {
+	Title string `json:"title"`
+	Body  string `json:"body"`
+}
+
+// Deliver sends one message to the channel's chat, or one email when the channel is email. When the
+// internet is down it saves the message and answers briefs.ErrQueued.
 func (d chatDeliverer) Deliver(ctx context.Context, channel, title, body string) error {
+	err := d.deliverNow(ctx, channel, title, body)
+	saved, saveErr := saveIfOffline(ctx, d.box, d.network, outbox.KindBrief, channel, briefPayload{Title: title, Body: body}, err)
+	switch {
+	case !saved:
+		return err
+	case saveErr != nil:
+		return saveErr
+	default:
+		return briefs.ErrQueued
+	}
+}
+
+// deliverNow makes one attempt, with no saving. The outbox calls it for a brief it saved earlier.
+func (d chatDeliverer) deliverNow(ctx context.Context, channel, title, body string) error {
 	if d.links == nil {
 		return briefs.ErrNotConnected
 	}

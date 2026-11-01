@@ -213,6 +213,9 @@ type Deps struct {
 	// own - is registered beside health, with no token check. Nil keeps every device address
 	// closed and pairing impossible.
 	Devices *devices.Service
+	// Network says whether this computer can reach the internet. Nil, which is the default, reads as
+	// always online.
+	Network NetworkSource
 	// Tailnet is this daemon's own node on the person's tailnet (B9.1). Nil, which is the
 	// default, is a daemon reachable on this machine only: no tailnet listener is opened and no
 	// path is opened to the public internet. Set, it is a second listener beside loopback, never
@@ -281,6 +284,8 @@ type Server struct {
 	devices *devices.Service
 	// tailnet is the node on the person's tailnet (B9.1). Nil is a daemon on this machine only.
 	tailnet TailnetNode
+	// network says whether the internet is reachable. Nil reads as always online.
+	network NetworkSource
 	// hostTailscale is the Tailscale app on this computer. Nil says nothing about it.
 	hostTailscale HostTailscale
 	// funnel is whether /hooks/* was asked to be exposed to the public internet.
@@ -319,6 +324,7 @@ func New(settings config.Settings, log *slog.Logger, now func() time.Time, deps 
 		webUI:           deps.WebUI,
 		devices:         deps.Devices,
 		tailnet:         deps.Tailnet,
+		network:         deps.Network,
 		hostTailscale:   deps.HostTailscale,
 		funnel:          deps.Funnel && deps.Tailnet != nil,
 		mcp:             deps.MCP,

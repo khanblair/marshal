@@ -388,6 +388,9 @@ func deviceAndTailnetRoutes() []routeSpec {
 		// The peer list is the same shape of answer as the status: the server already holds the
 		// node, or holds nothing and lists no machines.
 		{"GET /v1/tailnet/peers", 0, (*Server).tailnetPeers},
+		// Whether the internet is reachable needs no service either: the server holds the monitor, or
+		// holds nothing and says online.
+		{"GET /v1/network", 0, (*Server).networkStatus},
 	}
 }
 

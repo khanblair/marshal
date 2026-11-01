@@ -275,6 +275,9 @@ func TestARouteIsRegisteredOnlyWhenItsServiceIsThere(t *testing.T) {
 	// The tailnet status needs no service - the server holds the node or holds nothing - so it is
 	// registered on every stack that has a store at all.
 	tailnetRoutes := []string{"GET /v1/tailnet", "GET /v1/tailnet/peers"}
+	// Whether the internet is reachable needs no service either: the server holds the monitor, or
+	// holds nothing and answers online.
+	networkRoutes := []string{"GET /v1/network"}
 	// The Trello routes read and write one project's linked board, so they need the connections
 	// service and the projects service together.
 	trelloRoutes := []string{
@@ -296,7 +299,7 @@ func TestARouteIsRegisteredOnlyWhenItsServiceIsThere(t *testing.T) {
 		"notices": noticeRoutes, "sleep settings": sleepSettingsRoutes, "alerts": alertRoutes, "card panel": panelRoutes, "quality": qualityRoutes,
 		"ci": ciRoutes, "ci simulation": ciSimulateRoutes, "local ci": localCIRoutes,
 		"preview": previewRoutes, "schedules": scheduleRoutes, "calendar": calendarRoutes, "devices": deviceRoutes,
-		"tailnet": tailnetRoutes, "trello": trelloRoutes,
+		"tailnet": tailnetRoutes, "trello": trelloRoutes, "network": networkRoutes,
 	}
 	count := 0
 	for _, group := range groups {
@@ -423,6 +426,8 @@ func TestARouteIsRegisteredOnlyWhenItsServiceIsThere(t *testing.T) {
 			have["devices"] = !st.cfg.noDevices
 			// The tailnet status needs no service at all.
 			have["tailnet"] = true
+			// So does the network status.
+			have["network"] = true
 			for name, group := range groups {
 				for _, pattern := range group {
 					method, path := concretePath(pattern)

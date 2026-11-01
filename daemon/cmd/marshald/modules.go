@@ -34,6 +34,8 @@ import (
 	"github.com/khanblair/marshal/daemon/internal/mcpattach"
 	"github.com/khanblair/marshal/daemon/internal/mcpserver"
 	"github.com/khanblair/marshal/daemon/internal/memory"
+	"github.com/khanblair/marshal/daemon/internal/netwatch"
+	"github.com/khanblair/marshal/daemon/internal/outbox"
 	"github.com/khanblair/marshal/daemon/internal/platform"
 	"github.com/khanblair/marshal/daemon/internal/preview"
 	"github.com/khanblair/marshal/daemon/internal/projects"
@@ -161,9 +163,13 @@ type coreDaemonModules struct {
 	connectionTests  *connectiontest.Runner
 	catalogSrc       catalog.Source
 	agentPrefs       catalog.PreferenceStore
-	historyStore     *history.Store
-	auditRec         *audit.Recorder
-	sessions         *session.Manager
+	// network and outbox are the internet monitor and the saved messages. They are set by
+	// buildModules, because the notices and the briefs both fall back to the outbox.
+	network      *netwatch.Monitor
+	outbox       *outbox.Service
+	historyStore *history.Store
+	auditRec     *audit.Recorder
+	sessions     *session.Manager
 	// clock tells time in the zone the person chose in their profile.
 	clock *zone.Clock
 }
@@ -174,7 +180,7 @@ const startPrompt = "Start working on this card now."
 
 // buildCoreModules makes git, projects, the agent registry and catalog, and the session manager,
 // in the order each depends on the last.
-func buildCoreModules(st *store.Store, bus *events.Bus, settings config.Settings, env platform.Env, log *slog.Logger) (coreDaemonModules, error) {
+func buildCoreModules(st *store.Store, bus *events.Bus, settings config.Settings, env platform.Env, log *slog.Logger, network *netwatch.Monitor) (coreDaemonModules, error) {
 	git := gitx.New()
 	clock := zone.New(zone.StoreSource{Store: st})
 	late := &lateSessions{}
@@ -203,6 +209,8 @@ func buildCoreModules(st *store.Store, bus *events.Bus, settings config.Settings
 		Logger:   log,
 		Recorder: providers.NewStoreRecorder(st, rand.Reader, providers.WithLocation(clock.Location)),
 		Now:      time.Now,
+		// A nil monitor stays a nil interface, so a request never waits for an internet nobody watches.
+		Network: connectivityOf(network),
 	})
 	if err != nil {
 		return coreDaemonModules{}, fmt.Errorf("start the model providers: %w", err)
@@ -576,7 +584,7 @@ func buildLateModules(st *store.Store, bus *events.Bus, settings config.Settings
 	briefSvc.SetEvents(integrationSvc)
 	// A brief's main-branch part reads the CI health, and a brief is sent to the chats it names.
 	briefSvc.SetCI(ciSvc)
-	briefSvc.SetDeliverer(chatDeliverer{integrationSvc})
+	briefSvc.SetDeliverer(chatDeliverer{links: integrationSvc, box: core.outbox, network: core.network})
 	schedSvc.RegisterHandler("brief", briefSvc.Handle)
 	schedSvc.SetPreviewer(briefSvc.Preview)
 	// An Event schedule waits on Google Calendar: smart brief times, and a brief or job that starts
@@ -688,8 +696,9 @@ func (t trelloPanel) ImportComment(ctx context.Context, cardID, body, userID str
 // the order each depends on the last, in three stages kept as separate functions so each stays
 // readable on its own. ctx is the daemon's own context, which the long-lived watchers it starts -
 // the vault watcher - stop with.
-func buildModules(ctx context.Context, st *store.Store, bus *events.Bus, settings config.Settings, env platform.Env, log *slog.Logger) (daemonModules, error) {
-	core, err := buildCoreModules(st, bus, settings, env, log)
+func buildModules(ctx context.Context, st *store.Store, bus *events.Bus, settings config.Settings, env platform.Env, log *slog.Logger, network *netwatch.Monitor, box *outbox.Service) (daemonModules, error) {
+	core, err := buildCoreModules(st, bus, settings, env, log, network)
+	core.network, core.outbox = network, box
 	if err != nil {
 		return daemonModules{}, err
 	}
@@ -713,4 +722,13 @@ func buildModules(ctx context.Context, st *store.Store, bus *events.Bus, setting
 		preview: late.previewSvc, memory: cm.mem, mcpHost: late.mcpHost, codemap: late.codeMap,
 		schedules: late.schedSvc, clock: core.clock,
 	}, nil
+}
+
+// connectivityOf hands a monitor to the model providers. A nil monitor becomes a nil interface, not
+// an interface that holds a nil pointer, so the providers can tell there is nothing to ask.
+func connectivityOf(network *netwatch.Monitor) providers.Connectivity {
+	if network == nil {
+		return nil
+	}
+	return network
 }

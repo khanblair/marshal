@@ -50,7 +50,7 @@ func buildTestModules(t *testing.T, stub string) (daemonModules, *store.Store, *
 		return ""
 	}}
 	settings := config.Settings{Mode: platform.ModeDev, DataDir: dir, Agent: config.AgentStub}
-	mods, err := buildModules(t.Context(), st, bus, settings, env, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	mods, err := buildModules(t.Context(), st, bus, settings, env, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, nil)
 	if err != nil {
 		t.Fatalf("build the daemon's modules: %v", err)
 	}
@@ -193,7 +193,7 @@ func TestEveryModuleIsHandedToTheServer(t *testing.T) {
 	mods, _, _, _ := buildTestModules(t, stub)
 	setByServe := map[string]bool{
 		"Store": true, "Bus": true, "Dev": true, "Alerts": true, "Devices": true,
-		"Tailnet": true, "HostTailscale": true, "Funnel": true, "WebUI": true,
+		"Tailnet": true, "HostTailscale": true, "Funnel": true, "WebUI": true, "Network": true,
 		// Nil on purpose until a GitHub token is saved (modules.go).
 		"PullRequests": true, "Review": true,
 	}

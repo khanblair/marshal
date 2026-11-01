@@ -21,6 +21,10 @@ type Deliverer interface {
 // ErrNotConnected is what a Deliverer answers for a channel that is not set up.
 var ErrNotConnected = errors.New("the channel is not connected")
 
+// ErrQueued is what a Deliverer answers when the internet was down and the brief was saved to be sent
+// when it is back. The brief says so, and it is not counted as a failure.
+var ErrQueued = errors.New("saved to send when the internet is back")
+
 // ErrSkipped is what a Deliverer answers for a channel that is set up but has nothing to send to,
 // such as a profile with no email address. The brief says why and does not count it as a failure.
 var ErrSkipped = errors.New("nothing to send to")
@@ -111,6 +115,8 @@ func (s *Service) send(ctx context.Context, sched protocol.Schedule, brief Brief
 			lines = append(lines, fmt.Sprintf("Sent to %s.", labelFor(channel)))
 		case errors.Is(err, ErrNotConnected):
 			lines = append(lines, fmt.Sprintf("%s is not connected, so it was skipped.", labelFor(channel)))
+		case errors.Is(err, ErrQueued):
+			lines = append(lines, fmt.Sprintf("%s is unreachable, so the brief is saved and will be sent when the internet is back.", labelFor(channel)))
 		case errors.Is(err, ErrSkipped):
 			lines = append(lines, fmt.Sprintf("Skipped %s: %v.", labelFor(channel), err))
 		default:
