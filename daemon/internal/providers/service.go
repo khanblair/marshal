@@ -39,6 +39,9 @@ type Options struct {
 	RetryAttempts int
 	// RetryBackoff is the wait before the second try; it doubles from there. Zero means the default.
 	RetryBackoff time.Duration
+	// Network is told when a request failed because of the network, and asked to wait for the internet
+	// to come back. Nil means the internet is always there, and a request never waits for it.
+	Network Connectivity
 	// MaxConcurrent caps how many requests one provider runs at once (scope 7.6). Below one means
 	// the default.
 	MaxConcurrent int
@@ -90,7 +93,7 @@ func New(keys security.Keychain, opts Options) (*Service, error) {
 		notices:  opts.Notices,
 		now:      opts.Now,
 		sleep:    opts.Sleep,
-		retry:    retryPolicy{attempts: opts.RetryAttempts, backoff: opts.RetryBackoff},
+		retry:    retryPolicy{attempts: opts.RetryAttempts, backoff: opts.RetryBackoff, net: opts.Network},
 		maxOpen:  opts.MaxConcurrent,
 		clients:  map[string]*provider{},
 	}
@@ -111,6 +114,11 @@ func New(keys security.Keychain, opts Options) (*Service, error) {
 	}
 	if s.retry.backoff <= 0 {
 		s.retry.backoff = defaultBackoff
+	}
+	// A request waits out a network failure for at most the budget, unless a test said it must not
+	// wait at all by handing in its own attempts.
+	if opts.RetryAttempts < 1 {
+		s.retry.budget = networkBudget
 	}
 	if s.maxOpen < 1 {
 		s.maxOpen = defaultMaxConcurrent

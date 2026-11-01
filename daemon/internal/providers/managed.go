@@ -17,19 +17,30 @@ import (
 	"fmt"
 	"io"
 	"time"
+
+	"github.com/khanblair/marshal/daemon/internal/netwatch"
 )
 
 // Defaults for a Service's call behaviour. They are what a daemon runs with; a test sets Options to
 // shrink or still them.
 const (
-	// defaultAttempts is how many times one request is tried, first try included. Four tries of a
-	// rate limit, waiting longer each time, is enough for a short burst to clear.
-	defaultAttempts = 4
-	// defaultBackoff is the wait before the second try. It doubles from there.
+	// defaultAttempts is the most times one request is tried, first try included, when the network is
+	// what keeps failing. The waits grow (networkBackoff, up to maxBackoff) and networkBudget bounds the
+	// whole retry, so a Wi-Fi switch or a short outage is waited out.
+	defaultAttempts = 12
+	// defaultOtherAttempts is how many times a request is tried when the provider answers badly but the
+	// network is fine: a rate limit or a server error. Four short tries is enough for a burst to clear,
+	// and then a backup model, if the call has one, is tried without a long wait.
+	defaultOtherAttempts = 4
+	// defaultBackoff is the wait before the second try of a rate limit or server error. It doubles.
 	defaultBackoff = 250 * time.Millisecond
-	// maxBackoff caps the wait however many tries there have been, so a long outage does not turn
-	// into a minutes-long stall inside one call.
-	maxBackoff = 8 * time.Second
+	// networkBackoff is the wait before the second try when the network is down. It doubles from there.
+	networkBackoff = time.Second
+	// maxBackoff caps the wait between two tries however long the outage lasts.
+	maxBackoff = 30 * time.Second
+	// networkBudget is the most time one request spends waiting out a network failure, the wait for the
+	// internet to come back included. After it the call fails and says why.
+	networkBudget = 5 * time.Minute
 	// defaultMaxConcurrent is how many requests one provider runs at once. More than a handful on
 	// one key is what draws a rate limit in the first place, so this is deliberately small and the
 	// rest wait.
@@ -63,6 +74,55 @@ func (p *provider) Stream(ctx context.Context, req Request) (Stream, error) {
 type retryPolicy struct {
 	attempts int
 	backoff  time.Duration
+	// budget bounds how long a request waits out network failures. Zero means no bound beyond
+	// attempts, which is what a test that must not wait uses.
+	budget time.Duration
+	// net is told of a network failure and asked to wait for the internet. Nil never waits.
+	net Connectivity
+}
+
+// Connectivity is what a retry asks about the internet. The daemon's is the monitor in
+// internal/netwatch; a nil one is an internet nobody watches, and then a network-looking failure is
+// taken to be the network.
+type Connectivity interface {
+	// Check reports a network-looking failure and says whether the internet is reachable now. A
+	// failure aimed at one server leaves it reachable, and that failure is the provider's, not the
+	// network's.
+	Check(ctx context.Context) bool
+	// WaitOnline blocks until the internet is reachable, or max passes, or ctx ends.
+	WaitOnline(ctx context.Context, max time.Duration) bool
+	// MarkOnline says a call to the internet just worked.
+	MarkOnline()
+}
+
+// RetryInfo says a request is waiting to be tried again. The zero value says the waiting is over.
+type RetryInfo struct {
+	// Attempt is the number of the try that comes next, counting the first as one.
+	Attempt int
+	// Max is the most tries the request gets.
+	Max int
+	// Wait is how long it waits before that try. Zero when it waits for the internet to return.
+	Wait time.Duration
+	// Network says the network is why: the failure was the network, not the provider.
+	Network bool
+	// Offline says the internet is not reachable, so the request waits for it to come back.
+	Offline bool
+}
+
+type retryObserverKey struct{}
+
+// WithRetryObserver returns a context whose requests tell fn when they wait to be tried again, and
+// tell it the zero RetryInfo when they stop waiting. It is how a card shows that its agent is waiting
+// for the network. fn runs on the goroutine making the request, so it must not block.
+func WithRetryObserver(ctx context.Context, fn func(RetryInfo)) context.Context {
+	return context.WithValue(ctx, retryObserverKey{}, fn)
+}
+
+func observerFrom(ctx context.Context) func(RetryInfo) {
+	if fn, ok := ctx.Value(retryObserverKey{}).(func(RetryInfo)); ok {
+		return fn
+	}
+	return func(RetryInfo) {}
 }
 
 // sleepFunc waits, or gives up when the context is done. It is a field on the Service so that a
@@ -120,29 +180,130 @@ func backoffFor(base time.Duration, try int) time.Duration {
 // and returns the last answer. It stops at once for a failure that will not change, and when the
 // context is done - in which case the context's own error is the answer, because "you cancelled"
 // is more useful than whatever the provider said as it was cut off.
+//
+// Three kinds of failure are told apart. A provider that answered badly (a rate limit, a server
+// error), or a network-looking failure while the internet is reachable (a local model that is not
+// running), gets a few short tries. A failure while the internet is down waits for it to return, and
+// does not use up tries while it waits. A failure that looks like the network when nothing watches the
+// internet (a nil monitor) is taken to be the network and gets many tries with growing waits. The
+// whole wait for the network is bounded by the policy's budget.
 func withRetry[T any](ctx context.Context, pol retryPolicy, sleep sleepFunc, attempt func() (T, error)) (T, error) {
 	var zero T
 	var last error
+	kind := failureOther
 	tries := max(pol.attempts, 1)
-	for try := range tries {
+	otherLimit := min(tries, defaultOtherAttempts)
+	started := time.Now()
+	observe := observerFrom(ctx)
+	defer observe(RetryInfo{})
+	var networkTries, otherFailures int
+retries:
+	for try := 0; try < tries; try++ {
 		if try > 0 {
-			if err := sleep(ctx, backoffFor(pol.backoff, try)); err != nil {
-				return zero, err
+			spent := pol.budget > 0 && time.Since(started) >= pol.budget
+			switch kind {
+			case failureOffline:
+				networkTries++
+				if spent {
+					break retries
+				}
+				observe(RetryInfo{Attempt: try + 1, Max: tries, Network: true, Offline: true})
+				// A minute at most, then the request tries anyway: a monitor whose own check cannot get
+				// out (a proxy-only network) would otherwise keep a working connection waiting.
+				pol.net.WaitOnline(ctx, offlinePatience(pol.budget, started))
+				if err := ctx.Err(); err != nil {
+					return zero, err
+				}
+			default:
+				network := kind == failureNetwork
+				wait := backoffFor(pol.backoff, max(try-networkTries, 1))
+				if network {
+					networkTries++
+					wait = backoffFor(networkBackoff, networkTries)
+				}
+				if pol.budget > 0 && (spent || time.Since(started)+wait > pol.budget) {
+					break retries
+				}
+				attemptsMax := otherLimit
+				if network {
+					attemptsMax = tries
+				}
+				observe(RetryInfo{Attempt: try + 1, Max: attemptsMax, Wait: wait, Network: network})
+				if err := sleep(ctx, wait); err != nil {
+					return zero, err
+				}
 			}
 		}
 		value, err := attempt()
 		if err == nil {
+			if kind != failureOther && last != nil && pol.net != nil {
+				pol.net.MarkOnline()
+			}
 			return value, nil
 		}
 		last = err
 		if !retryable(err) || ctx.Err() != nil {
 			break
 		}
+		kind = pol.classify(ctx, err)
+		if kind == failureOther {
+			otherFailures++
+			if otherFailures >= otherLimit {
+				break
+			}
+		}
 	}
 	if err := ctx.Err(); err != nil {
 		return zero, err
 	}
 	return zero, last
+}
+
+// failureKind is why a try failed, as far as the retry can tell.
+type failureKind int
+
+const (
+	// failureOther is a provider answering badly, or a failure aimed at one server.
+	failureOther failureKind = iota
+	// failureNetwork looks like the network and nothing can confirm it, because nothing watches.
+	failureNetwork
+	// failureOffline is the network, confirmed: the internet is not reachable.
+	failureOffline
+)
+
+// classify decides what a retryable failure was. A network-looking error is the network only when
+// the monitor confirms the internet is down; otherwise it is the provider's.
+func (p retryPolicy) classify(ctx context.Context, err error) failureKind {
+	if !netwatch.IsNetworkError(err) {
+		return failureOther
+	}
+	if p.net == nil {
+		return failureNetwork
+	}
+	if p.net.Check(ctx) {
+		return failureOther
+	}
+	return failureOffline
+}
+
+// offlinePatienceMax is how long a request waits for the internet before it tries anyway.
+const offlinePatienceMax = time.Minute
+
+// offlinePatience is how long one wait for the internet may last: a minute, or what is left of the
+// budget when that is less.
+func offlinePatience(budget time.Duration, started time.Time) time.Duration {
+	if budget <= 0 {
+		return offlinePatienceMax
+	}
+	return min(offlinePatienceMax, remaining(budget, started))
+}
+
+// remaining is how much of a budget is left, or zero (no limit) when there is none.
+func remaining(budget time.Duration, started time.Time) time.Duration {
+	if budget <= 0 {
+		return 0
+	}
+	return max(budget-time.Since(started), time.Millisecond)
 }
 
 // complete makes one non-streamed call on p, switching to the call's backup model if the provider

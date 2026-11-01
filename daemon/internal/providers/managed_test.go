@@ -276,9 +276,9 @@ func TestAProviderThatCannotBeReachedFallsBackToTheBackup(t *testing.T) {
 	if got := replyText(reply); got != "from the backup" {
 		t.Errorf("the call answered %q, want the backup's answer", got)
 	}
-	if got := len(primary.requestsOf()); got != defaultAttempts {
+	if got := len(primary.requestsOf()); got != defaultOtherAttempts {
 		t.Errorf("the failed provider was called %d times, want %d tries before the backup",
-			got, defaultAttempts)
+			got, defaultOtherAttempts)
 	}
 	if len(notices) != 1 {
 		t.Fatalf("told the person %d times, want one notice", len(notices))
@@ -516,7 +516,7 @@ func TestABackoffGrowsBetweenTries(t *testing.T) {
 			t.Errorf("the wait before try %d is %v, want %v", tc.try, got, tc.want)
 		}
 	}
-	if got := backoffFor(time.Second, 20); got != maxBackoff {
+	if got := backoffFor(time.Second, 20); got != maxBackoff || maxBackoff != 30*time.Second {
 		t.Errorf("the wait before a late try is %v, want it capped at %v", got, maxBackoff)
 	}
 	if got := backoffFor(0, 3); got != 0 {
