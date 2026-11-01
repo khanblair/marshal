@@ -122,6 +122,11 @@ func (s *Service) Remove(ctx context.Context, id string) error {
 	if _, google := googleConnectionOf(id); google {
 		s.dropGoogleAccess(ctx, id)
 	}
+	if id == GCalID {
+		if kept, err := s.keepGoogleClient(ctx); kept || err != nil {
+			return err
+		}
+	}
 	if info.Wired {
 		// Every wired connection that keeps a secret files it under its own id, so removing one is
 		// the same call for all of them. A connection with no secret (the Obsidian vault, which is a

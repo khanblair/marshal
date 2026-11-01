@@ -111,6 +111,9 @@ func newGoogleFixture(t *testing.T, mutate ...func(*integrations.Options)) (*fix
 		o.GoogleTokenURL = g.server.URL + "/token"
 		o.GCalBaseURL = g.server.URL + "/calendar/v3/"
 		o.GoogleRevokeURL = g.server.URL + "/revoke"
+		// A build with Marshal's own client must behave like one without, so a test never depends on
+		// the gitignored client file being on this machine.
+		o.NoBundledGoogleClient = true
 	}}, mutate...)...)
 	if err := f.svc.SaveGoogleCalendar(context.Background(), protocol.SaveGoogleCalendarRequest{
 		ClientID: "client-id", ClientSecret: "client-secret",

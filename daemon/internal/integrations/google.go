@@ -627,18 +627,47 @@ func (s *Service) grantToken(ctx context.Context, id string) *oauth2.Token {
 func (s *Service) dropGoogleAccess(ctx context.Context, id string) {
 	token := s.grantToken(ctx, id)
 	s.forgetGoogleReads()
-	if token == nil {
+	if token == nil || s.otherHoldsGrant(ctx, id) {
 		return
 	}
+	s.revokeAtGoogle(ctx, token)
+}
+
+// otherHoldsGrant says whether any Google connection but id holds a token. A token that cannot be
+// read counts as held.
+func (s *Service) otherHoldsGrant(ctx context.Context, id string) bool {
 	for _, other := range googleConnections() {
 		if other.ID == id {
 			continue
 		}
 		if held, err := s.storedGrant(ctx, other.ID); err != nil || held != nil {
-			return
+			return true
 		}
 	}
-	s.revokeAtGoogle(ctx, token)
+	return false
+}
+
+// keepGoogleClient runs when Calendar is removed. The person's own OAuth client is saved with
+// Calendar, so removing the whole row would leave the other Google connections without a client to
+// refresh their tokens with. While another one holds a grant, only Calendar's token and its calendar
+// choices go, and the client stays. It answers true when it did that.
+func (s *Service) keepGoogleClient(ctx context.Context) (bool, error) {
+	config, secrets, err := s.readGCal(ctx)
+	if err != nil {
+		return false, err
+	}
+	if config.ClientID == "" || secrets.ClientSecret == "" || !s.otherHoldsGrant(ctx, GCalID) {
+		return false, nil
+	}
+	raw, err := json.Marshal(gcalSecrets{ClientSecret: secrets.ClientSecret})
+	if err != nil {
+		return false, fmt.Errorf("write the Google Calendar connection's secrets: %w", err)
+	}
+	if err := s.keys.Set(GCalID, string(raw)); err != nil {
+		return false, fmt.Errorf("keep the Google client while Calendar is removed: %w", err)
+	}
+	s.forgetGoogleReads()
+	return true, s.writeGCal(ctx, gcalConfig{ClientID: config.ClientID})
 }
 
 // revokeAtGoogle asks Google to end an access. It is best effort: a Google that cannot be reached, or
