@@ -82,7 +82,7 @@ export const toComment = (cardId: string, comment: WireComment): Comment => ({
 
 const cardOf = (ctx: Ctx, key: CardKey) => ctx.S.cards.find((one) => one.id === key);
 
-export async function readChecks(ctx: Ctx, api: ApiClient, daemonId: string, key: CardKey) {
+async function readChecks(ctx: Ctx, api: ApiClient, daemonId: string, key: CardKey) {
   const answer = await api.cardChecks(daemonId);
   if (cardOf(ctx, key)) ctx.S.checks[key] = answer.checks.map(toCheck);
 }

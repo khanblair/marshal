@@ -47,7 +47,7 @@ import type {
 } from "./types";
 
 /** Whether the daemon can reach the internet. `since` is when that last changed, or null before it has. */
-export interface NetworkState {
+interface NetworkState {
   online: boolean;
   since: string | null;
 }

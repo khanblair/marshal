@@ -3,7 +3,7 @@ import type { PickOptions, Platform } from "./types";
 const VIBRATE_MS: Record<"tap" | "success" | "error", number> = { tap: 10, success: 20, error: 40 };
 
 /** Opens the browser's file chooser from an input that is never put on the page. */
-export function pickFilesWithInput(options: PickOptions = {}): Promise<File[]> {
+function pickFilesWithInput(options: PickOptions = {}): Promise<File[]> {
   return new Promise((resolve) => {
     const input = document.createElement("input");
     input.type = "file";

@@ -5,7 +5,7 @@ import type { ScheduleList, Schedule as WireSchedule } from "@marshal/protocol";
  * than one. It matches the mock's own seed data exactly, so the screen's existing "All projects"
  * checks keep working once this is real.
  */
-export const ALL_PROJECTS = "All projects";
+const ALL_PROJECTS = "All projects";
 
 /**
  * One schedule as the Schedules screen draws it: the daemon's own fields, with `project` turned

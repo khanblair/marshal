@@ -44,7 +44,7 @@ function toDeviceRow(device: WireDevice): {
 }
 
 /** Writes the daemon's list into the store, in its own order, revoked devices included. */
-export function applyDevices(ctx: Ctx, list: DeviceList): void {
+function applyDevices(ctx: Ctx, list: DeviceList): void {
   ctx.S.profile.devices = list.devices.map(toDeviceRow);
 }
 
@@ -85,11 +85,6 @@ export async function requestPairingCode(c: Ctx): Promise<boolean> {
   } catch {
     return false;
   }
-}
-
-/** Forgets the live pairing code, so nothing is left on the screen after the section is left. */
-export function clearPairingCode(): void {
-  setPairingCode(null);
 }
 
 /**

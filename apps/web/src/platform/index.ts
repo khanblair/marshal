@@ -3,7 +3,7 @@ import { createMobilePlatform } from "./mobile";
 import type { Platform, PlatformKind } from "./types";
 import { createWebPlatform } from "./web";
 
-export type { Haptic, PickOptions, Platform, PlatformKind } from "./types";
+export type { Platform, PlatformKind } from "./types";
 
 const PHONE_AGENT = /Android|iPhone|iPad|iPod/i;
 

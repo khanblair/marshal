@@ -16,7 +16,7 @@ import { toMillis } from "./time";
  */
 
 /** Who made a change in Marshal, or empty when that is not known. */
-export type ChangeAuthor = "person" | "agent" | "";
+type ChangeAuthor = "person" | "agent" | "";
 
 /** One thing Marshal would do in Trello. */
 export interface TrelloChangeView {
@@ -78,7 +78,7 @@ export interface TrelloReportRow {
 }
 
 /** A change that was not written, with the daemon's sentence for why. */
-export interface TrelloSkippedRow extends TrelloReportRow {
+interface TrelloSkippedRow extends TrelloReportRow {
   reason: string;
 }
 
@@ -164,10 +164,6 @@ export const linkOfCard = (
 /** The words for where a linked card's text came from. */
 export const markerWord = (link: TrelloLinkedCard): string =>
   link.fromTrello ? "From Trello" : "On Trello";
-
-/** The changes that are not in conflict, which the dialog starts with ticked. */
-export const calmChanges = (changes: readonly TrelloChangeView[]): TrelloChangeView[] =>
-  changes.filter((change) => !change.conflict);
 
 /**
  * What an Apply did, in the words of the changes the person saw. The answer's own pending list no

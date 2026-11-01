@@ -1,7 +1,7 @@
 /** The most characters a name may have. The daemon holds the same limit. */
-export const MAX_NAME_CHARS = 100;
+const MAX_NAME_CHARS = 100;
 /** The longest email address there is (RFC 5321). The daemon holds the same limit. */
-export const MAX_EMAIL_CHARS = 254;
+const MAX_EMAIL_CHARS = 254;
 
 const MIN_NAME_CHARS = 2;
 /** One address only: no spaces, no `<name>` form, one `@`, and a dotted domain. */
