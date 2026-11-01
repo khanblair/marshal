@@ -40,7 +40,7 @@ import type {
 } from "@marshal/protocol";
 import { vi } from "vitest";
 import { createData, type Data } from "~/data";
-import { emptyAnswer, errorAnswer, type FakeRequest, jsonAnswer } from "~/data/testing/fake-fetch";
+import { errorAnswer, type FakeRequest, jsonAnswer } from "~/data/testing/fake-fetch";
 import { type FakeSockets, fakeSockets } from "~/data/testing/fake-web-socket";
 import { golden } from "~/data/testing/golden";
 import { type MemoryStorage, memoryStorage } from "~/data/testing/memory-storage";
@@ -50,6 +50,19 @@ import { answerCardPanelRoute, type CardPanelStore, createCardPanelStore } from 
 import { answerCardRoute, type CardStore, type FakeCardDiff, type HistoryRow } from "./fake-cards";
 import { answerChatRoute, type ChatMessageRow, type ChatStore } from "./fake-chats";
 import { answerCIRoute, type CIStore, createCIStore } from "./fake-ci";
+import {
+  answerDeviceRoute,
+  answerFolders,
+  answerPairRoute,
+  FAKE_PAIRING_CODE,
+} from "./fake-daemon-devices";
+import {
+  createProject,
+  type ProjectState,
+  removeProject,
+  updateProject,
+} from "./fake-daemon-projects";
+import { keyOf, type Publish, pathOf, refuse, STATUS } from "./fake-daemon-support";
 import {
   answerGoogleFilesRoute,
   createGoogleFilesStore,
@@ -84,14 +97,12 @@ import { answerSearchRoute } from "./fake-search";
 import { answerSleepRoute, createSleepStore, type SleepStore } from "./fake-sleep";
 import { createTerminalRouter, type TerminalRouter } from "./fake-terminal";
 import { answerTrelloRoute, createTrelloStore, type TrelloStore } from "./fake-trello";
-import { wireProject } from "./projects";
 
 /** The token the fake daemon accepts, and the one the page starts with. It is not a real token. */
+export { FAKE_PAIRING_CODE };
 export const FAKE_TOKEN = "fake-daemon-token-for-tests";
 const EPOCH = "01M3C0ZZZZ000000000000000A";
 const SOCKET_OPEN = 1;
-const MAX_ID_CHARS = 24;
-const STATUS = { created: 201, badRequest: 400, unauthorized: 401, notFound: 404, conflict: 409 };
 
 export interface FakeDaemonOptions {
   /** The projects it starts with. */
@@ -272,136 +283,6 @@ export interface FakeDaemon {
   setTerminalBusy(cardId: string, busy: boolean): void;
 }
 
-const pathOf = (url: string): string => url.replace(/^https?:\/\/[^/]+/, "");
-const keyOf = (request: FakeRequest): string => `${request.method} ${pathOf(request.url)}`;
-
-const slug = (name: string): string =>
-  name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, MAX_ID_CHARS) || "project";
-
-const baseName = (path: string): string => path.replace(/\/+$/, "").split("/").pop() ?? "";
-
-/** Reads the JSON body of a request. A body that is not JSON is `{}`, which the routes then refuse. */
-function bodyOf(request: FakeRequest): Record<string, unknown> {
-  try {
-    return request.body ? (JSON.parse(request.body) as Record<string, unknown>) : {};
-  } catch {
-    return {};
-  }
-}
-
-/** Tells the event stream about a change, as the daemon does after it. */
-type Publish = (topic: string, type: string, data: unknown) => void;
-
-const refuse = (status: number, code: string, message: string) =>
-  errorAnswer(status, code, message);
-
-interface ProjectState {
-  projects: Project[];
-  publish: Publish;
-  now: () => string;
-}
-
-const notFound = () =>
-  refuse(
-    STATUS.notFound,
-    "not_found",
-    "Marshal cannot find that project. It may have been removed.",
-  );
-
-/** The sample ships inside the daemon: one folder, so the request names only the source. */
-const SAMPLE_NAME = "marshal-sample";
-const SAMPLE_PATH = "~/.marshal/sample";
-
-function createSampleProject(
-  { projects, publish, now }: ProjectState,
-  body: Record<string, unknown>,
-): Response {
-  const already = projects.find((p) => p.name === SAMPLE_NAME || p.path === SAMPLE_PATH);
-  if (already) {
-    return refuse(STATUS.conflict, "conflict", "The sample project is already in Marshal.");
-  }
-  const name = String(body.name ?? "").trim() || SAMPLE_NAME;
-  const project = wireProject({
-    id: slug(name),
-    name,
-    path: SAMPLE_PATH,
-    language: "TypeScript",
-    devCommand: "",
-    bypassLocked: false,
-    badges: { needs: 0, awake: 0 },
-    createdAt: now(),
-  });
-  projects.push(project);
-  publish("home", "project.created", { project });
-  return jsonAnswer(project, STATUS.created);
-}
-
-function createProject({ projects, publish, now }: ProjectState, request: FakeRequest): Response {
-  const body = bodyOf(request);
-  if (body.source === "sample") return createSampleProject({ projects, publish, now }, body);
-  const path = String(body.path ?? body.dest ?? "").trim();
-  if (!path)
-    return refuse(STATUS.badRequest, "invalid_argument", "Choose the folder of the repository.");
-  if (projects.some((p) => p.path === path)) {
-    return refuse(STATUS.conflict, "conflict", "That repository is already a project in Marshal.");
-  }
-  const name = String(body.name ?? "").trim() || baseName(path);
-  const project = wireProject({
-    id: slug(name),
-    name,
-    path,
-    language: "Unknown",
-    devCommand: "",
-    bypassLocked: false,
-    badges: { needs: 0, awake: 0 },
-    createdAt: now(),
-  });
-  projects.push(project);
-  publish("home", "project.created", { project });
-  return jsonAnswer(project, STATUS.created);
-}
-
-function updateProject(
-  { projects, publish }: ProjectState,
-  id: string,
-  request: FakeRequest,
-): Response {
-  const project = projects.find((p) => p.id === id);
-  if (!project) return notFound();
-  const body = bodyOf(request);
-  if (typeof body.name === "string") {
-    if (!body.name.trim()) {
-      return refuse(
-        STATUS.badRequest,
-        "invalid_argument",
-        "Project names can't be empty. The old name is kept.",
-      );
-    }
-    project.name = body.name.trim();
-  }
-  if (typeof body.devCommand === "string") project.devCommand = body.devCommand;
-  if (typeof body.defaultBranch === "string") project.defaultBranch = body.defaultBranch;
-  // An empty string clears the choice, so the default branch stands in for it again.
-  if (typeof body.integrationBranch === "string") {
-    project.integrationBranch = body.integrationBranch.trim() || project.defaultBranch;
-  }
-  if (typeof body.bypassLocked === "boolean") project.bypassLocked = body.bypassLocked;
-  publish("home", "project.updated", { project });
-  return jsonAnswer(project);
-}
-
-function removeProject({ projects, publish }: ProjectState, id: string): Response {
-  const at = projects.findIndex((p) => p.id === id);
-  if (at < 0) return notFound();
-  projects.splice(at, 1);
-  publish("home", "project.removed", { projectId: id });
-  return emptyAnswer();
-}
-
 interface Router {
   /** The token the daemon holds as the right one, or null once it was revoked. */
   token: () => string | null;
@@ -428,143 +309,11 @@ interface Router {
   trello: TrelloStore;
 }
 
-/**
- * The paired devices (B9.1, B9.2, section S2b) and the tailnet status (B9.1): the four routes the
- * profile draws. The fake daemon answers with one phone, so a component test has a real list to
- * read; a revoke marks the row rather than dropping it, because the screen says a device was
- * removed instead of watching it vanish, and the status answers "off", which is what a daemon that
- * was never started with `--tailnet` truthfully is.
- */
-/** The one pairing code the fake daemon makes and accepts. */
-export const FAKE_PAIRING_CODE = "7QX-2LD";
-
-const FAKE_DEVICES = [
-  {
-    id: "01H1234567890ABCDEFGHJKMNPQ",
-    name: "Pixel 8",
-    kind: "mobile",
-    pairedAt: "2026-09-20T10:00:00.000Z",
-    lastSeenAt: "2026-09-28T09:00:00.000Z",
-    revoked: false,
-  },
-  {
-    id: "01H1234567890ABCDEFGHJKMNPR",
-    name: "iPad Air",
-    kind: "mobile",
-    pairedAt: "2026-09-22T12:00:00.000Z",
-    lastSeenAt: null,
-    revoked: false,
-  },
-];
-
-function answerDeviceRoute(router: Router, request: FakeRequest): Response | null {
-  const key = keyOf(request);
-  if (key === "GET /v1/me/devices") {
-    return jsonAnswer({ devices: FAKE_DEVICES, serverTime: router.now() });
-  }
-  if (key === "POST /v1/me/devices/pairing-code") {
-    return jsonAnswer({
-      code: FAKE_PAIRING_CODE,
-      expiresAt: "2026-09-28T10:00:00.000Z",
-      serverTime: router.now(),
-    });
-  }
-  if (request.method === "DELETE" && pathOf(request.url).startsWith("/v1/me/devices/")) {
-    return new Response(null, { status: 204 });
-  }
-  if (key === "GET /v1/tailnet") {
-    return jsonAnswer({
-      enabled: false,
-      state: "off",
-      hostname: "",
-      dnsName: "",
-      ips: [],
-      port: 47800,
-      identity: "",
-      loginUrl: "",
-      funnel: false,
-      error: "",
-      host: {
-        found: false,
-        state: "",
-        dnsName: "",
-        ips: [],
-        account: "",
-        tailnet: "",
-        servePort: 0,
-        secureServePort: 0,
-        takenPorts: [],
-        reachable: false,
-        phones: [],
-      },
-      serverTime: router.now(),
-    });
-  }
-  return null;
-}
-
-/**
- * The route that trades a pairing code for a token, which takes no token of its own. The one code
- * the fake makes is accepted and answers the daemon's own token, so a device that pairs is signed in;
- * any other is refused with the daemon's own 401, the same for a wrong, spent, or expired code.
- */
-function answerPairRoute(router: Router, request: FakeRequest): Response {
-  const body = bodyOf(request);
-  if (body.code !== FAKE_PAIRING_CODE) {
-    return refuse(
-      STATUS.unauthorized,
-      "unauthorized",
-      "Sign in again. This device's token is missing or no longer valid.",
-    );
-  }
-  const device = {
-    ...FAKE_DEVICES[0],
-    name: String(body.name ?? ""),
-    kind: String(body.kind ?? ""),
-  };
-  return jsonAnswer({ token: router.token(), device, serverTime: router.now() });
-}
-
 /** The alert settings and a card's panel, which are separate stores answered one after the other. */
 function answerAlertsOrPanel(router: Router, request: FakeRequest): Response | undefined {
   return (
     answerAlertsRoute(router.alerts, request) ?? answerCardPanelRoute(router.cardPanel, request)
   );
-}
-
-/** The folders of a small pretend disk: the home folder, a code folder with one repository, and a notes folder. */
-const FAKE_HOME = "/Users/ada";
-const FAKE_DISK: Record<string, { name: string; repo?: boolean }[]> = {
-  [FAKE_HOME]: [{ name: "code" }, { name: "notes" }],
-  [`${FAKE_HOME}/code`]: [{ name: "marshal", repo: true }, { name: "scratch" }],
-  [`${FAKE_HOME}/code/marshal`]: [{ name: "apps" }],
-};
-
-function answerFolders(router: Router, request: FakeRequest): Response {
-  const asked = new URL(request.url, "http://fake-daemon").searchParams.get("path") ?? "";
-  const path = asked === "" || asked === "~" ? FAKE_HOME : asked;
-  const inside = FAKE_DISK[path];
-  if (!inside && !Object.keys(FAKE_DISK).some((known) => known.startsWith(`${path}/`))) {
-    return refuse(
-      STATUS.notFound,
-      "not_found",
-      "Marshal cannot find that folder. It may have been removed.",
-    );
-  }
-  const parent = path === "/" ? "" : path.slice(0, path.lastIndexOf("/")) || "/";
-  return jsonAnswer({
-    path,
-    parent,
-    home: FAKE_HOME,
-    isGitRepo: path === `${FAKE_HOME}/code/marshal`,
-    folders: (inside ?? []).map((entry) => ({
-      name: entry.name,
-      path: `${path}/${entry.name}`,
-      isGitRepo: entry.repo === true,
-    })),
-    truncated: false,
-    serverTime: router.now(),
-  });
 }
 
 /** The agent catalog, a scan of it, the test of one agent, and whether the daemon has the internet. */
