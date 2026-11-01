@@ -567,8 +567,9 @@ function answerFolders(router: Router, request: FakeRequest): Response {
   });
 }
 
-/** The agent catalog, a scan of it, and the test of one agent. */
+/** The agent catalog, a scan of it, the test of one agent, and whether the daemon has the internet. */
 function answerAgentRoute(router: Router, request: FakeRequest, key: string): Response | undefined {
+  if (key === "GET /v1/network") return jsonAnswer({ online: true, since: router.now() });
   if (request.method === "GET" && pathOf(request.url) === "/v1/folders") {
     return answerFolders(router, request);
   }

@@ -107,6 +107,7 @@ A section is one part of the screens that can switch from mock data to the daemo
 | S31a Onboarding and tour | Welcome, agents, project, and the Home tour | 2: 2.16, 2.17 | Daemon |
 | S31b Onboarding: connect from anywhere | The pairing and chat apps step | 9: 9.2 | Daemon |
 | S32 Screen preferences | Theme, list columns, sort, last view per project, filters, swimlane | 2: 2.5 | Daemon |
+| S33 Network status | Whether the internet is reachable, shown as an Offline badge in the top bar | Outside the plan: network resilience, architecture.md 19.5 | Daemon |
 
 Shortcuts and Help in Settings are static and have no backend. They are not sections.
 

@@ -119,3 +119,25 @@ describe("TopBar (phone)", () => {
     );
   });
 });
+
+describe("TopBar network badge", () => {
+  afterEach(() => {
+    M.S.network = { online: true, since: null };
+  });
+
+  it("shows nothing while the internet is reachable", () => {
+    render(() => <TopBar />);
+    expect(screen.queryByRole("status", { name: /Offline/ })).toBeNull();
+    expect(screen.queryByText("Offline")).toBeNull();
+  });
+
+  it("shows an Offline badge that says what waits, and takes it away when the internet is back", () => {
+    M.S.network = { online: false, since: "2026-11-01T09:30:00.000Z" };
+    render(() => <TopBar />);
+    const badge = screen.getByText("Offline").closest("span");
+    expect(badge).toHaveAttribute("role", "status");
+    expect(badge).toHaveAttribute("title", expect.stringContaining("wait for it to come back"));
+    M.S.network = { online: true, since: "2026-11-01T09:45:00.000Z" };
+    expect(screen.queryByText("Offline")).toBeNull();
+  });
+});

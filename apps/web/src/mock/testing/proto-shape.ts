@@ -68,7 +68,8 @@ function scheduleFields(schedule: Json): Json {
  * The whole state without what the port keeps beyond the prototype's fields:
  *
  * - `agents`, the daemon's catalog (the prototype's fixed table is in `M.AGENTS`), `agentTools`, the
- *   other agent programs it found, `stats`, the
+ *   other agent programs it found, `network`, whether the daemon can reach the internet
+ *   (`sync/network.ts`), `stats`, the
  *   stored Home numbers (`sync/home-stats.ts`), and `calGoogle`, how reading Google Calendar went
  *   (`sync/calendar.ts`).
  * - `checkpoints`, a card's restore points, which the port keeps in the store (Phase 5, B5.3) and
@@ -85,6 +86,7 @@ function withoutPortOnly(value: unknown): unknown {
   const {
     agents: _daemon,
     agentTools: _tools,
+    network: _network,
     stats: _numbers,
     calGoogle: _google,
     checkpoints: _restorePoints,

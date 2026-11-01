@@ -1,4 +1,4 @@
-import { CountBubble, cx, Icon, IconButton, Kbd, NeedsBadge } from "@marshal/ui";
+import { Badge, CountBubble, cx, Icon, IconButton, Kbd, NeedsBadge } from "@marshal/ui";
 import { createMemo, Show } from "solid-js";
 import { M } from "~/mock";
 import { AvatarMenu } from "./AvatarMenu";
@@ -79,6 +79,28 @@ function SearchButton() {
   );
 }
 
+/**
+ * Says the internet is out. It shows only while it is, so a working network adds nothing to the bar.
+ * The daemon checks only after a call failed, so this appears when something Marshal does could not
+ * get through, not before.
+ */
+function NetworkBadge() {
+  return (
+    <Show when={!M.S.network.online}>
+      <Badge
+        tone="needs-you"
+        size={22}
+        icon="triangle-alert"
+        role="status"
+        class="flex-none"
+        title="Marshal cannot reach the internet. Agents, notices and email wait for it to come back."
+      >
+        Offline
+      </Badge>
+    </Show>
+  );
+}
+
 function NoticesButton() {
   const count = createMemo(() => buildNotices(M, isPhone()).length);
   return (
@@ -122,6 +144,7 @@ export function TopBar() {
       >
         <PickerButton />
       </Show>
+      <NetworkBadge />
       <IconButton
         label={themeLabel()}
         title={themeLabel()}

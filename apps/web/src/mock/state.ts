@@ -130,6 +130,8 @@ export function initialState(seed: Seed, opts: StateOptions): State {
     // Agents come from the daemon too (`sync/agents.ts`).
     agents: [],
     agentTools: [],
+    // The network is the daemon's too (`sync/network.ts`); it is online until the daemon says it is not.
+    network: { online: true, since: null },
     ...projectState(),
     // The prototype's saved views are its own: on the daemon they are the daemon's, and the client's
     // own "All cards" (`ensureProjectState`) is all a project has until they are loaded.

@@ -257,6 +257,7 @@ function routeMethods({
     ciSnapshot: (o) => request("GET", "/v1/ci", o),
     agents: (o) => request("GET", "/v1/agents", o),
     refreshAgents: (o) => request("POST", "/v1/agents/refresh", slow(o)),
+    network: (o) => request("GET", "/v1/network", o),
     detectTelegramChat: (body, o) =>
       request("POST", "/v1/integrations/telegram/detect-chat", { ...slow(o), body }),
     folders: (path, o) =>

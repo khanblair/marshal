@@ -58,7 +58,8 @@ export type SectionId =
   | "S30"
   | "S31a"
   | "S31b"
-  | "S32";
+  | "S32"
+  | "S33";
 
 export type SectionStatus = "mock" | "daemon";
 
@@ -124,6 +125,7 @@ export const sectionStatus: Readonly<Record<SectionId, SectionStatus>> = {
   S31a: "daemon",
   S31b: "daemon",
   S32: "daemon",
+  S33: "daemon",
 };
 
 /** True when the section reads from the daemon. Pass another table to ask about it in a test. */

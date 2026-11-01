@@ -46,6 +46,12 @@ import type {
   ViewKey,
 } from "./types";
 
+/** Whether the daemon can reach the internet. `since` is when that last changed, or null before it has. */
+export interface NetworkState {
+  online: boolean;
+  since: string | null;
+}
+
 /** The link with the daemon as the screens see it. The store follows `data.connection` into this. */
 interface ConnectionView {
   state: ConnectionState;
@@ -75,6 +81,8 @@ export interface State {
   agents: Agent[];
   /** Other agent programs the daemon found that Marshal cannot start yet, as mirrored by `sync/agents.ts`. */
   agentTools: AgentTool[];
+  /** Whether the daemon can reach the internet, as mirrored by `sync/network.ts`. Online until told otherwise. */
+  network: NetworkState;
   cards: Card[];
   chat: Record<CardKey, Msg[]>;
   act: Record<CardKey, Activity[]>;

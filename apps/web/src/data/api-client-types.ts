@@ -61,6 +61,7 @@ import type {
   Lesson,
   LimitList,
   MoveCardRequest,
+  NetworkStatus,
   Note,
   NoticeActionRequest,
   NoticeActionResult,
@@ -527,6 +528,8 @@ export interface ApiClient {
   /** Looks at one agent program again, by its kind or tool id, and says what it found. It sends no prompt. */
   testAgent(id: string, options?: CallOptions): Promise<TestResult>;
   refreshAgents(options?: CallOptions): Promise<AgentCatalog>;
+  /** Whether this computer can reach the internet, as the daemon last found. */
+  network(options?: CallOptions): Promise<NetworkStatus>;
   saveAgentSettings(id: string, body: AgentSettingsRequest, options?: CallOptions): Promise<Agent>;
   /** A project's chats. `archived` asks for the archived ones instead of the live ones. */
   listChats(

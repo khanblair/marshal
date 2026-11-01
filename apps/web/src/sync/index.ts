@@ -21,6 +21,7 @@ import { homeStatsSyncer } from "./home-stats";
 import { applyMergeFlowEvent, followMergeFlow } from "./integration-flow";
 import { integrationsSyncer } from "./integrations";
 import { limitsSyncer } from "./limits";
+import { networkSyncer } from "./network";
 import { noticesSyncer } from "./notices";
 import { applyPlanUpdated } from "./plan-actions";
 import { preferencesSyncer } from "./preferences";
@@ -53,6 +54,7 @@ import { applyTrelloEvent, followTrello } from "./trello-flow";
 const SYNCERS: readonly Syncer[] = [
   projectsSyncer,
   agentsSyncer,
+  networkSyncer,
   limitsSyncer,
   sleepSettingsSyncer,
   alertsSyncer,
