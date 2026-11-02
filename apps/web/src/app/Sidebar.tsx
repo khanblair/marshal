@@ -1,6 +1,7 @@
 import { cx, Icon, IconButton, NavItem, NeedsBadge, Scrim } from "@marshal/ui";
 import { Show } from "solid-js";
 import { M } from "~/mock";
+import marshalMark from "../../../mobile/splash/marshal-mark.png";
 import { ProjectList } from "./ProjectList";
 import { isDesktop, sidebarOpen, sideOverlay, totalNeeds } from "./shell-layout";
 import { closeSide, goHome, goSettings, toggleSidebar } from "./sidebar-actions";
@@ -26,7 +27,13 @@ export function Sidebar() {
         )}
       >
         <div class="h-[calc(48px+var(--safe-top))] pt-[var(--safe-top)] flex-none flex items-center gap-2 pl-4 pr-2 border-b border-border">
-          <Icon name="st-done" size={20} />
+          <img
+            src={marshalMark}
+            alt=""
+            width={20}
+            height={20}
+            class="marshal-mark size-5 shrink-0 object-contain"
+          />
           <Show when={sidebarOpen()}>
             <span class="font-bold text-subtitle leading-5.5 flex-1">Marshal</span>
             <IconButton

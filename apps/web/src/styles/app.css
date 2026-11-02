@@ -13,6 +13,17 @@
 /* `phone:` styles an element on the phone layout, unless it opted out with data-compact. */
 @custom-variant phone ([data-size="phone"] &:not([data-compact]));
 
+/* The same geometric Marshal mark used by the mobile splash screen: black ink on chalk, light ink
+   on asphalt. The opaque PNG's white field disappears into the surface through the matching blend. */
+.marshal-mark {
+  mix-blend-mode: multiply;
+}
+
+[data-theme="dark"] .marshal-mark {
+  filter: invert(1);
+  mix-blend-mode: screen;
+}
+
 @layer base {
   *,
   *::before,

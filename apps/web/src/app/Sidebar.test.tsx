@@ -23,6 +23,9 @@ describe("Sidebar (desktop, expanded)", () => {
     render(() => <Sidebar />);
     const nav = screen.getByRole("navigation", { name: "Main" });
     expect(within(nav).getByText("Marshal")).toBeInTheDocument();
+    const mark = nav.querySelector('img[src*="marshal-mark.png"]');
+    expect(mark).toHaveAttribute("alt", "");
+    expect(mark).toHaveClass("marshal-mark");
     const heading = screen.getByText("Projects");
     expect(heading).toHaveAttribute("id", "projects-heading");
     const list = screen.getByRole("list", { name: "Projects" });
