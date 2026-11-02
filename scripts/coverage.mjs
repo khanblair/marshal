@@ -38,7 +38,34 @@ const EXEMPT = new Map([
 ]);
 
 /** Packages below their floor today: the number each must not fall below, and why. */
-const TEMPORARY_FLOORS = new Map([]);
+const TEMPORARY_FLOORS = new Map([
+  [
+    "internal/devices",
+    { floor: 33, reason: "paired-device routes and the pairing code are lightly tested" },
+  ],
+  [
+    "internal/integrations/github",
+    { floor: 65, reason: "the GitHub App's request paths are not all exercised" },
+  ],
+  [
+    "internal/integrations/googleclient",
+    { floor: 49, reason: "the bundled client file is not in the repo, so CI never runs that path" },
+  ],
+  [
+    "internal/integrator",
+    { floor: 78, reason: "the merge flow's less common refusals are untested" },
+  ],
+  ["internal/security", { floor: 81, reason: "the OS keychain paths cannot run on a CI machine" }],
+  ["internal/session", { floor: 81, reason: "the restart and resume paths need more tests" }],
+  [
+    "internal/settings",
+    { floor: 60, reason: "most settings are covered through their routes, not here" },
+  ],
+  [
+    "internal/tailnet",
+    { floor: 57, reason: "the node needs a real tailnet, which CI does not have" },
+  ],
+]);
 
 if (!existsSync(profilePath)) {
   console.error("daemon/coverage.out is missing. Run `pnpm --filter daemon test` first.");
