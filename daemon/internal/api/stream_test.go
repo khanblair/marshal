@@ -315,6 +315,7 @@ func TestEventsAreSentInOrderInSmallFrames(t *testing.T) {
 		project, _ := st.addProject("small-repo")
 		w := st.dialRaw()
 		w.hello(protocol.ProjectTopic(project.ID))
+		w.ready()
 		const cards = 7
 		for i := range cards {
 			st.addCard(project.ID, "Card "+string(rune('a'+i)))
