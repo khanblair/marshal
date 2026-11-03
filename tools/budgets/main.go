@@ -18,7 +18,7 @@ import (
 
 const (
 	defaultIdle          = 10 * time.Second
-	defaultMaxRSSMB      = 50
+	defaultMaxRSSMB      = 100
 	defaultMaxCPUPercent = 1.0
 	exitOK               = 0
 	exitOver             = 1
