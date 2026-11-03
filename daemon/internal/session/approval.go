@@ -70,8 +70,11 @@ type pendingApproval struct {
 // is logged and the agent's turn is left blocked: the alternative, answering "cancelled" without a
 // person having said so, would take a decision away from them.
 func (m *Manager) onPermissionRequested(ls *liveSession, e agents.PermissionRequested) {
+	// A permission request is evidence of active agent work, including agents that
+	// request permission before sending their first turn-start notification.
+	ls.claimTurn()
 	if cfg, decided := m.harnessConfig(ls); decided {
-		outcome := cfg.Decide(harness.Request{Kind: e.Kind, Path: e.Path, Command: e.Command})
+		outcome := cfg.Decide(harness.Request{Kind: e.Kind, Path: e.Path, Paths: e.Paths, Command: e.Command})
 		// A request the daemon cannot answer after all (the agent offered no option for the
 		// decision, or refused it) falls through to the person below, which is always safe.
 		if outcome.Decision != harness.DecisionAsk && m.answerWithoutAsking(ls, e, outcome, cfg.Mode) {
@@ -85,6 +88,8 @@ func (m *Manager) onPermissionRequested(ls *liveSession, e agents.PermissionRequ
 // it so every view of the same row draws it (N7). The agent's turn is blocked until Respond answers,
 // so nothing else happens for this session until then.
 func (m *Manager) holdPermission(ls *liveSession, e agents.PermissionRequested) {
+	ls.approvalMu.Lock()
+	defer ls.approvalMu.Unlock()
 	ctx := m.ctx
 	now := m.cfg.Now().UTC()
 	id, err := protocol.NewID(now, m.cfg.Entropy)
@@ -201,6 +206,14 @@ func (m *Manager) clearApprovalNeeds(ctx context.Context, cardID string) {
 	if cardID == "" {
 		return
 	}
+	m.mu.Lock()
+	for _, pa := range m.approvals {
+		if pa.cardID == cardID {
+			m.mu.Unlock()
+			return
+		}
+	}
+	m.mu.Unlock()
 	card, err := m.projects.Card(ctx, cardID)
 	if err != nil {
 		m.log.Error("could not read a card to clear its waiting approval", "card_id", cardID, "error", err)
@@ -247,16 +260,25 @@ func (m *Manager) Respond(ctx context.Context, approvalID string, decision proto
 	}
 	m.auditDecision(ctx, pa, decision, actor)
 	m.resolveApprovalHistory(ctx, pa, decision.State())
-	m.clearApprovalNeeds(ctx, pa.cardID)
 	m.bus.Publish(string(pa.ls.topic()), string(protocol.EventTypeApprovalResolved),
 		protocol.ApprovalResolvedEventData{
 			CardID: pa.cardID, ChatID: pa.chatID, ApprovalID: approvalID,
 			State: decision.State(), DecidedBy: actor, At: protocol.NewTimestamp(now),
 		}, true)
-	if err := m.setSessionState(ctx, pa.ls, pa.state); err != nil {
+	pa.ls.approvalMu.Lock()
+	defer pa.ls.approvalMu.Unlock()
+	m.clearApprovalNeeds(ctx, pa.cardID)
+	if !pa.ls.isBusy() || pa.ls.wasStopRequested() || m.liveOf(pa.ls.key()) != pa.ls {
+		return nil
+	}
+	state := pa.state
+	if m.hasPendingApproval(pa.ls) {
+		state = protocol.SessionStateWaitingApproval
+	}
+	if err := m.setSessionState(ctx, pa.ls, state); err != nil {
 		m.log.Error("could not restore a session's state after an approval", pa.ls.noun()+"_id", pa.ls.key(), "error", err)
 	}
-	m.publishState(pa.ls, pa.state, "")
+	m.publishState(pa.ls, state, "")
 	return nil
 }
 

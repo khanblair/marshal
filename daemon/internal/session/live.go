@@ -47,8 +47,11 @@ type liveSession struct {
 	term *terminalSession
 
 	turnMu sync.Mutex
-	busy   bool
-	queue  []string
+	// Permission responses can trigger an immediate turn-end event. Serialize the
+	// stored working/awake updates so a late response cannot resurrect a finished turn.
+	approvalMu sync.Mutex
+	busy       bool
+	queue      []string
 
 	// settings is the model, thinking mode, and permission mode the session is running with, and
 	// settingsMu guards it. It starts as what Start or Resume was given and moves on when a card's

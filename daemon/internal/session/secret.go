@@ -40,6 +40,9 @@ func (m *Manager) scanTurnForSecrets(ls *liveSession) bool {
 		// A card that never started has no branch and no commits of its own.
 		return false
 	}
+	if m.cfg.DirectWorkspace {
+		return m.scanDirectChanges(ls, row)
+	}
 	project, err := m.store.Queries().GetProject(m.ctx, row.ProjectID)
 	if err != nil {
 		m.log.Error("could not read a project to scan a card's commits", "card_id", ls.cardID, "error", err)
@@ -70,6 +73,37 @@ func (m *Manager) scanTurnForSecrets(ls *liveSession) bool {
 			return true
 		}
 	}
+	return false
+}
+
+// Direct cards scan the files changed between their snapshots. The active branch may
+// be main itself, so comparing main..HEAD would miss every uncommitted change.
+func (m *Manager) scanDirectChanges(ls *liveSession, row db.Card) bool {
+	result, err := m.git.Rev(m.ctx, row.WorktreePath, gitx.DirectResultRef(row.ID))
+	if err != nil || result == ls.scannedThrough {
+		return false
+	}
+	files, _, err := m.git.DiffFilesBetween(m.ctx, row.WorktreePath, gitx.DirectBaseRef(row.ID), result, 0)
+	if err != nil {
+		m.log.Warn("could not read the direct card's changes for a secret scan", "card_id", row.ID, "error", err)
+		return false
+	}
+	for _, file := range files {
+		if file.Status == gitx.DiffStatusDeleted || file.Binary {
+			continue
+		}
+		content, err := m.git.FileAtCommit(m.ctx, row.WorktreePath, result, file.Path)
+		if err != nil {
+			continue
+		}
+		findings, err := m.cfg.Secrets.Scan(file.Path, content)
+		if err != nil || len(findings) == 0 {
+			continue
+		}
+		m.blockCommitForSecret(ls, row, gitx.Commit{SHA: result}, findings[0])
+		return true
+	}
+	ls.scannedThrough = result
 	return false
 }
 

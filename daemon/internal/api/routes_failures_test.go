@@ -93,6 +93,12 @@ func TestAnAgentThatHasAlreadyEnded(t *testing.T) {
 			if got.Message != "This card has no agent running." {
 				t.Errorf("message = %q", got.Message)
 			}
+			if tc.path == "/stop" {
+				row, err := st.store.Queries().GetSessionByCard(context.Background(), card.ID)
+				if err != nil || row.State != string(protocol.SessionStateStopped) {
+					t.Fatalf("already-ended session was not marked stopped: %+v, %v", row, err)
+				}
+			}
 		})
 	}
 }

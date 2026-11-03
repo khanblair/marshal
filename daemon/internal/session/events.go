@@ -36,6 +36,8 @@ func eventKind(ev agents.AgentEvent) string {
 		return "plan"
 	case agents.PermissionRequested:
 		return "permission_requested"
+	case agents.PermissionCancelled:
+		return "permission_cancelled"
 	case agents.TurnEnded:
 		return "turn_ended"
 	case agents.Failed:
@@ -181,6 +183,11 @@ func logValue(common logCommon, ev agents.AgentEvent) any {
 		return logPlan{common, steps}
 	case agents.PermissionRequested:
 		return logPermissionRequested{common, e.RequestID, e.Title, e.Kind, e.Path, e.Command}
+	case agents.PermissionCancelled:
+		return struct {
+			logCommon
+			RequestID string `json:"requestId"`
+		}{common, e.RequestID}
 	case agents.TurnEnded:
 		return logTurnEnded{common, e.Reason}
 	case agents.Failed:

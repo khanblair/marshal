@@ -72,6 +72,12 @@ func (m *Manager) commitTurnWork(ls *liveSession) {
 	if err != nil || row.WorktreePath == "" {
 		return
 	}
+	if m.cfg.DirectWorkspace {
+		if _, err := m.git.SnapshotFolder(m.ctx, row.WorktreePath, gitx.DirectResultRef(row.ID), "Marshal: after "+row.Title); err != nil {
+			m.log.Warn("could not snapshot the card's changes", "card_id", row.ID, "error", err)
+		}
+		return
+	}
 	turns, err := m.store.Queries().CountSessionEventsOfKind(m.ctx, db.CountSessionEventsOfKindParams{
 		CardID: ls.cardID, Kind: string(history.KindUser),
 	})
@@ -94,7 +100,7 @@ func (m *Manager) makeCheckpoint(cardID, worktree, label string) *protocol.Check
 		return nil
 	}
 	ref := gitx.CheckpointRef(id)
-	state, err := m.git.Checkpoint(m.ctx, worktree, ref, checkpointMessage(label))
+	state, err := m.checkpointFiles(worktree, ref, label)
 	if err != nil {
 		m.log.Error("could not make a checkpoint", "card_id", cardID, "error", err)
 		return nil
@@ -110,6 +116,14 @@ func (m *Manager) makeCheckpoint(cardID, worktree, label string) *protocol.Check
 	return &protocol.Checkpoint{
 		ID: id, CardID: cardID, SHA: state.SHA, Label: label, CreatedAt: protocol.NewTimestamp(now),
 	}
+}
+
+func (m *Manager) checkpointFiles(path, ref, label string) (gitx.CheckpointState, error) {
+	if !m.cfg.DirectWorkspace {
+		return m.git.Checkpoint(m.ctx, path, ref, checkpointMessage(label))
+	}
+	snapshot, err := m.git.SnapshotFolder(m.ctx, path, ref, checkpointMessage(label))
+	return gitx.CheckpointState{SHA: snapshot.Commit, Created: err == nil}, err
 }
 
 // checkpointMessage is the commit message a checkpoint is made with, so a person who reads the
@@ -192,6 +206,10 @@ func (m *Manager) ListCheckpoints(ctx context.Context, cardID string) (protocol.
 // A card being merged, and a card whose agent is running a turn, are refused: a restore in the
 // middle of a turn would race the agent's own writes to the worktree.
 func (m *Manager) RestoreCheckpoint(ctx context.Context, cardID, checkpointID string, conversation bool) (protocol.Card, error) {
+	if m.cfg.DirectWorkspace {
+		return protocol.Card{}, protocol.Refused("Cards share the project folder. A per-card rollback could overwrite your edits or another card's work, so automatic checkpoint restore is unavailable. The saved snapshots remain in Git for recovery.").
+			With("reason", "shared_workspace_restore").With("cardId", cardID)
+	}
 	row, err := m.store.Queries().GetCheckpoint(ctx, db.GetCheckpointParams{CardID: cardID, ID: checkpointID})
 	if err != nil {
 		if store.IsNotFound(err) {

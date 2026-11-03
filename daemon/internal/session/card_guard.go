@@ -38,8 +38,8 @@ func (m *Manager) allowPush(ctx context.Context, projectID string) bool {
 
 // cardToolRules are the tool rules a card's agent is started with, in Claude Code's syntax (an
 // adapter without such rules ignores them). The agent may stage and commit its own work, which is
-// what lets a finished card have commits to merge; Marshal runs the agent with its permission
-// prompts off, so a command that is not allowed is refused instead of asked about. Pushing and
+// what lets an agent record its work. Commands outside the allow rules use the
+// session's permission mode and approval channel. Pushing and
 // publishing a pull request are denied unless the project allows them, and a deny rule wins over any
 // allow rule and over every permission mode.
 func cardToolRules(allowPush bool) (allowed, denied []string) {
@@ -52,5 +52,13 @@ func cardToolRules(allowPush bool) (allowed, denied []string) {
 
 // cardRulesFor are the rules for one card's session.
 func (m *Manager) cardRulesFor(ctx context.Context, card protocol.Card) (allowed, denied []string) {
-	return cardToolRules(m.allowPush(ctx, card.ProjectID))
+	allowed, denied = cardToolRules(m.allowPush(ctx, card.ProjectID))
+	if m.cfg.DirectWorkspace {
+		denied = append(denied, directGitDenied()...)
+	}
+	return allowed, denied
+}
+
+func directGitDenied() []string {
+	return gitRules("worktree", "switch", "checkout", "reset", "clean", "branch -D", "branch -d", "rebase")
 }

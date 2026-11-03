@@ -55,7 +55,11 @@ func (m *Manager) Send(ctx context.Context, cardID, text string) error {
 // deliver puts a message into a live session, a card's or a chat's: it starts the turn at once when
 // none is running, and queues the message when one is.
 func (m *Manager) deliver(ctx context.Context, ls *liveSession, text string) error {
-	if !ls.claimTurn() {
+	claimed, err := m.claimDelivery(ls)
+	if err != nil {
+		return err
+	}
+	if !claimed {
 		return m.queueOrRefuse(ls, text)
 	}
 	// The turn about to start runs with the card's settings as they are now, not as they were when
@@ -75,6 +79,15 @@ func (m *Manager) deliver(ctx context.Context, ls *liveSession, text string) err
 	m.recordUserMessage(ls, text)
 	m.markCardWorking(ctx, ls)
 	return nil
+}
+
+func (m *Manager) claimDelivery(ls *liveSession) (bool, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.completing[ls.key()] {
+		return false, completionRefusal(ls.key())
+	}
+	return ls.claimTurn(), nil
 }
 
 // queueOrRefuse is the path for a session this bookkeeping already believes is busy, or that a

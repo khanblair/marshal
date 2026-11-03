@@ -88,6 +88,8 @@ func (m *Manager) handleEvent(ls *liveSession, ev agents.AgentEvent) {
 		m.clearRetry(ls)
 		ls.sawNetworkRetry = false
 		m.onPermissionRequested(ls, e)
+	case agents.PermissionCancelled:
+		m.cancelApproval(ls, e.RequestID)
 	case agents.Failed:
 		// A failure that kills the process is followed by its Exited, which finishPump reacts to.
 		m.log.Warn("an agent session failed", ls.noun()+"_id", ls.key(), "message", e.Message)
@@ -171,6 +173,9 @@ func (m *Manager) publishToolCall(ls *liveSession, ev agents.AgentEvent) {
 // A pause holds the card between turns: the turn that just ended does not start the next message,
 // which waits until the card is resumed (see deliverHeld). A chat cannot be paused.
 func (m *Manager) onTurnEnded(ls *liveSession) {
+	ls.approvalMu.Lock()
+	defer ls.approvalMu.Unlock()
+	m.withdrawApprovals(m.ctx, ls)
 	// A failure that left the process running was said in the chat; it is not why a later exit happened.
 	ls.failureCause = ""
 	m.clearRetry(ls)
@@ -243,6 +248,11 @@ func (m *Manager) onTurnEnded(ls *liveSession) {
 // send for the same reason Send itself marks first (see send.go), and a send that fails releases
 // the turn so the session is not left believing one is running.
 func (m *Manager) deliverQueued(ctx context.Context, ls *liveSession, text string) {
+	if err := m.checkCompletion(ls.key()); err != nil {
+		ls.enqueue(text)
+		ls.release()
+		return
+	}
 	// A message that waited for the turn before it starts its own turn with the card's settings as
 	// they are now, the same way a message sent into an idle session does (B3.6).
 	m.applyCardSettings(ctx, ls)
@@ -267,6 +277,9 @@ func (m *Manager) deliverQueued(ctx context.Context, ls *liveSession, text strin
 // has no card, so its unexpected exit only marks the row stopped and says so on the chat's topic;
 // the chat's next message tries to pick the conversation back up.
 func (m *Manager) finishPump(ls *liveSession) {
+	ls.approvalMu.Lock()
+	defer ls.approvalMu.Unlock()
+	ls.release()
 	defer m.forget(ls.key(), ls)
 	// What the session was given at its start - the internal MCP server - is given up here, which
 	// is the one place every ending passes through: a stop, a sleep, a view switch, a crash, and the
@@ -286,6 +299,9 @@ func (m *Manager) finishPump(ls *liveSession) {
 	m.withdrawApprovals(m.ctx, ls)
 	// A wait the agent was showing ends with its session, however the session ended.
 	m.clearRetry(ls)
+	if m.cfg.DirectWorkspace {
+		m.commitTurnWork(ls)
+	}
 	if ls.wasStopRequested() {
 		return
 	}

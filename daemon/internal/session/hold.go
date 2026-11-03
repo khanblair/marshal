@@ -217,12 +217,18 @@ func (m *Manager) stopForSleep(ctx context.Context, cardID string) error {
 	if ls == nil {
 		return nil
 	}
+	releaseEditor := m.holdStoppingEditor(ls)
+	defer releaseEditor()
 	ls.setStopRequested()
 	if err := ls.agent.Stop(ctx, ls.handle); err != nil {
 		// The process is still there, so the sleep did not happen and the session is not on its
 		// way out after all.
 		ls.clearStopRequested()
 		return fmt.Errorf("put the session of card %s to sleep: %w", cardID, err)
+	}
+	if m.cfg.DirectWorkspace && !m.waitPump(ls) {
+		m.blockLiveEditor(ls)
+		return protocol.Unavailable("The coding agent has not finished shutting down yet.")
 	}
 	m.forget(cardID, ls)
 	return nil

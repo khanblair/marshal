@@ -255,7 +255,8 @@ func buildCoreModules(st *store.Store, bus *events.Bus, settings config.Settings
 		return coreDaemonModules{}, fmt.Errorf("start the audit recorder: %w", err)
 	}
 	sessions, err := session.NewManager(st, bus, proj, registry, git, session.Config{
-		DataDir: settings.DataDir, Logger: log, History: historyStore, Plans: historyStore,
+		DirectWorkspace: true,
+		DataDir:         settings.DataDir, Logger: log, History: historyStore, Plans: historyStore,
 		Terminals: terminals, Audit: auditRec,
 		StartPrompt: startPrompt, StartOnSend: true,
 		Usage: providers.NewStoreRecorder(st, rand.Reader, providers.WithLocation(clock.Location)),

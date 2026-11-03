@@ -148,6 +148,9 @@ func (m *Manager) containmentOf(row db.Card) (gitx.Containment, bool, error) {
 		m.log.Error("could not read a project to contain a card", "card_id", row.ID, "error", err)
 		return gitx.Containment{}, false, err
 	}
+	if m.cfg.DirectWorkspace {
+		return gitx.NewContainment(project.RepoPath, project.RepoPath, "", ""), true, nil
+	}
 	target := project.IntegrationBranch
 	if target == "" {
 		target = project.DefaultBranch
