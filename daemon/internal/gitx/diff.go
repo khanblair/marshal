@@ -152,9 +152,13 @@ func (g *Git) DiffFiles(ctx context.Context, dir, base string, maxBytes int) ([]
 
 // diffNameStatus reads what happened to each file: `git diff --name-status`.
 func (g *Git) diffNameStatus(ctx context.Context, dir, base string, maxBytes int) ([]DiffFile, bool, error) {
+	return g.diffNameStatusRevisions(ctx, dir, maxBytes, "--merge-base", base)
+}
+
+func (g *Git) diffNameStatusRevisions(ctx context.Context, dir string, maxBytes int, revisions ...string) ([]DiffFile, bool, error) {
+	args := []string{"--no-optional-locks", "diff", "--name-status", "-z", "-M", "--no-color", "--no-ext-diff"}
 	out, truncated, err := g.runCapped(ctx, dir, maxBytes,
-		"--no-optional-locks", "diff", "--name-status", "-z", "-M", "--no-color", "--no-ext-diff",
-		"--merge-base", base)
+		append(args, revisions...)...)
 	if err != nil {
 		return nil, false, fmt.Errorf("list the changed files: %w", err)
 	}
@@ -222,9 +226,13 @@ type diffCount struct {
 
 // diffCounts reads the line counts of each changed file: `git diff --numstat`.
 func (g *Git) diffCounts(ctx context.Context, dir, base string, maxBytes int) (map[string]diffCount, bool, error) {
+	return g.diffCountsRevisions(ctx, dir, maxBytes, "--merge-base", base)
+}
+
+func (g *Git) diffCountsRevisions(ctx context.Context, dir string, maxBytes int, revisions ...string) (map[string]diffCount, bool, error) {
+	args := []string{"--no-optional-locks", "diff", "--numstat", "-z", "-M", "--no-color", "--no-ext-diff"}
 	out, truncated, err := g.runCapped(ctx, dir, maxBytes,
-		"--no-optional-locks", "diff", "--numstat", "-z", "-M", "--no-color", "--no-ext-diff",
-		"--merge-base", base)
+		append(args, revisions...)...)
 	if err != nil {
 		return nil, false, fmt.Errorf("count the changed lines: %w", err)
 	}

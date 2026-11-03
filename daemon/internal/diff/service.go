@@ -4,8 +4,8 @@
 // internal/gitx for the changed files or one file's hunks, bounds the answer, and turns a card
 // that has nothing to show into the answer a client reads.
 //
-// It reads only. Nothing here changes a repository, and nothing here publishes an event: a diff is
-// a view of a worktree the session manager is already changing.
+// It never changes source files, the index, or the checked out branch. A live direct-workspace
+// view may keep a private Git snapshot so the diff includes untracked files consistently.
 //
 // Git is never run from here. Every call goes through gitx, which is the one place the Git program
 // is started (docs/backend-checklist.md section 4).
@@ -144,12 +144,14 @@ type worktree struct {
 	project protocol.Project
 	path    string
 	branch  string
+	base    string
+	result  string
 }
 
 // readable reports whether there is a worktree to read. A card that never started has none, and a
 // card whose recorded folder was deleted by hand is treated the same way: an empty diff, never an
 // error.
-func (w worktree) readable() bool { return w.path != "" && w.project.Target() != "" }
+func (w worktree) readable() bool { return w.path != "" && w.base != "" }
 
 // Files returns the card's whole diff: every file it changed, with the counts of each, and no
 // hunks. An unknown card is not found. A card that never started, or whose worktree is gone, is an
@@ -160,13 +162,19 @@ func (s *Service) Files(ctx context.Context, cardID string) (protocol.CardDiff, 
 		return protocol.CardDiff{}, err
 	}
 	answer := protocol.CardDiff{
-		CardID: cardID, Base: work.project.Target(), Branch: work.branch,
+		CardID: cardID, Base: work.base, Branch: work.branch,
 		Files: []protocol.ChangedFile{}, ServerTime: protocol.NewTimestamp(s.now()),
 	}
 	if !work.readable() {
 		return answer, nil
 	}
-	files, truncated, err := s.git.DiffFiles(ctx, work.path, work.project.Target(), s.limits.MaxBytes)
+	var files []gitx.DiffFile
+	var truncated bool
+	if work.result != "" {
+		files, truncated, err = s.git.DiffFilesBetween(ctx, work.path, work.base, work.result, s.limits.MaxBytes)
+	} else {
+		files, truncated, err = s.git.DiffFiles(ctx, work.path, work.base, s.limits.MaxBytes)
+	}
 	if err != nil {
 		return protocol.CardDiff{}, fmt.Errorf("read the diff of card %s: %w", cardID, err)
 	}
@@ -196,7 +204,13 @@ func (s *Service) Hunks(ctx context.Context, cardID, path string) (protocol.File
 	if !work.readable() {
 		return protocol.FileHunks{}, notFoundFile(path)
 	}
-	file, found, err := s.git.DiffHunks(ctx, work.path, work.project.Target(), path, s.limits.MaxLines, s.limits.MaxBytes)
+	var file gitx.DiffFileHunks
+	var found bool
+	if work.result != "" {
+		file, found, err = s.git.DiffHunksBetween(ctx, work.path, work.base, work.result, path, gitx.HunkLimits{MaxLines: s.limits.MaxLines, MaxBytes: s.limits.MaxBytes})
+	} else {
+		file, found, err = s.git.DiffHunks(ctx, work.path, work.base, path, s.limits.MaxLines, s.limits.MaxBytes)
+	}
 	if err != nil {
 		if errors.Is(err, gitx.ErrBadPath) {
 			// A path that cannot name a file inside the worktree reads the same as a path that
@@ -239,7 +253,37 @@ func (s *Service) worktreeOf(ctx context.Context, cardID string) (worktree, erro
 			"card_id", cardID, "project_id", card.ProjectID, "worktree", path)
 		path = ""
 	}
-	return worktree{project: project, path: path, branch: branch}, nil
+	work := worktree{project: project, path: path, branch: branch, base: project.Target()}
+	if path != "" && gitx.SameFolder(path, project.Path) {
+		work.base, err = s.git.Rev(ctx, path, gitx.DirectBaseRef(card.ID))
+		if err != nil {
+			return worktree{}, fmt.Errorf("read the starting snapshot of card %s: %w", card.ID, err)
+		}
+		work.result, err = s.directResult(ctx, card, work)
+		if err != nil {
+			return worktree{}, err
+		}
+	}
+	return work, nil
+}
+
+// directResult freezes idle/completed cards at their own last turn. While the card is actively
+// working, a temporary-index snapshot gives a current diff without staging the user's files.
+func (s *Service) directResult(ctx context.Context, card protocol.Card, work worktree) (string, error) {
+	if card.State != protocol.CardStateDone && card.Session != nil && *card.Session == protocol.SessionStateWorking {
+		snapshot, err := s.git.SnapshotFolder(ctx, work.path, gitx.DirectBaseRef(card.ID)+"-view", "Marshal live card diff")
+		if err != nil {
+			return "", fmt.Errorf("read the current folder for card %s: %w", card.ID, err)
+		}
+		return snapshot.Commit, nil
+	}
+	result, err := s.git.Rev(ctx, work.path, gitx.DirectResultRef(card.ID))
+	if err != nil {
+		// A card that has not completed a turn has only its starting snapshot. Do not attribute
+		// changes made later by another card or by the owner to that idle card.
+		return work.base, nil
+	}
+	return result, nil
 }
 
 // changedFile maps one file of a Git diff to the wire type, and marks the files a screen keeps

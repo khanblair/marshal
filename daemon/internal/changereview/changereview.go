@@ -71,7 +71,11 @@ func (r *Reviewer) ReviewChanges(ctx context.Context, req integrator.ChangeRevie
 	if err != nil {
 		return integrator.ChangeVerdict{}, fmt.Errorf("this project has no %s role: %w", RoleName, err)
 	}
-	diff, err := r.git.Run(ctx, req.Worktree, "diff", req.Base+"...HEAD")
+	args := []string{"diff", req.Base + "...HEAD"}
+	if req.Head != "" {
+		args = []string{"diff", req.Base, req.Head, "--"}
+	}
+	diff, err := r.git.Run(ctx, req.Worktree, args...)
 	if err != nil {
 		return integrator.ChangeVerdict{}, fmt.Errorf("read the card's changes: %w", err)
 	}
