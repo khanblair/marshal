@@ -48,8 +48,9 @@ func starterRoles() []starter {
 				Desc:  "Does the coding on a card",
 				Agent: agentClaudeCode, Model: "claude-sonnet-4-5", Think: labelMedium,
 				Perm: "Auto-accept edits", Strength: "Your choice",
-				Instr: "You do the coding on one card. Stay inside your worktree, claim the files you change, " +
-					"and keep commits small.",
+				Instr: "You coordinate the coding on one card in the project's existing folder. Preserve existing edits, " +
+					"claim the files you change, and give subagents separate files to own. Coordinate shared files and Git " +
+					"operations yourself. Do not create worktrees or stage unrelated work.",
 			},
 		},
 		{

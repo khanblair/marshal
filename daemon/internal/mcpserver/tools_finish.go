@@ -37,5 +37,5 @@ func (s *Server) finishCard(ctx context.Context, _ *mcp.CallToolRequest, in fini
 	if err := s.deps.Finisher.Finish(ctx, s.identity.CardID, summary); err != nil {
 		return nil, finishCardOut{}, fmt.Errorf("finish the card: %w", err)
 	}
-	return nil, finishCardOut{Message: "Noted. When this turn ends Marshal reviews your changes, runs the checks, and merges them."}, nil
+	return nil, finishCardOut{Message: "Noted. When this turn ends Marshal reviews your changes, runs the checks in the project folder, and completes the card."}, nil
 }

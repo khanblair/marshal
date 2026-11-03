@@ -97,10 +97,12 @@ func (a *Attacher) context(ctx context.Context, card protocol.Card, tools []stri
 
 	// 4b. How a card's work ends: committed in its own folder, then finished, never pushed.
 	if slices.Contains(tools, "finish_card") {
-		b.WriteString("\nYou work in your own folder on your own branch. Commit your work with git add and git " +
-			"commit as you go, and do not push. When the task is done and committed, call finish_card with one " +
-			"sentence saying what you did: Marshal then has your changes reviewed, runs the project's checks, " +
-			"and merges them into the project's branch on this machine.\n")
+		b.WriteString("\nYou work directly in the project's existing folder. Preserve the owner's existing edits " +
+			"and staged files. Do not create worktrees, switch branches, or stage or commit unrelated changes. " +
+			"You may delegate to subagents in this folder: assign each worker separate files, coordinate shared " +
+			"files one at a time, and review their results. Only the main agent should perform shared Git operations. " +
+			"Do not push. When the task and its focused checks are done, call finish_card with one sentence " +
+			"saying what you did. Marshal reviews and checks the changes in place, then completes the card.\n")
 	}
 
 	// 5. The tools the agent has.

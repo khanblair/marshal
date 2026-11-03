@@ -69,9 +69,9 @@ func (s *Server) register() (err error) {
 			"reading files.",
 		s.searchCodebase)
 	add(s, "finish_card",
-		"Say that this card's work is finished and committed. Marshal then has the changes reviewed, runs "+
-			"the project's checks, and merges them into the project's branch on this machine when this "+
-			"turn ends. Commit first with git add and git commit; do not push. Call it once, with one "+
+		"Say that this card's work is finished. Marshal then has the changes reviewed and runs "+
+			"the project's checks in the project folder when this turn ends, then completes the card. "+
+			"Preserve existing edits and staged files; do not push. Call it once, with one "+
 			"sentence saying what you did.",
 		s.finishCard)
 	add(s, "report_progress",

@@ -322,7 +322,7 @@ func TestAttachTellsACardWithTheFinishToolHowItsWorkEnds(t *testing.T) {
 	if err != nil {
 		t.Fatalf("attach: %v", err)
 	}
-	for _, want := range []string{"git commit", "do not push", "finish_card"} {
+	for _, want := range []string{"project's existing folder", "Preserve the owner's existing edits", "Do not push", "finish_card", "subagents", "separate files"} {
 		if !strings.Contains(got.Instructions, want) {
 			t.Errorf("the instructions do not say %q:\n%s", want, got.Instructions)
 		}

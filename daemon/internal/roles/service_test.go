@@ -121,8 +121,9 @@ func TestEnsureStartersAddsMarshalRolesOnce(t *testing.T) {
 		Limits: protocol.RoleLimits{Time: 60, Cost: 5, Rounds: 12}, Backup: "gpt-5",
 		Desc: "Does the coding on a card", Agent: "Claude Code", Model: "claude-sonnet-4-5",
 		Think: "Medium", Perm: "Auto-accept edits", Strength: "Your choice",
-		Instr: "You do the coding on one card. Stay inside your worktree, claim the files you change, " +
-			"and keep commits small.",
+		Instr: "You coordinate the coding on one card in the project's existing folder. Preserve existing edits, " +
+			"claim the files you change, and give subagents separate files to own. Coordinate shared files and Git " +
+			"operations yourself. Do not create worktrees or stage unrelated work.",
 	}
 	if !sameSpec(worker.Spec, wantWorker) {
 		t.Errorf("Worker is %+v, want %+v", worker.Spec, wantWorker)
