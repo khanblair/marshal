@@ -29,6 +29,8 @@ type ChangeReview struct {
 	Worktree string
 	// Base is the branch the card's changes are measured against: the project's integration branch.
 	Base string
+	// Head is the exact result snapshot to review. Empty retains the legacy branch comparison.
+	Head string
 }
 
 // ChangeComment is one thing the Reviewer found. An empty Path is a comment on the changes as a whole.
@@ -100,6 +102,9 @@ func (s *Service) endShip(cardID string) {
 // the merge read what is there. A commit that cannot be made is logged; the review then reads what
 // was committed.
 func (s *Service) commitLeftovers(ctx context.Context, card protocol.Card) {
+	if s.directWorkspace {
+		return
+	}
 	if strings.TrimSpace(card.Worktree) == "" {
 		return
 	}
@@ -149,6 +154,10 @@ func (s *Service) review(ctx context.Context, card protocol.Card, project protoc
 
 // check runs the project's checks on the card's changes. It answers whether the card goes on.
 func (s *Service) check(ctx context.Context, card protocol.Card) bool {
+	return s.checkWithFeedback(ctx, card, s.sendBack)
+}
+
+func (s *Service) checkWithFeedback(ctx context.Context, card protocol.Card, feedback func(context.Context, protocol.Card, string, string)) bool {
 	s.setProgress(ctx, card, Progress{Phase: protocol.MergePhaseChecking, Note: "Running the checks", DoingNow: "Running checks"})
 	outcome, err := s.checker.CheckChanges(ctx, card.ID)
 	if err != nil {
@@ -160,8 +169,12 @@ func (s *Service) check(ctx context.Context, card protocol.Card) bool {
 	}
 	if !outcome.Passed {
 		s.note(ctx, card.ID, "**Checks failed.**\n\n"+outcome.Summary)
-		s.sendBack(ctx, card,
-			"The project's checks failed on your changes.\n\n"+outcome.Summary+"\n\nFix them, commit, and finish the card again.",
+		instructions := "Fix them, commit, and finish the card again."
+		if s.directWorkspace {
+			instructions = "Fix them and finish the card again."
+		}
+		feedback(ctx, card,
+			"The project's checks failed on your changes.\n\n"+outcome.Summary+"\n\n"+instructions,
 			"The checks failed: "+oneLine(outcome.Summary))
 		return false
 	}

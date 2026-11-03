@@ -21,6 +21,9 @@ func (s *Service) SendToMerge(ctx context.Context, cardID string) (protocol.Card
 	if err != nil {
 		return protocol.Card{}, err
 	}
+	if s.directWorkspace {
+		return s.sendDirect(ctx, card)
+	}
 	if card.State == protocol.CardStateReady {
 		s.kick(ctx, card.ProjectID)
 		return card, nil

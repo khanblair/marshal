@@ -25,6 +25,9 @@ type overlapEntry struct {
 // soon as the second card's turn that touches the file is over, and well before a merge would find it.
 // The list is never nil.
 func (s *Service) Overlaps(ctx context.Context, projectID string) []protocol.CardOverlap {
+	if s.directWorkspace {
+		return []protocol.CardOverlap{}
+	}
 	s.overlapMu.Lock()
 	if hit, ok := s.overlapCache[projectID]; ok && s.now().Sub(hit.at) < overlapTTL {
 		s.overlapMu.Unlock()

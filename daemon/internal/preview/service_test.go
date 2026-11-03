@@ -144,6 +144,25 @@ func TestTwoCardsPreviewAtOnceWithoutSharingState(t *testing.T) {
 	}
 }
 
+func TestSharedProjectFolderAllowsOnlyOnePreviewProcess(t *testing.T) {
+	h := newHarness(t)
+	h.projects.set(cardB, h.projects.worktree(cardA))
+	h.startRunning(cardA)
+	ctx := context.Background()
+	if _, err := h.svc.Start(ctx, cardB); err == nil {
+		t.Fatal("two previews started over the same project folder")
+	}
+	if len(h.runner.started()) != 1 {
+		t.Fatal("refused preview still started another process")
+	}
+	if _, err := h.svc.Stop(ctx, cardA); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.svc.Start(ctx, cardB); err != nil {
+		t.Fatalf("stopped preview retained the folder: %v", err)
+	}
+}
+
 // One browser profile per card is what keeps two previews from sharing cookies and state.
 func TestEachCardGetsItsOwnBrowserProfile(t *testing.T) {
 	h := newHarness(t)

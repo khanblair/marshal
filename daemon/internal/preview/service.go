@@ -58,7 +58,7 @@ const (
 // The answers for a preview that cannot be run, in the words of docs/ui-rules.md.
 const (
 	// messageNoWorktree is answered for a card that has not started, which has nothing to run in.
-	messageNoWorktree = "This card has no worktree yet, so there is nothing to preview. Start the card first."
+	messageNoWorktree = "This card has no workspace yet, so there is nothing to preview. Start the card first."
 	// messageNoCommand is answered for a project whose dev command nobody set, so Marshal does not
 	// know how to start the app.
 	messageNoCommand = "This project has no dev command, so Marshal does not know how to start it. Add one in project settings."
@@ -327,6 +327,20 @@ func (s *Service) Start(ctx context.Context, cardID string) (protocol.PreviewSna
 	l := s.liveFor(target)
 	if state := l.currentState(); state == protocol.PreviewStateRunning || state == protocol.PreviewStateStarting {
 		return protocol.NewPreviewSnapshot(l.snapshot(), s.now()), nil
+	}
+	// Cards in a shared project folder use the same source and dependencies. Do not start
+	// another dev-server process over that folder for a different card.
+	for id, other := range s.cards {
+		if id == cardID {
+			continue
+		}
+		other.mu.Lock()
+		same := filepath.Clean(other.dir) == filepath.Clean(target.dir)
+		state := other.state
+		other.mu.Unlock()
+		if same && (state == protocol.PreviewStateRunning || state == protocol.PreviewStateStarting) {
+			return protocol.PreviewSnapshot{}, protocol.Refused("This project already has a preview running on another card. Stop that preview before starting another.").With("cardId", id)
+		}
 	}
 	port, err := s.ports.Pick()
 	if err != nil {

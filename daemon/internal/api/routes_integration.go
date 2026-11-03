@@ -15,8 +15,8 @@ const (
 	messageOnlyOnThisMachine = "Marshal opens a folder only on the computer it runs on. " +
 		"Use this from that computer, not from a phone or another machine."
 	messageChooseOpenWith = `Choose "finder" or "editor" to open the folder with.`
-	messageNoWorktree     = "This card has no worktree yet. Start the card first, then open its folder."
-	messageWorktreeGone   = "This card's worktree folder is no longer there."
+	messageNoWorktree     = "This card has no workspace yet. Start the card first, then open its project folder."
+	messageWorktreeGone   = "This card's recorded folder is no longer there."
 	messageCouldNotOpen   = "Marshal could not open the folder on this computer. Try again."
 )
 

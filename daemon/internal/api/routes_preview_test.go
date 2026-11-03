@@ -574,8 +574,8 @@ func TestStartingAPreviewRefusesACardWithNothingToRun(t *testing.T) {
 	notStarted := st.addCard(project.ID, "Not started")
 	refusal := st.do(http.MethodPost, "/v1/cards/"+notStarted.ID+"/preview/start", nil).
 		apiError(t, http.StatusUnprocessableEntity, protocol.ErrorCodeRefused)
-	if !strings.Contains(refusal.Message, "worktree") {
-		t.Errorf("the refusal = %q, want it to say the card has no worktree", refusal.Message)
+	if !strings.Contains(refusal.Message, "workspace") {
+		t.Errorf("the refusal = %q, want it to say the card has no workspace", refusal.Message)
 	}
 
 	// A card with a worktree whose project has no dev command cannot be started either.

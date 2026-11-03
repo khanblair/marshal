@@ -22,6 +22,10 @@ import (
 // Ready to merge, because that would merge it again at once, and not left in Done, because its work
 // is no longer in the branch.
 func (s *Service) Undo(ctx context.Context, cardID string) (protocol.Card, error) {
+	if s.directWorkspace {
+		return protocol.Card{}, undoRefused(cardID,
+			"Cards now edit the project folder directly. A card cannot undo shared project changes; use Git to review and revert the specific changes you want.", "undo_shared_workspace")
+	}
 	row, found, err := s.ledger.LatestDelivery(ctx, cardID)
 	if err != nil {
 		return protocol.Card{}, err
@@ -122,6 +126,9 @@ func (s *Service) undoMove(ctx context.Context, project protocol.Project, row De
 
 // canUndo says whether a delivery can be undone now, without changing anything.
 func (s *Service) canUndo(ctx context.Context, project protocol.Project, row Delivery) bool {
+	if s.directWorkspace {
+		return false
+	}
 	if !row.UndoneAt.IsZero() || row.PrevTip == "" {
 		return false
 	}

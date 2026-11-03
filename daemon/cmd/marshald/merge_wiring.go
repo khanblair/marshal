@@ -65,7 +65,8 @@ func buildMergeQueue(d mergeDeps) (mergeModules, error) {
 		return mergeModules{}, fmt.Errorf("start the change reviewer: %w", err)
 	}
 	queue, err := integrator.New(integrator.Deps{
-		Cards: d.core.proj, Projects: d.core.proj, Git: d.core.git, DataDir: d.settings.DataDir, Log: d.log,
+		DirectWorkspace: true,
+		Cards:           d.core.proj, Projects: d.core.proj, Git: d.core.git, DataDir: d.settings.DataDir, Log: d.log,
 		Checklists: d.panel, Ledger: integrator.NewLedger(d.st), Events: d.bus, Workspace: workspace,
 		Resolver: resolver, Reviewer: reviewer, Checker: localChecks{ci: d.localCI},
 		Notes: reviewNotes{panel: d.panel}, Worker: d.core.sessions,

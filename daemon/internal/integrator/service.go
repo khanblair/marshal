@@ -113,8 +113,10 @@ type FolderRetry struct {
 
 // Deps are the parts the queue is built from.
 type Deps struct {
-	Cards    Cards
-	Projects Projects
+	// DirectWorkspace completes tasks in the original project folder without branch merges or worktrees.
+	DirectWorkspace bool
+	Cards           Cards
+	Projects        Projects
 	// Git runs every Git command.
 	Git *gitx.Git
 	// Tests runs the merge's tests. Nil means a clean merge is enough.
@@ -165,16 +167,17 @@ const (
 // Service is the merge queue. It is safe for use by many goroutines; one card at a time per project
 // is held by a per-project lock.
 type Service struct {
-	cards    Cards
-	projects Projects
-	git      *gitx.Git
-	tests    Tester
-	lists    ChecklistGate
-	resolver ConflictResolver
-	reviewer ChangeReviewer
-	checker  ChangeChecker
-	notes    Notes
-	worker   Worker
+	directWorkspace bool
+	cards           Cards
+	projects        Projects
+	git             *gitx.Git
+	tests           Tester
+	lists           ChecklistGate
+	resolver        ConflictResolver
+	reviewer        ChangeReviewer
+	checker         ChangeChecker
+	notes           Notes
+	worker          Worker
 	// shipping holds the cards whose review and checks are running, so a second press does not
 	// start a second run.
 	shipping map[string]bool
@@ -219,7 +222,8 @@ func New(deps Deps) (*Service, error) {
 		return nil, errors.New("the merge queue needs the data folder as a full path")
 	}
 	s := &Service{
-		cards: deps.Cards, projects: deps.Projects, git: deps.Git, tests: deps.Tests, lists: deps.Checklists,
+		directWorkspace: deps.DirectWorkspace,
+		cards:           deps.Cards, projects: deps.Projects, git: deps.Git, tests: deps.Tests, lists: deps.Checklists,
 		resolver: deps.Resolver, reviewer: deps.Reviewer, checker: deps.Checker, notes: deps.Notes, worker: deps.Worker,
 		shipping: map[string]bool{}, overlapCache: map[string]overlapEntry{}, briefs: deps.Briefs, ledger: deps.Ledger, events: deps.Events,
 		ws: deps.Workspace, dataDir: filepath.Clean(deps.DataDir), log: deps.Log, now: deps.Now,
@@ -227,7 +231,7 @@ func New(deps Deps) (*Service, error) {
 		waiting: map[string][]string{}, draining: map[string]bool{}, retrying: map[string]bool{},
 	}
 	s.fillDefaults()
-	if s.ws == nil {
+	if s.ws == nil && !s.directWorkspace {
 		ws, err := NewWorkspace(WorkspaceDeps{Projects: s.projects, Git: s.git, DataDir: s.dataDir})
 		if err != nil {
 			return nil, err
@@ -284,6 +288,9 @@ func (s *Service) Merge(ctx context.Context, cardID string) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
+	if s.directWorkspace {
+		return s.completeDirect(ctx, card)
+	}
 	if card.State != protocol.CardStateReady {
 		return Result{}, refusedNotReady(cardID)
 	}
@@ -309,6 +316,9 @@ func refusedNotReady(cardID string) *protocol.Error {
 // queue waits for the project's turn and runs the card's merge. The card is read again once the lock
 // is held, because it may have left Ready while it waited. A retry is a card a merge stopped.
 func (s *Service) queue(ctx context.Context, card protocol.Card, retry bool) (Result, error) {
+	if s.directWorkspace {
+		return s.completeDirect(ctx, card)
+	}
 	project, err := s.projects.Get(ctx, card.ProjectID)
 	if err != nil {
 		return Result{}, err

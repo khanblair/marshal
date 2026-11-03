@@ -41,10 +41,19 @@ func (s *Service) State(ctx context.Context, projectID string) (protocol.Integra
 		AheadBy: s.aheadBy(ctx, project, target), Queue: queueItems(rows), History: history,
 		ServerTime: store.Timestamp(s.now().UnixMilli()),
 	}
+	if s.directWorkspace {
+		state.IntegratorBranch, state.AheadBy = "", 0
+		if branch, err := s.git.Run(ctx, project.Path, "branch", "--show-current"); err == nil {
+			state.Target = branch
+		}
+	}
 	state.Settings = settingsOf(settings)
 	state.Overlaps = s.Overlaps(ctx, projectID)
 	state.CurrentCardID = currentCard(rows)
 	state.State, state.Message = integratorState(settings, state, stalled)
+	if s.directWorkspace {
+		state.Message = "Agents edit the project folder directly. Finish a card to review and check its changes."
+	}
 	return state, nil
 }
 
@@ -165,6 +174,9 @@ func (s *Service) Retry(ctx context.Context, cardID string) (protocol.Card, erro
 	card, err := s.cards.Card(ctx, cardID)
 	if err != nil {
 		return protocol.Card{}, err
+	}
+	if s.directWorkspace {
+		return s.sendDirect(ctx, card)
 	}
 	if !s.stalled(ctx, card) {
 		return protocol.Card{}, protocol.Refused("Only a card that a merge stopped can be retried.").

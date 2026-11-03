@@ -27,9 +27,9 @@ const (
 // The answers for a run that cannot be made, in the words of docs/ui-rules.md.
 const (
 	// messageNoWorktree is answered for a card that has not started, which has nothing to run in.
-	messageNoWorktree = "This card has no worktree yet, so there are no checks to run. Start the card first."
+	messageNoWorktree = "This card has no workspace yet, so there are no checks to run. Start the card first."
 	// messageNoWorkflow is answered when the card's worktree has no workflow file by the asked name.
-	messageNoWorkflow = "This card's worktree has no workflow file by that name. Check the name and try again."
+	messageNoWorkflow = "The project folder has no workflow file by that name. Check the name and try again."
 )
 
 // Projects is the part of the projects module this module needs: where a card's agent worked.
