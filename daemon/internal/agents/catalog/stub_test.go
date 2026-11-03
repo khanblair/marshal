@@ -41,7 +41,7 @@ func TestStubHasThePrototypesModels(t *testing.T) {
 	// thinking setting are the ones the picker leaves out of its thinking choices.
 	want := map[protocol.AgentKind][]string{
 		protocol.AgentKindClaude:  {"claude-sonnet-4-5", "claude-opus-4-1", "claude-haiku-4-5"},
-		protocol.AgentKindCodex:   {"gpt-5-codex", "gpt-5", "gpt-5-mini"},
+		protocol.AgentKindCodex:   {"default", "gpt-5-codex", "gpt-5", "gpt-5-mini"},
 		protocol.AgentKindGemini:  {"gemini-2.5-pro", "gemini-2.5-flash"},
 		protocol.AgentKindBuiltin: {"claude-sonnet-4-5", "gpt-5-mini", "deepseek-chat", "gemini-2.5-flash", "qwen2.5-coder:32b"},
 	}

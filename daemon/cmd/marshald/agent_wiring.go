@@ -12,6 +12,7 @@ import (
 	"github.com/khanblair/marshal/daemon/internal/agents/builtin"
 	"github.com/khanblair/marshal/daemon/internal/agents/catalog"
 	"github.com/khanblair/marshal/daemon/internal/agents/claude"
+	"github.com/khanblair/marshal/daemon/internal/agents/codex"
 	"github.com/khanblair/marshal/daemon/internal/agents/gemini"
 	"github.com/khanblair/marshal/daemon/internal/config"
 	"github.com/khanblair/marshal/daemon/internal/platform"
@@ -36,7 +37,7 @@ func buildAgents(settings config.Settings, env platform.Env, log *slog.Logger, p
 	// providers that have a key saved, so its row is asked again on every List and shows a key the
 	// person saved a moment ago.
 	cat := catalog.New(catalog.Options{Logger: log, BuiltinModels: providerSvc.Models, Preferences: prefs})
-	for _, kind := range []protocol.AgentKind{protocol.AgentKindClaude, protocol.AgentKindGemini} {
+	for _, kind := range []protocol.AgentKind{protocol.AgentKindClaude, protocol.AgentKindGemini, protocol.AgentKindCodex} {
 		if err := registry.Register(kind, realAgentFactory(cat, kind, log)); err != nil {
 			return nil, nil, fmt.Errorf("register the %s agent: %w", kind, err)
 		}
@@ -142,6 +143,8 @@ func realAgentOf(kind protocol.AgentKind, d catalog.Detected, log *slog.Logger) 
 		return claude.New(claude.Config{Path: d.Path, Logger: log})
 	case protocol.AgentKindGemini:
 		return gemini.New(gemini.Config{Path: d.Path, Logger: log})
+	case protocol.AgentKindCodex:
+		return codex.New(codex.Config{Path: d.Path, Logger: log})
 	default:
 		return nil, fmt.Errorf("%w: %s", agents.ErrUnknownKind, kind)
 	}

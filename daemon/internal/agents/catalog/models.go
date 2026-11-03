@@ -36,6 +36,7 @@ func modelsFor(kind protocol.AgentKind, builtin BuiltinModels) []protocol.AgentM
 		}
 	case protocol.AgentKindCodex:
 		return []protocol.AgentModel{
+			{ID: "default", Name: "Codex CLI default", Thinking: true},
 			{ID: "gpt-5-codex", Name: "GPT-5 Codex", Thinking: true},
 			{ID: "gpt-5", Name: "GPT-5", Thinking: true},
 			{ID: "gpt-5-mini", Name: "GPT-5 mini", Thinking: true},

@@ -177,12 +177,13 @@ func TestListReportsEachAgent(t *testing.T) {
 			displayName: "Gemini CLI",
 		},
 		{
-			name:        "an installed Codex is untested by design and cannot be started",
+			name:        "an older Codex is untested but can be started",
 			answers:     map[protocol.AgentKind]fakeAnswer{protocol.AgentKindCodex: {path: "/bin/codex", version: "codex-cli 0.42.0"}},
 			kind:        protocol.AgentKindCodex,
 			status:      protocol.AgentStatusUntested,
 			version:     "0.42.0",
-			warning:     "cannot start Codex",
+			warning:     "0.42.0",
+			startable:   true,
 			displayName: "Codex",
 		},
 		{
@@ -367,15 +368,15 @@ func TestTheCatalogTellsTheTruthAboutWhatAgentsCanDo(t *testing.T) {
 		t.Fatal(err)
 	}
 	claude := agentOfKind(t, list, protocol.AgentKindClaude).Capabilities
-	if !claude.Resume || !claude.StructuredEvents || !claude.ModelSwitching || !claude.Thinking || claude.Approvals {
-		t.Errorf("claude capabilities = %+v; it resumes, streams, takes a model and effort, and cannot ask yet", claude)
+	if !claude.Resume || !claude.StructuredEvents || !claude.ModelSwitching || !claude.Thinking || !claude.Approvals {
+		t.Errorf("claude capabilities = %+v; it resumes, streams, takes a model and effort, and asks for approval", claude)
 	}
 	gemini := agentOfKind(t, list, protocol.AgentKindGemini).Capabilities
 	if !gemini.Resume || !gemini.Approvals || gemini.Thinking {
 		t.Errorf("gemini capabilities = %+v; it resumes and asks, and has no thinking setting", gemini)
 	}
-	if codex := agentOfKind(t, list, protocol.AgentKindCodex).Capabilities; codex != (protocol.AgentCapabilities{}) {
-		t.Errorf("codex capabilities = %+v, want none, since it cannot be started", codex)
+	if codex := agentOfKind(t, list, protocol.AgentKindCodex).Capabilities; !codex.Resume || !codex.StructuredEvents || !codex.Approvals || !codex.MCP {
+		t.Errorf("codex capabilities = %+v, want sessions, streaming, approvals, and MCP", codex)
 	}
 }
 
@@ -398,7 +399,7 @@ func TestModelsThatTheScreensRelyOnAreThere(t *testing.T) {
 	}{
 		{protocol.AgentKindClaude, []string{"sonnet", "opus", "haiku", "fable"}},
 		{protocol.AgentKindGemini, []string{"gemini-2.5-pro", "gemini-2.5-flash"}},
-		{protocol.AgentKindCodex, []string{"gpt-5-codex", "gpt-5", "gpt-5-mini"}},
+		{protocol.AgentKindCodex, []string{"default", "gpt-5-codex", "gpt-5", "gpt-5-mini"}},
 	}
 	for _, tt := range tests {
 		got := ids(tt.kind)

@@ -10,14 +10,16 @@ import "github.com/khanblair/marshal/daemon/internal/protocol"
 // version here, and it drops one that is no longer checked. Do not add a version by hand unless a
 // person has run the adapter's tests against it on a real machine.
 //
-// Codex has no entry on purpose. Marshal cannot start Codex sessions yet, so it is never
-// "supported", and an installed Codex shows as untested (see specs.go).
+// The 2026-11-03 real lifecycle check drove Claude and Codex through the built
+// daemon, including MCP, approval/denial, file effects, and stop/resume.
 func testedVersions(kind protocol.AgentKind) []string {
 	switch kind {
 	case protocol.AgentKindClaude:
-		return []string{"2.1.282"}
+		return []string{"2.1.282", "2.1.299"}
 	case protocol.AgentKindGemini:
 		return []string{"0.35.1"}
+	case protocol.AgentKindCodex:
+		return []string{"0.166.0-alpha.5.1"}
 	}
 	return nil
 }

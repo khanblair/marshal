@@ -65,15 +65,13 @@ func builtinSpec() spec {
 	}
 }
 
-// claudeSpec is Claude Code. Its adapter (agents/claude) reads the CLI's streaming JSON mode, which
-// has no way to ask the person about a tool yet, so Approvals is false. MCP is what the agent
-// accepts; the adapter does not hand it Marshal's servers yet.
+// claudeSpec is Claude Code, including its bidirectional permission callback channel.
 func claudeSpec() spec {
 	return spec{
 		kind: protocol.AgentKindClaude, name: "Claude Code", program: "claude", startable: true,
 		installHint: "Claude Code is not installed. Install it with: curl -fsSL https://claude.ai/install.sh | bash",
 		capabilities: protocol.AgentCapabilities{
-			Resume: true, StructuredEvents: true, ModelSwitching: true, Thinking: true, MCP: true,
+			Resume: true, StructuredEvents: true, ModelSwitching: true, Thinking: true, MCP: true, Approvals: true,
 		},
 	}
 }
@@ -90,11 +88,11 @@ func geminiSpec() spec {
 	}
 }
 
-// codexSpec is Codex. Marshal finds it and lists it, but has no adapter for it yet (see
-// agents/codex), so it is not startable and every capability is false.
+// codexSpec is Codex, driven through its persistent app-server protocol.
 func codexSpec() spec {
 	return spec{
-		kind: protocol.AgentKindCodex, name: "Codex", program: "codex", startable: false,
-		installHint: "Codex is not installed. Install it with: npm install -g @openai/codex",
+		kind: protocol.AgentKindCodex, name: "Codex", program: "codex", startable: true,
+		installHint:  "Codex is not installed. Install it with: npm install -g @openai/codex",
+		capabilities: protocol.AgentCapabilities{Resume: true, StructuredEvents: true, ModelSwitching: true, Thinking: true, MCP: true, Approvals: true},
 	}
 }
