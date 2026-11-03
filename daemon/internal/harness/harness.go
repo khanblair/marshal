@@ -2,10 +2,9 @@
 // (docs/architecture.md section 13: permissions are checked before every tool call, file write, and
 // command, and the agent's own claims are never trusted).
 //
-// It is deliberately small. A decision is a pure function of what the daemon already knows - the
+// It is deliberately small. A decision uses what the daemon already knows - the
 // session's permission mode, the profile, the command blocklist, the deploy rule, and the card's
-// worktree - so the same request always gets the same answer, and the answer can be tested without
-// running an agent.
+// worktree - plus filesystem path resolution, and can be tested without running an agent.
 //
 // It is not the only place a mode is enforced. An agent that carries out a mode itself (Claude Code
 // through its own flags, an ACP agent through its session modes) is still driven that way, because
@@ -16,6 +15,7 @@ package harness
 
 import (
 	"errors"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -62,6 +62,8 @@ type Request struct {
 	Kind string
 	// Path is the file the request is about, if there is one.
 	Path string
+	// Paths lists all affected files when one approval covers multiple edits.
+	Paths []string
 	// Command is the command line the request would run, if there is one.
 	Command string
 }
@@ -158,6 +160,11 @@ func (c Config) breach(req Request) (string, bool) {
 	if c.Containment == nil {
 		return "", false
 	}
+	for _, path := range req.Paths {
+		if strings.TrimSpace(path) == "" || !InsideWorktree(*c.Containment, path) {
+			return gitx.RuleOutsideWorktree, true
+		}
+	}
 	return ContainmentBreach(*c.Containment, req.Path, req.Command)
 }
 
@@ -188,12 +195,57 @@ func InsideWorktree(c gitx.Containment, path string) bool {
 	if c.Worktree == "" {
 		return false
 	}
+	// Refuse parent traversal before cleaning: a preceding symbolic link could
+	// make its operating-system meaning different from the lexical path.
+	for _, part := range strings.Split(filepath.ToSlash(path), "/") {
+		if part == ".." {
+			return false
+		}
+	}
 	if !filepath.IsAbs(path) {
 		clean := filepath.Clean(path)
-		return clean != ".." && !strings.HasPrefix(clean, ".."+string(filepath.Separator))
+		if clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
+			return false
+		}
+		path = filepath.Join(c.Worktree, clean)
 	}
-	clean := filepath.Clean(path)
-	return clean == c.Worktree || strings.HasPrefix(clean, c.Worktree+string(filepath.Separator))
+	root, err := resolveCandidate(c.Worktree)
+	if err != nil {
+		return false
+	}
+	clean, err := resolveCandidate(path)
+	if err != nil {
+		return false
+	}
+	rel, err := filepath.Rel(root, clean)
+	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+}
+
+// Resolve the nearest existing ancestor of a new file so aliases compare equally
+// while a symbolic link leading outside the workspace is still refused.
+func resolveCandidate(path string) (string, error) {
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	parent := absolute
+	for {
+		resolved, err := filepath.EvalSymlinks(parent)
+		if err == nil {
+			suffix, err := filepath.Rel(parent, absolute)
+			if err != nil {
+				return "", err
+			}
+			return filepath.Join(resolved, suffix), nil
+		}
+		if !os.IsNotExist(err) || filepath.Dir(parent) == parent {
+			return "", err
+		}
+		if _, statErr := os.Lstat(parent); statErr == nil {
+			return "", err
+		}
+		parent = filepath.Dir(parent)
+	}
 }
 
 // GitCommandBreach says whether a command an agent asked to run is a Git command that would leave
