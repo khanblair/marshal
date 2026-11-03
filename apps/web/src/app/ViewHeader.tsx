@@ -39,12 +39,12 @@ function MergeTarget() {
         <Badge
           tone="outline"
           size={22}
-          icon="git-merge"
-          title={`Finished cards merge into ${name()}`}
+          icon="git-branch"
+          title={`Agents edit the project folder on its current branch. Configured branch: ${name()}`}
           class="min-w-0 max-w-60 @max-[720px]:max-w-32 font-normal!"
         >
           <span class="truncate">
-            Merging into <span class="font-mono">{name()}</span>
+            <span class="font-mono">{name()}</span>
           </span>
         </Badge>
       )}

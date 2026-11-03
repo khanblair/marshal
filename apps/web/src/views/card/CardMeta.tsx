@@ -1,7 +1,7 @@
 import { CiStatus, IconLabel, ProgressBar } from "@marshal/ui";
 import { Show } from "solid-js";
 import { type Card, type CardView, M } from "~/mock";
-import { shortBranch } from "./merge-model";
+import { shortBranch, usesProjectFolder } from "./merge-model";
 import { TrelloMarker } from "./TrelloMarker";
 
 export interface CardMetaProps {
@@ -42,7 +42,8 @@ function ContextMeter(props: { ctx: number }) {
 
 /** Where the card's work goes: its branch, then the branch it merges into when the project has one. */
 function BranchLine(props: CardMetaProps) {
-  const into = () => shortBranch(M.proj(props.card.p)?.integrationBranch);
+  const into = () =>
+    usesProjectFolder(props.card) ? "" : shortBranch(M.proj(props.card.p)?.integrationBranch);
   return (
     <IconLabel
       icon="git-branch"

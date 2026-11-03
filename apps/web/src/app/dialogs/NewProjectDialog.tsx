@@ -40,7 +40,7 @@ function FolderField(props: { draft: NewProjectDraft }) {
   return (
     <Field
       label="Repository folder"
-      hint="Marshal reads this repository and keeps each card's worktree in its own folder. Open any worktree from its card. It never moves or deletes your files."
+      hint="Agents work directly in this repository. One main coding session coordinates its subagents, and edits appear in your project folder. Removing the project from Marshal keeps your files."
     >
       <FolderInput value={draft().path} onChange={setPath} />
     </Field>

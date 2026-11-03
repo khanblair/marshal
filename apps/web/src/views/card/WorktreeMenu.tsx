@@ -3,6 +3,7 @@ import { createSignal, Show } from "solid-js";
 import { M } from "~/mock";
 import type { CardKey } from "~/mock/card-key";
 import { openCardWorktree } from "~/sync/integration-flow";
+import { usesProjectFolder } from "./merge-model";
 
 type Opener = "finder" | "editor";
 
@@ -15,13 +16,17 @@ export interface WorktreeMenuProps {
 
 /** "Show worktree": copy the folder's path, reveal it in Finder, or open it in the editor. */
 export function WorktreeMenu(props: WorktreeMenuProps) {
+  const direct = () => {
+    const card = M.card(props.id);
+    return !!card && usesProjectFolder(card);
+  };
   const [open, setOpen] = createSignal(false);
   let trigger: HTMLButtonElement | undefined;
   const close = () => setOpen(false);
   const copy = () => {
     close();
     navigator.clipboard?.writeText(props.path).catch(() => undefined);
-    M.toast("Worktree path copied");
+    M.toast("Folder path copied");
   };
   const openIn = (opener: Opener) => () => {
     close();
@@ -40,7 +45,7 @@ export function WorktreeMenu(props: WorktreeMenuProps) {
         title={props.path}
         onClick={() => setOpen(!open())}
       >
-        Show worktree
+        {direct() ? "Project folder" : "Previous workspace"}
       </Button>
       <Show when={open()}>
         <Menu

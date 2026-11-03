@@ -31,12 +31,12 @@ const show = (fields: Partial<ReturnType<typeof cardOf>> = {}, id = "api#43") =>
   const card = cardOf(id);
   return render(() => <MergeRow card={card} c={M.deco(card)} />);
 };
-const openMenu = () => fireEvent.click(screen.getByRole("button", { name: "Show worktree" }));
+const openMenu = () => fireEvent.click(screen.getByRole("button", { name: "Previous workspace" }));
 
 describe("the worktree menu", () => {
   it("is not drawn for a card that has no worktree", () => {
     show();
-    expect(screen.queryByRole("button", { name: "Show worktree" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Previous workspace" })).toBeNull();
   });
 
   it("opens with three choices", () => {
@@ -67,7 +67,7 @@ describe("the worktree menu", () => {
     openMenu();
     fireEvent.click(screen.getByRole("menuitem", { name: "Copy path" }));
     expect(writeText).toHaveBeenCalledWith(PATH);
-    expect(M.S.toasts.at(-1)?.msg).toBe("Worktree path copied");
+    expect(M.S.toasts.at(-1)?.msg).toBe("Folder path copied");
     expect(screen.queryByRole("menu")).toBeNull();
   });
 

@@ -200,10 +200,10 @@ export async function requestBypass(ctx: Ctx, id: CardKey): Promise<boolean> {
   if (!card || card.bypass) return false;
   confirm(ctx, {
     title: "Turn on bypass permissions",
-    message: `The agent on ${cardLabelOf(ctx, card)} will run every command and edit without asking. It stays inside this card's worktree and every action is still audited.`,
+    message: `The agent on ${cardLabelOf(ctx, card)} will run every command and edit without asking in the project folder. Every action is still audited.`,
     action: "Turn on bypass",
     destructive: true,
-    ack: "I understand the agent can run any command in the worktree without asking.",
+    ack: "I understand the agent can run any command in the project folder without asking.",
     run: () => void grantBypass(ctx, id),
   });
   return true;
@@ -253,7 +253,9 @@ export async function deleteCard(ctx: Ctx, id: CardKey): Promise<boolean> {
   confirm(ctx, {
     title: "Delete card",
     message: card.branch
-      ? `This deletes ${cardLabelOf(ctx, card)}, its session, and its worktree with unmerged work on ${card.branch}.`
+      ? card.worktree === ctx.S.projects.find((project) => project.id === card.p)?.path
+        ? `This deletes ${cardLabelOf(ctx, card)} and its session. Changes in the project folder and its branch are kept.`
+        : `This deletes ${cardLabelOf(ctx, card)}, its session, and its previous workspace with unmerged work on ${card.branch}.`
       : `This deletes ${cardLabelOf(ctx, card)} and its notes.`,
     action: "Delete card",
     destructive: true,

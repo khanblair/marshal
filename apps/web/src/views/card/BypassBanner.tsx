@@ -15,7 +15,8 @@ export function BypassBanner(props: BypassBannerProps) {
     >
       <Icon name="shield-alert" size={20} />
       <span class="flex-[1_1_240px] font-semibold [text-shadow:0_1px_0_var(--color-scrim-shadow)]">
-        Bypass permissions is on. The agent can run any command in this worktree without asking.
+        Bypass permissions is on. The agent can run any command in the project folder without
+        asking.
       </span>
       <button
         type="button"

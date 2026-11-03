@@ -323,7 +323,16 @@ async function changeMerge(
   );
   if (!card) return false;
   applyCard(live, card);
-  toast(live, MERGE_WORDS[kind](card.key));
+  const project = live.S.projects.find((item) => item.id === card.projectId);
+  const direct = !!card.worktree && card.worktree === project?.path;
+  toast(
+    live,
+    direct && kind !== "undo"
+      ? card.state === "done"
+        ? `Completed ${card.key}`
+        : `Checking ${card.key} before completion`
+      : MERGE_WORDS[kind](card.key),
+  );
   if (live.S.integration?.[card.projectId]) void readMergeFlow(live, card.projectId);
   return true;
 }

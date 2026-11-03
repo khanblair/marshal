@@ -1,5 +1,12 @@
 import { NeedsReasonKindCIFailed, NeedsReasonKindConflict } from "@marshal/protocol";
-import type { Card } from "~/mock";
+import { type Card, M } from "~/mock";
+
+/** A direct card shares the existing project folder rather than a separate checkout. */
+export function usesProjectFolder(card: Card): boolean {
+  const clean = (path: string) => path.replaceAll("\\", "/").replace(/\/+$/, "");
+  const projectPath = M.proj(card.p)?.path;
+  return !!card.worktree && !!projectPath && clean(card.worktree) === clean(projectPath);
+}
 
 /** What a card must say for the Retry button: it waits on a person, and why. */
 type Waiting = Pick<Card, "state" | "reasonKind" | "reason" | "mergePhase">;

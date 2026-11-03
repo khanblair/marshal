@@ -201,7 +201,10 @@ describe("ViewHeader on a narrow header", () => {
 });
 
 describe("ViewHeader merge target", () => {
-  const chip = () => screen.queryByTitle("Finished cards merge into development");
+  const chip = () =>
+    screen.queryByTitle(
+      "Agents edit the project folder on its current branch. Configured branch: development",
+    );
   afterEach(() => {
     const project = M.proj("api");
     if (project) delete project.integrationBranch;
@@ -210,7 +213,7 @@ describe("ViewHeader merge target", () => {
   it("says which branch finished cards merge into", () => {
     Object.assign(M.proj("api") ?? {}, { integrationBranch: "development" });
     render(() => <ViewHeader />);
-    expect(chip()).toHaveTextContent("Merging into development");
+    expect(chip()).toHaveTextContent("development");
   });
 
   it("follows a change of the branch", () => {
@@ -219,9 +222,11 @@ describe("ViewHeader merge target", () => {
     const project = M.proj("api");
     if (project) project.integrationBranch = "trunk";
     expect(chip()).toBeNull();
-    expect(screen.getByTitle("Finished cards merge into trunk")).toHaveTextContent(
-      "Merging into trunk",
-    );
+    expect(
+      screen.getByTitle(
+        "Agents edit the project folder on its current branch. Configured branch: trunk",
+      ),
+    ).toHaveTextContent("trunk");
   });
 
   it("is not drawn for a project with no branch known, or outside a project", () => {

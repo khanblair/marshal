@@ -5,6 +5,7 @@ import type { CardKey } from "~/mock/card-key";
 import { sendToMerge } from "~/sync/integration-flow";
 import { exportCardToDoc, exportKey, saveNoteToDrive } from "~/views/google-export/export-actions";
 import { isExporting } from "~/views/google-export/export-run";
+import { usesProjectFolder } from "./merge-model";
 
 /** One button in the card's action row. */
 export interface CardAction {
@@ -119,9 +120,21 @@ export function cardActions(card: Card, mobile: boolean): CardAction[] {
   }
   actions.push(action("Fork", "git-fork", () => M.fork(id)));
   if (card.state === "ready") {
-    actions.push(action("Merge", "git-merge", () => mergeReady(card)));
+    actions.push(
+      action(
+        usesProjectFolder(card) ? "Finish card" : "Merge",
+        usesProjectFolder(card) ? "check" : "git-merge",
+        () => mergeReady(card),
+      ),
+    );
   } else if (canSendToMerge(card)) {
-    actions.push(action("Send to merge", "git-merge", () => void sendToMerge(card.id)));
+    actions.push(
+      action(
+        usesProjectFolder(card) ? "Finish card" : "Send to merge",
+        usesProjectFolder(card) ? "check" : "git-merge",
+        () => void sendToMerge(card.id),
+      ),
+    );
   }
   return actions;
 }
@@ -208,7 +221,7 @@ export function moreItems(
     ...moves,
     ...googleItems(card, run, openImport),
     {
-      label: "Restore a checkpoint",
+      label: usesProjectFolder(card) ? "View checkpoints" : "Restore a checkpoint",
       icon: "history",
       danger: false,
       run: run(() => M.setTab("activity")),

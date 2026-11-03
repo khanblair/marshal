@@ -4,6 +4,7 @@ import { isDaemon } from "~/data/sections";
 import { type Card, type CardView, M } from "~/mock";
 import { activityRows, checkpointsFor, daemonCheckpoints } from "./activity-model";
 import { CheckpointList } from "./CheckpointList";
+import { usesProjectFolder } from "./merge-model";
 
 export interface ActivityTabProps {
   card: Card;
@@ -73,7 +74,7 @@ export function ActivityTab(props: ActivityTabProps) {
           )}
         </Index>
       </ol>
-      <CheckpointList checkpoints={checkpoints()} />
+      <CheckpointList checkpoints={checkpoints()} allowRestore={!usesProjectFolder(props.card)} />
     </div>
   );
 }

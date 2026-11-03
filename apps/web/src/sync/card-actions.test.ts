@@ -372,9 +372,9 @@ describe("bypass", () => {
       title: "Turn on bypass permissions",
       action: "Turn on bypass",
       destructive: true,
-      ack: "I understand the agent can run any command in the worktree without asking.",
+      ack: "I understand the agent can run any command in the project folder without asking.",
       message:
-        "The agent on api-gateway #41 will run every command and edit without asking. It stays inside this card's worktree and every action is still audited.",
+        "The agent on api-gateway #41 will run every command and edit without asking in the project folder. Every action is still audited.",
     });
     expect(d.routes().filter((one) => one.includes("/bypass"))).toEqual([]);
     answerDialog(ctx);
