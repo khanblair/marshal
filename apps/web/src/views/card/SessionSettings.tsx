@@ -1,4 +1,4 @@
-import { Field, Icon, Select, type SelectOption } from "@marshal/ui";
+import { Field, Icon, IconButton, Select, type SelectOption } from "@marshal/ui";
 import { For, Index, Show } from "solid-js";
 import { AgentNotes } from "~/features/agents/AgentNotes";
 import { agentNotes, agentSelectOptions, modelOptions } from "~/features/agents/agent-picker";
@@ -57,6 +57,7 @@ function SettingsSummary(props: SessionSettingsProps & { onExpand: () => void })
       type="button"
       onClick={props.onExpand}
       aria-expanded={false}
+      aria-controls="card-agent-settings"
       class="flex items-center gap-1.5 -mx-1 px-1 py-0.5 rounded-sm text-small text-secondary text-left hover:bg-surface-hover"
     >
       <Icon name="chevron-right" size={14} class="flex-none text-muted" />
@@ -90,49 +91,53 @@ function SettingsSummary(props: SessionSettingsProps & { onExpand: () => void })
  * grid, its notes, and the "changes take effect" caption on click, and collapses back the same way. */
 export function SessionSettings(props: SessionSettingsProps) {
   return (
-    <Show
-      when={props.panel.state.settingsExpanded}
-      fallback={
-        <SettingsSummary
-          card={props.card}
-          panel={props.panel}
-          onExpand={() => props.panel.set({ settingsExpanded: true })}
-        />
-      }
-    >
-      <div class="flex flex-col gap-2">
-        <div class="grid gap-2 grid-cols-[repeat(auto-fit,minmax(118px,1fr))]">
-          <Index each={settingsOf(props.card)}>
-            {(setting) => (
-              <Field label={setting().label} compact>
-                <Select
-                  options={setting().options}
-                  value={setting().value}
-                  danger={setting().key === "perm" && props.card.bypass}
-                  aria-describedby={setting().key === "agent" ? AGENT_NOTES_ID : undefined}
-                  onChange={(e) =>
-                    M.setSetting(props.card.id, setting().key, e.currentTarget.value)
-                  }
-                  class={`h-7! phone:h-(--control-h)! px-1.5! text-small min-w-0`}
-                />
-              </Field>
-            )}
-          </Index>
-        </div>
-        <AgentNotes id={AGENT_NOTES_ID} selected={props.card.agent} />
-        <div class="flex items-center justify-between gap-2">
+    <div id="card-agent-settings">
+      <Show
+        when={props.panel.state.settingsExpanded}
+        fallback={
+          <SettingsSummary
+            card={props.card}
+            panel={props.panel}
+            onExpand={() => props.panel.set({ settingsExpanded: true })}
+          />
+        }
+      >
+        <div class="flex flex-col gap-2">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-small font-medium text-primary">Agent settings</span>
+            <IconButton
+              label="Hide settings"
+              title="Hide settings"
+              icon="chevron-up"
+              aria-expanded={true}
+              aria-controls="card-agent-settings"
+              onClick={() => props.panel.set({ settingsExpanded: false })}
+            />
+          </div>
+          <div class="grid gap-2 grid-cols-[repeat(auto-fit,minmax(118px,1fr))]">
+            <Index each={settingsOf(props.card)}>
+              {(setting) => (
+                <Field label={setting().label} compact>
+                  <Select
+                    options={setting().options}
+                    value={setting().value}
+                    danger={setting().key === "perm" && props.card.bypass}
+                    aria-describedby={setting().key === "agent" ? AGENT_NOTES_ID : undefined}
+                    onChange={(e) =>
+                      M.setSetting(props.card.id, setting().key, e.currentTarget.value)
+                    }
+                    class={`h-7! phone:h-(--control-h)! px-1.5! text-small min-w-0`}
+                  />
+                </Field>
+              )}
+            </Index>
+          </div>
+          <AgentNotes id={AGENT_NOTES_ID} selected={props.card.agent} />
           <span class="text-caption leading-4 text-secondary">
             Changes take effect on the next turn.
           </span>
-          <button
-            type="button"
-            onClick={() => props.panel.set({ settingsExpanded: false })}
-            class="flex-none text-caption leading-4 text-secondary hover:text-primary"
-          >
-            Hide
-          </button>
         </div>
-      </div>
-    </Show>
+      </Show>
+    </div>
   );
 }

@@ -81,7 +81,7 @@ export function FilterBar() {
     <Show when={showFilterBar()}>
       <div
         class={cx(
-          "flex-none flex items-center gap-2 py-2 border-b border-border bg-surface relative z-[9]",
+          "flex-none flex items-center gap-2 py-2 border-b border-border bg-surface relative z-menu",
           isPhone() ? "flex-nowrap overflow-x-auto px-2" : "flex-wrap overflow-x-visible px-4",
         )}
       >

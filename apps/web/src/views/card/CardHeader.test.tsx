@@ -45,12 +45,12 @@ describe("CardHeader state pill and merge row", () => {
 
   it("offers the worktree once the card has one", () => {
     show({ worktree: "/data/worktrees/api/01HZ35" });
-    expect(screen.getByRole("button", { name: "Show worktree" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Previous workspace" })).toBeInTheDocument();
   });
 
   it("offers no worktree menu before the card starts", () => {
     show();
-    expect(screen.queryByRole("button", { name: "Show worktree" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Previous workspace" })).toBeNull();
   });
 });
 
@@ -59,18 +59,18 @@ describe("CardHeader folding the details away", () => {
 
   it("hides the worktree, members, actions, and settings, and gives them back", () => {
     show({ worktree: "/data/worktrees/api/01HZ35" });
-    expect(screen.getByRole("button", { name: "Show worktree" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Previous workspace" })).toBeInTheDocument();
     expect(screen.getByText("Members")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "More actions" })).toBeInTheDocument();
 
     fold();
-    expect(screen.queryByRole("button", { name: "Show worktree" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Previous workspace" })).toBeNull();
     expect(screen.queryByText("Members")).toBeNull();
     expect(screen.queryByRole("button", { name: "More actions" })).toBeNull();
     expect(screen.getByRole("tab", { name: /Chat/ })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Show card details" }));
-    expect(screen.getByRole("button", { name: "Show worktree" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Previous workspace" })).toBeInTheDocument();
   });
 
   it("keeps the action that leads, so a card that needs an answer is never left without one", () => {
@@ -78,5 +78,18 @@ describe("CardHeader folding the details away", () => {
     fold();
     expect(screen.getByRole("button", { name: /Resume agent/ })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "More actions" })).toBeNull();
+  });
+
+  it("puts the expanded settings' hide control beside their heading", () => {
+    const panel = createPanelState();
+    panel.set({ settingsExpanded: true });
+    const card = cardOf("api#35");
+    render(() => <CardHeader card={card} c={M.deco(card)} panel={panel} diffCount={0} />);
+
+    expect(screen.getByText("Agent settings")).toBeInTheDocument();
+    const hide = screen.getByRole("button", { name: "Hide settings" });
+    expect(hide).toHaveAttribute("aria-expanded", "true");
+    fireEvent.click(hide);
+    expect(screen.queryByRole("button", { name: "Hide settings" })).toBeNull();
   });
 });

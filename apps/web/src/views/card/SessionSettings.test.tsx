@@ -187,7 +187,7 @@ describe("SessionSettings collapsed", () => {
     fireEvent.click(screen.getByRole("button"));
     expect(screen.getByRole("combobox", { name: "Agent" })).toBeInTheDocument();
     expect(screen.getByText("Changes take effect on the next turn.")).toBeVisible();
-    fireEvent.click(screen.getByRole("button", { name: "Hide" }));
+    fireEvent.click(screen.getByRole("button", { name: "Hide settings" }));
     expect(screen.queryByRole("combobox")).toBeNull();
   });
 

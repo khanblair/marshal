@@ -62,6 +62,7 @@ function TopRow(props: Omit<CardHeaderProps, "diffCount">) {
         title={detailsCollapsed() ? "Show card details" : "Hide card details"}
         icon={detailsCollapsed() ? "chevron-right" : "chevron-down"}
         aria-expanded={!detailsCollapsed()}
+        aria-controls="card-details"
         onClick={toggleDetails}
       />
       <Show when={!M.mobile}>
@@ -103,12 +104,17 @@ export function CardHeader(props: CardHeaderProps) {
       </Show>
       <CardMeta card={props.card} c={props.c} />
       <MergeRow card={props.card} c={props.c} compact={detailsCollapsed()} />
-      <Show when={!detailsCollapsed()}>
-        <MembersRow card={props.card} panel={props.panel} />
-      </Show>
-      <CardActions card={props.card} panel={props.panel} primaryOnly={detailsCollapsed()} />
-      <Show when={!detailsCollapsed()}>
-        <SessionSettings card={props.card} panel={props.panel} />
+      <div id="card-details" class="contents">
+        <Show when={!detailsCollapsed()}>
+          <div class="flex flex-col gap-2.5">
+            <MembersRow card={props.card} panel={props.panel} />
+            <CardActions card={props.card} panel={props.panel} />
+            <SessionSettings card={props.card} panel={props.panel} />
+          </div>
+        </Show>
+      </div>
+      <Show when={detailsCollapsed()}>
+        <CardActions card={props.card} panel={props.panel} primaryOnly />
       </Show>
       <CardTabs card={props.card} diffCount={props.diffCount} />
     </div>

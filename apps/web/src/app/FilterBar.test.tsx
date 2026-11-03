@@ -90,6 +90,11 @@ describe("FilterBar search", () => {
     const desktop = render(() => <FilterBar />);
     expect(desktop.container.firstElementChild).toHaveClass("flex-wrap", "px-4");
   });
+
+  it("keeps filter and saved-view menus above the board's sticky column headers", () => {
+    const { container } = render(() => <FilterBar />);
+    expect(container.firstElementChild).toHaveClass("z-menu");
+  });
 });
 
 describe("FilterBar chips", () => {
