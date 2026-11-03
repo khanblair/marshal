@@ -119,14 +119,10 @@ func (c Config) permissionMode(mode string) (string, error) {
 // Claude Code's own documentation (docs.claude.com/en/docs/agent-sdk/permissions).
 func defaultPermissionModes() map[string]string {
 	return map[string]string{
-		// "manual" is the CLI's own default for -p: it asks before every action. Marshal always
-		// also passes --permission-prompts=none (see startArgs), so with no approval channel
-		// wired in Phase 1, what would have asked is denied instead of hanging. That matches
-		// protocol.AgentCapabilities.Approvals's own doc: "Ask" skips what needs approval.
+		// Manual sends tool approvals to Marshal over the streaming control channel.
 		string(protocol.PermissionModeAsk): "manual",
 		// "acceptEdits" auto-approves file edits and common filesystem commands (mkdir, touch,
-		// mv, cp, sed, rm); other shell commands still need approval, which --permission-prompts
-		// none turns into a denial, matching "allows file edits and asks for commands".
+		// mv, cp, sed, rm); other shell commands still ask through Marshal.
 		string(protocol.PermissionModeAutoEdits): "acceptEdits",
 		// "plan" explores and plans without editing source files, matching "Plan only" exactly.
 		string(protocol.PermissionModePlan): "plan",

@@ -16,8 +16,7 @@ import (
 // over an allowed one. Both lists are empty for most sessions, and then no flag is added.
 //
 // Every MCP server the spec gives the session is allowed as a whole ("mcp__marshal"). Marshal built
-// that server itself and decides each call it gets (internal/mcpserver), and Claude Code runs with
-// its permission prompts off, so a tool of it that is not allowed here is refused without asking.
+// that server itself and decides each call it gets (internal/mcpserver).
 func toolRuleArgs(spec agents.StartSpec) []string {
 	allowed := slices.Clone(spec.AllowedTools)
 	for _, server := range spec.MCPServers {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -148,9 +149,21 @@ func serve(fc fakeContext, pendingInit bool) {
 				writeInit(fc.id, fc.flags["badid"])
 				pendingInit = false
 			}
+			if fc.flags["permission"] {
+				writeLine(map[string]any{"type": "control_request", "request_id": "permission-1", "request": map[string]any{
+					"subtype": "can_use_tool", "tool_name": "Write", "tool_use_id": "write-1",
+					"input": map[string]any{"file_path": filepath.Join(os.TempDir(), "marshal-test.txt"), "content": "approved content"},
+				}})
+				continue
+			}
 			handleTurn(fc, head, turnNum == 1)
 		case "control_request":
 			handleControlRequest(fc.flags, head.RequestID, head.Request.Subtype)
+		case "control_response":
+			if head.Response.RequestID == "permission-1" {
+				writeLine(streamDelta("text_delta", head.Response.Response.Behavior))
+				writeLine(resultOf("permission answered", false, "success", "end_turn"))
+			}
 		}
 	}
 }
@@ -159,7 +172,13 @@ func serve(fc fakeContext, pendingInit bool) {
 type fakeInLine struct {
 	Type      string `json:"type"`
 	RequestID string `json:"request_id"`
-	Request   struct {
+	Response  struct {
+		RequestID string `json:"request_id"`
+		Response  struct {
+			Behavior string `json:"behavior"`
+		} `json:"response"`
+	} `json:"response"`
+	Request struct {
 		Subtype string `json:"subtype"`
 	} `json:"request"`
 	Message struct {

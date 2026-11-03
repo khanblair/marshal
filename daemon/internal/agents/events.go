@@ -133,9 +133,15 @@ type PermissionRequested struct {
 	Title      string
 	Kind       string
 	Path       string
-	Command    string
-	Options    []PermissionOption
+	// Paths carries every affected file when one approval covers multiple edits.
+	Paths   []string
+	Command string
+	Options []PermissionOption
 }
+
+// PermissionCancelled withdraws a request the agent is no longer waiting on.
+// The host resolves its saved approval so it cannot leave dead approval buttons.
+type PermissionCancelled struct{ RequestID string }
 
 // Usage is what one turn used, when the agent reports it.
 type Usage struct {
@@ -209,6 +215,7 @@ func (ToolCall) agentEvent()            {}
 func (ToolCallUpdate) agentEvent()      {}
 func (PlanUpdate) agentEvent()          {}
 func (PermissionRequested) agentEvent() {}
+func (PermissionCancelled) agentEvent() {}
 func (TurnEnded) agentEvent()           {}
 func (Failed) agentEvent()              {}
 func (Exited) agentEvent()              {}

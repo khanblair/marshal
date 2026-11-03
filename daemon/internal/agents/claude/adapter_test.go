@@ -414,8 +414,8 @@ func TestRespondReturnsErrUnknownRequest(t *testing.T) {
 // TestCapabilitiesMatchesTheCatalogsClaudeSpec hardcodes catalog/specs.go's claudeSpec
 // capabilities: catalog has no exported accessor for one kind's spec without probing a real
 // binary (see the report), so this is copied by hand and must be kept in sync with it, on the
-// fields agents.Capabilities has. agents.Capabilities has no Approvals field (see the report's
-// Ruling); Respond always failing is how this adapter expresses that it has none.
+// fields agents.Capabilities has. Approval support is reported separately by the wire catalog;
+// native callback behavior is covered by permission_test.go.
 func TestCapabilitiesMatchesTheCatalogsClaudeSpec(t *testing.T) {
 	a := fakeAdapter(t, "")
 	want := agents.Capabilities{Resume: true, StructuredEvents: true, ModelSwitching: true, Thinking: true, MCP: true}
@@ -440,8 +440,8 @@ func TestPermissionModesMapToClaudeCodesChoices(t *testing.T) {
 			if !strings.Contains(tr.text(), "--permission-mode="+tt.want) {
 				t.Errorf("text = %q, want --permission-mode=%s", tr.text(), tt.want)
 			}
-			if !strings.Contains(tr.text(), "--permission-prompts=none") {
-				t.Errorf("text = %q, want --permission-prompts=none on every mode", tr.text())
+			if !strings.Contains(tr.text(), "--permission-prompts=host") || !strings.Contains(tr.text(), "--permission-prompt-tool=stdio") {
+				t.Errorf("text = %q, want stream permission callbacks on every mode", tr.text())
 			}
 		})
 	}

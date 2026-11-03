@@ -49,6 +49,7 @@ func (s *session) send(msg agents.UserMessage) error {
 func (s *session) clearTurnActive() {
 	s.mu.Lock()
 	s.turnActive = false
+	s.permissions = nil
 	s.mu.Unlock()
 }
 
@@ -108,6 +109,7 @@ func (s *session) endTurn(m resultLine, usage *agents.Usage) {
 	}
 	s.turnActive = false
 	interrupted := s.interrupted
+	s.permissions = nil
 	s.interrupted = false
 	s.stopInterruptTimer()
 	s.mu.Unlock()

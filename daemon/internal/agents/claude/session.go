@@ -59,6 +59,7 @@ type session struct {
 	endedInTurn  bool
 	interruptTmr *time.Timer
 	controlSeq   uint64
+	permissions  map[string]json.RawMessage
 
 	stdinMu sync.Mutex
 
@@ -406,6 +407,10 @@ func (s *session) handleLine(line []byte, closeReady func()) {
 		s.handleResult(line)
 	case "control_response":
 		s.handleControlResponse(line)
+	case "control_request":
+		s.handlePermissionRequest(line)
+	case "control_cancel_request":
+		s.cancelPermissionRequest(line)
 	default:
 		s.log.Debug("skipped a line from claude code", "type", head.Type)
 	}

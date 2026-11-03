@@ -17,10 +17,8 @@ func (c Config) commonArgs(spec agents.StartSpec) ([]string, error) {
 	args := []string{
 		"--print", "--input-format=stream-json", "--output-format=stream-json",
 		"--include-partial-messages", "--verbose",
-		// No permission-prompt tool is wired up in Phase 1 (see claudeSpec's own comment), so
-		// whatever would need one is denied instead of waiting forever for an answer nobody will
-		// give. See defaultPermissionModes for the full reasoning.
-		"--permission-prompts=none",
+		// Route permission callbacks over the same stream as messages and interrupts.
+		"--permission-prompts=host", "--permission-prompt-tool=stdio",
 	}
 	if mode != "" {
 		args = append(args, "--permission-mode="+mode)

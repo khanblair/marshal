@@ -108,11 +108,13 @@ func (a *Adapter) Events(h agents.SessionHandle) <-chan agents.AgentEvent {
 	return s.sink.C()
 }
 
-// Respond always fails: Claude Code's streaming JSON mode has no way to ask the person about a
-// tool yet (see catalog's claudeSpec, whose comment this mirrors), so nothing is ever waiting to
-// be answered.
-func (a *Adapter) Respond(context.Context, agents.SessionHandle, agents.ApprovalResponse) error {
-	return fmt.Errorf("answer claude code: %w", agents.ErrUnknownRequest)
+// Respond answers a pending tool request through Claude Code's streaming control protocol.
+func (a *Adapter) Respond(ctx context.Context, h agents.SessionHandle, response agents.ApprovalResponse) error {
+	s, err := a.usable(ctx, h, "answer claude code")
+	if err != nil {
+		return err
+	}
+	return s.respondPermission(response)
 }
 
 // Stop ends the session and its process. It is safe to call more than once, and a session that is
@@ -127,9 +129,8 @@ func (a *Adapter) Stop(ctx context.Context, h agents.SessionHandle) error {
 
 // Capabilities says what this adapter can do. Claude Code's streaming JSON mode reports messages
 // and tool calls as structured events, lets Marshal pick the model and the effort level, and
-// resumes a session by id; it has no permission-request channel yet (see Respond), which is why
-// this struct has no field to say so: agents.Capabilities only carries what an agent offers, and
-// Approvals is not one of its fields (see the report's Ruling on this).
+// resumes a session by id. Permission callbacks use Respond; their public capability
+// is listed by the catalog because agents.Capabilities has no Approvals field.
 func (a *Adapter) Capabilities() agents.Capabilities {
 	return agents.Capabilities{Resume: true, StructuredEvents: true, ModelSwitching: true, Thinking: true, MCP: true}
 }
