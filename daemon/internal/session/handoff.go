@@ -177,6 +177,9 @@ func (m *Manager) planHandoff(ctx context.Context, card protocol.Card, in protoc
 	if path == "" {
 		return handoffPlan{}, refusedHandoff(protocol.HandoffRefusalReasonNoSession).With("cardId", card.ID)
 	}
+	if err := m.checkDirectResume(ctx, card, path); err != nil {
+		return handoffPlan{}, err
+	}
 	agent, err := m.agentFor(in.To, protocol.CardViewModeChat)
 	if err != nil {
 		if errors.Is(err, agents.ErrUnknownKind) {
@@ -207,6 +210,10 @@ func (m *Manager) handOff(ctx context.Context, card protocol.Card, plan handoffP
 		// The old session has let go of the card's internal server before the new one is attached to
 		// it, so the two cannot both hold it and the handoff cannot leave the new agent without one.
 		if !m.waitPump(old) {
+			if m.cfg.DirectWorkspace {
+				m.blockLiveEditor(old)
+				return protocol.Card{}, protocol.Unavailable("The previous agent has not finished shutting down. End it before handing this card to another agent.")
+			}
 			m.log.Warn("a card's old session did not finish before it was handed off", "card_id", card.ID)
 		}
 		m.forget(card.ID, old)
@@ -215,12 +222,16 @@ func (m *Manager) handOff(ctx context.Context, card protocol.Card, plan handoffP
 	// card's session is given, and the internal server attached again - which, the old session having
 	// just let go of it, is a new server with a new secret.
 	attached := m.attach(ctx, card)
+	if m.cfg.DirectWorkspace {
+		attached.Instructions = directWorkspaceInstructions + "\n\n" + attached.Instructions
+	}
 	spec := agents.StartSpec{
 		Cwd: plan.path, Model: card.Model, Thinking: thinkingOrEmpty(card.Thinking),
 		PermissionMode: string(card.PermissionMode),
 		Instructions:   handoffInstructions(plan.summary, attached.Instructions),
 		MCPServers:     attached.Servers, Label: card.ID,
 	}
+	spec.AllowedTools, spec.DisallowedTools = m.cardRulesFor(ctx, card)
 	startCtx, cancelStart := context.WithTimeout(ctx, resumeTimeout)
 	defer cancelStart()
 	handle, err := plan.agent.Start(startCtx, spec)
@@ -229,7 +240,7 @@ func (m *Manager) handOff(ctx context.Context, card protocol.Card, plan handoffP
 		m.detachCard(card.ID)
 		return m.failHandoff(ctx, card, plan, err)
 	}
-	started := startedAgent{agent: plan.agent, handle: handle, view: protocol.CardViewModeChat}
+	started := startedAgent{agent: plan.agent, handle: handle, view: protocol.CardViewModeChat, editorKey: card.ID}
 	if err := m.storeHandoff(ctx, plan.row, plan.to, started); err != nil {
 		m.stopUnregistered(started)
 		m.detachCard(card.ID)

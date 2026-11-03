@@ -53,6 +53,13 @@ type Manager struct {
 	pending   map[string]struct{}         // cardID -> a Start or Resume is in flight for it
 	switching map[string]struct{}         // cardID -> a switch of its view is in flight
 	approvals map[string]*pendingApproval // approval id -> a permission request no one has answered
+	// Direct workspace ownership is shared by pending starts, live sessions, replacements,
+	// and completion checks. Keys are canonical project folders, values are card/chat IDs.
+	workspaceEditors map[string]string
+	workspaceChats   map[string]bool
+	workspaceBlocked map[string]bool
+	workspaceStops   map[string]int
+	completing       map[string]bool
 
 	// resumeMu guards resumeMode, the mode RestoreAll uses (docs/architecture.md 5.3). It starts as
 	// what the config says and is replaced once, before RestoreAll, by the "After a restart" setting
@@ -192,6 +199,10 @@ func (m *Manager) RecentOutput(cardID string) []LogEntry {
 // live session, is already being started or resumed, or the manager is shutting down. Call
 // release when done, however it ends.
 func (m *Manager) reserve(cardID string) error {
+	root, err := m.cardWorkspaceRoot(m.ctx, cardID)
+	if err != nil {
+		return err
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.closed {
@@ -206,6 +217,12 @@ func (m *Manager) reserve(cardID string) error {
 	if _, pending := m.pending[cardID]; pending {
 		return protocol.Refused("This card is already being started.").With("cardId", cardID)
 	}
+	if err := m.acquireEditorLocked(root, cardID); err != nil {
+		return err
+	}
+	if m.completing[cardID] {
+		return completionRefusal(cardID)
+	}
 	m.pending[cardID] = struct{}{}
 	return nil
 }
@@ -213,6 +230,7 @@ func (m *Manager) reserve(cardID string) error {
 func (m *Manager) release(cardID string) {
 	m.mu.Lock()
 	delete(m.pending, cardID)
+	m.releaseEditorLocked(cardID)
 	m.mu.Unlock()
 }
 
@@ -252,6 +270,8 @@ func (m *Manager) forget(key string, ls *liveSession) {
 	m.mu.Lock()
 	if m.sessions[key] == ls {
 		delete(m.sessions, key)
+		delete(m.workspaceBlocked, key)
+		m.releaseEditorLocked(key)
 	}
 	m.mu.Unlock()
 }
@@ -266,6 +286,7 @@ func (m *Manager) goLive(ls *liveSession) error {
 		ctx, cancel := context.WithTimeout(context.Background(), closeStopTimeout)
 		defer cancel()
 		if err := ls.agent.Stop(ctx, ls.handle); err != nil {
+			m.blockEditor(ls.key())
 			m.log.Error("could not stop a session that finished starting during shutdown",
 				ls.noun()+"_id", ls.key(), "error", err)
 		}
@@ -299,8 +320,9 @@ func (m *Manager) goLive(ls *liveSession) error {
 // functions that pass a freshly started or resumed session around (startAgent, resumeRow, and
 // what they call) within the parameter-count guideline of code-standards.md section 12.
 type startedAgent struct {
-	agent  agents.Agent
-	handle agents.SessionHandle
+	agent     agents.Agent
+	handle    agents.SessionHandle
+	editorKey string
 	// view is the view the agent was started in. The zero value is the chat view, which is what every
 	// session starts in.
 	view protocol.CardViewMode

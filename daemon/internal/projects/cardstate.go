@@ -181,8 +181,8 @@ func (s *Service) SetNeeds(ctx context.Context, id string, reason protocol.Needs
 }
 
 // SetWorktree records the worktree folder and the branch that were made for a card, and publishes
-// card.updated after the commit. The folder must be inside the project's own worktrees folder
-// (see WorktreesDir), because removing a project cleans that folder up. An empty path with an
+// card.updated after the commit. The folder is the original project folder for direct sessions,
+// or inside the project's own worktrees folder for legacy sessions. An empty path with an
 // empty branch clears both. An empty path with a branch records that the worktree is gone and
 // the branch is kept.
 func (s *Service) SetWorktree(ctx context.Context, id, path, branch string) (protocol.Card, error) {
@@ -241,6 +241,13 @@ func (s *Service) checkWorktree(ctx context.Context, projectID, path, branch str
 	}
 	if path == "" {
 		return "", nil
+	}
+	project, err := s.store.Queries().GetProject(ctx, projectID)
+	if err != nil {
+		return "", fmt.Errorf("read the project folder: %w", err)
+	}
+	if filepath.IsAbs(path) && sameFolder(path, project.RepoPath) {
+		return filepath.Clean(project.RepoPath), nil
 	}
 	dir := WorktreesDir(s.dataDir, projectID)
 	clean := filepath.Clean(path)

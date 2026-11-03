@@ -62,6 +62,9 @@ type Config struct {
 	// DataDir is Marshal's own data folder, as a full path. Session logs go under
 	// <DataDir>/logs/sessions/<session id>/.
 	DataDir string
+	// DirectWorkspace runs cards in the project's original folder. Only one main coding
+	// session owns a project folder; that session may delegate to its native subagents.
+	DirectWorkspace bool
 	// History stores the typed history and activity of every session this manager runs (migration
 	// 0006), so a card's chat can be paged rather than replayed from a log file. Left unset, the
 	// manager writes to the store it already has; set it to share the history module's own store,

@@ -60,6 +60,11 @@ func (s *Service) removeCardWork(ctx context.Context, row db.Card) error {
 	if err != nil {
 		return notFound(fmt.Errorf("read project %s: %w", row.ProjectID, err), notFoundProject(row.ProjectID))
 	}
+	// A direct card shares the owner's source folder and branch. Removing the card only removes
+	// its Marshal metadata; neither the folder nor the branch belongs to the card.
+	if row.WorktreePath == project.RepoPath || sameFolder(row.WorktreePath, project.RepoPath) {
+		return nil
+	}
 	release, err := s.locks.acquire(ctx, project.RepoPath)
 	if err != nil {
 		return fmt.Errorf("wait for the repository of project %s: %w", project.ID, err)

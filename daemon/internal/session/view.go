@@ -138,6 +138,10 @@ func (m *Manager) viewAnswer(cardID string, mode protocol.CardViewMode, state pr
 // A handoff (handoff.go) marks a card the same way, because it is the same shape of work: one process
 // stops and another starts for the same card. Call endSwitch when done.
 func (m *Manager) beginSwitch(cardID string) error {
+	root, err := m.cardWorkspaceRoot(m.ctx, cardID)
+	if err != nil {
+		return err
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.closed {
@@ -148,6 +152,12 @@ func (m *Manager) beginSwitch(cardID string) error {
 	if switching || pending {
 		return refusedView(protocol.ViewRefusalReasonSwitching).With("cardId", cardID)
 	}
+	if m.completing[cardID] {
+		return completionRefusal(cardID)
+	}
+	if err := m.acquireEditorLocked(root, cardID); err != nil {
+		return err
+	}
 	m.switching[cardID] = struct{}{}
 	return nil
 }
@@ -155,6 +165,7 @@ func (m *Manager) beginSwitch(cardID string) error {
 func (m *Manager) endSwitch(cardID string) {
 	m.mu.Lock()
 	delete(m.switching, cardID)
+	m.releaseEditorLocked(cardID)
 	m.mu.Unlock()
 }
 
@@ -191,6 +202,13 @@ func (m *Manager) planSwitch(ctx context.Context, ls *liveSession, mode protocol
 	}
 	if path == "" || row.AgentSessionID == "" {
 		return switchPlan{}, refusedView(protocol.ViewRefusalReasonNoAgent).With("cardId", cardID)
+	}
+	card, err := m.projects.Card(ctx, cardID)
+	if err != nil {
+		return switchPlan{}, err
+	}
+	if err := m.checkDirectResume(ctx, card, path); err != nil {
+		return switchPlan{}, err
 	}
 	agent, err := m.agentForSwitch(protocol.AgentKind(row.AgentKind), mode)
 	if err != nil {
@@ -253,6 +271,10 @@ func (m *Manager) swap(ctx context.Context, card protocol.Card, old *liveSession
 	// The old session has let go of the card's internal server before the new one is attached to
 	// it, so the two cannot both hold it and the switch cannot leave the new agent without one.
 	if !m.waitPump(old) {
+		if m.cfg.DirectWorkspace {
+			m.blockLiveEditor(old)
+			return protocol.CardView{}, protocol.Unavailable("The previous agent has not finished shutting down. End it before switching views.")
+		}
 		m.log.Warn("a card's old session did not finish before its view switch", "card_id", card.ID)
 	}
 	m.forget(card.ID, old)
@@ -263,7 +285,7 @@ func (m *Manager) swap(ctx context.Context, card protocol.Card, old *liveSession
 	if err != nil {
 		return protocol.CardView{}, m.failSwitch(ctx, plan.row, err)
 	}
-	started := startedAgent{agent: plan.agent, handle: handle, view: plan.mode}
+	started := startedAgent{agent: plan.agent, handle: handle, view: plan.mode, editorKey: card.ID}
 	if err := m.storeSwitch(ctx, plan.row, started); err != nil {
 		m.stopUnregistered(started)
 		return protocol.CardView{}, err

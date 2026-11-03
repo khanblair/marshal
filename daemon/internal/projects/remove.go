@@ -73,9 +73,23 @@ func (s *Service) deleteRows(ctx context.Context, id string) error {
 // cleanUp removes the project's worktrees and, unless they are kept, its card branches. It holds
 // the repository's lock, so no other Git write runs in the repository meanwhile.
 func (s *Service) cleanUp(ctx context.Context, project db.Project, opts RemoveOptions) error {
-	branches, err := s.store.Queries().ListCardBranches(ctx, project.ID)
+	cards, err := s.store.Queries().ListCardsByProject(ctx, project.ID)
 	if err != nil {
 		return fmt.Errorf("list the branches of project %s: %w", project.ID, err)
+	}
+	// Direct cards only borrow the project's branch. Even after the owner switches to another
+	// branch, removing Marshal's project must not delete that borrowed branch.
+	protected := make(map[string]bool)
+	for _, card := range cards {
+		if card.WorktreePath == project.RepoPath || sameFolder(card.WorktreePath, project.RepoPath) {
+			protected[card.Branch] = true
+		}
+	}
+	var branches []string
+	for _, card := range cards {
+		if !protected[card.Branch] {
+			branches = append(branches, card.Branch)
+		}
 	}
 	release, err := s.locks.acquire(ctx, project.RepoPath)
 	if err != nil {

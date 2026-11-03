@@ -17,6 +17,10 @@ import (
 // An agent that fails, or ends without saying anything, is an error that says why in the agent's own
 // words, so a signed-out Claude reads as that and not as an empty answer.
 func (m *Manager) Ask(ctx context.Context, kind protocol.AgentKind, spec agents.StartSpec, prompt string) (string, error) {
+	if m.cfg.DirectWorkspace {
+		spec.PermissionMode = string(protocol.PermissionModePlan)
+		spec.DisallowedTools = append(spec.DisallowedTools, "Edit", "Write", "MultiEdit", "NotebookEdit", "Bash")
+	}
 	agent, err := m.registry.New(kind)
 	if err != nil {
 		return "", fmt.Errorf("make an agent to ask: %w", err)

@@ -122,6 +122,9 @@ func IsOrchestratorChat(chat protocol.Chat) bool { return kindOf(chat) == chatKi
 // made here, and a chat that cannot have it is refused: it never runs in the owner's folder instead.
 func (m *Manager) chatSpec(ctx context.Context, chat protocol.Chat, project protocol.Project, fresh bool) (agents.StartSpec, error) {
 	kind := kindOf(chat)
+	if m.cfg.DirectWorkspace && kind == chatKindIntegrator {
+		return agents.StartSpec{}, protocol.Refused("Cards now edit the project folder directly. The separate Integrator workspace is retired; use a project coding chat to work on the files.").With("reason", "direct_workspace_integrator")
+	}
 	cwd := project.Path
 	if kind == chatKindIntegrator {
 		path, err := m.integratorWorkspace(ctx, chat, project)
@@ -138,8 +141,14 @@ func (m *Manager) chatSpec(ctx context.Context, chat protocol.Chat, project prot
 	spec.MCPServers = attached.Servers
 	if fresh {
 		spec.Instructions = attached.Instructions
+		if m.cfg.DirectWorkspace && kind != chatKindOrchestrator {
+			spec.Instructions = directWorkspaceInstructions + "\n\n" + spec.Instructions
+		}
 	}
 	spec.AllowedTools, spec.DisallowedTools = chatToolRules(kind, len(attached.Servers) > 0)
+	if m.cfg.DirectWorkspace {
+		spec.DisallowedTools = append(spec.DisallowedTools, directGitDenied()...)
+	}
 	return spec, nil
 }
 

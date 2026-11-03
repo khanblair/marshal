@@ -82,6 +82,11 @@ func (m *Manager) bringUpChat(ctx context.Context, chat protocol.Chat) (*liveSes
 	if err != nil {
 		return nil, err
 	}
+	release, err := m.reserveChatEditor(chat, project.Path)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
 	fresh := row.AgentSessionID == ""
 	spec, err := m.chatSpec(ctx, chat, project, fresh)
 	if err != nil {
@@ -129,7 +134,7 @@ func (m *Manager) resumeChat(ctx context.Context, chat protocol.Chat, row db.Ses
 		}
 		return nil, m.failChatResume(ctx, chat, row, err)
 	}
-	return m.registerChat(ctx, chat, row, startedAgent{agent: agent, handle: handle})
+	return m.registerChat(ctx, chat, row, startedAgent{agent: agent, handle: handle, editorKey: chat.ID})
 }
 
 // failChatResume records that a chat's session could not be resumed: the row reads stopped and the
@@ -180,6 +185,7 @@ func (m *Manager) stopUnregistered(sa startedAgent) {
 	ctx, cancel := context.WithTimeout(context.Background(), closeStopTimeout)
 	defer cancel()
 	if err := sa.agent.Stop(ctx, sa.handle); err != nil {
+		m.blockEditor(sa.editorKey)
 		m.log.Error("could not stop an agent that never became a session", "error", err)
 	}
 }
@@ -238,11 +244,17 @@ func canBePutToSleep(row db.Session) bool {
 // the session is forgotten, and its exit is marked as expected so the pump does not treat it as a
 // crash (see finishPump).
 func (m *Manager) endChatProcess(ctx context.Context, ls *liveSession) error {
+	releaseEditor := m.holdStoppingEditor(ls)
+	defer releaseEditor()
 	ls.setStopRequested()
 	if err := ls.agent.Stop(ctx, ls.handle); err != nil {
 		// The process is still there, so the chat did not go to sleep after all.
 		ls.clearStopRequested()
 		return fmt.Errorf("stop the session of chat %s: %w", ls.chatID, err)
+	}
+	if m.cfg.DirectWorkspace && !m.waitPump(ls) {
+		m.blockLiveEditor(ls)
+		return protocol.Unavailable("The coding chat has not finished shutting down yet.")
 	}
 	m.forget(ls.key(), ls)
 	return nil

@@ -26,6 +26,9 @@ import (
 // A resume that cannot happen moves the card to needs you with a plain sentence, exactly as a
 // resume after a restart does (see resumeRow).
 func (m *Manager) Start(ctx context.Context, cardID string) (protocol.Card, error) {
+	if err := m.checkCompletion(cardID); err != nil {
+		return protocol.Card{}, err
+	}
 	card, err := m.projects.Card(ctx, cardID)
 	if err != nil {
 		return protocol.Card{}, err
@@ -148,7 +151,7 @@ func (m *Manager) startFresh(ctx context.Context, cardID string) (protocol.Card,
 	if err != nil {
 		return protocol.Card{}, err
 	}
-	path, branch, err := m.makeWorktree(ctx, project, card)
+	path, branch, err := m.cardFolder(ctx, project, card)
 	if err != nil {
 		return protocol.Card{}, err
 	}
@@ -157,16 +160,44 @@ func (m *Manager) startFresh(ctx context.Context, cardID string) (protocol.Card,
 		// The agent never started, so nothing will ever pump this session, and what attach gave it
 		// would otherwise be held for a card with no session at all.
 		m.detachCard(card.ID)
-		m.undoWorktree(project, path, branch, cardID)
+		if !m.cfg.DirectWorkspace {
+			m.undoWorktree(project, path, branch, cardID)
+		}
 		return protocol.Card{}, err
 	}
 	registered, err := m.registerNewSession(ctx, card, sa)
 	if err != nil {
 		// The session never became live, so no pump will release what it was given.
 		m.detachCard(card.ID)
+		m.stopUnregistered(sa)
 		return protocol.Card{}, err
 	}
 	return registered, nil
+}
+
+// cardFolder binds a direct card to the original project folder and preserves its
+// starting files in a hidden Git snapshot without staging or committing the owner's work.
+func (m *Manager) cardFolder(ctx context.Context, project protocol.Project, card protocol.Card) (string, string, error) {
+	if !m.cfg.DirectWorkspace {
+		return m.makeWorktree(ctx, project, card)
+	}
+	if card.Worktree != "" || card.Branch != "" {
+		if err := m.checkDirectResume(ctx, card, card.Worktree); err != nil {
+			return "", "", err
+		}
+		return card.Worktree, card.Branch, nil
+	}
+	branch, err := m.git.Run(ctx, project.Path, "symbolic-ref", "--quiet", "--short", "HEAD")
+	if err != nil || branch == "" {
+		return "", "", protocol.Refused("Check out a project branch before starting a coding card.").With("reason", "project_detached_head")
+	}
+	if _, err := m.git.SnapshotFolder(ctx, project.Path, gitx.DirectBaseRef(card.ID), "Marshal: before "+card.Title); err != nil {
+		return "", "", fmt.Errorf("keep this card's starting files: %w", err)
+	}
+	if _, err := m.projects.SetWorktree(ctx, card.ID, project.Path, branch); err != nil {
+		return "", "", err
+	}
+	return project.Path, branch, nil
 }
 
 // makeWorktree creates the card's worktree and branch, sparse in a monorepo, and records them on
@@ -228,6 +259,9 @@ func (m *Manager) startAgent(ctx context.Context, card protocol.Card, path strin
 	// card whose memory cannot be read is started without it rather than refused, and the failure is
 	// logged by attach.
 	attached := m.attach(ctx, card)
+	if m.cfg.DirectWorkspace {
+		attached.Instructions = directWorkspaceInstructions + "\n\n" + attached.Instructions
+	}
 	spec := agents.StartSpec{
 		Cwd: path, Model: card.Model, Thinking: thinkingOrEmpty(card.Thinking), PermissionMode: string(card.PermissionMode),
 		Instructions: attached.Instructions, MCPServers: attached.Servers, Label: card.ID,
@@ -246,7 +280,7 @@ func (m *Manager) launch(ctx context.Context, o owner, kind protocol.AgentKind, 
 	if err != nil {
 		return startedAgent{}, startFailure(o, err)
 	}
-	return startedAgent{agent: agent, handle: handle}, nil
+	return startedAgent{agent: agent, handle: handle, editorKey: o.key()}, nil
 }
 
 // newAgent makes the agent for a kind, with a plain sentence for a kind that has no adapter yet.
@@ -302,6 +336,7 @@ func (m *Manager) finishRegistering(card protocol.Card, rowID string, sa started
 // register builds a live session for an owner, makes it live, publishes that it is awake, and
 // starts its pump. A card's session and a chat's both come through here.
 func (m *Manager) register(o owner, rowID string, sa startedAgent) (*liveSession, error) {
+	sa.editorKey = o.key()
 	ls, err := m.newLiveSession(o, rowID, sa)
 	if err != nil {
 		// Nothing owns the agent yet, so it is ended here, or it would run with nobody to stop it.

@@ -90,6 +90,9 @@ func (m *Manager) resumeRow(ctx context.Context, row db.Session) (protocol.Card,
 	if path == "" {
 		return m.failResume(ctx, row, errors.New("this card has no recorded worktree to resume in"))
 	}
+	if err := m.checkDirectResume(ctx, card, path); err != nil {
+		return protocol.Card{}, err
+	}
 	// The session resumes in the view it was left in: a card that was in the terminal view when its
 	// process ended, by a restart, a sleep, or a person's press, comes back in the terminal.
 	view := protocol.CardViewMode(row.ViewMode)
@@ -116,8 +119,10 @@ func (m *Manager) resumeRow(ctx context.Context, row db.Session) (protocol.Card,
 		return m.failResume(ctx, row, err)
 	}
 	note := resumedText(handle.Restarted)
-	registered, err := m.registerResumedSession(ctx, card, row, startedAgent{agent: agent, handle: handle, view: view, note: note})
+	started := startedAgent{agent: agent, handle: handle, view: view, note: note, editorKey: card.ID}
+	registered, err := m.registerResumedSession(ctx, card, row, started)
 	if err != nil {
+		m.stopUnregistered(started)
 		// The session never became live, so no pump will release what it was given.
 		m.detachCard(card.ID)
 		return registered, err
