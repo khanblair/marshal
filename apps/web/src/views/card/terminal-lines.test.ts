@@ -19,7 +19,7 @@ describe("terminalLines", () => {
   it("starts with the agent, its version, a session id, and the worktree", () => {
     const [first, second, third] = texts("api#41");
     expect(first).toBe("Claude Code 2.0.14   session 4f447a2f");
-    expect(second).toBe("Resumed in ~/.marshal/worktrees/api-gateway/41-fix-token-refresh");
+    expect(second).toBe(`Resumed in ${M.proj("api")?.path}`);
     expect(third).toBe(" ");
   });
 

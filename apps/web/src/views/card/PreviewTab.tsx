@@ -54,7 +54,7 @@ function PagePreview(props: { card: Card }) {
         </div>
       </div>
       <div class="py-1.5 px-2.5 border-t border-border text-caption text-secondary">
-        Live preview from this card's worktree, in its own browser profile
+        Live preview from the project folder, in this card's browser profile
       </div>
     </div>
   );

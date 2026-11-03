@@ -69,7 +69,25 @@ function ShipRow(props: { projectId: string; row: Row; on: boolean }) {
 }
 
 /** How the project ships its cards. Every change is the daemon's, and the answer is what is shown. */
-export function ShipSettings(props: { projectId: string; settings: IntegrationSettings }) {
+export function ShipSettings(props: {
+  projectId: string;
+  settings: IntegrationSettings;
+  direct?: boolean;
+}) {
+  const rows = () =>
+    props.direct
+      ? SHIP_ROWS.filter((row) => row.key !== "autoMerge").map((row) => {
+          if (row.key === "autoShip")
+            return {
+              ...row,
+              label: "Complete finished cards automatically",
+              hint: "When the agent finishes, review and checks run in the project folder before the card is completed.",
+            };
+          if (row.key === "review")
+            return { ...row, hint: "A model reviews the card's changes before it is completed." };
+          return row;
+        })
+      : SHIP_ROWS;
   return (
     <section
       aria-label="How cards ship"
@@ -77,7 +95,7 @@ export function ShipSettings(props: { projectId: string; settings: IntegrationSe
     >
       <h3 class="m-0 py-1 text-small font-semibold text-secondary">How cards ship</h3>
       <div class="flex flex-col divide-y divide-border">
-        <For each={SHIP_ROWS}>
+        <For each={rows()}>
           {(row) => <ShipRow projectId={props.projectId} row={row} on={props.settings[row.key]} />}
         </For>
       </div>

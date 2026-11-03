@@ -20,7 +20,7 @@ export type { Preview, PreviewState } from "@marshal/protocol";
 /** The card whose preview draws a dark page, to show a before and after. */
 export const DARK_PREVIEW_CARD_ID: CardKey = "web#118";
 
-const STOPPED = "Stopped. Start the preview to run the app from this card's worktree.";
+const STOPPED = "Stopped. Start the preview to run the app from the project folder.";
 
 /** A card's preview as last read, or undefined when nothing has been read for it yet. */
 export const previewOf = (id: CardKey): Preview | undefined => M.S.preview?.[id];

@@ -22,7 +22,7 @@ const preview = (fields: Partial<Preview>): Preview => ({
   ...fields,
 });
 
-const STOPPED = "Stopped. Start the preview to run the app from this card's worktree.";
+const STOPPED = "Stopped. Start the preview to run the app from the project folder.";
 
 describe("preview model", () => {
   beforeEach(() => resetStore());

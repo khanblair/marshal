@@ -38,6 +38,7 @@ function StateLine(props: { flow: MergeFlow }) {
  * far ahead it is, what it is doing, why it stopped when it did, and the two things to press.
  */
 export function IntegrationHeader(props: { projectId: string; flow: MergeFlow }) {
+  const direct = () => !props.flow.integratorBranch;
   const [busy, setBusy] = createSignal(false);
   const paused = () => props.flow.state === "paused";
   async function toggle(): Promise<void> {
@@ -53,31 +54,56 @@ export function IntegrationHeader(props: { projectId: string; flow: MergeFlow })
       <div class="flex items-center gap-2">
         <Icon name="git-merge" size={20} />
         <h2 class="m-0 min-w-0 text-view-title leading-7 font-bold">
-          Merging into <span class="font-mono">{props.flow.target}</span>
+          <Show
+            when={direct()}
+            fallback={
+              <>
+                Merging into <span class="font-mono">{props.flow.target}</span>
+              </>
+            }
+          >
+            Project workspace
+          </Show>
         </h2>
       </div>
-      <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-small text-secondary">
-        <IconLabel icon="git-branch" title="The Integrator's own branch">
-          <span class="font-mono">{props.flow.integratorBranch}</span>
-        </IconLabel>
-        <span
-          title={`Commits that ${props.flow.integratorBranch} has and ${props.flow.target} does not yet`}
-        >
-          {aheadLabel(props.flow.aheadBy)}
-        </span>
-        <StateLine flow={props.flow} />
-      </div>
+      <Show
+        when={!direct()}
+        fallback={
+          <p class="m-0 text-small text-secondary">
+            Agents edit your project folder directly. One main coding session coordinates its
+            subagents. Finished cards are reviewed and checked in place.
+          </p>
+        }
+      >
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-small text-secondary">
+          <IconLabel icon="git-branch" title="The Integrator's own branch">
+            <span class="font-mono">{props.flow.integratorBranch}</span>
+          </IconLabel>
+          <span
+            title={`Commits that ${props.flow.integratorBranch} has and ${props.flow.target} does not yet`}
+          >
+            {aheadLabel(props.flow.aheadBy)}
+          </span>
+          <StateLine flow={props.flow} />
+        </div>
+      </Show>
       <Show when={props.flow.message}>
         <Callout icon="triangle-alert">{props.flow.message}</Callout>
       </Show>
-      <div class="flex flex-wrap gap-2">
-        <Button icon={paused() ? "play" : "pause"} disabled={busy()} onClick={() => void toggle()}>
-          {paused() ? "Resume merging" : "Pause merging"}
-        </Button>
-        <Button icon="message-circle" onClick={() => openIntegratorChat(props.projectId)}>
-          Open Integrator chat
-        </Button>
-      </div>
+      <Show when={!direct()}>
+        <div class="flex flex-wrap gap-2">
+          <Button
+            icon={paused() ? "play" : "pause"}
+            disabled={busy()}
+            onClick={() => void toggle()}
+          >
+            {paused() ? "Resume merging" : "Pause merging"}
+          </Button>
+          <Button icon="message-circle" onClick={() => openIntegratorChat(props.projectId)}>
+            Open Integrator chat
+          </Button>
+        </div>
+      </Show>
     </header>
   );
 }

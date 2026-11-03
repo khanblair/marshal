@@ -54,7 +54,11 @@ function Flow(props: { projectId: string; flow: MergeFlow; error: string }) {
       <Show when={props.flow.delivered.length > 0}>
         <DeliveredList items={props.flow.delivered} cardOf={cardOf} />
       </Show>
-      <ShipSettings projectId={props.projectId} settings={props.flow.settings} />
+      <ShipSettings
+        projectId={props.projectId}
+        settings={props.flow.settings}
+        direct={!props.flow.integratorBranch}
+      />
     </>
   );
 }

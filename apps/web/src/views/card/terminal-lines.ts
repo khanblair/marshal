@@ -16,9 +16,7 @@ function headerLines(card: Card): TerminalLine[] {
   const version = M.AGENTS[card.agent]?.version;
   const project = M.proj(card.p);
   const session = `${(card.n * SESSION_ID_FACTOR).toString(HEX_RADIX)}a2f`;
-  const where = card.branch
-    ? `~/.marshal/worktrees/${project?.name}/${card.branch.replace("marshal/", "")}`
-    : project?.path;
+  const where = card.worktree || project?.path;
   return [
     {
       text: `${version ? `${card.agent} ${version}` : card.agent}   session ${session}`,
