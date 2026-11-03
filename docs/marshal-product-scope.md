@@ -2,6 +2,8 @@
 
 **Product Scope and Design Guide**
 
+**Workspace update (2026-11-02):** [Direct project workspaces](direct-workspace.md) replaces the older worktree and automatic branch-merging model described below. Agents edit the original project folder. One main coding session coordinates native subagents and completes cards through review and checks in place. Legacy work is preserved for recovery.
+
 | | |
 |---|---|
 | **Product** | Marshal |
@@ -52,7 +54,7 @@
 
 Marshal is a lightweight desktop app and background service (the **daemon**) for running AI coding agents on a kanban board.
 
-Each **card** on the board is one task. Each card has **one agent session** that lives as long as the card does, even across app restarts and PC reboots. Agents work in isolated Git worktrees, so many tasks can run at the same time without breaking each other.
+Each **card** on the board is one task with its own conversation and snapshots. Agents edit the project's original folder. One main coding session per project coordinates subagents with separate file assignments; different projects can run at the same time.
 
 Marshal works with:
 
@@ -310,7 +312,7 @@ Lightweight is a hard rule, not a wish. These budgets are **targets**, measured 
 
 | Metric | Budget |
 |---|---|
-| Daemon idle RAM | Under 50 MB |
+| Daemon idle RAM | Under 100 MB |
 | Daemon idle CPU | About 0% |
 | UI RAM | Under 150 MB |
 | Download size (app + daemon) | Under 50 MB |

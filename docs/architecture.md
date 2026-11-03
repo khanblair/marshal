@@ -2,6 +2,8 @@
 
 This document explains how Marshal is built: its parts, how they talk, where data lives, and the rules that keep it light and safe. Read it before changing any module.
 
+**Current workspace decision (2026-11-02):** [Direct project workspaces](direct-workspace.md) supersedes this document's earlier per-card and Integrator worktree, automatic merge, and per-card restore design. Application wiring runs agents in the original project folder, reserves it for one main coding session with coordinated native subagents, and completes cards through review and checks in place. Worktree-specific descriptions below document the legacy implementation and must not be used to reintroduce automatic worktree creation.
+
 ---
 
 ## 1. System at a glance
@@ -180,10 +182,11 @@ The ACP adapter (`agents/acp`) starts every process through `internal/proc`, the
 |---|---|---|
 | **ACP** | Agents that speak the Agent Client Protocol | JSON-RPC over stdio. Structured messages, tool calls, and permission requests. Preferred. |
 | **Claude Code** | Claude Code | Claude Code's own streaming JSON mode over stdio (`claude -p --input-format stream-json --output-format stream-json`), driven directly: Claude Code has no ACP support. One process per session, kept alive across turns. |
+| **Codex** | Codex CLI | Persistent `codex app-server --listen stdio://`, with JSON-RPC thread/turn lifecycle, native approvals, and MCP configuration. |
 | **PTY** | Agents without ACP, and the terminal view | Runs the CLI in a virtual terminal. Uses the CLI's own streaming or JSON mode where it has one. |
 | **Built-in** | The built-in agent | A loop inside the daemon that calls model providers directly. No extra process. |
 
-The Claude Code adapter (`agents/claude`) starts `claude -p` itself, writes one stream-json line per message to its standard input, and parses its standard output line by line into the same closed set of `AgentEvent` values every adapter produces; the wire format is close enough to plain JSON that it needs no protocol library. **It has no permission-request channel yet**, so every session passes `--permission-prompts=none`: a tool call that would need approval is denied at once instead of waiting for an answer nobody can give, matching the catalog's `Approvals: false` for this agent, and `Respond` always returns `ErrUnknownRequest`. `Interrupt` tries up to three stages to end the turn in flight, each with its own grace period: a `control_request` control message first, then SIGINT (Claude Code's documented way to end a turn without leaving it "unfinished" for a `--resume` to replay, unlike SIGTERM; Windows has no portable equivalent and skips this stage), and only as a last resort stopping the process outright and starting a fresh one with `--resume` on the next `Send`, so the session id and the conversation survive even when the process itself is replaced. See `daemon/internal/agents/claude/args.go` (`permissionMode` and `defaultPermissionModes`) for the exact permission-mode mapping, and `daemon/internal/agents/claude/dispatch.go` for how a `Respond` is answered.
+The Claude Code adapter (`agents/claude`) starts `claude -p` itself, writes one stream-json line per message to stdin, and parses stdout into the shared `AgentEvent` values. Host permission callbacks (`--permission-prompts=host --permission-prompt-tool=stdio`) now produce the existing Marshal approval blocks; `Respond` returns the selected decision through Claude's control-response protocol. Cancelled requests, turn completion, and process exit resolve waiting approval history. `Interrupt` first sends a control request, then tries SIGINT where supported, and finally stops the process if needed; a later Send can resume the saved conversation. Codex has a real app-server adapter registered in production, including start, message, interrupt, stop, resume, command/file approvals, thinking settings, and MCP. Protocol details, mode mappings, known limits, and real verification evidence are in [agent-sessions.md](agent-sessions.md).
 
 The PTY adapter (`agents/pty`) runs the CLI in a pseudo-terminal through go-pty: a Unix pseudo-terminal on macOS and Linux, and ConPTY on Windows. It implements the same `Agent` interface, and its capabilities say `StructuredEvents: false`. What is different about it:
 
@@ -857,7 +860,7 @@ The daemon watches the vault with file system events and re-indexes changed file
 
 | Metric | Budget | How it is enforced |
 |---|---|---|
-| Daemon idle RAM | Under 50 MB | Measured in CI on a fixture project |
+| Daemon idle RAM | Under 100 MB | Measured in CI on a fixture project |
 | Daemon idle CPU | About 0% | Measured in CI over 60 seconds idle |
 | UI RAM | Under 150 MB | Measured in CI with a 50-card board open |
 | Download size | Under 50 MB | Checked on every release build |

@@ -11,7 +11,7 @@ Marshal is a lightweight desktop app and background service for running AI codin
 - Each **project** (a repository) has one **board**.
 - Each **card** on the board is one task.
 - Each card has **one agent session** that lives as long as the card, through app restarts and PC reboots.
-- Agents work in isolated **Git worktrees**, so many tasks can run at once without breaking each other.
+- Agents work directly in the existing **project folder**. One main coding session per project coordinates subagents with separate file assignments. Different projects can run together.
 - A background **daemon** runs the agents, watches their work, and moves cards by itself based on what is really happening: agent activity, pull requests, CI, and reviews.
 
 Marshal works with the coding CLIs people already use (Claude Code, Codex, Gemini CLI, and others) and with a built-in agent powered by the user's own API keys (Anthropic, OpenAI, Gemini, DeepSeek, OpenRouter, and local models). It connects to GitHub, Trello, Google Calendar, Gmail, Telegram, Discord, and Obsidian.
@@ -32,7 +32,7 @@ without juggling terminals, losing context, or fighting merge conflicts, and wit
 | Problem today | What Marshal does |
 |---|---|
 | Many terminals and no single view | One board per project, a home view across all projects |
-| Context lost when a CLI restarts | One lasting session per card, resumed after restarts |
+| Context lost when a CLI restarts | Sessions retain their saved identity for supported agent resume paths |
 | Work hidden inside background worktrees | Live activity feed and live diffs per card |
 | Painful merges between parallel agents | Early conflict warnings and a context-aware Integrator agent |
 | Agents unaware of each other | Shared board state, file claims, and notes through an internal MCP server |
@@ -43,9 +43,9 @@ without juggling terminals, losing context, or fighting merge conflicts, and wit
 
 We will know v1 works when:
 
-1. A user can run at least five cards in parallel on a 16 GB laptop, with the daemon idle under 50 MB and the UI under 150 MB.
+1. A user can run coding sessions across projects on a 16 GB laptop, with the daemon idle under 100 MB and the UI under 150 MB. One main session coordinates parallel subagents within each project.
 2. A card's session survives closing the app and restarting the PC, with no lost context.
-3. A card can go from idea to merged code (plan, code, review, CI, merge) with the user only approving at key points.
+3. A card can go from idea to completed code (plan, edit in place, review, checks) with the user approving at key points.
 4. Two cards that touch the same files are flagged before merge, not at merge.
 5. The user can see and act on everything from their phone over Tailscale.
 
@@ -76,11 +76,11 @@ When two options conflict, these decide.
 | **Project** | A repository or monorepo that Marshal manages. |
 | **Board** | The kanban view of all cards in a project. Each project has exactly one board. |
 | **Chat** | A conversation in a project with the Orchestrator, a role, or a card's agent. A project can have many chats. Cards they create go onto the project's one board. |
-| **Card** | One task, with its role, agent, session, worktree, branch, checks, and status. |
+| **Card** | One task, with its role, main agent, session, baseline/result snapshots, checks, and status. |
 | **Session** | The single, lasting conversation between a card and its agent. |
 | **Role** | An editable template for how an agent behaves: instructions, model, thinking mode, permissions, skills, MCP servers, and limits. |
 | **Agent** | The engine doing the work: a CLI agent or Marshal's built-in agent. |
-| **Worktree** | An isolated working folder on its own branch, for one card. |
+| **Workspace** | The owner's existing repository folder, shared by the main coding session and its coordinated subagents. |
 | **Daemon** | `marshald`, the background service that owns all state and work. |
 | **Harness** | The control loop the daemon wraps around every agent. |
 | **Brief** | A scheduled morning or evening summary across all projects. |
@@ -96,7 +96,7 @@ The full scope, with how and why for each feature, is in `marshal-product-scope.
 - **Roles and orchestration:** editable role templates (Orchestrator, Worker, Reviewer, Integrator, and more), plan first mode, handoffs, a stuck detector, and a scorecard.
 - **Harness and awareness:** limits, retries, an internal MCP server, file claims, and notes between agents.
 - **Memory:** project knowledge, auto lessons, a codebase map, session search, and an Obsidian-compatible vault.
-- **Worktrees and merging:** live activity and diffs, early conflict warnings, sparse worktrees for monorepos, and the Integrator merge queue.
+- **Direct workspaces:** live activity, card snapshot diffs, one main session per project, coordinated native subagents, and review/checks before completion. See `direct-workspace.md` for the behavior and legacy recovery rules.
 - **Safety:** permission modes (ask, auto-accept edits, plan only, full auto, bypass), permission profiles, a command blocklist, a secret scanner, and an audit log.
 - **Testing and CI:** live preview, screenshot checks, local CI, and GitHub Actions monitoring with a fix loop.
 - **Code quality:** code smell checks on every card's changes, with blocking findings fixed by the agent before review. We hold Marshal's own code to the same checks (see `code-standards.md`).

@@ -93,20 +93,21 @@ daemon/                       Go module (go.mod pins the toolchain). package.jso
     memory/, codemap/         Card notes, file claims, and note search; the ctags-based index of each project's symbols
     schedules/, briefs/, runctx/   Scheduled jobs and their cron; the morning and evening briefs; why a schedule is running
     # Agents and sessions
-    session/                  An agent session's life cycle for a card or chat: start with a worktree, send, stop, resume, logs, pause and sleep, terminal view
+    session/                  Card/chat sessions, direct project folder reservations (direct_workspace.go), native subagent coordination, snapshots, send, stop, resume, logs, pause and sleep, terminal view
     agents/                   The Agent interface, events, and registry. Adapters below it:
       acp/, pty/, claude/, gemini/   Agent Client Protocol; a CLI in a pseudo-terminal (ring of the last 256 KiB); Claude Code over stream-json (its session ids are UUIDs, not Marshal's ULIDs); Gemini CLI over ACP
-      codex/                  Detected and reported only. It cannot start until it has an adapter
+      codex/                  Codex app-server over stdio JSON-RPC: lifecycle, settings, approval/event routing, and MCP results
+      claude/permission.go    Native Claude permission callbacks and control responses; permission_test.go exercises the subprocess round trip
       builtin/, catalog/, trust/   Marshal's own agent over a provider API; which agents are installed and tested (cached five minutes); marks a folder trusted in a CLI's settings
     agentprefs/               What the person set for each agent in Settings: a chosen program path and an off switch, one settings row each. The catalog reads it (architecture.md 19.7)
     harness/, security/, secrets/   The permission decision for each agent request; the blocklist, permission profile, and deploy rule; the secret scan of committed text
     providers/                Model provider APIs, rate limits, usage, pricing. Thinking modes are mapped per provider here and nowhere else
     mcpserver/, mcpattach/    The internal MCP server for one card's agent; gives a session that server and its starting context
     proc/, keyedlock/         The one place that starts child processes, never through a shell (stop is polite first, then the whole process tree); one lock per key
-    gitx/                     Every module reaches Git only through this (Git 2.38 or newer): worktrees, branches, sparse checkout, clone, merge primitives
+    gitx/                     Every module reaches Git only through this (Git 2.38 or newer): temporary-index snapshots, direct.go snapshot refs, diff_revisions.go saved diffs, plus legacy worktree/merge primitives
     # Shipping and CI
     github/, pullrequest/, review/   The forge client; a card's branch as a pull request; the Reviewer role over it
-    integrator/               The merge queue: dry run, backup branch, temp-worktree merge, tests, fast-forward or abort
+    integrator/               Direct task completion through review/checks (direct.go); legacy branch merge/recovery helpers retained for compatibility
     ci/, localci/, preview/   CI monitor and fix loop (the only writer of ci_runs); a project's workflow steps run locally; a card's live preview dev server
     # Connections and notices
     integrations/             Saved connections: github/, trello/, googleclient/ (Marshal's own OAuth client), googlecal/, gmailread/, googlefiles/ (Drive, Docs, Sheets, Slides)
@@ -245,6 +246,8 @@ scripts/
   check.mjs, check-generated.mjs Run everything CI runs, the light steps first; check the generated files
   smells.mjs, budgets.mjs, coverage.mjs   Smell tools and the file length check; web build size and daemon idle use; per-package Go coverage floors (code-standards.md)
   agent-smoke.mjs                Runs the real agent CLIs (or, with --stub, the stub agent) through one small card each on a throwaway daemon
+  direct-workspace-smoke.mjs     Checks direct folder ownership, snapshots, completion, and safe deletion against the built daemon using only the stub agent
+  agent-lifecycle-smoke.mjs      Opt-in real Claude/Codex lifecycle through the built daemon API: MCP, approve/deny, file effects, and conversation resume
   e2e-daemon.mjs                 Runs the built dev daemon for the browser tests, on port 47811 with a data folder of its own
 ```
 

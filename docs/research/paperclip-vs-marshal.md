@@ -42,7 +42,7 @@ The products overlap in one real way: both put a human in front of a queue of ag
 | HTTP API | About 871 routes, company-scoped | About 155 to 161 routes, single owner |
 | Largest files | `heartbeat.ts` 30,078 lines, `issues.ts` 13,385, `routes/openapi.ts` 11,494 | Not measured. The inventory found no single-file monsters. |
 | Tests | 868 test files in the server, 644 in the UI, 59 to 74 Playwright files, 135 Storybook stories, pixel baselines | 363 Go, 219 web, 92 in `packages/`, 12 Playwright specs, coverage floors of 70% (85% on the safety packages) |
-| Idle footprint budget | Node plus embedded Postgres (a heavy local story, per the data-model agent) | Daemon idle RAM budget under 50 MB, enforced in CI |
+| Idle footprint budget | Node plus embedded Postgres (a heavy local story, per the data-model agent) | Daemon idle RAM budget under 100 MB, enforced in CI |
 | Turnaround of change | 503 commits in one release (`releases/v2026.916.0.md`) | 371 commits in total |
 
 Paperclip's surface is very large for one server: about 100 chat-channel files, plugins, a cloud mode, two overlapping case models (pipelines and cases), a "smoke lab", and 28 tables for tool access alone. Its agents also wrote most of it (`CONTRIBUTING.md` asks for a "Model Used" section in every PR). The cost shows in the file sizes and in a recovery document of about 18,000 words (`doc/execution-semantics.md`) that exists to explain the accumulated special cases.

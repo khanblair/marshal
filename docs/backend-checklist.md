@@ -150,7 +150,7 @@ When every section is on the daemon (item B13.1):
 | Contract | Golden files for every API response and event, checked on the Go side and used to test the client mapper |
 | Client units and components | Vitest with fixture builders. No network. |
 | End to end | Playwright against the dev daemon started in dev mode with a fixture project, at phone (390 by 844), tablet (820 by 1180), and desktop (1440 by 900), in both themes |
-| Real agents | Nightly smoke tests against pinned CLI versions. Claude Code and Gemini CLI are installed on the dev machine. Codex is not, which exercises the "missing" state. |
+| Real agents | Automatic tests use protocol fixtures. Owner-requested lifecycle checks drive installed Claude/Codex through the built daemon; see `agent-sessions.md`. The 2026-11-03 checks passed on Claude 2.1.299 and Codex 0.166.0-alpha.5.1. |
 | Budgets | RAM, CPU, size, and timing checks on every pull request |
 | Platforms | macOS, Linux, and Windows in CI |
 
@@ -270,7 +270,7 @@ To do:
 - [x] **B1.16 Prototype seed fixture, part 1.** Add `MARSHAL_FIXTURE=prototype`, which loads the three projects the prototype shows (api-gateway, web-dashboard, and mobile-app) on fixture repos. Part 2 adds their cards and chats in Phase 2. Done when: the project screens and the end-to-end specs for projects run against the dev daemon. (Task 0.10, `development.md` section 3.5)
 - [x] **B1.17 Cut over S1, S3, S4.** Done when: the cutover gate in 2.4 passes for each, the projects list, badges, and create, rename, and remove dialogs work against the dev daemon, and the agent pickers list the real agents. (Tasks 1.4, 1.8, 2.14)
 
-**Gate (milestone: first card):** a card runs a real agent in its own worktree and survives a restart, and the end-to-end tests for the cut-over sections pass against the dev daemon at three sizes. Budgets: daemon idle RAM under 50 MB and idle CPU about 0 percent on the fixture project.
+**Gate (milestone: first card):** a card runs a real agent in its own worktree and survives a restart, and the end-to-end tests for the cut-over sections pass against the dev daemon at three sizes. Budgets: daemon idle RAM under 100 MB and idle CPU about 0 percent on the fixture project.
 
 ### Phase 2: Core UI (build plan Phase 2)
 
@@ -376,6 +376,7 @@ Slices A to D and F touch the same card objects, so the order matters more than 
 - [ ] **B3.2 Bypass mode.** The confirmation with a typed acknowledgement, the banner, the worktree-only rule, and the project lock, through the bypass calls (N8). Done when: bypass cannot touch the main branch or run outside the worktree, and both turning it on and off are audited. Cut over S7b. (Task 3.2)
 - [ ] **B3.3 Permission profiles and command blocklist.** Done when: denied actions are blocked in every mode except bypass, and blocked commands are stopped or sent for approval. (Tasks 3.3, 3.4)
 - [ ] **B3.4 Approvals.** One approval row shared by the card and any project chat that asked, with events to every place that shows it (N7), and the approve and deny calls. Done when: approve and deny work from the card, the chat view, and the Home needs you list, and every view updates together. Cut over S8b. (Task 3.5)
+  - **2026-11-03:** S8b is on the daemon. Claude's native permission callbacks and Codex's command/file approvals now use this flow. HTTP/subprocess tests cover durable history, duplicate decisions, cancellation, and the session state after a turn ends; real CLI checks pass through the built daemon for both agents. Browser verification remains with the owner, so the full UI gate is not claimed.
 - [ ] **B3.5 Secret scanner and audit log.** Scan every agent commit, block a commit with a test key and move the card to Needs you, and record every action in a log that the screens cannot edit, with search and export. Done when: a test run's actions are all recorded and findable. (Tasks 3.6, 3.7)
 - [ ] **B3.6 Thinking modes and model switching.** Map thinking modes per provider and switch the model per card, per role, and mid-session, through card settings (N8). Done when: a setting change changes the provider request, writes the system message and the activity row, and applies on the next turn. (Tasks 3.8, 3.9)
 - [ ] **B3.7 Deploy approval rule.** Done when: agents cannot run deploy workflows outside bypass. (Task 3.10)

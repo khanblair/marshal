@@ -220,6 +220,8 @@ Add `--dev` to manage the dev daemon's own, separate service, so it can run besi
 | `pnpm test:daemon` | Go tests with the race detector, for the daemon (`pnpm test` also runs the Go tools' tests) |
 | `pnpm test:web` | UI unit and component tests |
 | `pnpm test:e2e` | End-to-end tests in the browser against the built dev daemon (run `pnpm build` first) |
+| `node scripts/direct-workspace-smoke.mjs` | When requested: checks the built daemon with the free stub agent and a temporary sample project. Verifies one editor, direct completion, preserved source/index/HEAD, frozen diffs, safe deletion, and no extra worktrees. No browser or real model calls; run `pnpm build` first. |
+| `node scripts/agent-lifecycle-smoke.mjs --real --agents claude,codex --model-codex default` | Only when the owner requests a real account check: drives the installed CLIs through the built daemon's actual card/session API, MCP, approval/denial, file effects, and stop/resume. Build the daemon first. Details and limits: `agent-sessions.md`. |
 | `pnpm budgets` | Measure the web build size, then the built daemon's idle RAM and CPU (run `pnpm build` first). `MARSHAL_BUDGET_IDLE` sets how long the daemon idles: 10 seconds by default, 60 in CI. |
 | `pnpm smells` | Code smell checks on changed code (see `code-standards.md` section 12) |
 | `pnpm smells:all` | Code smell checks on the whole repo |
@@ -248,18 +250,18 @@ Two commands this section used to list do not exist yet: `pnpm test:agents` (a r
 - **Integration tests use the stub agent and fixture repos.** They never call real model APIs.
 - **The stub agent can be scripted** to act out cases: ask for approval, fail a test, get stuck in a loop, resume after a restart. Scripts live in `tools/stub-agent/scenarios/`.
 - **Fixture repos** live in `daemon/testdata/repos/`: a small repo and a monorepo. Tests copy them into a temp folder, so fixtures are never changed.
-- **Real agent tests are manual.** No automated test starts a real agent: that would spend the owner's paid account credits. The adapters are tested against fake programs and the stub agent, and a real Claude Code session on a card is a deliberate manual check (see the note at the end of this section).
-- **The real-mode catalog check is safe and manual.** `dist/bin/marshald --dev --agent real --data-dir "$(mktemp -d)" --port <free port>` asks each installed CLI for its `--version` and nothing else. `GET /v1/agents` with that daemon's dev token shows what it found. Never create or start a card in real mode.
+- **Real agent tests are opt-in.** Automatic tests use fake programs and the stub agent. A real session uses the owner's paid account, so it requires their explicit request; the lifecycle script below keeps it on Marshal's production path.
+- **The real-mode catalog check is read-only.** `dist/bin/marshald --dev --agent real --data-dir "$(mktemp -d)" --port <free port>` asks each installed CLI for its `--version` and nothing else. `GET /v1/agents` with that daemon's dev token shows what it found. Create/start real cards only when the owner requests a real agent check.
 
 ### The one real-agent check, done by hand
 
-The only way to prove the Claude Code adapter end to end is to run one real session, and that spends the owner's credits, so it is never automated and never run by an agent. When the owner is ready:
+Real sessions use the owner's account, so they are excluded from automatic tests and run only when the owner explicitly requests them. The opt-in `agent-lifecycle-smoke.mjs` check above exercises Claude and Codex through Marshal itself. For a manual single-card check:
 
 1. Build: `pnpm build`.
 2. Start a throwaway daemon with real agents, a data folder of its own, and a free port that is not 47801:
    `dist/bin/marshald --dev --agent real --data-dir "$(mktemp -d)" --port 47899`
 3. Read the token from `<data-dir>/dev-token` (do not print it) and call `POST /v1/projects` for a throwaway repository, then create a card, start it, and send one short message.
-4. The expected answer is a normal reply from Claude Code, the card moving to working and then to needs or done, a worktree under `<data-dir>/worktrees/`, and an entry in `<data-dir>/logs/sessions/<session id>/`.
+4. The expected answer is a normal reply from Claude Code, the card moving to working and then to needs or done, use of the original project folder, and an entry in `<data-dir>/logs/sessions/<session id>/`.
 5. Undo: stop the daemon (SIGTERM), then delete the throwaway data folder. Nothing of the owner's dev daemon (port 47801, `Marshal-dev`) is touched, because the flag gave this daemon its own folder and port.
 
 ---
