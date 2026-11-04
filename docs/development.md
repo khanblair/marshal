@@ -233,6 +233,8 @@ Add `--dev` to manage the dev daemon's own, separate service, so it can run besi
 
 **Where the full gate runs.** `pnpm check` and CI (`.github/workflows/ci.yml`) run the same steps, split differently:
 
+The required macOS check and the separate macOS browser workflow use the standard `macos-15-intel` runner. On 2026-11-03 GitHub could not allocate the ARM runner selected by `macos-latest`; no test steps started. Tool-cache keys include both operating system and processor architecture, since the cached Go tools are executable binaries. Supported labels are listed in [GitHub's runner reference](https://docs.github.com/en/actions/reference/runners/github-hosted-runners).
+
 | | `pnpm check` (your machine, on request) | GitHub CI |
 |---|---|---|
 | Light steps (generated files, format, lint, type check, code smells, token contrast) | First, one after another, on your OS | First, in the `lint` job on Linux only, so a small mistake stops the run before the slow jobs |

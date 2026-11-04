@@ -16,7 +16,7 @@ jobs:
   e2e:
     name: e2e (macos, phone, tablet, desktop)
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
-    runs-on: macos-latest
+    runs-on: macos-15-intel
     steps:
       - uses: actions/checkout@v4
         with:
@@ -37,7 +37,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: .tools
-          key: go-tools-${{ runner.os }}-${{ hashFiles('scripts/setup-tools.mjs') }}
+          key: go-tools-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/setup-tools.mjs') }}
       - run: pnpm setup:tools
       - run: pnpm gen
       - run: pnpm --filter web exec playwright install --with-deps chromium

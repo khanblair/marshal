@@ -37,7 +37,7 @@ At the end of every work session, whether by a person or an agent:
 |---|---|
 | **Current phase** | Phase 4: Models (S19b, S26b, and S28 switched; built and in review for the controller) |
 | **Next milestone** | Phase 4's gate: no real model API in CI, and Home's cost numbers match the usage table (then Phase 5) |
-| **Last updated** | 2026-11-03 |
+| **Last updated** | 2026-11-04 |
 | **Current focused change** | Claude approvals and production Codex sessions implemented; real lifecycle checks through the built daemon passed for both. Direct project folders remain in place. Browser review remains with the owner. |
 
 ---
@@ -311,6 +311,11 @@ Phase 2 (core UI) is scoped as eight slices, A to H, in `backend-checklist.md` s
 _Older entries: [archive/progress-tracker-archive-2026-10.md](archive/progress-tracker-archive-2026-10.md)._
 
 Newest entries first.
+
+### 2026-11-04
+
+- **CI runner acquisition:** run `41685500279` passed light checks, but GitHub's check annotations say the hosted macOS ARM runner could not be acquired after multiple attempts and report ARM capacity constraints. No test steps started; downstream browser checks were skipped. Required macOS checks and the separate macOS browser workflow now use the supported standard `macos-15-intel` pool. Tool-cache keys include processor architecture to avoid sharing ARM and Intel executables. YAML parsing and diff checks pass; remote execution is pending.
+- **Current work:** fixing built-in session history and preparing an owner-approved complete coding check on a temporary project copy, with Claude and Codex on separate sequential cards. Browser review stays with the owner.
 
 ### 2026-11-03
 
