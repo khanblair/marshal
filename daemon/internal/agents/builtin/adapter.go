@@ -66,10 +66,15 @@ func (a *Adapter) open(ctx context.Context, spec agents.StartSpec, resumeID stri
 	if err != nil {
 		return agents.SessionHandle{}, fmt.Errorf("find a provider for the model %q: %w", spec.Model, err)
 	}
-	history := a.historyOf(resumeID)
+	history, err := a.historyOf(ctx, resumeID)
+	if err != nil {
+		return agents.SessionHandle{}, err
+	}
 	life, cancel := context.WithCancel(context.WithoutCancel(ctx))
 	s := newSession(a, spec, resolved, history, life, cancel)
-	s.resumed = resumeID != ""
+	if resumeID != "" {
+		s.id = resumeID
+	}
 	if err := a.register(s.id, s); err != nil {
 		cancel()
 		return agents.SessionHandle{}, err
@@ -81,19 +86,19 @@ func (a *Adapter) open(ctx context.Context, spec agents.StartSpec, resumeID stri
 	}, nil
 }
 
-// historyOf returns the stored conversation for a resume, or nothing for a fresh start. A history
-// hook that fails is not fatal: the session starts with what is known, so there is nothing for a
-// caller to do with an error here but log it, which this does itself.
-func (a *Adapter) historyOf(resumeID string) []providers.Message {
-	if resumeID == "" || a.cfg.History == nil {
-		return nil
+// A failed history read must refuse resume rather than silently lose context.
+func (a *Adapter) historyOf(ctx context.Context, resumeID string) ([]providers.Message, error) {
+	if resumeID == "" {
+		return nil, nil
 	}
-	history, err := a.cfg.History(resumeID)
+	if a.cfg.History == nil {
+		return nil, fmt.Errorf("%w: no saved conversation reader is configured", agents.ErrCannotResume)
+	}
+	history, err := a.cfg.History(ctx, resumeID)
 	if err != nil {
-		a.log.Warn("could not read a session's history to resume it", "session_id", resumeID, "err", err)
-		return nil
+		return nil, fmt.Errorf("%w: read the saved conversation: %w", agents.ErrCannotResume, err)
 	}
-	return history
+	return history, nil
 }
 
 // Send starts a turn and returns at once. It returns agents.ErrBusy while a turn is running.
@@ -106,11 +111,8 @@ func (a *Adapter) Send(_ context.Context, h agents.SessionHandle, msg agents.Use
 	if err != nil {
 		return err
 	}
-	instructions := ""
-	if !s.resumed {
-		instructions = s.instructions
-	}
-	go s.runTurn(ctx, instructions, msg.Text)
+	// Provider requests are stateless: the role belongs in every request's system prompt.
+	go s.runTurn(ctx, s.instructions, msg.Text)
 	return nil
 }
 

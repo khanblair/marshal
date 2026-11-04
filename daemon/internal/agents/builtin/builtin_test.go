@@ -229,7 +229,7 @@ func TestResumeReplaysTheStoredConversation(t *testing.T) {
 		Resolver: &fakeResolver{client: client},
 		Profile:  testProfile(),
 		Logger:   quiet(),
-		History: func(id string) ([]providers.Message, error) {
+		History: func(_ context.Context, id string) ([]providers.Message, error) {
 			seen = id
 			return stored, nil
 		},
@@ -237,7 +237,7 @@ func TestResumeReplaysTheStoredConversation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	h, err := agent.Resume(context.Background(), "the-stored-id", agents.StartSpec{Cwd: dir, Label: "card-1"})
+	h, err := agent.Resume(context.Background(), "the-stored-id", agents.StartSpec{Cwd: dir, Label: "card-1", Instructions: "Keep the project role."})
 	if err != nil {
 		t.Fatalf("Resume: %v", err)
 	}
@@ -249,6 +249,9 @@ func TestResumeReplaysTheStoredConversation(t *testing.T) {
 		t.Errorf("history was asked for %q, want the stored id", seen)
 	}
 	first := client.requests()[0]
+	if !strings.Contains(first.System, "Keep the project role.") {
+		t.Fatal("resume lost the project instructions")
+	}
 	if len(first.Messages) != 3 {
 		t.Fatalf("messages = %d, want the two replayed turns plus the new one", len(first.Messages))
 	}

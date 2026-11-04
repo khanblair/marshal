@@ -30,6 +30,36 @@ func (q *Queries) CountSessionEventsOfKind(ctx context.Context, arg CountSession
 	return count, err
 }
 
+const findBuiltinConversationSession = `-- name: FindBuiltinConversationSession :many
+SELECT id FROM sessions
+WHERE agent_kind = 'builtin' AND agent_session_id = ?
+LIMIT 2
+`
+
+// A native built-in ID must resolve to exactly one durable card/chat session.
+func (q *Queries) FindBuiltinConversationSession(ctx context.Context, agentSessionID string) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, findBuiltinConversationSession, agentSessionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getChatEvent = `-- name: GetChatEvent :one
 SELECT id, card_id, chat_id, session_id, seq, kind, state, summary, detail_json, log_ref, created_at FROM session_events WHERE chat_id = ? AND id = ?
 `
@@ -240,6 +270,55 @@ func (q *Queries) ListChatEventsByKind(ctx context.Context, arg ListChatEventsBy
 		arg.Seq,
 		arg.Limit,
 	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []SessionEvent{}
+	for rows.Next() {
+		var i SessionEvent
+		if err := rows.Scan(
+			&i.ID,
+			&i.CardID,
+			&i.ChatID,
+			&i.SessionID,
+			&i.Seq,
+			&i.Kind,
+			&i.State,
+			&i.Summary,
+			&i.DetailJSON,
+			&i.LogRef,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listConversationEvents = `-- name: ListConversationEvents :many
+SELECT id, card_id, chat_id, session_id, seq, kind, state, summary, detail_json, log_ref, created_at FROM session_events
+WHERE session_id = ? AND seq < ? AND kind IN ('user', 'agent', 'tool_call', 'tool_call_update')
+ORDER BY seq DESC
+LIMIT ?
+`
+
+type ListConversationEventsParams struct {
+	SessionID string
+	Seq       int64
+	Limit     int64
+}
+
+// Tool output is replayed as recorded context, never as another executable call.
+func (q *Queries) ListConversationEvents(ctx context.Context, arg ListConversationEventsParams) ([]SessionEvent, error) {
+	rows, err := q.db.QueryContext(ctx, listConversationEvents, arg.SessionID, arg.Seq, arg.Limit)
 	if err != nil {
 		return nil, err
 	}

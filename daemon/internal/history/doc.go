@@ -10,6 +10,6 @@
 // of 4.4 (N14) when it serves a page, so a wire enum can change without a migration.
 //
 // The package depends on the store, on the agents package (to turn an agent event into records),
-// and on nothing else. Modules that use it reach it through a narrow interface of their own
+// and on neutral provider message types for built-in conversation replay. Modules reach it through a narrow interface of their own
 // (internal/session defines HistoryRecorder), never through its tables.
 package history

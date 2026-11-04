@@ -16,6 +16,7 @@
 package builtin
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"time"
@@ -41,7 +42,7 @@ const (
 	// defaultSystemPrompt is the base instruction every built-in session starts with, before the
 	// role instructions a card carries.
 	defaultSystemPrompt = "You are Marshal's built-in coding agent. You work inside one card's " +
-		"worktree. Use the tools you are given to read, change, and run what the task needs. " +
+		"project folder. Use the tools you are given to read, change, and run what the task needs. " +
 		"Prefer the smallest change that works, and say what you did when you are done."
 )
 
@@ -69,14 +70,14 @@ type Resolver interface {
 //
 // This is how the built-in agent satisfies Resume: it has no external process holding a session id,
 // so it replays what the daemon recorded rather than passing an id anywhere.
-type History func(sessionID string) ([]providers.Message, error)
+type History func(ctx context.Context, sessionID string) ([]providers.Message, error)
 
 // Config says how a built-in agent runs. Resolver is required.
 type Config struct {
 	// Resolver turns a model id into a provider and model. Required.
 	Resolver Resolver
-	// History returns a resumed session's earlier conversation. Nil means a resumed session
-	// starts with no history, which is what happens when nothing has been persisted yet.
+	// History returns a resumed session's earlier conversation. Resume is refused
+	// when the reader is missing or fails, rather than dropping earlier context.
 	History History
 	// System is added in front of every session's system prompt. Empty uses the package default.
 	System string

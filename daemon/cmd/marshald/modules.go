@@ -232,19 +232,19 @@ func buildCoreModules(st *store.Store, bus *events.Bus, settings config.Settings
 	if err != nil {
 		return coreDaemonModules{}, fmt.Errorf("start the agent settings: %w", err)
 	}
-	registry, catalogSrc, err := buildAgents(settings, env, log, providerSvc, agentPrefs)
+	// Build history before the registry: the built-in agent needs the same durable
+	// transcript reader that the session manager writes and the API reads.
+	historyStore, err := history.New(st)
+	if err != nil {
+		return coreDaemonModules{}, fmt.Errorf("start the history store: %w", err)
+	}
+	registry, catalogSrc, err := buildAgents(settings, env, log, providerSvc, agentPrefs, historyStore.Conversation)
 	if err != nil {
 		return coreDaemonModules{}, err
 	}
 	terminals, err := buildTerminals(settings, env, catalogSrc, log)
 	if err != nil {
 		return coreDaemonModules{}, err
-	}
-	// The history is built first and given to both: the session manager writes a card's events
-	// through it as they happen, and the API layer pages them back for the card's chat and activity.
-	historyStore, err := history.New(st)
-	if err != nil {
-		return coreDaemonModules{}, fmt.Errorf("start the history store: %w", err)
 	}
 	// One audit recorder serves the whole daemon (docs/architecture.md section 10). The session
 	// manager writes a decision on an approval, a bypass toggle, a checkpoint restore, and a card

@@ -23,12 +23,9 @@ import (
 
 // buildAgents makes the agent registry the session manager starts processes through, and the
 // catalog the API layer will list agents from. In stub mode (settings.Agent == config.AgentStub)
-// every kind is registered behind the stub agent binary. In real mode the three kinds with a real
-// adapter get a factory: claude and gemini are CLI programs the catalog finds on the machine
-// (agents/claude, agents/gemini), and builtin is Marshal's own agent, which runs here in the daemon
-// (agents/builtin) and so has no program to find. Codex is left unregistered, so choosing it gives
-// agents.ErrUnknownKind, which is the correct, honest answer until agents/codex has a real adapter.
-func buildAgents(settings config.Settings, env platform.Env, log *slog.Logger, providerSvc *providers.Service, prefs catalog.Preferences) (*agents.Registry, catalog.Source, error) {
+// every kind is registered behind the stub agent binary. Real mode registers the
+// Claude, Gemini, and Codex CLIs plus Marshal's built-in provider agent.
+func buildAgents(settings config.Settings, env platform.Env, log *slog.Logger, providerSvc *providers.Service, prefs catalog.Preferences, saved builtin.History) (*agents.Registry, catalog.Source, error) {
 	registry := agents.NewRegistry()
 	if settings.Agent == config.AgentStub {
 		return registerStubAgents(registry, settings, env, log)
@@ -42,7 +39,7 @@ func buildAgents(settings config.Settings, env platform.Env, log *slog.Logger, p
 			return nil, nil, fmt.Errorf("register the %s agent: %w", kind, err)
 		}
 	}
-	if err := registry.Register(protocol.AgentKindBuiltin, builtinAgentFactory(log, providerSvc)); err != nil {
+	if err := registry.Register(protocol.AgentKindBuiltin, builtinAgentFactory(log, providerSvc, saved)); err != nil {
 		return nil, nil, fmt.Errorf("register the built-in agent: %w", err)
 	}
 	return registry, cat, nil
@@ -56,9 +53,10 @@ func buildAgents(settings config.Settings, env platform.Env, log *slog.Logger, p
 // so the key store the screens write and the resolver the agent reads are the same object. A model
 // no saved key can run is reported as one nobody can run, in plain words, rather than pretending to
 // start.
-func builtinAgentFactory(log *slog.Logger, resolver builtin.Resolver) agents.Factory {
+func builtinAgentFactory(log *slog.Logger, resolver builtin.Resolver, saved builtin.History) agents.Factory {
 	return builtin.Factory(builtin.Config{
 		Resolver: resolver,
+		History:  saved,
 		Profile:  security.DefaultProfile(),
 		Logger:   log,
 	})

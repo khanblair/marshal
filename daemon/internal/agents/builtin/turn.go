@@ -54,6 +54,11 @@ func (s *session) runTurn(ctx context.Context, instructions, userText string) {
 			return
 		}
 		results := s.runTools(ctx, cfg, calls)
+		// Keep the tool replies in the session's conversation too, not
+		// only the local slice used by the current provider loop.
+		s.mu.Lock()
+		s.history = append(s.history, providers.Message{Role: providers.RoleUser, Parts: results})
+		s.mu.Unlock()
 		if ctx.Err() != nil {
 			s.endTurn(agents.TurnCancelled)
 			return

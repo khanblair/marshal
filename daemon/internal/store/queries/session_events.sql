@@ -83,3 +83,16 @@ UPDATE session_events SET state = ?1 WHERE id = ?2 AND chat_id = ?3;
 -- counts stored rows, so it survives a restart and a resume.
 SELECT CAST(COUNT(*) AS INTEGER) AS count FROM session_events
 WHERE card_id = ? AND card_id <> '' AND kind = ?;
+
+-- name: FindBuiltinConversationSession :many
+-- A native built-in ID must resolve to exactly one durable card/chat session.
+SELECT id FROM sessions
+WHERE agent_kind = 'builtin' AND agent_session_id = ?
+LIMIT 2;
+
+-- name: ListConversationEvents :many
+-- Tool output is replayed as recorded context, never as another executable call.
+SELECT * FROM session_events
+WHERE session_id = ? AND seq < ? AND kind IN ('user', 'agent', 'tool_call', 'tool_call_update')
+ORDER BY seq DESC
+LIMIT ?;

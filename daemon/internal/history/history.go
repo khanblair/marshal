@@ -16,6 +16,7 @@ import (
 )
 
 const (
+	defaultConversationBytes = 4 << 20
 	// DefaultPageSize is how many events one page holds when the caller does not say.
 	DefaultPageSize = 50
 	// MaxPageSize is the most events one page returns, so one client cannot ask for a whole card's
@@ -82,14 +83,25 @@ type Page struct {
 
 // Store writes and reads a card's history. It is safe for use by many goroutines.
 type Store struct {
-	store   *store.Store
-	now     func() time.Time
-	entropy io.Reader
-	idMu    sync.Mutex
+	store             *store.Store
+	now               func() time.Time
+	entropy           io.Reader
+	idMu              sync.Mutex
+	conversationBytes int
 }
 
 // Option changes how New builds a Store.
 type Option func(*Store)
+
+// WithConversationBytes bounds a built-in resume read. Oversized history is refused,
+// never silently replaced with a partial conversation.
+func WithConversationBytes(limit int) Option {
+	return func(s *Store) {
+		if limit > 0 {
+			s.conversationBytes = limit
+		}
+	}
+}
 
 // WithClock sets the clock an event is stamped with. The default is time.Now.
 func WithClock(now func() time.Time) Option {
@@ -114,7 +126,7 @@ func New(st *store.Store, opts ...Option) (*Store, error) {
 	if st == nil {
 		return nil, errors.New("the history store needs the store")
 	}
-	s := &Store{store: st, now: time.Now, entropy: rand.Reader}
+	s := &Store{store: st, now: time.Now, entropy: rand.Reader, conversationBytes: defaultConversationBytes}
 	for _, opt := range opts {
 		opt(s)
 	}

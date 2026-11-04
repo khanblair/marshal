@@ -26,11 +26,8 @@ type session struct {
 	id    string
 	label string
 	cwd   string
-	// instructions is the card's role instruction. It goes to the model with a new session's
-	// first message, and is not sent again when a session is resumed (StartSpec.Instructions).
+	// instructions is the role/context included in each stateless provider request.
 	instructions string
-	// resumed says this session continues an earlier one, so instructions are not repeated.
-	resumed bool
 
 	life       context.Context
 	lifeCancel context.CancelFunc
