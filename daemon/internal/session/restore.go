@@ -104,9 +104,17 @@ func (m *Manager) resumeRow(ctx context.Context, row db.Session) (protocol.Card,
 	rctx, cancel := context.WithTimeout(ctx, resumeTimeout)
 	defer cancel()
 	// A resumed session is given the internal MCP server again, because the list is part of the
-	// request that brings the session back; the context is not repeated, because Instructions go to
-	// the agent with the first message of a new session only.
-	handle, err := agent.Resume(rctx, row.AgentSessionID, m.resumeSpec(ctx, card, path, attached.Servers))
+	// request that brings the session back. External CLIs retain their own context;
+	// the built-in agent needs its stateless provider system prompt supplied again.
+	spec := m.resumeSpec(ctx, card, path, attached.Servers)
+	if card.Agent == protocol.AgentKindBuiltin {
+		// The built-in provider has no external process retaining the system prompt.
+		spec.Instructions = attached.Instructions
+		if m.cfg.DirectWorkspace {
+			spec.Instructions = directWorkspaceInstructions + "\n\n" + spec.Instructions
+		}
+	}
+	handle, err := agent.Resume(rctx, row.AgentSessionID, spec)
 	if err != nil {
 		// The agent never came back, so no pump will release what its session was given.
 		m.detachCard(card.ID)

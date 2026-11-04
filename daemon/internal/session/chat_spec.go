@@ -139,7 +139,7 @@ func (m *Manager) chatSpec(ctx context.Context, chat protocol.Chat, project prot
 	}
 	attached := m.attachChat(ctx, chat)
 	spec.MCPServers = attached.Servers
-	if fresh {
+	if fresh || chat.AgentKind == protocol.AgentKindBuiltin {
 		spec.Instructions = attached.Instructions
 		if m.cfg.DirectWorkspace && kind != chatKindOrchestrator {
 			spec.Instructions = directWorkspaceInstructions + "\n\n" + spec.Instructions

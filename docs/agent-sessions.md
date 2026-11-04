@@ -8,6 +8,12 @@ The adapter runs a persistent `claude -p` process with stream JSON input/output.
 
 The native permission mode still applies: Ask uses `default`, Auto-accept edits uses `acceptEdits`, Plan uses `plan`, Full auto uses `auto`, and Bypass uses `bypassPermissions`. Marshal's harness also checks requests that reach the host. Explicit native deny rules still take precedence.
 
+## Built-in agent
+
+The production registry now supplies the history store's conversation reader to the built-in agent. A resume resolves the native ID to one durable card or project-chat session, reads every saved page in order, joins streamed answer chunks, and restores user messages and recorded tool activity. Tool activity is supplied as text context because the display history does not contain the original native tool inputs or signed thinking blocks. It is never replayed as an executable call. The role instructions are supplied again for each stateless provider request.
+
+Missing, unreadable, ambiguous, or oversized saved history refuses resume instead of silently starting an empty conversation. The read has a default 4 MiB bound, including row overhead, configurable through `history.WithConversationBytes`. Live conversations also retain tool results across subsequent turns. Regression checks cover card/chat isolation, multiple history pages, tool output, read failures, and two HTTP stop/restart/resume cycles with a fixture provider; no paid provider calls are used by these tests.
+
 ## Codex
 
 The adapter runs `codex app-server --listen stdio://` and performs `initialize`, `initialized`, and `thread/start`. Messages use `turn/start`; interrupt uses `turn/interrupt`; stop ends the owned process. Resume starts another app-server and calls `thread/resume` with the saved thread ID. A missing or different returned ID is refused rather than starting an empty conversation.
