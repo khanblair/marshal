@@ -46,6 +46,9 @@ func (m *Manager) Ask(ctx context.Context, kind protocol.AgentKind, spec agents.
 			return "", fmt.Errorf("the agent did not answer in time: %w", ctx.Err())
 		case ev, open := <-events:
 			if !open {
+				if failure == "" {
+					failure = "the agent closed before completing its answer"
+				}
 				return answerOf(&said, failure)
 			}
 			switch e := ev.(type) {
@@ -53,7 +56,15 @@ func (m *Manager) Ask(ctx context.Context, kind protocol.AgentKind, spec agents.
 				said.WriteString(e.Text)
 			case agents.Failed:
 				failure = e.Message
-			case agents.TurnEnded, agents.Exited:
+			case agents.TurnEnded:
+				if failure == "" && e.Reason != agents.TurnEndTurn {
+					failure = "the agent's answer did not complete: " + e.Reason
+				}
+				return answerOf(&said, failure)
+			case agents.Exited:
+				if failure == "" {
+					failure = "the agent exited before completing its answer"
+				}
 				return answerOf(&said, failure)
 			}
 		}
@@ -64,7 +75,7 @@ func (m *Manager) Ask(ctx context.Context, kind protocol.AgentKind, spec agents.
 func answerOf(said *strings.Builder, failure string) (string, error) {
 	text := strings.TrimSpace(said.String())
 	switch {
-	case failure != "" && text == "":
+	case failure != "":
 		return "", errors.New(failure)
 	case text == "":
 		return "", errors.New("the agent ended without an answer")

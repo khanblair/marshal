@@ -94,7 +94,7 @@ daemon/                       Go module (go.mod pins the toolchain). package.jso
     memory/, codemap/         Card notes, file claims, and note search; the ctags-based index of each project's symbols
     schedules/, briefs/, runctx/   Scheduled jobs and their cron; the morning and evening briefs; why a schedule is running
     # Agents and sessions
-    session/                  Card/chat sessions, direct project folder reservations (direct_workspace.go), native subagent coordination, snapshots, send, stop, resume, logs, pause and sleep, terminal view
+    session/                  One-shot review failure checks (oneshot_{internal,failure}_test.go), card/chat sessions, direct project folder reservations (direct_workspace.go), native subagent coordination, snapshots, send, stop, resume, logs, pause and sleep, terminal view
     agents/                   The Agent interface, events, and registry. Adapters below it:
       acp/, pty/, claude/, gemini/   Agent Client Protocol; a CLI in a pseudo-terminal (ring of the last 256 KiB); Claude Code over stream-json (its session ids are UUIDs, not Marshal's ULIDs); Gemini CLI over ACP
       codex/                  Codex app-server over stdio JSON-RPC: lifecycle, settings, approval/event routing, and MCP results
