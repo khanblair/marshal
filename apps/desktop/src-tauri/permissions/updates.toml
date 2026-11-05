@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-app-updates"
+description = "Check the fixed signed Marshal feed, install a checked update, and restart the updated app. No URLs, keys, or commands may be supplied by the caller."
+commands.allow = ["update_status", "check_update", "install_update", "restart_updated_app"]

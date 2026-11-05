@@ -5,8 +5,8 @@
 
 use std::time::Duration;
 
-use tauri_plugin_shell::ShellExt;
 use tauri_plugin_shell::process::CommandEvent;
+use tauri_plugin_shell::ShellExt;
 
 /// The daemon's normal (non-dev) port, `internal/config.DefaultPort`. The desktop app always
 /// runs the normal daemon, never the dev one: `--dev` is for a developer running the source
@@ -24,7 +24,7 @@ pub fn url() -> String {
 }
 
 /// True once `GET /v1/health` answers with success.
-async fn healthy() -> bool {
+async fn healthy(expected_version: &str) -> bool {
     let address = format!("{}/v1/health", url());
     match reqwest::Client::new()
         .get(address)
@@ -32,8 +32,18 @@ async fn healthy() -> bool {
         .send()
         .await
     {
-        Ok(resp) => resp.status().is_success(),
-        Err(_) => false,
+        Ok(resp) if resp.status().is_success() => resp
+            .json::<serde_json::Value>()
+            .await
+            .ok()
+            .and_then(|value| {
+                value
+                    .get("version")
+                    .and_then(|v| v.as_str())
+                    .map(str::to_owned)
+            })
+            .is_some_and(|version| version == expected_version),
+        _ => false,
     }
 }
 
@@ -55,7 +65,10 @@ fn install_service(app: &tauri::AppHandle) {
     tauri::async_runtime::spawn(async move {
         while let Some(event) = rx.recv().await {
             if let CommandEvent::Stderr(line) = event {
-                eprintln!("marshal service install: {}", String::from_utf8_lossy(&line));
+                eprintln!(
+                    "marshal service install: {}",
+                    String::from_utf8_lossy(&line)
+                );
             }
         }
     });
@@ -64,13 +77,13 @@ fn install_service(app: &tauri::AppHandle) {
 /// Ensures the daemon is reachable, installing and starting its service if it was not already
 /// running. Returns once it answers, or once `READY_TIMEOUT` passes without an answer.
 pub async fn ensure_running(app: tauri::AppHandle) -> bool {
-    if healthy().await {
+    if healthy(&app.package_info().version.to_string()).await {
         return true;
     }
     install_service(&app);
     let deadline = std::time::Instant::now() + READY_TIMEOUT;
     while std::time::Instant::now() < deadline {
-        if healthy().await {
+        if healthy(&app.package_info().version.to_string()).await {
             return true;
         }
         tokio::time::sleep(POLL_INTERVAL).await;
@@ -100,5 +113,33 @@ pub async fn owner_token(app: &tauri::AppHandle) -> Option<String> {
         return None;
     }
     let token = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    if token.is_empty() { None } else { Some(token) }
+    if token.is_empty() {
+        None
+    } else {
+        Some(token)
+    }
+}
+
+/// Reinstall the updated bundled service before restarting the shell, so its web UI and daemon
+/// advance together. Only the explicit Restart action calls this; normal launches keep sessions.
+pub async fn replace_service(app: &tauri::AppHandle, expected_version: &str) -> Result<(), String> {
+    let output = app
+        .shell()
+        .sidecar("marshal")
+        .map_err(|e| e.to_string())?
+        .args(["service", "install"])
+        .output()
+        .await
+        .map_err(|e| e.to_string())?;
+    if !output.status.success() {
+        return Err("The updated daemon could not restart. Try Restart again.".into());
+    }
+    let deadline = std::time::Instant::now() + READY_TIMEOUT;
+    while std::time::Instant::now() < deadline {
+        if healthy(expected_version).await {
+            return Ok(());
+        }
+        tokio::time::sleep(POLL_INTERVAL).await;
+    }
+    Err("The updated daemon did not answer. Try Restart again.".into())
 }

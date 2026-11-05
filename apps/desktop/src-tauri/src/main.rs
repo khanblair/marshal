@@ -9,6 +9,13 @@ mod updater;
 
 fn main() {
     tauri::Builder::default()
+        .manage(updater::UpdateState::default())
+        .invoke_handler(tauri::generate_handler![
+            updater::update_status,
+            updater::check_update,
+            updater::install_update,
+            updater::restart_updated_app
+        ])
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_deep_link::init())
@@ -58,7 +65,6 @@ async fn on_ready(app: tauri::AppHandle) {
                     seed_token(&window, &token).await;
                 }
             }
-            updater::check(&app).await;
         } else {
             notifications::notify(
                 &app,
@@ -80,7 +86,9 @@ async fn on_ready(app: tauri::AppHandle) {
 /// back to the sign-in screen's always-working manual flow instead of a wrong write.
 #[cfg(not(debug_assertions))]
 async fn seed_token(window: &tauri::WebviewWindow, token: &str) {
-    let Ok(token_js) = serde_json::to_string(token) else { return };
+    let Ok(token_js) = serde_json::to_string(token) else {
+        return;
+    };
     tokio::time::sleep(std::time::Duration::from_millis(500)).await;
     let script = format!(
         "if (location.origin === {origin:?}) {{ \

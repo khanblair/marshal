@@ -10,15 +10,17 @@
 # phone job below attaches to the same release without turning it back into a draft.
 #
 # The dmg is a universal build: one app that runs on both Intel and Apple silicon Macs
-# (`pnpm --filter desktop build:universal`, apps/desktop/package.json). The runner is Apple silicon;
-# the Intel half is cross-compiled, and the daemon's two programs are built for both chips and
+# (`universal-apple-darwin`). The runner is Intel;
+# the Apple silicon half is cross-compiled, and the daemon's two programs are built for both chips and
 # joined by apps/desktop/scripts/bundle-sidecar.mjs --universal.
 #
 # The build step is the same command a person runs locally: this workflow only adds the environment Tauri's own macOS bundler
 # reads to sign and notarize, rather than wrapping the build in a separate signing action. Code
 # signing and notarization turn on automatically once these repository secrets exist (Settings ->
 # Secrets and variables -> Actions), and the build stays ad-hoc signed (installable, but with a
-# Gatekeeper "unidentified developer" prompt) when they do not:
+# Gatekeeper "unidentified developer" prompt) when they do not. Every desktop release also requires
+# TAURI_SIGNING_PRIVATE_KEY and the MARSHAL_UPDATER_PUBLIC_KEY repository variable; the optional
+# TAURI_SIGNING_PRIVATE_KEY_PASSWORD is used when the private key is password protected:
 #   APPLE_CERTIFICATE            Base64 of a Developer ID Application .p12 export
 #   APPLE_CERTIFICATE_PASSWORD   The .p12's export password
 #   APPLE_SIGNING_IDENTITY       The certificate's name, e.g. "Developer ID Application: ..."
@@ -52,13 +54,18 @@ permissions:
 jobs:
   macos-dmg:
     name: macOS (dmg)
-    runs-on: macos-latest
+    runs-on: macos-15-intel
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+          fetch-depth: 0
 
       - name: Resolve the release tag
         id: tag
-        run: echo "name=${{ github.event.inputs.tag || github.ref_name }}" >> "$GITHUB_OUTPUT"
+        env:
+          RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: node apps/desktop/scripts/prepare-release.mjs resolve-tag "$RELEASE_TAG" "$GITHUB_OUTPUT"
 
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
@@ -76,7 +83,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: .tools
-          key: go-tools-${{ runner.os }}-${{ hashFiles('scripts/setup-tools.mjs') }}
+          key: go-tools-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/setup-tools.mjs') }}
       - run: pnpm setup:tools
 
       - uses: dtolnay/rust-toolchain@stable
@@ -86,28 +93,20 @@ jobs:
         with:
           workspaces: apps/desktop/src-tauri
 
-      - name: Set the app's version from the release tag
-        # tauri.conf.json's version ships as 0.0.1 in the repo; the tag is the real version. A
-        # leading "v" in the tag (the usual form) is stripped, since Cargo and tauri.conf.json
-        # both want a bare semver.
-        run: |
-          version="${{ steps.tag.outputs.name }}"
-          version="${version#v}"
-          node -e "
-            const fs = require('node:fs');
-            const path = 'apps/desktop/src-tauri/tauri.conf.json';
-            const conf = JSON.parse(fs.readFileSync(path, 'utf8'));
-            conf.version = '$version';
-            fs.writeFileSync(path, JSON.stringify(conf, null, 2) + '\n');
-          "
+      - name: Prepare signed updater config
+        env:
+          RELEASE_TAG: ${{ steps.tag.outputs.name }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          MARSHAL_UPDATER_PUBLIC_KEY: ${{ vars.MARSHAL_UPDATER_PUBLIC_KEY }}
+          MARSHAL_RELEASE_VERSION: ${{ steps.tag.outputs.version }}
+        run: node apps/desktop/scripts/prepare-release.mjs config "$RELEASE_TAG" "$RUNNER_TEMP/marshal-tauri-release.json"
 
       # The daemon sidecar and the web app the daemon serves (internal/webui) both have to exist
       # before `tauri build` runs: the sidecar because tauri.conf.json's externalBin resolves it
       # at compile time (apps/desktop/src-tauri/build.rs fails loudly otherwise), the web app
       # because the daemon embeds whatever scripts/copy-web-dist.mjs finds in apps/web/dist.
-      # `pnpm --filter desktop build` runs bundle-sidecar.mjs itself, which builds it and, the
-      # first time apps/web/dist is missing, the web app too; running the web build explicitly
-      # first just avoids relying on that fallback in CI.
+      # `bundle-sidecar.mjs` builds and copies the web app before compiling the Go sidecars.
       # Marshal's own Google OAuth client, so a person connects Google Calendar with one click. It is
       # a repository secret, never in git; the daemon embeds the file when it is built below. With no
       # secrets set the build has no Google client of its own, and Settings asks for one instead.
@@ -123,10 +122,8 @@ jobs:
           fi
 
       - run: pnpm gen
-      - run: pnpm --filter web build
-      - run: node scripts/copy-web-dist.mjs
 
-      - name: Build the signed app and dmg
+      - name: Build the signed app, updater archive, and dmg
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -134,7 +131,17 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: pnpm --filter desktop build:universal
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          MARSHAL_RELEASE_VERSION: ${{ steps.tag.outputs.version }}
+        run: |
+          node apps/desktop/scripts/bundle-sidecar.mjs --universal
+          pnpm --filter desktop exec tauri build --target universal-apple-darwin --config "$RUNNER_TEMP/marshal-tauri-release.json"
+
+      - name: Generate updater manifest
+        env:
+          RELEASE_TAG: ${{ steps.tag.outputs.name }}
+        run: node apps/desktop/scripts/prepare-release.mjs manifest "$RELEASE_TAG" apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/macos "$RUNNER_TEMP/latest.json"
 
       - name: Publish the release
         uses: softprops/action-gh-release@v2
@@ -145,18 +152,26 @@ jobs:
           generate_release_notes: true
           draft: false
           make_latest: true
+          fail_on_unmatched_files: true
           files: |
             apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+            apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/macos/Marshal.app.tar.gz
+            apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/macos/Marshal.app.tar.gz.sig
+            ${{ runner.temp }}/latest.json
 
   android:
     name: Android (apk, aab)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
 
       - name: Resolve the release tag
         id: tag
-        run: echo "name=${{ github.event.inputs.tag || github.ref_name }}" >> "$GITHUB_OUTPUT"
+        env:
+          RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: node apps/desktop/scripts/prepare-release.mjs resolve-tag "$RELEASE_TAG" "$GITHUB_OUTPUT"
 
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
@@ -186,16 +201,9 @@ jobs:
 
       - name: Set the app's version from the release tag
         # Same rule as the desktop job: the tag is the real version, without its leading "v".
-        run: |
-          version="${{ steps.tag.outputs.name }}"
-          version="${version#v}"
-          node -e "
-            const fs = require('node:fs');
-            const path = 'apps/mobile/src-tauri/tauri.conf.json';
-            const conf = JSON.parse(fs.readFileSync(path, 'utf8'));
-            conf.version = '$version';
-            fs.writeFileSync(path, JSON.stringify(conf, null, 2) + '\n');
-          "
+        env:
+          RELEASE_TAG: ${{ steps.tag.outputs.name }}
+        run: node apps/desktop/scripts/prepare-release.mjs set-version "$RELEASE_TAG" apps/mobile/src-tauri/tauri.conf.json
 
       - name: Make the Android project and fit it to Marshal
         run: node apps/mobile/scripts/patch-android.mjs --init

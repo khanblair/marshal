@@ -12,11 +12,13 @@
 // one (-universal-apple-darwin, used when it bundles the app). The daemon builds without cgo, so
 // either chip can be built from the other.
 import { execFileSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const repoRoot = fileURLToPath(new URL("../../..", import.meta.url));
 const binariesDir = new URL("../src-tauri/binaries/", import.meta.url);
+const tauriConfigPath = fileURLToPath(new URL("../src-tauri/tauri.conf.json", import.meta.url));
+const tauriVersion = JSON.parse(readFileSync(tauriConfigPath, "utf8")).version;
 
 function hostTriple() {
   const out = execFileSync("rustc", ["-vV"], { encoding: "utf8" });
@@ -35,7 +37,22 @@ function build(daemonDir, pkg, name, triple, outDir) {
   const ext = triple.includes("windows") ? ".exe" : "";
   const out = new URL(`${name}-${triple}${ext}`, outDir);
   const cross = GO_TARGETS[triple];
-  execFileSync("go", ["build", "-o", fileURLToPath(out), `./cmd/${pkg}`], {
+  const releaseVersion = process.env.MARSHAL_RELEASE_VERSION || tauriVersion;
+  if (
+    typeof releaseVersion !== "string" ||
+    !/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(
+      releaseVersion,
+    )
+  ) {
+    throw new Error(
+      "MARSHAL_RELEASE_VERSION or tauri.conf.json version must be a semantic version.",
+    );
+  }
+  const ldflags = [
+    "-ldflags",
+    `-X github.com/khanblair/marshal/daemon/internal/buildinfo.Version=${releaseVersion}`,
+  ];
+  execFileSync("go", ["build", ...ldflags, "-o", fileURLToPath(out), `./cmd/${pkg}`], {
     cwd: daemonDir,
     stdio: "inherit",
     env: cross ? { ...process.env, ...cross, CGO_ENABLED: "0" } : process.env,
@@ -59,6 +76,16 @@ const universal = process.argv.includes("--universal");
 const triples = universal ? Object.keys(GO_TARGETS) : [hostTriple()];
 mkdirSync(binariesDir, { recursive: true });
 const daemonDir = fileURLToPath(new URL("daemon/", `file://${repoRoot}`));
+
+// Build and copy the frontend before compiling Go so both the packaged shell and the daemon's
+// embedded web UI use the same current assets, including when dist already exists but is stale.
+const webDist = new URL("../../web/dist/index.html", import.meta.url);
+console.log("building the web app before the daemon sidecars");
+execFileSync("pnpm", ["--filter", "web", "build"], { cwd: repoRoot, stdio: "inherit" });
+if (!existsSync(webDist))
+  throw new Error("Web build completed without creating apps/web/dist/index.html.");
+execFileSync("node", ["scripts/copy-web-dist.mjs"], { cwd: repoRoot, stdio: "inherit" });
+
 for (const triple of triples) {
   build(daemonDir, "marshald", "marshald", triple, binariesDir);
   build(daemonDir, "marshal", "marshal", triple, binariesDir);
@@ -66,15 +93,6 @@ for (const triple of triples) {
 if (universal) {
   join("marshald", binariesDir);
   join("marshal", binariesDir);
-}
-
-// The web UI is what the shell shows; build.beforeBuildCommand in tauri.conf.json already runs
-// the web build, but `tauri dev` also needs a dist/ to exist the first time it starts. A dev
-// run with no dist yet gets one cheaply here rather than failing with a confusing Rust error.
-const webDist = new URL("../../web/dist/index.html", import.meta.url);
-if (!existsSync(webDist)) {
-  console.log("apps/web/dist is missing; building it once so the shell has something to show");
-  execFileSync("pnpm", ["--filter", "web", "build"], { cwd: repoRoot, stdio: "inherit" });
 }
 
 console.log(`sidecars ready for ${universal ? "both Mac chips" : triples[0]}`);
