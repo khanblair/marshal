@@ -47,12 +47,18 @@ on:
       tag:
         description: "Version tag for this build (e.g. v0.1.0). Publishes a release when the build succeeds."
         required: true
+      target:
+        description: "Build both platforms, or retry just one platform for this release tag."
+        type: choice
+        options: [all, desktop, android]
+        default: all
 
 permissions:
   contents: write
 
 jobs:
   macos-dmg:
+    if: github.event_name != 'workflow_dispatch' || inputs.target != 'android'
     name: macOS (dmg)
     runs-on: macos-15-intel
     steps:
@@ -160,6 +166,7 @@ jobs:
             ${{ runner.temp }}/latest.json
 
   android:
+    if: github.event_name != 'workflow_dispatch' || inputs.target != 'desktop'
     name: Android (apk, aab)
     runs-on: ubuntu-latest
     steps:
@@ -185,7 +192,7 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
       - name: Install the NDK
         run: |
           # The platform and build tools the project needs are fetched by Gradle itself, since the

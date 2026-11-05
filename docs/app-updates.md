@@ -30,3 +30,5 @@ See the [Tauri updater documentation](https://v2.tauri.app/plugin/updater/) for 
 - Rust tests cover the accepted origin/window and serialization states; a native release build verifies the packaged command registration and permissions.
 - `node --test apps/desktop/scripts/prepare-release.test.mjs` checks release configuration and manifest generation.
 - A real signed upgrade between two installed releases remains a release acceptance check. It must use the production signing configuration and is not replaced by these fixture tests.
+
+Release runs accept a `target` choice (`all`, `desktop`, or `android`) when started manually. This lets a failed platform be retried for the same source tag without rebuilding the other platform. Tag pushes still build both. Android SDK setup uses the supported action that no longer requests Google’s removed `tools` package.
