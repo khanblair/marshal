@@ -149,6 +149,11 @@ jobs:
           node apps/desktop/scripts/bundle-sidecar.mjs --universal
           pnpm --filter desktop exec tauri build --ci --target universal-apple-darwin --config "$RUNNER_TEMP/marshal-tauri-release.json"
 
+      - name: Verify the signed updater archive starts
+        env:
+          RELEASE_VERSION: ${{ steps.tag.outputs.version }}
+        run: node apps/desktop/scripts/check-bundle.mjs --bundle-dir apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/macos --version "$RELEASE_VERSION" --universal
+
       - name: Generate updater manifest
         env:
           RELEASE_TAG: ${{ steps.tag.outputs.name }}
@@ -159,7 +164,7 @@ jobs:
         with:
           tag_name: ${{ steps.tag.outputs.name }}
           name: "Marshal ${{ steps.tag.outputs.name }}"
-          body: "Built by this workflow from ${{ github.sha }}."
+          body: "Built from release tag ${{ steps.tag.outputs.name }}."
           generate_release_notes: true
           draft: false
           make_latest: true

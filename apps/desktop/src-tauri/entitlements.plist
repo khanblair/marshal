@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Gitleaks uses go-re2/Wazero, which executes generated regex code without MAP_JIT.
+         Tauri applies this shared entitlement to the shell and its Go sidecars.
+         Hardened runtime remains enabled; no library-validation or sandbox bypass is granted. -->
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+</dict>
+</plist>

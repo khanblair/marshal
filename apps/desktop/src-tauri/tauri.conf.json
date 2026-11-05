@@ -33,8 +33,9 @@
     ],
     "macOS": {
       "minimumSystemVersion": "12.0",
-      "entitlements": null,
-      "signingIdentity": "-"
+      "entitlements": "entitlements.plist",
+      "signingIdentity": "-",
+      "hardenedRuntime": true
     },
     "externalBin": ["binaries/marshald", "binaries/marshal"]
   },

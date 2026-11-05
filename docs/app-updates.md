@@ -28,7 +28,16 @@ See the [Tauri updater documentation](https://v2.tauri.app/plugin/updater/) for 
 
 - Frontend tests exercise startup checking, version/notes rendering, explicit installation, deferred prompts, duplicate clicks, errors, browser behavior, restart recovery, and sidebar navigation.
 - Rust tests cover the accepted origin/window and serialization states; a native release build verifies the packaged command registration and permissions.
+- Before publication, `scripts/check-bundle.mjs` extracts the signed updater archive without extended attributes, verifies app code signatures and versions, checks both Mac architectures, runs both packaged CLIs, and starts an isolated packaged daemon to verify HTTP health and the embedded update UI. It removes only its own process and temporary data.
 - `node --test apps/desktop/scripts/prepare-release.test.mjs` checks release configuration and manifest generation.
 - A real signed upgrade between two installed releases remains a release acceptance check. It must use the production signing configuration and is not replaced by these fixture tests.
 
 Release runs accept a `target` choice (`all`, `desktop`, or `android`) when started manually. This lets a failed platform be retried for the same source tag without rebuilding the other platform. Tag pushes still build both. Android SDK setup uses the supported action that no longer requests Google’s removed `tools` package.
+
+## Hardened runtime and secret scanning
+
+The Go helpers include Gitleaks, whose go-re2 dependency uses Wazero to execute generated regular-expression code. Wazero 1.8.2 does not use `MAP_JIT` for these allocations. A signed helper without the needed permission passes static signature verification but macOS kills it before startup. Local checks reproduced that failure; `allow-jit` alone also failed, while the single `com.apple.security.cs.allow-unsigned-executable-memory` entitlement allowed the signed helpers to start.
+
+`src-tauri/entitlements.plist` grants that one exception, with hardened runtime explicitly enabled. Tauri 2.12 applies the same entitlement file to the shell and external binaries; it has no per-helper configuration. No library-validation bypass or application-sandbox exception is added. The release gate tests the actual signed archive so a development-only startup pass is insufficient.
+
+References: [Apple executable-memory entitlement](https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.security.cs.allow-unsigned-executable-memory), [Tauri 2.12 signing implementation](https://github.com/tauri-apps/tauri/blob/tauri-v2.12.0/crates/tauri-bundler/src/bundle/macos/sign.rs).
