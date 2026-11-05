@@ -353,3 +353,7 @@ These are managed from the web UI on another device, over Tailscale.
 | Types in the UI don't match the API | Run `pnpm gen`. |
 | Dev data looks broken | Run `pnpm dev:reset`. |
 | A real agent is not found | Check it is on your `PATH`, and that you set `MARSHAL_AGENT=real`. |
+
+### In-app update releases
+
+The signed desktop update workflow and one-time signing setup are described in [app-updates.md](app-updates.md). Source builds show updates as disabled. The release workflow requires the updater signing secret and matching public-key variable before publishing the macOS desktop release; it ships the archive, signature, and manifest along with the DMG. A real signed upgrade still needs release acceptance testing.

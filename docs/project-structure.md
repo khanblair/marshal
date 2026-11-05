@@ -255,3 +255,5 @@ scripts/
 ```
 
 There is no `gen.mjs`, `dev-reset.mjs`, or `build.mjs`: `pnpm gen` and `pnpm build` are chains of package scripts, and `marshal dev reset` does the dev reset in Go, so the folder rules live in one place.
+
+App updates: `apps/web/src/features/updates/` owns the shared native update state and automatic notice; `views/settings/UpdatesSection.tsx` presents the update controls. Desktop `src-tauri/src/updater.rs` owns signed check/install/restart commands, scoped by `permissions/updates.toml`. Desktop `scripts/prepare-release.mjs` produces the release config and updater manifest, with fixture tests alongside it. See `app-updates.md`.

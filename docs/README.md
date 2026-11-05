@@ -10,6 +10,7 @@ Marshal is a lightweight desktop app and background service for running AI codin
 | `project-overview.md` | What are we building and why? Read this first. |
 | `architecture.md` | How is the system built? |
 | `direct-workspace.md` | How do agents share the original project folder without worktrees? |
+| `app-updates.md` | How do installed desktop apps check, download, and install signed releases? |
 | `agent-sessions.md` | How do Claude/Codex sessions, approvals, MCP, and real lifecycle checks work? |
 | `project-structure.md` | Which folders and files exist, and what each is for? |
 | `build-plan.md` | What do we build, in what order? |
