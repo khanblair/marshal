@@ -1,7 +1,7 @@
 /** Checks the built daemon's shared-folder flow with the free stub agent, without a browser. */
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -49,10 +49,15 @@ function client(base, token) {
 }
 
 async function checkWorkspace(call, dataDir) {
-  const { data: project } = await call("POST", "/v1/projects", { source: "sample" });
+  const path = join(dataDir, "plain-project");
+  mkdirSync(path);
+  writeFileSync(join(path, "owner.txt"), "original owner content\n");
+  const { data: project } = await call("POST", "/v1/projects", { source: "folder", path });
   const git = (...args) =>
     execFileSync("git", ["-C", project.path, ...args], { encoding: "utf8" }).trim();
   const file = (name, content) => writeFileSync(join(project.path, name), content);
+  assert.equal(git("remote"), "");
+  assert.equal(git("status", "--porcelain"), "?? owner.txt");
   file("owner.txt", "staged owner content\n");
   git("add", "owner.txt");
   file("owner.txt", "unstaged owner content\n");
@@ -142,7 +147,7 @@ try {
   const token = readFileSync(join(dataDir, "dev-token"), "utf8").trim();
   await checkWorkspace(client(base, token), dataDir);
   console.log(
-    "PASS: original folder, one editor, completion in place, owner edits/index/HEAD preserved, frozen diffs, safe card deletion, no extra worktrees.",
+    "PASS: plain folder added without a remote, one editor, completion in place, owner edits/index/HEAD preserved, frozen diffs, safe card deletion, no extra worktrees.",
   );
 } finally {
   const exited = new Promise((done) => daemon.once("exit", done));

@@ -39,8 +39,8 @@ function FolderField(props: { draft: NewProjectDraft }) {
   const setPath = (path: string) => patchDraft(draft(), { path, name: followName(draft(), path) });
   return (
     <Field
-      label="Repository folder"
-      hint="Agents work directly in this repository. One main coding session coordinates its subagents, and edits appear in your project folder. Removing the project from Marshal keeps your files."
+      label="Project folder"
+      hint="Agents work in this folder. If it has no Git repository, Marshal sets up local Git to track changes without staging your files. GitHub is optional."
     >
       <FolderInput value={draft().path} onChange={setPath} />
     </Field>
@@ -103,7 +103,7 @@ function NewProjectForm(props: { draft: NewProjectDraft }) {
         size={30}
         fill
         unselectedTone="primary"
-        label="Where the repository comes from"
+        label="Where the project comes from"
         options={M.S.vw < ICONS_MIN_WIDTH_PX ? PLAIN_SOURCES : SOURCES}
         value={draft().source || "folder"}
         onValueChange={(source) => patchDraft(draft(), { source, error: "" })}

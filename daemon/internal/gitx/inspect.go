@@ -67,6 +67,52 @@ func (g *Git) Inspect(ctx context.Context, path string) (RepoInfo, error) {
 	return info, nil
 }
 
+// InitFolder sets up Git in a plain folder. The empty initial commit gives card snapshots a
+// parent without staging any of the person's files or changing their Git configuration.
+func (g *Git) InitFolder(ctx context.Context, path string) error {
+	if err := g.checkPlainFolder(ctx, path); err != nil {
+		return err
+	}
+	temp, err := os.MkdirTemp(path, ".marshal-git-")
+	if err != nil {
+		return fmt.Errorf("prepare local Git: %w", err)
+	}
+	defer func() { _ = os.RemoveAll(temp) }()
+	if _, err := g.Run(ctx, temp, "init", "--template=", "--initial-branch=main"); err != nil {
+		return fmt.Errorf("initialize local Git: %w", err)
+	}
+	tree, err := g.Run(ctx, temp, "mktree")
+	if err != nil {
+		return fmt.Errorf("create the empty Git tree: %w", err)
+	}
+	args := append(identityArgs(), "commit-tree", tree, "-m", "Initialize local Git for Marshal")
+	commit, err := g.Run(ctx, temp, args...)
+	if err != nil {
+		return fmt.Errorf("create the empty initial commit: %w", err)
+	}
+	if _, err := g.Run(ctx, temp, "update-ref", "refs/heads/main", commit); err != nil {
+		return fmt.Errorf("set the initial branch: %w", err)
+	}
+	// Recheck before publishing the complete metadata directory. A concurrent initialization
+	// with a valid .git directory also makes the rename fail, since that directory is nonempty.
+	if err := g.checkPlainFolder(ctx, path); err != nil {
+		return err
+	}
+	return os.Rename(filepath.Join(temp, ".git"), filepath.Join(path, ".git"))
+}
+
+func (g *Git) checkPlainFolder(ctx context.Context, path string) error {
+	if _, err := os.Lstat(filepath.Join(path, ".git")); !errors.Is(err, os.ErrNotExist) {
+		return newOpError(ErrNotARepo, "there is already a Git entry in the folder", err)
+	}
+	_, err := g.Run(ctx, path, "rev-parse", "--git-dir")
+	var gitErr *Error
+	if errors.As(err, &gitErr) && strings.HasPrefix(gitErr.Stderr, "fatal: not a git repository (or any") {
+		return ctx.Err()
+	}
+	return newOpError(ErrNotARepo, "the folder cannot be initialized as a standalone repository", err)
+}
+
 // workTreeRoot returns the top folder of the working tree at path, and ErrNotARepo unless path is
 // that folder. The file system compares the two folders, so a link, a trailing separator, or
 // different case on a case-insensitive volume cannot make a real repository look wrong.

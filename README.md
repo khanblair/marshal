@@ -29,7 +29,7 @@ Already installed? Open **Settings → Updates** to check for and install a newe
 ## Start your first task
 
 1. Install and sign in to the agent CLI you want to use, or set up a provider for Marshal’s built-in agent.
-2. In Marshal, choose **New project** and select an existing Git repository.
+2. In Marshal, choose **New project** and select a folder. Marshal sets up local Git if the folder has no repository.
 3. On the board, choose **Add a card**, describe the task, and start its agent session.
 4. Follow the conversation, respond to approvals, and review the **Diff** tab. Use **Finish card** when the work is ready for the project’s configured checks and review.
 

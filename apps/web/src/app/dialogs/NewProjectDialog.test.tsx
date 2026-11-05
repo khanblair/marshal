@@ -24,7 +24,7 @@ afterEach(() => {
   M.go("home");
 });
 
-const path = () => screen.getByRole("textbox", { name: /Repository folder/ });
+const path = () => screen.getByRole("textbox", { name: /Project folder/ });
 const name = () => screen.getByRole("textbox", { name: "Name" });
 const status = () => screen.getByRole("status");
 const add = () => screen.getByRole("button", { name: "Add project" });
@@ -41,14 +41,14 @@ describe("NewProjectDialog", () => {
     const dialog = screen.getByRole("dialog", { name: "New project" });
     expect(dialog.tagName).toBe("FORM");
     expect(
-      screen.getByRole("radiogroup", { name: "Where the repository comes from" }),
+      screen.getByRole("radiogroup", { name: "Where the project comes from" }),
     ).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: "Pick a folder" })).toBeChecked();
     expect(screen.getByRole("radio", { name: "Clone from GitHub" })).not.toBeChecked();
     expect(path()).toHaveAttribute("placeholder", "~/code/my-repo");
     expect(
       screen.getByText(
-        "Agents work directly in this repository. One main coding session coordinates its subagents, and edits appear in your project folder. Removing the project from Marshal keeps your files.",
+        "Agents work in this folder. If it has no Git repository, Marshal sets up local Git to track changes without staging your files. GitHub is optional.",
       ),
     ).toBeInTheDocument();
     expect(name()).toHaveValue("");
@@ -95,7 +95,7 @@ describe("NewProjectDialog", () => {
   it("switches to a repository URL for GitHub and names the project from it", () => {
     render(() => <NewProjectDialog />);
     fireEvent.click(screen.getByRole("radio", { name: "Clone from GitHub" }));
-    expect(screen.queryByRole("textbox", { name: /Repository folder/ })).toBeNull();
+    expect(screen.queryByRole("textbox", { name: /Project folder/ })).toBeNull();
     const url = screen.getByRole("textbox", { name: /Repository URL/ });
     expect(url).toHaveAttribute("placeholder", "https://github.com/owner/repo");
     expect(

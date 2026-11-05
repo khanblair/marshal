@@ -13,8 +13,7 @@ import { createProjectViaApi, getProjectViaApi, removeProjectViaApi } from "./su
 import { makeFolder, makeRepo } from "./support/git";
 
 const DESKTOP = SIZES[2];
-const NOT_A_REPOSITORY =
-  "That folder is not a Git repository. Choose the top folder of a repository.";
+const FOLDER_NOT_FOUND = "That folder does not exist. Check the path and try again.";
 const ALREADY_ADDED = "That repository is already a project in Marshal.";
 
 const RADIX = 36;
@@ -34,7 +33,7 @@ async function openNewProject(page: Page) {
 }
 
 async function fillNewProject(page: Page, folder: string, name: string) {
-  await page.getByRole("textbox", { name: /Repository folder/ }).fill(folder);
+  await page.getByRole("textbox", { name: /Project folder/ }).fill(folder);
   await page.getByRole("textbox", { name: "Name" }).fill(name);
 }
 
@@ -93,7 +92,7 @@ test.describe("adding a project on the dev daemon", () => {
 
       await expect(page.getByRole("alert")).toHaveText(ALREADY_ADDED);
       await expect(page.getByRole("dialog", { name: "New project" })).toBeVisible();
-      await expect(page.getByRole("textbox", { name: /Repository folder/ })).toHaveValue(repo.dir);
+      await expect(page.getByRole("textbox", { name: /Project folder/ })).toHaveValue(repo.dir);
       await expect(page.getByRole("textbox", { name: "Name" })).toHaveValue("again");
       await expect(page.getByRole("button", { name: "Add project" })).toBeEnabled();
       expect(
@@ -317,9 +316,9 @@ for (const size of SIZES) {
           }),
         );
         await expect(page.getByRole("dialog", { name: "New project" })).toBeVisible();
-        await fillNewProject(page, folder.dir, "plain-folder");
+        await fillNewProject(page, join(folder.dir, "missing"), "missing-folder");
         await page.getByRole("button", { name: "Add project" }).click();
-        await expect(page.getByRole("alert")).toHaveText(NOT_A_REPOSITORY);
+        await expect(page.getByRole("alert")).toHaveText(FOLDER_NOT_FOUND);
         await expect(page.getByRole("dialog", { name: "New project" })).toBeVisible();
         await expectCleanScreen(page, problems, theme);
       } finally {

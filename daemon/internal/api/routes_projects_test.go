@@ -1,6 +1,7 @@
 package api_test
 
 import (
+	"context"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -9,9 +10,42 @@ import (
 	"testing"
 
 	"github.com/khanblair/marshal/daemon/internal/api"
+	"github.com/khanblair/marshal/daemon/internal/gitx"
 	"github.com/khanblair/marshal/daemon/internal/protocol"
 	"github.com/khanblair/marshal/daemon/internal/testutil"
 )
+
+func TestAddPlainProjectFolderThroughHTTP(t *testing.T) {
+	st := newStack(t)
+	folder := t.TempDir()
+	file := filepath.Join(folder, "notes.txt")
+	if err := os.WriteFile(file, []byte("my notes"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	request := protocol.CreateProjectRequest{Source: protocol.ProjectSourceFolder, Path: folder}
+	created := st.do(http.MethodPost, "/v1/projects", request).want(t, http.StatusCreated)
+	project := decode[protocol.Project](t, created)
+	st.do(http.MethodGet, "/v1/projects/"+project.ID+"/board", nil).want(t, http.StatusOK)
+	st.do(http.MethodPost, "/v1/projects", request).apiError(t, http.StatusConflict, protocol.ErrorCodeConflict)
+
+	ctx := context.Background()
+	git := gitx.New()
+	info, err := git.Inspect(ctx, project.Path)
+	if err != nil || !info.HasCommits || info.CurrentBranch != "main" || len(info.Remotes) != 0 {
+		t.Fatalf("expected local Git on main with a baseline and no remotes, got %+v, %v", info, err)
+	}
+	if status, err := git.Run(ctx, folder, "status", "--porcelain"); err != nil || status != "?? notes.txt" {
+		t.Fatalf("expected the original file to remain unstaged, got %q, %v", status, err)
+	}
+	ref := gitx.DirectBaseRef("plain-folder")
+	if _, err := git.SnapshotFolder(ctx, folder, ref, "Card baseline"); err != nil {
+		t.Fatal(err)
+	}
+	if contents, err := git.Run(ctx, folder, "show", ref+":notes.txt"); err != nil || contents != "my notes" {
+		t.Fatalf("expected a snapshot of the original file, got %q, %v", contents, err)
+	}
+}
 
 func TestProjectsThroughHTTP(t *testing.T) {
 	st := newStack(t)
@@ -134,15 +168,12 @@ func TestProjectRefusals(t *testing.T) {
 		code    protocol.ErrorCode
 		message string // an exact sentence, or "" when the test only needs the code
 	}{
-		{"a folder that is not a Git repository", http.MethodPost, "/v1/projects", folder(notARepo),
-			http.StatusBadRequest, protocol.ErrorCodeInvalidArgument,
-			"That folder is not a Git repository. Choose the top folder of a repository."},
 		{"a folder inside a repository", http.MethodPost, "/v1/projects", folder(filepath.Join(repo, "src")),
 			http.StatusBadRequest, protocol.ErrorCodeInvalidArgument,
-			"That folder is not a Git repository. Choose the top folder of a repository."},
+			"Choose a standalone folder or the top folder of an existing Git repository."},
 		{"a path that is a file", http.MethodPost, "/v1/projects", folder(file),
 			http.StatusBadRequest, protocol.ErrorCodeInvalidArgument,
-			"That is not a folder. Choose the top folder of a repository."},
+			"That path points to a file. Choose a folder instead."},
 		{"a folder that does not exist", http.MethodPost, "/v1/projects", folder(filepath.Join(notARepo, "nope")),
 			http.StatusBadRequest, protocol.ErrorCodeInvalidArgument,
 			"That folder does not exist. Check the path and try again."},
@@ -156,7 +187,7 @@ func TestProjectRefusals(t *testing.T) {
 			http.StatusBadRequest, protocol.ErrorCodeInvalidArgument,
 			"Choose whether to add a folder, clone a repository, or use the sample project."},
 		{"a folder with no path", http.MethodPost, "/v1/projects", `{"source":"folder"}`,
-			http.StatusBadRequest, protocol.ErrorCodeInvalidArgument, "Choose the folder of the repository."},
+			http.StatusBadRequest, protocol.ErrorCodeInvalidArgument, "Choose a project folder."},
 		{"a clone with no address", http.MethodPost, "/v1/projects", `{"source":"clone","dest":"/x"}`,
 			http.StatusBadRequest, protocol.ErrorCodeInvalidArgument,
 			"Enter the address to clone from and the folder to clone into."},

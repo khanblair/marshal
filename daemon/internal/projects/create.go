@@ -37,8 +37,8 @@ func WithID(id string) CreateOption {
 	return func(c *createConfig) { c.id = id }
 }
 
-// Create adds a repository as a project. For a folder, the path must be the top folder of a Git
-// working tree. For a clone, the repository is copied into Dest first and then added like a
+// Create adds a repository as a project. A plain folder is initialized with local Git.
+// For a clone, the repository is copied into Dest first and then added like a
 // folder. For the sample, the sample repository is written into the data folder first (sample.go)
 // and then added like a folder. The language, packages, and dev command are detected and stored,
 // the board is made with the default columns in the same transaction, and project.created is
@@ -94,7 +94,7 @@ func checkCreate(in CreateInput, cfg createConfig) error {
 		return protocol.InvalidArgument("That project id is not allowed. Use lower case letters, digits, and hyphens.")
 	}
 	if in.Source == protocol.ProjectSourceFolder && strings.TrimSpace(in.Path) == "" {
-		return protocol.InvalidArgument("Choose the folder of the repository.")
+		return protocol.InvalidArgument("Choose a project folder.")
 	}
 	if in.Source == protocol.ProjectSourceClone && (strings.TrimSpace(in.URL) == "" || strings.TrimSpace(in.Dest) == "") {
 		return protocol.InvalidArgument("Enter the address to clone from and the folder to clone into.")
@@ -118,7 +118,7 @@ func checkName(name string) error {
 // returns what Git says about it.
 func (s *Service) openRepository(ctx context.Context, in CreateInput) (gitx.RepoInfo, error) {
 	if in.Source == protocol.ProjectSourceFolder {
-		return s.inspectFolder(ctx, in.Path)
+		return s.inspectFolder(ctx, in.Path, true)
 	}
 	if in.Source == protocol.ProjectSourceSample {
 		return s.sampleRepository(ctx)
@@ -137,7 +137,7 @@ func (s *Service) openRepository(ctx context.Context, in CreateInput) (gitx.Repo
 	if err := s.git.Clone(ctx, strings.TrimSpace(in.URL), dest, clone); err != nil {
 		return gitx.RepoInfo{}, cloneError(err)
 	}
-	return s.inspectFolder(ctx, dest)
+	return s.inspectFolder(ctx, dest, false)
 }
 
 // cloneError turns what Git's clone reports into an answer for a person. The address, and the
@@ -173,8 +173,8 @@ func (s *Service) checkCloneDest(ctx context.Context, dest string) error {
 	return nil
 }
 
-// inspectFolder checks that path is the top folder of a Git working tree and reads it.
-func (s *Service) inspectFolder(ctx context.Context, path string) (gitx.RepoInfo, error) {
+// inspectFolder reads an existing working tree or sets up a plain folder picked by the user.
+func (s *Service) inspectFolder(ctx context.Context, path string, initialize bool) (gitx.RepoInfo, error) {
 	path, err := expandHome(strings.TrimSpace(path))
 	if err != nil {
 		return gitx.RepoInfo{}, err
@@ -192,6 +192,17 @@ func (s *Service) inspectFolder(ctx context.Context, path string) (gitx.RepoInfo
 		return gitx.RepoInfo{}, protocol.InvalidArgument(messageNotAFolder)
 	}
 	info, err := s.git.Inspect(ctx, path)
+	if initialize && errors.Is(err, gitx.ErrNotARepo) {
+		if err := s.checkNotRegistered(ctx, path); err != nil {
+			return gitx.RepoInfo{}, err
+		}
+		initErr := s.git.InitFolder(ctx, path)
+		// A simultaneous add may have finished setting up the folder already.
+		info, err = s.git.Inspect(ctx, path)
+		if err != nil && initErr != nil && !errors.Is(initErr, gitx.ErrNotARepo) {
+			return gitx.RepoInfo{}, protocol.InvalidArgument(messageCannotInitGit).WithCause(initErr)
+		}
+	}
 	if errors.Is(err, gitx.ErrNotARepo) {
 		return gitx.RepoInfo{}, protocol.InvalidArgument(messageNotARepo).WithCause(err)
 	}

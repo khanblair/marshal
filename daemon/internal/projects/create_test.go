@@ -307,7 +307,7 @@ func TestCreateWithAnExplicitID(t *testing.T) {
 	}
 }
 
-func TestCreateRefusesFoldersThatAreNotRepositories(t *testing.T) {
+func TestCreateRefusesUnusableFolderPaths(t *testing.T) {
 	e := newEnv(t)
 	repo := testutil.Fixture(t, "small-repo")
 	plain := t.TempDir()
@@ -321,17 +321,15 @@ func TestCreateRefusesFoldersThatAreNotRepositories(t *testing.T) {
 		code    protocol.ErrorCode
 		message string
 	}{
-		{"a folder that is not a repository", folderRequest(plain), protocol.ErrorCodeInvalidArgument,
-			"That folder is not a Git repository. Choose the top folder of a repository."},
 		{"a subfolder of a repository", folderRequest(filepath.Join(repo, "src")), protocol.ErrorCodeInvalidArgument,
-			"That folder is not a Git repository. Choose the top folder of a repository."},
+			"Choose a standalone folder or the top folder of an existing Git repository."},
 		{"a folder that does not exist", folderRequest(filepath.Join(plain, "missing")), protocol.ErrorCodeInvalidArgument,
 			"That folder does not exist. Check the path and try again."},
 		{"a file", folderRequest(file), protocol.ErrorCodeInvalidArgument,
-			"That is not a folder. Choose the top folder of a repository."},
+			"That path points to a file. Choose a folder instead."},
 		{"a relative path", folderRequest("code/app"), protocol.ErrorCodeInvalidArgument,
 			"Enter the full path of the folder, starting from the top of the disk or with ~."},
-		{"no path", folderRequest("  "), protocol.ErrorCodeInvalidArgument, "Choose the folder of the repository."},
+		{"no path", folderRequest("  "), protocol.ErrorCodeInvalidArgument, "Choose a project folder."},
 		{"no source", protocol.CreateProjectRequest{Path: repo}, protocol.ErrorCodeInvalidArgument,
 			"Choose whether to add a folder, clone a repository, or use the sample project."},
 		{"an unknown source", protocol.CreateProjectRequest{Source: "github", Path: repo}, protocol.ErrorCodeInvalidArgument,

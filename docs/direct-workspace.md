@@ -4,6 +4,8 @@ Accepted direction, 2026-11-02. This replaces the earlier per-card worktree and 
 
 ## Editing model
 
+You can add the root of a local Git repository or a standalone folder. When you add a plain folder, Marshal creates a local `.git` directory and one empty commit so card diffs work. Your files stay unstaged. GitHub is optional. If the folder is inside an existing repository, choose that repository’s root.
+
 Marshal runs a card's main coding session in the repository folder the owner added. It does not create a separate checkout, change the current branch, install another copy of dependencies, or merge a card branch back into the folder.
 
 One main coding session owns each project folder until it stops or sleeps. An idle or paused session still owns it. Other independent cards and coding chats receive a refusal naming the current owner. Different project folders can run together. Folder aliases share the same reservation.

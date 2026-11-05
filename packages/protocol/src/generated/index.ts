@@ -4872,7 +4872,7 @@ export interface ProjectListSnapshot {
 export interface CreateProjectRequest {
   /** Source says which of the fields below are used. */
   source: ProjectSource;
-  /** Path is the top folder of a repository on this machine. Used when Source is "folder". */
+  /** Path is a local folder or the root of an existing Git repository. Used when Source is "folder". */
   path?: string;
   /** URL is the address to clone from. Used when Source is "clone". */
   url?: string;

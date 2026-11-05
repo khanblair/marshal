@@ -77,7 +77,7 @@ type ProjectListSnapshot struct {
 type CreateProjectRequest struct {
 	// Source says which of the fields below are used.
 	Source ProjectSource `json:"source"`
-	// Path is the top folder of a repository on this machine. Used when Source is "folder".
+	// Path is a local folder or the root of an existing Git repository. Used when Source is "folder".
 	Path string `json:"path,omitempty"`
 	// URL is the address to clone from. Used when Source is "clone".
 	URL string `json:"url,omitempty"`

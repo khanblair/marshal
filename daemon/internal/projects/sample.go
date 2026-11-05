@@ -40,7 +40,7 @@ func (s *Service) sampleRepository(ctx context.Context) (gitx.RepoInfo, error) {
 	if err != nil {
 		return gitx.RepoInfo{}, fmt.Errorf("make the sample repository: %w", err)
 	}
-	return s.inspectFolder(ctx, root)
+	return s.inspectFolder(ctx, root, false)
 }
 
 // checkSampleFree refuses a sample while a project already uses the sample folder. The stored path
