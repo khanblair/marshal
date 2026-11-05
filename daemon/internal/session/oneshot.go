@@ -1,6 +1,7 @@
 package session
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -46,10 +47,7 @@ func (m *Manager) Ask(ctx context.Context, kind protocol.AgentKind, spec agents.
 			return "", fmt.Errorf("the agent did not answer in time: %w", ctx.Err())
 		case ev, open := <-events:
 			if !open {
-				if failure == "" {
-					failure = "the agent closed before completing its answer"
-				}
-				return answerOf(&said, failure)
+				return answerOf(&said, cmp.Or(failure, "the agent closed before completing its answer"))
 			}
 			switch e := ev.(type) {
 			case agents.MessageChunk:
@@ -62,10 +60,7 @@ func (m *Manager) Ask(ctx context.Context, kind protocol.AgentKind, spec agents.
 				}
 				return answerOf(&said, failure)
 			case agents.Exited:
-				if failure == "" {
-					failure = "the agent exited before completing its answer"
-				}
-				return answerOf(&said, failure)
+				return answerOf(&said, cmp.Or(failure, "the agent exited before completing its answer"))
 			}
 		}
 	}
