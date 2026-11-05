@@ -118,7 +118,7 @@ pub async fn install_update(
     state: State<'_, UpdateState>,
 ) -> Result<Snapshot, String> {
     authorize(&window)?;
-    let update = {
+    let mut update = {
         let mut pending = state.0.lock().map_err(|e| e.to_string())?;
         if pending.snapshot.status != "available" {
             return Err("Check for an available update first.".into());
@@ -127,6 +127,8 @@ pub async fn install_update(
         pending.snapshot.status = "downloading".into();
         update
     };
+    // The metadata check has a short deadline; a full app archive needs longer on slow links.
+    update.timeout = Some(std::time::Duration::from_secs(15 * 60));
     let result = update
         .download_and_install(
             |bytes, total| {
