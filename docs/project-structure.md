@@ -34,6 +34,7 @@ This document explains the shape of the Marshal repo: what each folder is for, a
 
 ```
 marshal/
+  install.sh                          First-time macOS installer for the latest public release (app-updates.md)
   package.json, pnpm-workspace.yaml   Root pnpm scripts (development.md section 4) and the workspace packages. tsconfig.base.json: shared TypeScript settings
   biome.json, .golangci.yml           Blocking lint and smell limits (TypeScript, Go)
   biome.warn.json, .golangci.warn.yml Soft limits (the warning levels), run by pnpm smells
