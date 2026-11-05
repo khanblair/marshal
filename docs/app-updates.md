@@ -14,7 +14,7 @@ Updater signing was configured with owner approval on 2026-11-05. GitHub stores 
 - Optional GitHub Actions secret `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`.
 - GitHub Actions variable `MARSHAL_UPDATER_PUBLIC_KEY`, containing the matching public key.
 
-Generate the key with the Tauri CLI signer and keep a secure backup outside the repository. Never commit or print the private key. Keep the same key for future releases so existing installations can verify them. These signing keys are separate from Apple Developer ID signing and notarization.
+Generate the key with the Tauri CLI signer and keep a secure backup outside the repository. Never commit or print the private key. Keep the same key for future releases so existing installations can verify them. These signing keys are separate from Apple Developer ID signing and notarization. Empty optional Apple credentials are removed before invoking Tauri; without real Apple credentials the configured ad-hoc signature is used.
 
 The release workflow refuses to publish the desktop build without update-signing configuration. It validates the release tag, sets the shell and both Go sidecars to the release version, builds the universal macOS app, and publishes its `.app.tar.gz`, detached signature, and `latest.json` alongside the DMG. Both `darwin-aarch64` and `darwin-x86_64` entries point to the universal archive. The manifest includes the version, release date, and commit-based release notes.
 

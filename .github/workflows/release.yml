@@ -98,6 +98,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: apps/desktop/src-tauri
+          cache-on-failure: true
 
       - name: Prepare signed updater config
         env:
@@ -141,8 +142,12 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           MARSHAL_RELEASE_VERSION: ${{ steps.tag.outputs.version }}
         run: |
+          # Empty optional secrets must be absent, or Tauri attempts to import an empty certificate.
+          for apple_setting in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
+            if [ -z "${!apple_setting}" ]; then unset "$apple_setting"; fi
+          done
           node apps/desktop/scripts/bundle-sidecar.mjs --universal
-          pnpm --filter desktop exec tauri build --target universal-apple-darwin --config "$RUNNER_TEMP/marshal-tauri-release.json"
+          pnpm --filter desktop exec tauri build --ci --target universal-apple-darwin --config "$RUNNER_TEMP/marshal-tauri-release.json"
 
       - name: Generate updater manifest
         env:
