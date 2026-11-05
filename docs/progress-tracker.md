@@ -315,6 +315,8 @@ Newest entries first.
 
 ### 2026-11-05
 
+- **Updates icon:** registered the shared Lucide download icon so the sidebar, Settings navigation, Updates panel, and update notice draw the glyph. Added a regression test for the previously empty SVG.
+
 - **Repository README:** added the root project overview, macOS install steps, first-task guide, development quick start, and links to the full docs. Updated the development guide to reflect the existing Tauri shell.
 
 - **Terminal installer:** added a fresh-install path based on Sentinel Harness. It checks GitHub’s DMG digest, verifies the copied app’s signature, and preserves existing installations. Verified an isolated install with the published v0.1.2 DMG from the local Downloads folder and live release metadata. The copy had both architectures and no quarantine flag, and both bundled commands reported 0.1.2. Altered bytes were rejected. The live DMG transfer was started and cancelled because it was slow. The native updater is unchanged, and a real GUI launch and installed upgrade remain untested for this path.

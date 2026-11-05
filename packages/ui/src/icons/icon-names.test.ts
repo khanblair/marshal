@@ -75,8 +75,9 @@ describe("icon registry", () => {
     expect(missing).toEqual([]);
   });
 
-  it("matches the full set of icon names found anywhere in the design", () => {
-    expect([...iconNames].sort()).toEqual([...designIconNames()].sort());
+  it("matches the design icon names and the download icon for app updates", () => {
+    const expected = new Set([...designIconNames(), "download"]);
+    expect([...iconNames].sort()).toEqual([...expected].sort());
   });
 
   it("only registers icons that exist in the pinned lucide-solid", () => {

@@ -1,7 +1,7 @@
 /**
- * The Lucide icons the design uses, keyed by the design's kebab-case names.
+ * The Lucide icons Marshal uses, keyed by kebab-case names.
  * Each icon is imported by its own path so the bundle only carries these.
- * The list must match every icon name in design/ (see icons.test.tsx).
+ * The list covers design/ and icons added for features such as app updates.
  */
 import type { LucideIcon } from "lucide-solid";
 import ActivityIcon from "lucide-solid/icons/activity";
@@ -34,6 +34,7 @@ import CopyIcon from "lucide-solid/icons/copy";
 import CopyPlusIcon from "lucide-solid/icons/copy-plus";
 import CpuIcon from "lucide-solid/icons/cpu";
 import DotIcon from "lucide-solid/icons/dot";
+import DownloadIcon from "lucide-solid/icons/download";
 import EllipsisIcon from "lucide-solid/icons/ellipsis";
 import EllipsisVerticalIcon from "lucide-solid/icons/ellipsis-vertical";
 import EyeIcon from "lucide-solid/icons/eye";
@@ -161,6 +162,7 @@ export const lucideIcons = {
   "copy-plus": CopyPlusIcon,
   cpu: CpuIcon,
   dot: DotIcon,
+  download: DownloadIcon,
   ellipsis: EllipsisIcon,
   "ellipsis-vertical": EllipsisVerticalIcon,
   eye: EyeIcon,

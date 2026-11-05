@@ -45,6 +45,11 @@ describe("Icon", () => {
     expect((container.firstElementChild as HTMLElement).style.width).toBe("16px");
   });
 
+  it("draws the download icon used for app updates", () => {
+    const { container } = render(() => <Icon name="download" />);
+    expect(svgOf(container).children.length).toBeGreaterThan(0);
+  });
+
   it("draws Lucide icons with the design's svg attributes", () => {
     const { container } = render(() => <Icon name="file-search" size={14} />);
     const svg = svgOf(container);
