@@ -26,6 +26,8 @@ See the [Tauri updater documentation](https://v2.tauri.app/plugin/updater/) for 
 
 ## Verification
 
+[Marshal v0.1.2](https://github.com/khanblair/marshal/releases/tag/v0.1.2) is the first published update-enabled installer. The GitHub release gate started the extracted daemon on Intel. A separate download check verified the public manifest, archive signature, both architectures, and the bundled command versions on Apple silicon. The installer uses ad-hoc Apple signing.
+
 - Frontend tests exercise startup checking, version/notes rendering, explicit installation, deferred prompts, duplicate clicks, errors, browser behavior, restart recovery, and sidebar navigation.
 - Rust tests cover the accepted origin/window and serialization states; a native release build verifies the packaged command registration and permissions.
 - Before publication, `scripts/check-bundle.mjs` extracts the signed updater archive without extended attributes, verifies app code signatures and versions, checks both Mac architectures, runs both packaged CLIs, and starts an isolated packaged daemon to verify HTTP health and the embedded update UI. It removes only its own process and temporary data.
