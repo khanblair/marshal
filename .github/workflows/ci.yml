@@ -75,6 +75,10 @@ jobs:
       # The daemon's tests write its coverage profile, and the web app and UI package tests fail
       # when they are below their floors. The next step checks the daemon against its floors.
       - run: pnpm test
+        env:
+          # Race-instrumented API and storage suites both create databases and subprocesses.
+          # Bound concurrent Go packages on the standard runner; keep checks and deadlines.
+          GOFLAGS: -p=2
       - run: node scripts/coverage.mjs
       - run: pnpm build
       # The budget says to watch the idle daemon for 60 seconds.

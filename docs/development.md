@@ -222,6 +222,7 @@ Add `--dev` to manage the dev daemon's own, separate service, so it can run besi
 | `pnpm test:e2e` | End-to-end tests in the browser against the built dev daemon (run `pnpm build` first) |
 | `node scripts/direct-workspace-smoke.mjs` | When requested: checks the built daemon with the free stub agent and a temporary sample project. Verifies one editor, direct completion, preserved source/index/HEAD, frozen diffs, safe deletion, and no extra worktrees. No browser or real model calls; run `pnpm build` first. |
 | `node scripts/agent-lifecycle-smoke.mjs --real --agents claude,codex --model-codex default` | Only when the owner requests a real account check: drives the installed CLIs through the built daemon's actual card/session API, MCP, approval/denial, file effects, and stop/resume. Build the daemon first. Details and limits: `agent-sessions.md`. |
+| `node scripts/coding-task-smoke.mjs --real` | Only when requested: copies the Go budget module and test dependencies, proves the baseline, then runs separate Claude/Codex feature cards through implementation, full local tests, model review, and completion. Writes `dist/coding-task-smoke.json` and removes its temporary project. Build the daemon first. |
 | `pnpm budgets` | Measure the web build size, then the built daemon's idle RAM and CPU (run `pnpm build` first). `MARSHAL_BUDGET_IDLE` sets how long the daemon idles: 10 seconds by default, 60 in CI. |
 | `pnpm smells` | Code smell checks on changed code (see `code-standards.md` section 12) |
 | `pnpm smells:all` | Code smell checks on the whole repo |

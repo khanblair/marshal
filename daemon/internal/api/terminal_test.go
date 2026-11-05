@@ -424,10 +424,13 @@ func TestASwitchThatCannotStartATerminalMovesTheCardToNeedsYou(t *testing.T) {
 // limits here are far shorter than the switch back to the chat, which resumes a slow agent.
 func TestASlowSwitchOutlastsTheUsualLimits(t *testing.T) {
 	limits := api.Limits{WriteTimeout: 300 * time.Millisecond, ReadTimeout: 100 * time.Millisecond}
-	st := newStack(t, withLimits(limits), withTerminals(shellTerminals(t)),
+	st := newStack(t, withTerminals(shellTerminals(t)),
 		withAgent(fakeFactory(fakeAgent{resumeDelay: 900 * time.Millisecond})))
 	project, _ := st.addProject("small-repo")
 	card := st.addCard(project.ID, "Slow to switch")
+	// Short deadlines belong to the operation under test, not repository discovery during setup.
+	st.cfg.limits = limits
+	st.restart()
 	st.do(http.MethodPost, "/v1/cards/"+card.ID+"/start", nil).want(t, http.StatusOK)
 	st.switchView(card.ID, protocol.CardViewModeTerminal).want(t, http.StatusOK)
 

@@ -148,9 +148,13 @@ func TestResumingASessionThatFailsForAnUnnamedReason(t *testing.T) {
 // that arrives proves both the longer write window and that the read limit stays out of the way.
 func TestASlowStartOutlastsTheUsualLimits(t *testing.T) {
 	limits := api.Limits{WriteTimeout: 300 * time.Millisecond, ReadTimeout: 100 * time.Millisecond}
-	st := newStack(t, withLimits(limits), withAgent(fakeFactory(fakeAgent{startDelay: 900 * time.Millisecond, resumeDelay: 900 * time.Millisecond})))
+	st := newStack(t, withAgent(fakeFactory(fakeAgent{startDelay: 900 * time.Millisecond, resumeDelay: 900 * time.Millisecond})))
 	project, _ := st.addProject("small-repo")
 	card := st.addCard(project.ID, "Slow to start")
+	// Repository discovery runs Git and is not what this deadline test measures. Give setup
+	// the normal limits, then rebuild the server with short limits for start and resume only.
+	st.cfg.limits = limits
+	st.restart()
 
 	began := time.Now()
 	started := decode[protocol.Card](t, st.do(http.MethodPost, "/v1/cards/"+card.ID+"/start", nil).want(t, http.StatusOK))

@@ -37,7 +37,7 @@ At the end of every work session, whether by a person or an agent:
 |---|---|
 | **Current phase** | Phase 4: Models (S19b, S26b, and S28 switched; built and in review for the controller) |
 | **Next milestone** | Phase 4's gate: no real model API in CI, and Home's cost numbers match the usage table (then Phase 5) |
-| **Last updated** | 2026-11-04 |
+| **Last updated** | 2026-11-05 |
 | **Current focused change** | Claude approvals and production Codex sessions implemented; real lifecycle checks through the built daemon passed for both. Direct project folders remain in place. Browser review remains with the owner. |
 
 ---
@@ -312,6 +312,11 @@ _Older entries: [archive/progress-tracker-archive-2026-10.md](archive/progress-t
 
 Newest entries first.
 
+### 2026-11-05
+
+- **Real coding check and stuck guard:** the owner chose a temporary project copy and separate sequential Claude/Codex cards. A real task exposed the guard treating any three edits to one file as a loop. The owner approved distinguishing progress: completed edits now carry canonical input/diff fingerprints; distinct changes continue, repeated or alternating changes pause, and failed attempts retain repeated-error detection. Unknown edit data keeps the conservative rule. Pending metadata and loop windows are bounded. Regression tests reproduced the false pause; focused race checks and two independent Luna reviews covered the change and fixes.
+- **Verification setup:** the real Go budget module's full test suite needs the daemon and stub-agent sources at their monorepo-relative paths. The check now copies those dependencies into its temporary workspace and proves baseline tests before any real model work. It uses the built daemon API for agent work, local CI, real model review, and card completion, with independent CLI output assertions and a saved report. Claude reached Done with tests/review passing. Codex implemented its feature and passed full local CI and independent CLI checks, but its latest completion review returned an unreadable introductory answer, so complete verification remains open. The original module and branch stayed unchanged. The Intel runner is acquired; subsequent CI runs exposed timeout failures under load. Two slow-route tests now apply short deadlines only after project setup; five repeated race runs pass. The CI test step now limits Go package concurrency to two while preserving race instrumentation and existing deadlines; resource contention is a working hypothesis until the next remote run completes.
+
 ### 2026-11-04
 
 - **CI runner acquisition:** run `41685500279` passed light checks, but GitHub's check annotations say the hosted macOS ARM runner could not be acquired after multiple attempts and report ARM capacity constraints. No test steps started; downstream browser checks were skipped. Required macOS checks and the separate macOS browser workflow now use the supported standard `macos-15-intel` pool. Tool-cache keys include processor architecture to avoid sharing ARM and Intel executables. YAML parsing and diff checks pass; remote execution is pending.
@@ -396,6 +401,7 @@ Every file added, moved, renamed, or deleted in the repo. Newest first. The plan
 
 | Date | File | Change | Task | Notes |
 |---|---|---|---|---|
+| 2026-11-05 | `daemon/internal/agents/{fingerprint.go,fingerprint_test.go,claude/fingerprint_test.go}`, `daemon/internal/harness/stuck_progress_test.go`, `daemon/internal/session/{stuck_edits.go,stuck_progress_test.go}`, `scripts/coding-task-smoke.mjs`; related agent event/conversion and detector wiring | Added, Changed | 5.4, verification | Recognize edit progress, preserve error-loop protection, and exercise actual feature development/review/completion through Marshal. |
 | 2026-11-04 | `daemon/internal/history/{conversation.go,conversation_test.go}`, `daemon/internal/agents/builtin/resume_test.go`, `daemon/internal/api/builtin_resume_test.go`, `daemon/cmd/marshald/builtin_history_test.go`; related reader SQL/generated queries, agent and session wiring | Added, Changed | 1.9, 1.10 | Context-aware bounded history replay for built-in cards/chats, strict resume errors, stable native IDs, preserved tool replies and role instructions, and HTTP restart verification. |
 | 2026-11-03 | `daemon/internal/agents/{claude/permission.go,claude/permission_test.go,codex/{session,settings,events,mcp,settings_test,timeout_test}.go}`, `daemon/internal/api/claude_approval_cli_test.go`, `daemon/internal/harness/path_alias_test.go`, `daemon/internal/session/{approval_cancel.go,approval_pending_test.go}`, `scripts/agent-lifecycle-smoke.mjs`, `docs/agent-sessions.md`; related adapter, catalog, session, harness, API test, and production wiring files | Added, Changed | Agent reliability | Native approval callbacks, production Codex lifecycle, durable cancellation, grouped containment, and real daemon-driven CLI verification. |
 | 2026-11-03 | `daemon/internal/{session/direct_workspace.go,session/direct_workspace_test.go,integrator/direct.go,integrator/direct_test.go,gitx/direct.go,gitx/direct_test.go,gitx/diff_revisions.go,projects/direct_workspace_test.go,diff/direct_test.go}`, `scripts/direct-workspace-smoke.mjs`, `docs/direct-workspace.md`; related session, completion, preview, wiring, UI, and instructions | Added, Changed | Direct project folders | Folder ownership across cards/chats/completion, non-destructive snapshots and saved diffs, source-preserving removal, legacy recovery refusals, completion UI, and a reproducible stub smoke check. |
@@ -424,6 +430,7 @@ Every change to a doc. Newest first.
 
 | Date | Doc | Change |
 |---|---|---|
+| 2026-11-05 | `development.md`, `agent-sessions.md`, `project-structure.md`, `progress-tracker.md` | Documented edit-progress detection and the temporary real-project verification command; recorded actual successes and remaining review/CI failures. |
 | 2026-11-04 | `development.md`, `agent-sessions.md`, `project-structure.md`, `progress-tracker.md` | Recorded the hosted ARM runner acquisition failure and Intel/cache fix; documented built-in transcript replay, bounds, failure behavior, and regression coverage. |
 | 2026-11-03 | `agent-sessions.md`, `README.md`, `architecture.md`, `backend-checklist.md`, `development.md`, `project-structure.md`, `progress-tracker.md` | Documented native Claude/Codex session protocols, permission mappings, MCP transport policy, lifecycle evidence, remaining limits, and the opt-in real daemon verification command. |
 | 2026-11-03 | `direct-workspace.md`, `README.md`, `project-overview.md`, `architecture.md`, `marshal-product-scope.md`, `project-structure.md`, `development.md`, `progress-tracker.md` | Documented the approved direct-folder model, main/native-subagent ownership, snapshot/recovery behavior, completion, legacy compatibility, the stub smoke command, and verification results/limits. |

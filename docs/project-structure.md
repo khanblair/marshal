@@ -250,6 +250,7 @@ scripts/
   agent-smoke.mjs                Runs the real agent CLIs (or, with --stub, the stub agent) through one small card each on a throwaway daemon
   direct-workspace-smoke.mjs     Checks direct folder ownership, snapshots, completion, and safe deletion against the built daemon using only the stub agent
   agent-lifecycle-smoke.mjs      Opt-in real Claude/Codex lifecycle through the built daemon API: MCP, approve/deny, file effects, and conversation resume
+  coding-task-smoke.mjs          Opt-in complete feature tasks in a temporary copy of the Go budget module, with local CI, actual model review, completion, and a saved report
   e2e-daemon.mjs                 Runs the built dev daemon for the browser tests, on port 47811 with a data folder of its own
 ```
 
