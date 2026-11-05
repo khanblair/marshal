@@ -20,6 +20,8 @@ export function goHome(): void {
 
 export function goSettings(): void {
   M.set({ sideOpen: false });
+  // Updates has its own sidebar destination; Settings returns to the regular sections.
+  if (M.S.settingsSection === "updates") M.set({ settingsSection: "general" });
   M.go("settings");
 }
 

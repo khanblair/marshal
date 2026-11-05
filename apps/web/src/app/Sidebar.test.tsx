@@ -19,6 +19,15 @@ beforeEach(() => resetShell());
 afterEach(cleanup);
 
 describe("Sidebar (desktop, expanded)", () => {
+  it("opens Updates from the sidebar and marks it as the current page", () => {
+    render(() => <Sidebar />);
+    fireEvent.click(screen.getByRole("button", { name: "Updates" }));
+    expect(M.S.route.page).toBe("settings");
+    expect(M.S.settingsSection).toBe("updates");
+    expect(screen.getByRole("button", { name: "Updates" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("button", { name: "Settings" })).not.toHaveAttribute("aria-current");
+  });
+
   it("is the main navigation with a labeled project list", () => {
     render(() => <Sidebar />);
     const nav = screen.getByRole("navigation", { name: "Main" });

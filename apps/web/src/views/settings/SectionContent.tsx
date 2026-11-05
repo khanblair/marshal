@@ -15,6 +15,7 @@ import { RolesSection } from "./RolesSection";
 import { SchedulesSection } from "./SchedulesSection";
 import { ShortcutsSection } from "./ShortcutsSection";
 import type { SectionKey } from "./sections";
+import { UpdatesSection } from "./UpdatesSection";
 import type { LimitsDraft } from "./use-limits-draft";
 import type { ProfileDraft } from "./use-profile-draft";
 import type { ProjectDraft } from "./use-project-draft";
@@ -36,6 +37,9 @@ export function SectionContent(props: { drafts: SettingsDrafts }) {
   const is = (key: SectionKey) => M.S.settingsSection === key;
   return (
     <Switch>
+      <Match when={is("updates")}>
+        <UpdatesSection />
+      </Match>
       <Match when={is("profile")}>
         <ProfileSection profile={props.drafts.profile} />
       </Match>

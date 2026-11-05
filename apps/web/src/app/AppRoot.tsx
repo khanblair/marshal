@@ -1,5 +1,6 @@
 import { Match, Show, Switch } from "solid-js";
 import { Tour } from "~/features/tutorial/Tour";
+import { UpdateNotice } from "~/features/updates/UpdateNotice";
 import { M } from "~/mock";
 import { Onboarding } from "~/onboarding/Onboarding";
 import { AppSkeleton } from "./AppSkeleton";
@@ -43,6 +44,7 @@ function AppFrame() {
           <OfflineNotice />
         </Show>
         <TopBar />
+        <UpdateNotice />
         <ViewHeader />
         <FilterBar />
         <Workspace />

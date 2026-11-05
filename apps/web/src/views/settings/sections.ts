@@ -13,7 +13,8 @@ export type SectionKey =
   | "remote"
   | "alerts"
   | "shortcuts"
-  | "help";
+  | "help"
+  | "updates";
 
 export interface SectionSpec {
   key: SectionKey;
@@ -35,5 +36,6 @@ export const SECTIONS: readonly SectionSpec[] = [
   { key: "remote", label: "Remote control", icon: "smartphone" },
   { key: "alerts", label: "Alerts", icon: "bell" },
   { key: "shortcuts", label: "Keyboard shortcuts", icon: "keyboard" },
+  { key: "updates", label: "Updates", icon: "download" },
   { key: "help", label: "Help", icon: "life-buoy" },
 ];

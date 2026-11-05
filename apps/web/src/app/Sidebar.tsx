@@ -1,5 +1,7 @@
 import { cx, Icon, IconButton, NavItem, NeedsBadge, Scrim } from "@marshal/ui";
 import { Show } from "solid-js";
+import { openUpdates } from "~/features/updates/UpdateNotice";
+import { updates } from "~/features/updates/updates";
 import { M } from "~/mock";
 import marshalMark from "../../../mobile/splash/marshal-mark.png";
 import { ProjectList } from "./ProjectList";
@@ -75,9 +77,29 @@ export function Sidebar() {
         <ProjectList />
         <div class="p-2 border-t border-border">
           <NavItem
+            icon="download"
+            label="Updates"
+            aria-label={
+              updates.state.status === "installed"
+                ? "Updates ready to restart"
+                : updates.state.status === "available"
+                  ? "Updates available"
+                  : "Updates"
+            }
+            current={M.S.route.page === "settings" && M.S.settingsSection === "updates"}
+            collapsed={!sidebarOpen()}
+            class="w-full"
+            onClick={openUpdates}
+            trailing={
+              <Show when={["available", "installed"].includes(updates.state.status)}>
+                <span class="size-2 shrink-0 rounded-full bg-ink" aria-hidden="true" />
+              </Show>
+            }
+          />
+          <NavItem
             icon="settings"
             label="Settings"
-            current={M.S.route.page === "settings"}
+            current={M.S.route.page === "settings" && M.S.settingsSection !== "updates"}
             collapsed={!sidebarOpen()}
             class="w-full"
             onClick={goSettings}
