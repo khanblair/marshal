@@ -3,4 +3,4 @@ package buildinfo
 
 // Version is the one version number that the daemon, the command line tool, and the app share.
 // Release builds set this with Go’s -X linker flag.
-var Version = "0.0.0"
+var Version = "0.0.0" //nolint:gochecknoglobals // Go's -X release linker flag requires a string variable.
