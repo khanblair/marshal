@@ -13,9 +13,9 @@ We use **pnpm** as the package manager and as the one place where every command 
 | Go | 1.27.1 (the `go` line in `daemon/go.mod`) | Daemon and command line tool |
 | Node.js | Pinned in `package.json` `engines` (24 or newer) | UI build tools |
 | pnpm | Pinned in `package.json` `packageManager` (11.4.0), enabled with Corepack | Package manager and script runner |
-| Git | 2.38 or newer | Worktrees, sparse checkout, merge-tree |
+| Git | 2.38 or newer | Project detection, snapshots, and diffs |
 
-Rust and the Tauri system packages are not needed yet: the desktop shell is deferred until after Phase 2, and `apps/desktop/` does not exist. To do desktop work later, follow the Tauri prerequisites for your OS and pin Rust in `apps/desktop/src-tauri/rust-toolchain.toml` when that folder is created.
+For desktop development and builds, install Rust and the Tauri system prerequisites for your OS. Web and daemon development can run without those desktop tools.
 
 Go tools are installed by one script, so everyone uses the same versions:
 
@@ -53,7 +53,7 @@ The repo is a pnpm workspace. `pnpm-workspace.yaml` lists these packages:
 | `hooks-replay` | `tools/hooks-replay/` | Replays a recorded webhook through the daemon |
 | `budgets` | `tools/budgets/` | Measures the built daemon's idle RAM and CPU |
 
-`apps/*` and `tools/*` are globs, so a new folder under either is a workspace member with no other change. `apps/desktop/` (the Tauri shell) is planned and does not exist yet.
+`apps/*` and `tools/*` are workspace globs. The Tauri desktop shell is in `apps/desktop/`.
 
 ---
 

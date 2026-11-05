@@ -47,7 +47,7 @@ marshal/
     workflows/                        ci.yml and e2e-macos.yml (which runs after ci passes on main, never on a pull request): the gates in development.md section 4. release.yml: build, sign, and publish installers and daemon packages. nightly-agent-smoke.yml: the real agent CLIs through one small card each; off until a repository variable turns it on, and needs a self-hosted Mac with the CLIs signed in (planned: pin the CLI versions)
   design/                             The original design prototype (.dc.html, store.js). Read-only reference
   .tools/, dist/                      Local Go tool binaries, and build output (both ignored by Git)
-  README.md, LICENSE                  (planned)
+  README.md                           Project overview, installation, first task, and local development
 ```
 
 ---
