@@ -7,6 +7,8 @@ import { isPhone } from "./shell-layout";
 const MENU_NAME = "avatar";
 const POPOVER = "absolute right-0 top-[42px] w-[240px] z-[200]";
 
+export const isAvatarMenuOpen = (): boolean => M.S.menu === MENU_NAME;
+
 interface AvatarItem {
   icon: string;
   label: string;
@@ -31,15 +33,14 @@ const initials = (): string =>
 
 /** The header's profile button and its menu: a popover, or a bottom sheet on phones. */
 export function AvatarMenu() {
-  const open = () => M.S.menu === MENU_NAME;
   return (
     <div class="relative flex-none">
       <button
         type="button"
         data-tour="avatar"
-        onClick={() => M.set({ menu: open() ? null : MENU_NAME, noticesOpen: false })}
+        onClick={() => M.set({ menu: isAvatarMenuOpen() ? null : MENU_NAME, noticesOpen: false })}
         aria-label="Profile and settings"
-        aria-expanded={open()}
+        aria-expanded={isAvatarMenuOpen()}
         class="size-9 phone:size-(--control-h) inline-flex items-center justify-center border-none rounded-full bg-transparent p-0 hover:bg-surface-hover"
       >
         <Avatar
@@ -50,7 +51,7 @@ export function AvatarMenu() {
           class="text-caption!"
         />
       </button>
-      <Show when={open()}>
+      <Show when={isAvatarMenuOpen()}>
         <Scrim tone="clear" fixed class="z-[190]" onClick={closeMenu} />
         <Menu sheet={isPhone()} scrim={false} class={isPhone() ? undefined : POPOVER}>
           <div class="flex flex-col pt-2 px-2.5 pb-2.5 border-b border-border mb-1">

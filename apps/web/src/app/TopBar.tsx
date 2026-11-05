@@ -1,7 +1,7 @@
 import { Badge, CountBubble, cx, Icon, IconButton, Kbd, NeedsBadge } from "@marshal/ui";
 import { createMemo, Show } from "solid-js";
 import { M } from "~/mock";
-import { AvatarMenu } from "./AvatarMenu";
+import { AvatarMenu, isAvatarMenuOpen } from "./AvatarMenu";
 import { buildNotices } from "./notices/notice-list";
 import { openPalette } from "./shell-actions";
 import {
@@ -129,7 +129,8 @@ export function TopBar() {
   return (
     <header
       class={cx(
-        "h-[calc(48px+var(--safe-top))] flex-none flex items-center gap-2 pt-[var(--safe-top)] border-b border-border bg-surface relative z-bar",
+        "h-[calc(48px+var(--safe-top))] flex-none flex items-center gap-2 pt-[var(--safe-top)] border-b border-border bg-surface relative",
+        isAvatarMenuOpen() ? "z-scrim" : "z-bar",
         isPhone() ? "px-2" : "px-4",
       )}
     >

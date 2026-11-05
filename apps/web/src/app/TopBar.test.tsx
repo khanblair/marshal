@@ -82,6 +82,21 @@ describe("TopBar (desktop)", () => {
     expect(avatar).toHaveAttribute("data-tour", "avatar");
     expect(avatar).toHaveTextContent("AO");
   });
+
+  it("raises the header above the board filter bar while the profile menu is open", () => {
+    M.go("project", "api", "board");
+    render(() => <TopBar />);
+    const header = screen.getByRole("banner");
+    const avatar = screen.getByRole("button", { name: "Profile and settings" });
+
+    expect(header).toHaveClass("z-bar");
+    fireEvent.click(avatar);
+    expect(header).toHaveClass("z-scrim");
+    expect(header).not.toHaveClass("z-bar");
+    fireEvent.click(avatar);
+    expect(header).toHaveClass("z-bar");
+    expect(header).not.toHaveClass("z-scrim");
+  });
 });
 
 describe("TopBar (tablet)", () => {
