@@ -204,6 +204,7 @@ func (s *session) runTool(ctx context.Context, cfg harness.Config, call toolUse)
 
 	s.emit(agents.ToolCall{
 		ID: call.ID, Title: title, Kind: t.kind, Status: agents.StatusInProgress, Path: shown, Command: command,
+		EditFingerprint: agents.ToolInputFingerprint(call.Input),
 	})
 
 	switch outcome.Decision {

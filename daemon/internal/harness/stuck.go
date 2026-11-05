@@ -34,6 +34,9 @@ type Signal struct {
 	Kind  SignalKind
 	Key   string
 	Where string
+	// Fingerprint identifies the edit's arguments or diff without retaining file content.
+	// Different fingerprints on one file can be progress; repeated patterns are loops.
+	Fingerprint string
 	// Label is the human word for what repeated, used in the sentence ("type error"). Empty means
 	// the detector's own word for the kind.
 	Label string
@@ -73,13 +76,52 @@ func (d *StuckDetector) Observe(s Signal) (Reason, bool) {
 	}
 	if len(d.run) > 0 && sameSignal(d.run[len(d.run)-1], s) {
 		d.run = append(d.run, s)
+		window := max(d.threshold, 3)
+		if len(d.run) > window {
+			copy(d.run, d.run[len(d.run)-window:])
+			d.run = d.run[:window]
+		}
 	} else {
 		d.run = []Signal{s}
 	}
 	if len(d.run) < d.threshold {
 		return Reason{}, false
 	}
+	if s.Kind == SignalEdit && !repeatedEdits(d.run, d.threshold) {
+		return Reason{}, false
+	}
 	return d.reason(d.run), true
+}
+
+// Distinct edit inputs are progress. Catch both a repeated input and a two-edit
+// cycle (A, B, A), while retaining the conservative rule for unknown edit data.
+func repeatedEdits(run []Signal, threshold int) bool {
+	recent := run[len(run)-threshold:]
+	for _, signal := range recent {
+		if signal.Fingerprint == "" {
+			return true
+		}
+	}
+	for _, period := range []int{1, 2} {
+		window := recent
+		if period == 2 {
+			window = run
+		}
+		if len(window) <= period {
+			continue
+		}
+		repeated := true
+		for i := period; i < len(window); i++ {
+			if window[i].Fingerprint == "" || window[i].Fingerprint != window[i%period].Fingerprint {
+				repeated = false
+				break
+			}
+		}
+		if repeated {
+			return true
+		}
+	}
+	return false
 }
 
 // sameSignal says whether two signals are the same thing repeating: the same kind, and the same key.
@@ -94,6 +136,9 @@ func (d *StuckDetector) reason(run []Signal) Reason {
 	if at.Kind == SignalEdit {
 		text = fmt.Sprintf("The stuck detector paused this card. The same file was edited %d times in a row: %s.",
 			len(run), at.Where)
+		if at.Fingerprint != "" {
+			text = fmt.Sprintf("The stuck detector paused this card. Edits repeated or went back and forth in %s (%d edits).", at.Where, len(run))
+		}
 	} else {
 		label := strings.TrimSpace(at.Label)
 		if label == "" {

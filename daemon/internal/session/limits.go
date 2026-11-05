@@ -154,8 +154,8 @@ func (m *Manager) stopCard(ls *liveSession, reason harness.Reason, action string
 // it. Only a card has a detector: a chat has no ceilings and no loop to catch.
 //
 // Two signals are watched. A failed tool call is a signal whose key is the failure's own text, so
-// the same error repeated is the same key. An edit is a signal whose key is the file, so the same
-// file rewritten again and again is caught even when every edit succeeds. Anything else is not a
+// the same error repeated is the same key. Completed edits carry a fingerprint of their
+// input or diff, so useful changes to one file are distinguished from loops. Anything else is not a
 // loop and is ignored, which leaves the detector's current run alone.
 //
 // The reason is kept, not acted on here: the agent holds the turn, and the card is moved when the
@@ -178,15 +178,33 @@ func stuckSignal(ls *liveSession, ev agents.AgentEvent) (harness.Signal, bool) {
 	switch e := ev.(type) {
 	case agents.ToolCall:
 		ls.rememberToolPath(e.ID, e.Path)
-		if e.Kind == toolKindEdit && strings.TrimSpace(e.Path) != "" {
-			return harness.Signal{Kind: harness.SignalEdit, Key: e.Path, Where: e.Path}, true
-		}
 		if e.Status == agents.StatusFailed {
 			return failedSignal(e.ID, e.Title, e.Content, ls), true
+		}
+		if e.Kind == toolKindEdit || len(e.Diffs) > 0 {
+			signal := editSignalOf(e.Path, e.EditFingerprint, e.Diffs, e.Truncated)
+			if e.Status == agents.StatusCompleted {
+				return signal, signal.Key != ""
+			}
+			ls.rememberEdit(e.ID, signal)
 		}
 	case agents.ToolCallUpdate:
+		pending, known := ls.takeEdit(e.ID)
 		if e.Status == agents.StatusFailed {
 			return failedSignal(e.ID, e.Title, e.Content, ls), true
+		}
+		if known && e.Status == agents.StatusCompleted {
+			if len(e.Diffs) > 0 {
+				fingerprint := pending.Fingerprint
+				if !e.Truncated {
+					fingerprint = ""
+				}
+				pending = editSignalOf(pending.Where, fingerprint, e.Diffs, e.Truncated)
+			}
+			return pending, pending.Key != ""
+		}
+		if known {
+			ls.rememberEdit(e.ID, pending)
 		}
 	}
 	return harness.Signal{}, false
@@ -243,6 +261,7 @@ func (ls *liveSession) turnMinutes(now time.Time) int {
 func (ls *liveSession) startTurnClock(now time.Time) {
 	ls.turnMu.Lock()
 	ls.turnStartedAt = now
+	ls.toolEdits = nil
 	ls.turnMu.Unlock()
 }
 

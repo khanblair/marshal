@@ -82,6 +82,8 @@ type ToolCall struct {
 	// Content is the text the tool has produced so far, cut to MaxContentBytes.
 	Content string
 	Diffs   []FileDiff
+	// EditFingerprint is a content-free identity for the edit input, when known.
+	EditFingerprint string
 	// Truncated says that Content or Diffs were cut short.
 	Truncated bool
 }

@@ -107,6 +107,7 @@ type liveSession struct {
 	// are guarded by turnMu.
 	turnStartedAt time.Time
 	toolPaths     map[string]string
+	toolEdits     map[string]harness.Signal
 }
 
 // claimTurn tries to mark the session busy for a new turn. It returns true when the caller may

@@ -13,9 +13,13 @@ import (
 func toolCallEvent(b contentBlock) agents.ToolCall {
 	path := pathFromInput(b.Input)
 	command := commandFromInput(b.Input)
+	fingerprint := ""
+	if kindFor(b.Name) == "edit" {
+		fingerprint = agents.ToolInputFingerprint(b.Input)
+	}
 	return agents.ToolCall{
 		ID: b.ID, Title: toolTitle(b.Name, path, command), Kind: kindFor(b.Name),
-		Status: agents.StatusPending, Path: path, Command: command,
+		Status: agents.StatusPending, Path: path, Command: command, EditFingerprint: fingerprint,
 	}
 }
 
