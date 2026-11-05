@@ -177,6 +177,15 @@ func TestListReportsEachAgent(t *testing.T) {
 			displayName: "Gemini CLI",
 		},
 		{
+			name:        "the verified Codex version is supported",
+			answers:     map[protocol.AgentKind]fakeAnswer{protocol.AgentKindCodex: {path: "/bin/codex", version: "codex-cli 0.166.0-alpha.6"}},
+			kind:        protocol.AgentKindCodex,
+			status:      protocol.AgentStatusSupported,
+			version:     "0.166.0-alpha.6",
+			startable:   true,
+			displayName: "Codex",
+		},
+		{
 			name:        "an older Codex is untested but can be started",
 			answers:     map[protocol.AgentKind]fakeAnswer{protocol.AgentKindCodex: {path: "/bin/codex", version: "codex-cli 0.42.0"}},
 			kind:        protocol.AgentKindCodex,

@@ -315,6 +315,14 @@ Newest entries first.
 
 ### 2026-11-05
 
+- **Agent compatibility and details:** Codex 0.166.0-alpha.6 passed the real card lifecycle check through Marshal, including MCP, approval and denial, file effects, and stop/resume. Marked the version as verified and moved CLI versions into expanded agent details in Settings and onboarding.
+
+- **Codex Settings test:** replaced the Claude streaming-help check with a real Codex app-server startup greeting. The Settings check and card adapter use the same command and greeting parameters.
+
+- **Local project folders:** New project accepts a standalone folder and prepares local Git for card diffs. It leaves existing files unstaged and requires no GitHub connection. Existing Git repositories keep their history.
+
+- **Profile dropdown:** raise the header while the menu is open so the board filter bar cannot cover its items. Restore the normal header layer when the menu closes.
+
 - **Updates icon:** registered the shared Lucide download icon so the sidebar, Settings navigation, Updates panel, and update notice draw the glyph. Added a regression test for the previously empty SVG.
 
 - **Repository README:** added the root project overview, macOS install steps, first-task guide, development quick start, and links to the full docs. Updated the development guide to reflect the existing Tauri shell.
@@ -444,6 +452,8 @@ Every change to a doc. Newest first.
 
 | Date | Doc | Change |
 |---|---|---|
+| 2026-11-05 | `agent-sessions.md`, `ui-rules.md` | Documented the Codex startup check, the verified CLI version, and where to find version numbers. |
+| 2026-11-05 | `README.md`, `direct-workspace.md`, `marshal-product-scope.md` | Documented adding a local folder and how Marshal sets up local Git for card diffs. |
 | 2026-11-05 | `README.md`, `development.md`, `project-structure.md`, `progress-tracker.md` | Added the root README and corrected desktop development prerequisites. |
 | 2026-11-05 | `app-updates.md`, `project-structure.md`, `progress-tracker.md` | Documented fresh installation from Terminal and its verification. |
 | 2026-11-05 | `app-updates.md`, `README.md`, `project-structure.md`, `development.md`, `progress-tracker.md` | Documented the update flow, signed release setup, browser/mobile limits, and acceptance checks. |

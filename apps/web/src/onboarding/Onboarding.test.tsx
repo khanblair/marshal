@@ -249,14 +249,16 @@ describe("Onboarding profile screen", () => {
 describe("Onboarding agents screen", () => {
   beforeEach(() => goTo(2));
 
-  it("lists the three agents found, with versions", () => {
+  it("lists the three agents found and puts versions in their details", () => {
     render(() => <Onboarding />);
     const rows = screen.getAllByRole("listitem");
     expect(rows.map((row) => row.textContent)).toEqual([
-      "Claude Code2.0.14FoundTest",
-      "Codex0.42.0FoundTest",
-      "Gemini CLI0.8.1FoundTest",
+      "Claude CodeFoundTest",
+      "CodexFoundTest",
+      "Gemini CLIFoundTest",
     ]);
+    click("Show details of Codex");
+    expect(screen.getByText("0.42.0")).toBeVisible();
   });
 
   it("shows what the daemon found: installed, installed but untested, and not installed", () => {
@@ -265,11 +267,11 @@ describe("Onboarding agents screen", () => {
     const rows = screen.getAllByRole("listitem").map((row) => row.textContent);
     // The details of a row (a warning, an install command) are folded away until the chevron opens them.
     expect(rows).toEqual([
-      "Claude Code2.1.282FoundTest",
-      "Gemini CLI0.36.0FoundTest",
+      "Claude CodeFoundTest",
+      "Gemini CLIFoundTest",
       "CodexNot installedTest",
       // The golden catalog also lists a tool the scan found, which is drawn after the agents.
-      "Qwen Code0.15.6FoundTest",
+      "Qwen CodeFoundTest",
     ]);
     expect(screen.getByText("Not installed")).toBeVisible();
     expect(screen.queryByText(/npm install -g @openai\/codex/)).toBeNull();

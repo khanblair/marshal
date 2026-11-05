@@ -74,7 +74,7 @@ function TestResultView(props: { tester: Tester }): JSX.Element {
 }
 
 /**
- * One row: the name, the version, a status, Test, and a chevron that shows or hides the details
+ * One row: the name, a status, Test, and a chevron that shows or hides the details
  * under it. Rows start closed so the list reads clean, and a row opens itself when its test starts,
  * so the answer is never hidden from the person who asked for it.
  */
@@ -95,16 +95,13 @@ export function AgentListRow(props: {
   });
   const shown = () => chosen() ?? (props.tester.running() || props.tester.result() !== null);
   const hasDetails = () =>
-    !!props.details || props.tester.result() !== null || props.tester.running();
+    !!props.version || !!props.details || props.tester.result() !== null || props.tester.running();
   return (
     <li
       class={`flex flex-wrap items-center gap-x-2.5 gap-y-1 py-2.5 border-b border-border ${props.class ?? ""}`}
     >
       <Icon name="terminal-square" size={16} />
       <span class="flex-1 font-semibold">{props.name}</span>
-      <Show when={props.version}>
-        <code class="font-mono text-caption text-secondary">{props.version}</code>
-      </Show>
       {props.status}
       <TestButton tester={props.tester} label={props.name} />
       <button
@@ -118,6 +115,13 @@ export function AgentListRow(props: {
         <Icon name={shown() ? "chevron-down" : "chevron-right"} size={16} />
       </button>
       <Show when={shown()}>
+        <Show when={props.tester.result() === null && props.version}>
+          {(version) => (
+            <span class="basis-full text-small text-secondary">
+              Version <code class="font-mono text-caption">{version()}</code>
+            </span>
+          )}
+        </Show>
         {props.details}
         <TestResultView tester={props.tester} />
       </Show>

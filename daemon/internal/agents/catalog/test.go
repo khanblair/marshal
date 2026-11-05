@@ -64,7 +64,7 @@ func targetOf(id string) (target, bool) {
 		switch {
 		case len(t.acpArgs) > 0:
 			t.iface = protocol.AgentToolInterfaceACP
-		case kind != protocol.AgentKindBuiltin:
+		case kind != protocol.AgentKindBuiltin && kind != protocol.AgentKindCodex:
 			t.iface = protocol.AgentToolInterfacePrint
 		}
 		return t, true
@@ -118,7 +118,7 @@ func (c *Catalog) checksFor(ctx context.Context, t target) []protocol.TestCheck 
 			Message: "It did not answer \"" + t.program + " --version\".",
 			Fix:     "Run \"" + t.program + " --version\" in a terminal to see what is wrong."})
 	}
-	checks = append(checks, protocol.TestCheck{Name: "Version", State: protocol.CheckStatePassed, Message: "Version " + found.Version.String() + "."})
+	checks = append(checks, protocol.TestCheck{Name: "Version", State: protocol.CheckStatePassed, Message: found.Version.String() + "."})
 	if t.kind != "" {
 		checks = append(checks, testedCheck(t, found.Version))
 	}
@@ -151,10 +151,11 @@ func testedCheck(t target, version Semver) protocol.TestCheck {
 	return protocol.TestCheck{Name: "Tested version", State: protocol.CheckStateWarning, Message: warning}
 }
 
-// interfaceCheck checks how the program takes its work: an ACP server is started and greeted, and
-// a print-mode or RPC program is asked for its help and checked for the mode Marshal would use.
+// interfaceCheck greets server-based agents and checks help for the other program modes.
 func (c *Catalog) interfaceCheck(ctx context.Context, t target, path string) protocol.TestCheck {
 	switch {
+	case t.kind == protocol.AgentKindCodex:
+		return codexCheck(ctx, path)
 	case len(t.acpArgs) > 0:
 		started := time.Now()
 		hello, cancel := context.WithTimeout(ctx, helloTimeout)
@@ -178,6 +179,29 @@ func (c *Catalog) interfaceCheck(ctx context.Context, t target, path string) pro
 		return helpCheck(ctx, t, path, "stream-json", "Streaming JSON mode")
 	}
 	return protocol.TestCheck{Name: "Mode", State: protocol.CheckStateWarning, Message: "Marshal has no mode to check for it."}
+}
+
+// CodexAppServerArgs starts the stdio server used by both Settings and card sessions.
+func CodexAppServerArgs() []string {
+	return []string{"app-server", "--listen", "stdio://"}
+}
+
+// CodexInitializeParams identifies Marshal in the app-server greeting.
+func CodexInitializeParams() map[string]any {
+	return map[string]any{"clientInfo": map[string]string{"name": "marshal", "title": "Marshal", "version": "0.0.0"}}
+}
+
+func codexCheck(ctx context.Context, path string) protocol.TestCheck {
+	ctx, cancel := context.WithTimeout(ctx, helloTimeout)
+	defer cancel()
+	const name = "Codex app-server"
+	if _, err := serverHello(ctx, path, CodexAppServerArgs(), CodexInitializeParams()); err != nil {
+		return protocol.TestCheck{Name: name, State: protocol.CheckStateFailed,
+			Message: "Codex did not complete the app-server greeting.",
+			Fix:     "Run \"codex app-server --listen stdio://\" in a terminal to check startup, then test again."}
+	}
+	return protocol.TestCheck{Name: name, State: protocol.CheckStatePassed,
+		Message: "Codex started in stdio mode and answered Marshal’s greeting."}
 }
 
 // probeFor looks for the program the test is about: the path the person chose when there is one, so
@@ -236,9 +260,33 @@ func readHelp(ctx context.Context, path string) (string, error) {
 // It sends nothing else, so no model is called. It answers a sentence naming the agent and the
 // protocol version it speaks.
 func acpHello(ctx context.Context, path string, args []string) (string, error) {
+	params := map[string]any{"protocolVersion": acpProtocol, "clientCapabilities": map[string]any{}}
+	raw, err := serverHello(ctx, path, args, params)
+	if err != nil {
+		return "", err
+	}
+	var result struct {
+		ProtocolVersion int `json:"protocolVersion"`
+		AgentInfo       *struct {
+			Name    string `json:"name"`
+			Version string `json:"version"`
+		} `json:"agentInfo"`
+	}
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return "", fmt.Errorf("read the greeting: %w", err)
+	}
+	if info := result.AgentInfo; info != nil && info.Name != "" {
+		text := fmt.Sprintf("%s %s answered the greeting and speaks protocol version %d.", info.Name, info.Version, result.ProtocolVersion)
+		return strings.Join(strings.Fields(text), " "), nil
+	}
+	return fmt.Sprintf("It answered the greeting and speaks protocol version %d.", result.ProtocolVersion), nil
+}
+
+// serverHello sends only initialize, so the Settings check does not start a task or a model turn.
+func serverHello(ctx context.Context, path string, args []string, params map[string]any) (json.RawMessage, error) {
 	child, err := proc.Start(ctx, proc.Spec{Path: path, Args: args, Env: ProgramEnv(path), Stdin: true})
 	if err != nil {
-		return "", fmt.Errorf("it would not start (%w)", err)
+		return nil, fmt.Errorf("it would not start (%w)", err)
 	}
 	defer func() {
 		stopCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), versionStopTimeout)
@@ -249,14 +297,14 @@ func acpHello(ctx context.Context, path string, args []string) (string, error) {
 	}()
 	request, _ := json.Marshal(map[string]any{
 		"jsonrpc": "2.0", "id": 1, "method": "initialize",
-		"params": map[string]any{"protocolVersion": acpProtocol, "clientCapabilities": map[string]any{}},
+		"params": params,
 	})
 	if _, err := child.Stdin.Write(append(request, '\n')); err != nil {
-		return "", fmt.Errorf("it closed before it could be greeted (%w)", err)
+		return nil, fmt.Errorf("it closed before it could be greeted (%w)", err)
 	}
 	type answer struct {
-		text string
-		err  error
+		result json.RawMessage
+		err    error
 	}
 	got := make(chan answer, 1)
 	go func() {
@@ -264,16 +312,9 @@ func acpHello(ctx context.Context, path string, args []string) (string, error) {
 		scanner.Buffer(make([]byte, 0, 64<<10), helloBytes)
 		for scanner.Scan() {
 			var reply struct {
-				ID     json.RawMessage `json:"id"`
-				Result *struct {
-					ProtocolVersion int `json:"protocolVersion"`
-					AgentInfo       *struct {
-						Name    string `json:"name"`
-						Title   string `json:"title"`
-						Version string `json:"version"`
-					} `json:"agentInfo"`
-				} `json:"result"`
-				Error *struct {
+				ID     json.RawMessage  `json:"id"`
+				Result *json.RawMessage `json:"result"`
+				Error  *struct {
 					Message string `json:"message"`
 				} `json:"error"`
 			}
@@ -289,19 +330,15 @@ func acpHello(ctx context.Context, path string, args []string) (string, error) {
 				got <- answer{err: errors.New("the answer holds no result")}
 				return
 			}
-			text := fmt.Sprintf("It answered the greeting and speaks protocol version %d.", reply.Result.ProtocolVersion)
-			if info := reply.Result.AgentInfo; info != nil && info.Name != "" {
-				text = fmt.Sprintf("%s %s answered the greeting and speaks protocol version %d.", info.Name, info.Version, reply.Result.ProtocolVersion)
-			}
-			got <- answer{text: strings.Join(strings.Fields(text), " ")}
+			got <- answer{result: *reply.Result}
 			return
 		}
 		got <- answer{err: errors.New("it closed without answering")}
 	}()
 	select {
 	case a := <-got:
-		return a.text, a.err
+		return a.result, a.err
 	case <-ctx.Done():
-		return "", errors.New("it did not answer in time")
+		return nil, errors.New("it did not answer in time")
 	}
 }

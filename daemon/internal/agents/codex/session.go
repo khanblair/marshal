@@ -69,7 +69,7 @@ func newSession(ctx context.Context, a *Adapter, spec agents.StartSpec, threadSe
 	life, cancelLife := context.WithCancel(context.Background())
 	env := append(catalog.ProgramEnv(a.cfg.Path), a.cfg.Env...)
 	env = append(env, spec.Env...)
-	p, err := proc.Start(life, proc.Spec{Path: a.cfg.Path, Args: []string{"app-server", "--listen", "stdio://"}, Dir: spec.Cwd, Env: env, Stdin: true})
+	p, err := proc.Start(life, proc.Spec{Path: a.cfg.Path, Args: catalog.CodexAppServerArgs(), Dir: spec.Cwd, Env: env, Stdin: true})
 	if err != nil {
 		cancelLife()
 		return nil, err
@@ -83,8 +83,7 @@ func newSession(ctx context.Context, a *Adapter, spec agents.StartSpec, threadSe
 	go s.readLoop()
 	startCtx, cancelStart := context.WithTimeout(ctx, a.cfg.RequestTimeout)
 	defer cancelStart()
-	params := map[string]any{"clientInfo": map[string]string{"name": "marshal", "title": "Marshal", "version": "0.0.0"}}
-	if _, err = s.request(startCtx, "initialize", params); err != nil {
+	if _, err = s.request(startCtx, "initialize", catalog.CodexInitializeParams()); err != nil {
 		_ = p.Stop(context.Background(), a.cfg.StopGrace)
 		cancelLife()
 		return nil, err

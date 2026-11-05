@@ -73,6 +73,38 @@ func TestAMissingAgentFailsItsTestWithHowToInstallIt(t *testing.T) {
 	}
 }
 
+func TestCodexSettingsChecksTheAppServerGreeting(t *testing.T) {
+	for _, tc := range []struct {
+		name, reply string
+		ok          bool
+	}{
+		{"greeting", `{"id":1,"result":{"userAgent":"codex"}}`, true},
+		{"error", `{"id":1,"error":{"code":-32601,"message":"unknown method"}}`, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			path := writeScript(t, `
+[ "$*" = "app-server --listen stdio://" ] || exit 1
+IFS= read -r line
+case "$line" in
+  *'"method":"initialize"'*'"clientInfo"'*'"marshal"'*) ;;
+  *) exit 1 ;;
+esac
+printf '%s\n' '`+tc.reply+`'
+`)
+			c := New(Options{Probe: programProbe{found: map[string]Found{
+				"codex": {Path: path, Version: ver(0, 166, 0)},
+			}}})
+			result, err := c.Test(t.Context(), "codex")
+			if err != nil || result.OK != tc.ok {
+				t.Fatalf("test = %+v, %v, want OK = %t", result, err, tc.ok)
+			}
+			if last := result.Checks[len(result.Checks)-1]; last.Name != "Codex app-server" {
+				t.Fatalf("wrong startup check: %+v", last)
+			}
+		})
+	}
+}
+
 // writeScript makes a small executable that stands in for an agent program.
 func writeScript(t *testing.T, body string) string {
 	t.Helper()

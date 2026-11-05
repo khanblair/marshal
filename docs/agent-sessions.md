@@ -16,6 +16,8 @@ Missing, unreadable, ambiguous, or oversized saved history refuses resume instea
 
 ## Codex
 
+The **Test** button in Settings starts the same app-server command and checks that it answers Marshal’s startup greeting. It does not create a thread or send a model prompt. Expand an agent row to see the version. The tested-version badge reflects the versions verified through the full card lifecycle.
+
 The adapter runs `codex app-server --listen stdio://` and performs `initialize`, `initialized`, and `thread/start`. Messages use `turn/start`; interrupt uses `turn/interrupt`; stop ends the owned process. Resume starts another app-server and calls `thread/resume` with the saved thread ID. A missing or different returned ID is refused rather than starting an empty conversation.
 
 | Marshal mode | Codex approval policy | Codex sandbox |
@@ -50,6 +52,8 @@ node scripts/agent-lifecycle-smoke.mjs --real --agents claude,codex --model-code
 It calls Marshal's `board_status` MCP tool, proves a file does not exist before approval, approves its creation, denies a second write and checks that it did not run, checks durable approval history, then stops/resumes and asks for a marker retained only in the conversation. It cleans up its daemon and temporary data. Browser checks and automatic CI model calls are excluded.
 
 On 2026-11-03 this flow passed with Claude Code **2.1.299** and Codex CLI **0.166.0-alpha.5.1**. Automated tests additionally exercise the actual Claude adapter through HTTP with a protocol fixture, cancellation and duplicate replies, Codex JSON-RPC subprocess fixtures, failed/interrupted turns, startup cancellation, grouped edits, and path aliases.
+
+On 2026-11-05 the same real lifecycle check passed with Codex CLI **0.166.0-alpha.6**.
 
 Protocol references: [Claude SDK permission transport](https://github.com/anthropics/claude-agent-sdk-python/blob/main/src/claude_agent_sdk/_internal/transport/subprocess_cli.py), [Claude control responses](https://github.com/anthropics/claude-agent-sdk-python/blob/main/src/claude_agent_sdk/_internal/query.py), [Codex app-server](https://developers.openai.com/codex/app-server), and [Codex MCP configuration](https://developers.openai.com/codex/config-reference).
 

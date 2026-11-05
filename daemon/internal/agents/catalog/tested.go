@@ -19,7 +19,7 @@ func testedVersions(kind protocol.AgentKind) []string {
 	case protocol.AgentKindGemini:
 		return []string{"0.35.1"}
 	case protocol.AgentKindCodex:
-		return []string{"0.166.0-alpha.5.1"}
+		return []string{"0.166.0-alpha.5.1", "0.166.0-alpha.6"}
 	}
 	return nil
 }

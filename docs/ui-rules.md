@@ -452,7 +452,7 @@ Shown on first launch. Four screens, with a step indicator ("Step 2 of 4"), Back
 | Step | Title | Content |
 |---|---|---|
 | 1 | Welcome to Marshal | One sentence on what Marshal does, and a simple picture of a board with cards moving through the flag colors |
-| 2 | Connect your agents | Detected CLI agents with their versions, and fields to add API keys for providers |
+| 2 | Connect your agents | Detected CLI agents with versions in their expanded details, and fields to add API keys for providers |
 | 3 | Add your first project | A repository folder picker or a GitHub clone, and a sample project option |
 | 4 | Stay in control from anywhere | Phone pairing over Tailscale, and Telegram or Discord for notices |
 
