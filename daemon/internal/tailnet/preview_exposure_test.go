@@ -2,6 +2,7 @@ package tailnet
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net"
 	"strings"
@@ -104,11 +105,17 @@ func TestPreviewExposureFailsClosedWhenFunnelCannotBeInspected(t *testing.T) {
 }
 
 func TestFunnelStatusChecksForegroundAllowFunnelEntries(t *testing.T) {
-	privateForeground := []byte(`{"Foreground":{"session":{"TCP":{"29888":{"HTTP":true}},"Web":{"laptop.tail1234.ts.net:29888":{"Handlers":{"/":{"Proxy":"http://127.0.0.1:47801"}}}},"AllowFunnel":{"laptop.tail1234.ts.net:29888":false}}}`)
+	privateForeground := []byte(`{"Foreground":{"session":{"TCP":{"29888":{"HTTP":true}},"Web":{"laptop.tail1234.ts.net:29888":{"Handlers":{"/":{"Proxy":"http://127.0.0.1:47801"}}}},"AllowFunnel":{"laptop.tail1234.ts.net:29888":false}}}}`)
+	if !json.Valid(privateForeground) {
+		t.Fatal("private foreground status fixture is invalid JSON")
+	}
 	if funnelConfigured(privateForeground) {
 		t.Fatal("a private foreground Serve route was treated as Funnel")
 	}
 	publicForeground := []byte(`{"Foreground":{"session":{"TCP":{"29888":{"HTTP":true}},"AllowFunnel":{"laptop.tail1234.ts.net:29888":true}}}}`)
+	if !json.Valid(publicForeground) {
+		t.Fatal("public foreground status fixture is invalid JSON")
+	}
 	if !funnelConfigured(publicForeground) {
 		t.Fatal("an active foreground Funnel route was not detected")
 	}
