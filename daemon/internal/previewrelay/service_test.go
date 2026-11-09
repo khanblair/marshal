@@ -12,10 +12,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/coder/websocket"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/coder/websocket"
 )
 
 func allowPreview(context.Context) bool { return true }
