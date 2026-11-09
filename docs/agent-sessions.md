@@ -2,6 +2,29 @@
 
 Marshal starts both agents through its production session manager, in the original project folder. One main editing session owns a project at a time. See [direct-workspace.md](direct-workspace.md) for coordination and snapshots.
 
+## Coding through Telegram or Discord
+
+Connect the bot in **Settings → Integrations** and keep Marshal running on the computer that holds your projects. Commands are accepted only from the configured chat or channel. Members of that chat share control of Marshal.
+
+Send `new web Fix the login bug` to add a card to the project named `web`. Marshal replies with its key, for example `web#12`. Use that key in the following commands.
+
+| Command | What it does |
+| --- | --- |
+| `agent web#12 codex` | Choose Claude, Codex, Gemini, or the built-in agent before the first start |
+| `start web#12` | Start the task using the card's instructions and permissions |
+| `message web#12 Also check password reset.` | Send instructions to the card's session |
+| `reply web#12` | Read the latest answer, or the current partial answer while it runs |
+| `status web#12` | Read the task state, progress, and any waiting approval |
+| `status` | List up to 20 open cards with their keys |
+| `stop web#12` | Stop the session |
+| `resume web#12` | Continue the saved session |
+| `finish web#12` | Request the project's configured review, checks, and card completion |
+| `approve <approval-id>` / `reject <approval-id>` | Answer a permission request |
+
+Telegram also accepts slash commands, including `/start web#12`. Follow-up instructions keep their spacing and line breaks. Replies are requested with `reply`, split into chat-sized messages, and bounded to an excerpt for long answers. The app retains the full transcript. Voice notes still ask you to type.
+
+These commands use the same services as the app. The project editor reservation, permission requests, resume checks, and completion checks apply to bot commands too. A second card cannot take over a project folder that another session owns.
+
 ## Claude Code
 
 The adapter runs a persistent `claude -p` process with stream JSON input/output. Permission requests use `--permission-prompts=host` and `--permission-prompt-tool=stdio`. A native `can_use_tool` control request becomes Marshal's existing approval block. Approve returns the original tool input unchanged; deny returns a refusal. Request cancellation, turn completion, and process exit resolve waiting blocks so their buttons do not stay active.

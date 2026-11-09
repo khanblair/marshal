@@ -61,6 +61,12 @@ flowchart LR
 3. The daemon issues a device token. The app stores it in the phone's secure storage (Android Keystore, and the iOS Keychain later).
 4. The device appears in the profile's paired devices list, where it can be removed at any time. Removing it revokes the token at once.
 
+#### Project previews on a phone
+
+The phone can request and view screenshots captured by the daemon on the computer. Screenshot images use the paired device's authenticated API connection.
+
+Interactive browsing of the running project is still unfinished. The Preview tab currently draws a placeholder page, and its displayed URL uses the computer's loopback address. Opening that localhost address on a phone points to the phone itself. Interactive preview needs a protected connection from the phone through Marshal to the project's dev server.
+
 ### 2.3 Several machines
 
 - The app can pair with more than one daemon, for example a laptop and a server.

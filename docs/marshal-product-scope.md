@@ -1187,12 +1187,13 @@ You can reply to a brief (in the app or in chat) to create cards or ask question
 
 - The daemon serves the full UI over the tailnet, adapted for phones.
 - Every view and every action is available on phones and tablets, with layouts adapted to each size. See [Section 23.9](#239-responsive-layouts).
+- Project screenshots can be viewed remotely. Interactive browsing of the running project still needs a protected connection through the daemon. See [mobile.md](mobile.md).
 
 ### 20.3 Chat control
 
-- **Quick action buttons** in Telegram and Discord: approve, deny, merge, retry, keep awake.
-- **Voice notes** are transcribed and turned into new cards or messages to existing cards.
-- **Interactive briefs:** reply to create cards.
+- **Built:** Telegram and Discord accept task creation, agent choice, start, message, latest reply, status, stop, resume, finish, and approval decisions. See [agent-sessions.md](agent-sessions.md) for commands and limits.
+- **Approval buttons** answer the same permission requests as the app.
+- **Voice notes** currently ask the person to type. Transcription is planned.
 
 ### 20.4 Remote machines
 

@@ -37,8 +37,8 @@ At the end of every work session, whether by a person or an agent:
 |---|---|
 | **Current phase** | Phase 4: Models (S19b, S26b, and S28 switched; built and in review for the controller) |
 | **Next milestone** | Phase 4's gate: no real model API in CI, and Home's cost numbers match the usage table (then Phase 5) |
-| **Last updated** | 2026-11-05 |
-| **Current focused change** | In-app updates: sidebar and Settings controls, automatic availability prompt, signed native update commands, versioned daemon replacement, and release artifacts. Published v0.1.2 with signing configured. The public feed, archive signature, universal architectures, and bundled CLI versions were verified. An upgrade between installed releases remains an acceptance check. |
+| **Last updated** | 2026-11-09 |
+| **Current focused change** | Telegram and Discord coding controls through the production card/session services. Investigated mobile previews, which support authenticated screenshots but still lack an interactive connection to the localhost dev server. |
 
 ---
 
@@ -313,6 +313,11 @@ _Older entries: [archive/progress-tracker-archive-2026-10.md](archive/progress-t
 
 Newest entries first.
 
+### 2026-11-09
+
+- **Chat coding controls:** added explicit card-key commands for start, message, reply, status, stop, resume, agent choice, and completion. Task creation replies include the new key. Replies preserve stored agent text, use bounded chunks, and disable Discord mentions. Existing configured-chat checks and the project editor reservation apply. Production wiring is exercised with actual local stub-agent processes for both bot types.
+- **Mobile preview check:** verified that phones can request and retrieve authenticated screenshots. The live page in the current tab is a drawn placeholder, and a computer localhost URL cannot be opened directly on the phone. Documented the remaining interactive-preview gap.
+
 ### 2026-11-05
 
 - **Agent compatibility and details:** Codex 0.166.0-alpha.6 passed the real card lifecycle check through Marshal, including MCP, approval and denial, file effects, and stop/resume. Marked the version as verified and moved CLI versions into expanded agent details in Settings and onboarding.
@@ -418,6 +423,7 @@ Every file added, moved, renamed, or deleted in the repo. Newest first. The plan
 
 | Date | File | Change | Task | Notes |
 |---|---|---|---|---|
+| 2026-11-09 | `daemon/internal/chatcmd/control{,_test}.go`, `daemon/cmd/marshald/chat_control{,_test}.go` | Added | Remote coding | Route bot coding commands through the real session, history, and completion services. |
 | 2026-11-05 | `README.md` | Added | Docs | Add a GitHub entry point for users and developers. |
 | 2026-11-05 | `install.sh` | Added | 0.14 | Install the public universal DMG from Terminal and preserve existing app copies. |
 | 2026-11-05 | `apps/desktop/src-tauri/entitlements.plist`, `apps/desktop/scripts/check-bundle.mjs`; desktop config, package scripts, release workflow | Added, Changed | 0.14 | Allow the secret scanner’s generated code under hardened runtime and gate release publication on a signed-archive CLI/server check. |
@@ -452,6 +458,7 @@ Every change to a doc. Newest first.
 
 | Date | Doc | Change |
 |---|---|---|
+| 2026-11-09 | `agent-sessions.md`, `mobile.md`, `marshal-product-scope.md`, `project-structure.md`, `progress-tracker.md` | Documented bot coding commands and the current limits of project previews on phones. |
 | 2026-11-05 | `agent-sessions.md`, `ui-rules.md` | Documented the Codex startup check, the verified CLI version, and where to find version numbers. |
 | 2026-11-05 | `README.md`, `direct-workspace.md`, `marshal-product-scope.md` | Documented adding a local folder and how Marshal sets up local Git for card diffs. |
 | 2026-11-05 | `README.md`, `development.md`, `project-structure.md`, `progress-tracker.md` | Added the root README and corrected desktop development prerequisites. |
