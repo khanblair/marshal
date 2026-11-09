@@ -251,6 +251,30 @@ jobs:
       - name: Build the apk and aab
         run: pnpm --filter mobile exec tauri android build --apk --aab
 
+      - name: Verify and prepare Android downloads
+        if: steps.signing.outputs.signed == 'true'
+        env:
+          RELEASE_VERSION: ${{ steps.tag.outputs.version }}
+        run: |
+          set -euo pipefail
+          apk_dir="apps/mobile/src-tauri/gen/android/app/build/outputs/apk/universal/release"
+          bundle_dir="apps/mobile/src-tauri/gen/android/app/build/outputs/bundle/universalRelease"
+          apksigner=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n 1)
+          test -n "$apksigner"
+          mkdir -p dist/android
+          apk_count=0
+          for apk in "$apk_dir"/*.apk; do
+            test -f "$apk"
+            "$apksigner" verify --verbose "$apk"
+            cp "$apk" "dist/android/Marshal_${RELEASE_VERSION}_universal.apk"
+            apk_count=$((apk_count + 1))
+          done
+          test "$apk_count" -eq 1
+          for bundle in "$bundle_dir"/*.aab; do
+            test -f "$bundle"
+            cp "$bundle" "dist/android/Marshal_${RELEASE_VERSION}_universal.aab"
+          done
+
       - name: Attach to the release
         if: steps.signing.outputs.signed == 'true'
         uses: softprops/action-gh-release@v2
@@ -258,9 +282,10 @@ jobs:
           tag_name: ${{ steps.tag.outputs.name }}
           name: "Marshal ${{ steps.tag.outputs.name }}"
           draft: false
+          fail_on_unmatched_files: true
           files: |
-            apps/mobile/src-tauri/gen/android/app/build/outputs/apk/universal/release/*.apk
-            apps/mobile/src-tauri/gen/android/app/build/outputs/bundle/universalRelease/*.aab
+            dist/android/Marshal_*_universal.apk
+            dist/android/Marshal_*_universal.aab
 
       - name: Keep the unsigned build as a run artifact
         if: steps.signing.outputs.signed != 'true'

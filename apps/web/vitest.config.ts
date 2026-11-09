@@ -10,6 +10,8 @@ export default defineConfig({
     alias: { "~": fileURLToPath(new URL("./src", import.meta.url)) },
   },
   test: {
+    // Keep isolated DOM workers within the shared CI runner’s CPU and memory capacity.
+    maxWorkers: process.env.CI ? 2 : undefined,
     // A slow or busy machine, such as a CI runner, should not fail a test that is only slow.
     testTimeout: 15_000,
     environment: "jsdom",

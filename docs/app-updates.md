@@ -53,3 +53,10 @@ The Go helpers include Gitleaks, whose go-re2 dependency uses Wazero to execute 
 `src-tauri/entitlements.plist` grants that one exception, with hardened runtime explicitly enabled. Tauri 2.12 applies the same entitlement file to the shell and external binaries; it has no per-helper configuration. No library-validation bypass or application-sandbox exception is added. The release gate tests the actual signed archive so a development-only startup pass is insufficient.
 
 References: [Apple executable-memory entitlement](https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.security.cs.allow-unsigned-executable-memory), [Tauri 2.12 signing implementation](https://github.com/tauri-apps/tauri/blob/tauri-v2.12.0/crates/tauri-bundler/src/bundle/macos/sign.rs).
+
+
+## Android release downloads
+
+The release workflow builds both an APK for direct installation and an AAB for Google Play. Signed builds are attached to the GitHub release as `Marshal_<version>_universal.apk` and `Marshal_<version>_universal.aab`. The workflow verifies the APK signature with Android's `apksigner` before publishing it. An unsigned build is kept only as an Actions artifact because it cannot be installed on a phone.
+
+Android signing was configured on 2026-11-09. GitHub Actions uses `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, and `ANDROID_KEY_PASSWORD`. A private keystore and credential backup are kept outside this repository. Keep the same signing key for future APK updates, and back it up securely. This signing key is free and separate from Tauri updater signatures and Apple signing.
