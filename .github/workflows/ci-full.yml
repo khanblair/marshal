@@ -1,0 +1,110 @@
+name: ci-full
+
+# The slow checks that used to gate a release: the macOS daemon tests, and the browser tests. They run
+# on every push to main and every pull request, beside the fast gate in ci.yml, and a failure here
+# does not stop a release. Check this workflow's result before you rely on a build.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-full-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The slow daemon and tool tests with race instrumentation, the build, and the budgets. Marshal is
+  # macOS first, so only macOS runs them for now. To test Linux or Windows again, add
+  # `ubuntu-latest` or `windows-latest` to the list.
+  check:
+    timeout-minutes: 60
+    name: check (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        # The ARM pool failed to acquire a runner before any steps could start.
+        # Keep the required macOS check on the standard Intel pool.
+        os: [macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: daemon/go.mod
+          cache-dependency-path: |
+            daemon/go.sum
+            tools/*/go.sum
+      - uses: actions/cache@v4
+        id: go-tools
+        with:
+          path: .tools
+          key: go-tools-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/setup-tools.mjs') }}
+      - run: pnpm setup:tools
+      # Save successful tool setup before tests run. Failed test jobs used to discard this
+      # cache, rebuilding every Go tool on the next macOS run.
+      - name: Cache installed Go tools
+        if: steps.go-tools.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .tools
+          key: go-tools-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/setup-tools.mjs') }}
+      - run: pnpm gen
+      # Client tests already passed in their own job. Retain every remaining workspace test
+      # (daemon and Go tools), including race instrumentation and the daemon coverage profile.
+      - name: Test daemon and tools
+        run: pnpm -r --filter '!marshal' --filter '!web' --filter '!@marshal/ui' --filter '!@marshal/tokens' --filter '!@marshal/protocol' --filter '!desktop' --filter '!mobile' --workspace-concurrency=1 --if-present test
+        env:
+          # Race-instrumented API and storage suites both create databases and subprocesses.
+          # Bound concurrent Go packages on the standard runner; keep checks and deadlines.
+          GOFLAGS: -p=2
+      - run: node scripts/coverage.mjs
+      - run: pnpm build
+      # The budget says to watch the idle daemon for 60 seconds.
+      - run: pnpm budgets
+        env:
+          MARSHAL_BUDGET_IDLE: 60s
+
+  e2e:
+    timeout-minutes: 30
+    name: e2e (phone, tablet, desktop)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: daemon/go.mod
+          cache-dependency-path: |
+            daemon/go.sum
+            tools/*/go.sum
+      - uses: actions/cache@v4
+        with:
+          path: .tools
+          key: go-tools-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/setup-tools.mjs') }}
+      - run: pnpm setup:tools
+      - run: pnpm gen
+      - run: pnpm --filter web exec playwright install --with-deps chromium
+      - run: pnpm build
+      - run: pnpm test:e2e
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() && failure() }}
+        with:
+          name: e2e-report
+          path: |
+            apps/web/test-results/playwright/
+            apps/web/playwright-report/

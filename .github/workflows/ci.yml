@@ -13,9 +13,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # The light checks run first, on one Linux runner, so a formatting, type, or generated-file
-  # problem stops the run before the slow job (and the macOS minutes) is spent. This job is only a
-  # tool runner, so it stays on Linux, where it is cheapest.
+  # This workflow is the release gate: the light checks and every client test. It is kept fast on
+  # purpose. The slow macOS tests and the browser tests run beside it in ci-full.yml and do not
+  # block a release. The light checks run on one Linux runner, where a runner is cheapest.
   lint:
     timeout-minutes: 25
     name: light checks (generated files, format, lint, types, smells, contrast)
@@ -78,104 +78,11 @@ jobs:
       - name: Test every client package with its existing coverage floors
         run: pnpm -r --filter web --filter @marshal/ui --filter @marshal/tokens --filter @marshal/protocol --filter desktop --filter mobile --workspace-concurrency=1 --if-present test
 
-  # The slow checks, once the light ones have passed. Marshal is macOS first, so only macOS runs
-  # them for now. To test Linux or Windows again, add `ubuntu-latest` or `windows-latest` to the list.
-  check:
-    timeout-minutes: 60
-    name: check (${{ matrix.os }})
-    needs: [lint, client-tests]
-    strategy:
-      fail-fast: false
-      matrix:
-        # The ARM pool failed to acquire a runner before any steps could start.
-        # Keep the required macOS check on the standard Intel pool.
-        os: [macos-15-intel]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: daemon/go.mod
-          cache-dependency-path: |
-            daemon/go.sum
-            tools/*/go.sum
-      - uses: actions/cache@v4
-        id: go-tools
-        with:
-          path: .tools
-          key: go-tools-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/setup-tools.mjs') }}
-      - run: pnpm setup:tools
-      # Save successful tool setup before tests run. Failed test jobs used to discard this
-      # cache, rebuilding every Go tool on the next macOS run.
-      - name: Cache installed Go tools
-        if: steps.go-tools.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: .tools
-          key: go-tools-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/setup-tools.mjs') }}
-      - run: pnpm gen
-      # Client tests already passed in their own job. Retain every remaining workspace test
-      # (daemon and Go tools), including race instrumentation and the daemon coverage profile.
-      - name: Test daemon and tools
-        run: pnpm -r --filter '!marshal' --filter '!web' --filter '!@marshal/ui' --filter '!@marshal/tokens' --filter '!@marshal/protocol' --filter '!desktop' --filter '!mobile' --workspace-concurrency=1 --if-present test
-        env:
-          # Race-instrumented API and storage suites both create databases and subprocesses.
-          # Bound concurrent Go packages on the standard runner; keep checks and deadlines.
-          GOFLAGS: -p=2
-      - run: node scripts/coverage.mjs
-      - run: pnpm build
-      # The budget says to watch the idle daemon for 60 seconds.
-      - run: pnpm budgets
-        env:
-          MARSHAL_BUDGET_IDLE: 60s
-
-  e2e:
-    timeout-minutes: 30
-    name: e2e (phone, tablet, desktop)
-    runs-on: ubuntu-latest
-    needs: [lint, client-tests]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: daemon/go.mod
-          cache-dependency-path: |
-            daemon/go.sum
-            tools/*/go.sum
-      - uses: actions/cache@v4
-        with:
-          path: .tools
-          key: go-tools-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/setup-tools.mjs') }}
-      - run: pnpm setup:tools
-      - run: pnpm gen
-      - run: pnpm --filter web exec playwright install --with-deps chromium
-      - run: pnpm build
-      - run: pnpm test:e2e
-      - uses: actions/upload-artifact@v4
-        if: ${{ !cancelled() && failure() }}
-        with:
-          name: e2e-report
-          path: |
-            apps/web/test-results/playwright/
-            apps/web/playwright-report/
-
   summary:
     timeout-minutes: 5
     name: Explain CI result and release gate
     if: always()
-    needs: [lint, client-tests, check, e2e]
+    needs: [lint, client-tests]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/github-script@v7
@@ -189,6 +96,6 @@ jobs:
             await core.summary.addHeading('CI and release order')
               .addTable([[{data: 'Stage', header: true}, {data: 'Result', header: true}], ...rows])
               .addRaw(passed
-                ? 'CI passed. The release workflow will check .github/release.json and build an unpublished requested version automatically.'
+                ? 'CI passed. The release workflow will check .github/release.json and build an unpublished requested version automatically. The macOS and browser tests run in ci-full and do not block it.'
                 : 'Release is blocked. Fix the failed stage above and push again; skipped downstream jobs are expected.')
               .write();

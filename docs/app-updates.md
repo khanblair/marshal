@@ -48,8 +48,8 @@ See the [Tauri updater documentation](https://v2.tauri.app/plugin/updater/) for 
 
 1. Set the requested version in `.github/release.json` and push to `main`.
 2. CI runs generation, formatting, lint, types, focused release/card/mobile/runtime regressions, and the other light checks. A failure stops the slower jobs.
-3. The full client suites and their coverage floors run on Linux. After they pass, the macOS job runs daemon and Go tool tests with race instrumentation, checks daemon coverage, builds Marshal, and checks size and idle-memory budgets. In parallel, the Linux browser job builds its own test app and runs browser checks. The packages tested remain the same; client failures no longer wait behind Go tests.
-4. Both the macOS validation and required Linux browser tests at phone, tablet, and desktop sizes must succeed. They do not depend on one another, but either failure blocks release.
+3. The full client suites and their coverage floors run on Linux. That is the whole release gate, about eight minutes in total.
+4. Beside it, `ci-full.yml` runs the macOS daemon and Go tool tests with race instrumentation, daemon coverage, the build and the size and idle-memory budgets, and the Linux browser tests at phone, tablet, and desktop sizes. They do not block release. Check them before you rely on a build.
 5. A successful CI completion triggers `release.yml` on GitHub. It accepts only a push to this repository's `main`, uses that exact verified commit, and skips superseded commits or an already published version. No agent or local watcher is needed to advance this chain.
 6. The Mac installer/updater files and signed Android APK/AAB build in parallel. Each job uploads verified artifacts. A missing signing configuration fails the selected build.
 7. Only after both builds succeed, the publish job uploads all downloads to a draft, checks their names and sizes and the tag's commit, then makes the release public. Failed new uploads leave a draft, rather than a partially published new release.
@@ -58,7 +58,7 @@ Failed CI blocks release. A failed platform build blocks publication. A correcte
 
 Tag pushes alone no longer trigger release. GitHub creates the version tag at publication, on the verified commit. Never move an existing version tag. Bump the version if a different source commit is needed for an existing tag.
 
-Manual release runs accept an existing `tag` and a `target` (`all`, `desktop`, or `android`). The tag's exact commit must have a successful main push CI run. A platform-only retry is allowed for an existing published release; a new release requires both platforms. The extra macOS browser workflow is manual only; the required browser gate is already in CI. Android SDK setup uses the supported action that no longer requests Google’s removed `tools` package.
+Manual release runs accept an existing `tag` and a `target` (`all`, `desktop`, or `android`). The tag's exact commit must have a successful main push CI run. A platform-only retry is allowed for an existing published release; a new release requires both platforms. The extra macOS browser workflow is manual only. The browser tests run in `ci-full.yml`, which does not block a release. Android SDK setup uses the supported action that no longer requests Google’s removed `tools` package.
 
 ## Hardened runtime and secret scanning
 

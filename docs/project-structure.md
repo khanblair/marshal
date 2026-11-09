@@ -44,7 +44,7 @@ marshal/
   .mcp.json                           MCP server settings for AI agents working in this repo
   .claude/launch.json                 Dev server entries (web, daemon) for the preview tool
   .github/
-    workflows/                        ci.yml and e2e-macos.yml (which runs after ci passes on main, never on a pull request): the gates in development.md section 4. release.yml: build, sign, and publish installers and daemon packages. nightly-agent-smoke.yml: the real agent CLIs through one small card each; off until a repository variable turns it on, and needs a self-hosted Mac with the CLIs signed in (planned: pin the CLI versions)
+    workflows/                        ci.yml (the fast release gate), ci-full.yml (macOS daemon tests and browser tests, not a release gate) and e2e-macos.yml (started by hand): the gates in development.md section 4. release.yml: build, sign, and publish installers and daemon packages. nightly-agent-smoke.yml: the real agent CLIs through one small card each; off until a repository variable turns it on, and needs a self-hosted Mac with the CLIs signed in (planned: pin the CLI versions)
   design/                             The original design prototype (.dc.html, store.js). Read-only reference
   .tools/, dist/                      Local Go tool binaries, and build output (both ignored by Git)
   README.md                           Project overview, installation, first task, and local development
@@ -276,6 +276,6 @@ Desktop `src-tauri/entitlements.plist` grants the executable-memory exception ne
 
 - `.github/release.json` records the requested version. It remains pending until publication succeeds.
 - `apps/desktop/scripts/release-plan.mjs` selects the exact successful main CI commit, skips stale/already published requests, and guards manual tag retries. Its fixture tests run in the fast CI gate and desktop test script.
-- `.github/workflows/release.yml` receives CI completion events, builds both platforms, stages artifacts, and publishes them together. `.github/workflows/e2e-macos.yml` is an optional manual browser check; required browser tests are part of `ci.yml`.
+- `.github/workflows/release.yml` receives CI completion events, builds both platforms, stages artifacts, and publishes them together. `.github/workflows/e2e-macos.yml` is an optional manual browser check; the browser tests run in `ci-full.yml`.
 
 - `daemon/cmd/marshald/keychain{,_test}.go`: fixture-only credential isolation and mode guards; the shared keychain is wired through the core daemon modules. Browser startup assertions live in `apps/web/e2e/support/{global-setup,daemon-api}.ts`.

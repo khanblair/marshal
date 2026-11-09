@@ -160,6 +160,7 @@ Phase 2 (core UI) is scoped as eight slices, A to H, in `backend-checklist.md` s
 
 | Date | Decision | Reason |
 |---|---|---|
+| 2026-11-10 | The release gate is the fast `ci` workflow only: light checks, focused regressions, and client tests. The macOS daemon tests and the browser tests run in `ci-full` and do not block a release. | Owner choice 2026-11-10. The full gate took about 47 minutes before the browser job started, and one flaky test cost another hour. A red `ci-full` can now ship, so it is checked by hand before relying on a build |
 | 2026-11-05 | Offer a Terminal installer for fresh macOS installs while retaining the native signed updater for installed copies. | A Terminal download avoids the browser quarantine flag. Using the same public DMG avoids a separate build, and existing installs keep Tauri signature verification. |
 | 2026-11-03 | Use the original project folder with one coordinating main coding session and its native editing subagents; stop automatic worktree creation and merging | The owner selected coordinated editing workers in the same folder. This avoids extra checkouts/dependency copies while reserving the folder against independent competing card/chat editors. Existing worktree files remain available for deliberate recovery. |
 | 2026-09-23 | The product is named Marshal | A marshal organizes and directs, which matches orchestrating agents on a board |
@@ -202,6 +203,14 @@ Phase 2 (core UI) is scoped as eight slices, A to H, in `backend-checklist.md` s
 ---
 
 ## Session log
+
+### 2026-11-10 — Fast release gate
+
+- Owner asked to cut CI time before a release. `ci.yml` is now only the release gate: the light checks, focused regressions, and every client test with its coverage floors (about eight minutes). The macOS daemon and tool tests, coverage, build and budgets, and the Linux browser tests moved unchanged into `ci-full.yml`. It runs on the same triggers beside the gate and does not block a release.
+- Why: the last full run took about 47 minutes before the browser job started, the macOS test job alone was about 40 minutes with the race detector, one flaky test cost another hour, and none of the last 40 runs finished green.
+- Release still waits only for a successful `ci` run on the latest `main` commit, so a red `ci-full` can ship. Check `ci-full` before relying on a build.
+- Not changed: the browser test limits, `release-plan.mjs` (a superseded commit is still skipped), and the universal macOS build time (about 60 minutes).
+- Validation is GitHub-only. No local tests, lint, builds, or browser checks ran.
 
 ### 2026-11-10 — Headless browser startup
 
