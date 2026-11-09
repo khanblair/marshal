@@ -198,4 +198,26 @@ describe("SessionSettings collapsed", () => {
     fireEvent.click(screen.getByRole("button"));
     expect(screen.getByText(/has not been tested with Gemini CLI/)).toBeVisible();
   });
+
+  it("keeps the mobile summary transparent, focusable, touch sized, and able to wrap", () => {
+    resetStore(390);
+    const longRole = "A deliberately long project role that needs to wrap on a phone";
+    cardOf("api#41").role = longRole;
+    show("api#41", false);
+
+    const summary = screen.getByRole("button");
+    expect(summary).toHaveClass(
+      "bg-transparent",
+      "border",
+      "border-transparent",
+      "appearance-none",
+      "focus-visible:outline-2",
+      "focus-visible:outline-offset-2",
+      "focus-visible:outline-ink",
+      "min-h-11!",
+      "whitespace-normal",
+    );
+    expect(summary).toHaveTextContent(longRole);
+    expect(summary.querySelector("svg")).toHaveAttribute("width", "18");
+  });
 });

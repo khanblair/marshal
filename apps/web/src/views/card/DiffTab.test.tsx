@@ -310,6 +310,20 @@ describe("DiffTab on the daemon", () => {
     expect(within(screen.getByRole("tab", { name: /^Diff/ })).queryByText(/\d/)).toBeNull();
   });
 
+  it("omits the panel-level bypass banner and keeps the permission mode in settings", () => {
+    card().bypass = true;
+    card().perm = "Bypass permissions";
+    render(() => <CardPanel card={card()} terminal={createTerminalState()} />);
+    const showDetails = screen.queryByRole("button", { name: "Show card details" });
+    if (showDetails) fireEvent.click(showDetails);
+
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(
+      screen.queryByText(/The agent can run any command in the project folder without asking/),
+    ).toBeNull();
+    expect(screen.getByText("Bypass permissions")).toBeVisible();
+  });
+
   // Last, since it stops the shared daemon, which the store notices and tries to reconnect to.
   it("says the daemon cannot be reached when it is off, and shows the list once it is back", async () => {
     setDiff(3);

@@ -44,7 +44,7 @@ The goal: a calm, fast, readable tool where a person can glance at the screen an
 - **Top bar:** on the left, the current project name (or "Home"). On the right, in this order: search (opens the command palette), notices, and the **profile avatar**. The avatar is always in the top right corner on every screen size. Clicking it opens Settings on the Profile page.
 - **View header:** the view title, the view switcher, filters and saved views, and view actions such as "New card".
 - **Card detail panel:** opens on the right when a card is selected. It can be resized between the min and max detail sizes, or expanded to take the full view.
-- **Bypass banner:** when any open card uses bypass mode, a striped banner sits at the top of the card detail panel, and a small bypass marker shows on the card itself.
+- **Bypass mode:** show the permission mode in agent settings and keep the confirmation when enabling it. Do not add a warning banner above the conversation.
 
 ### 2.2 View switcher
 
@@ -567,3 +567,9 @@ Behavior: marshal-product-scope.md, sections 9.13 (checklists), 9.14 (comments),
 - **Members:** the picker opens as a bottom sheet.
 - **Board cards:** counts and avatars stay visible. If the footer does not fit, counts move to a second line. Nothing is hidden.
 - **Add a card** sits at the bottom of the visible column. The template button stays beside it.
+
+### Mobile card and conversation controls
+
+On phones, card details start collapsed. One visible Show details / Hide details control reveals metadata, project folder, members, actions, and agent settings together. The title, status, and conversation tabs remain available. Desktop and phone disclosure preferences are separate. Agent settings use the app button styling rather than a native browser button background.
+
+The conversation shows a reduced-motion-aware activity indicator for sending, starting, resuming, thinking, responding, and tool use. An awake but idle session does not show a thinking indicator.

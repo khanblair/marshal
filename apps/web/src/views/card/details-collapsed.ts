@@ -1,31 +1,44 @@
 import { createSignal } from "solid-js";
 
-/** Where this device remembers that the card's details are folded away. */
-const STORAGE_KEY = "marshal.card.details.collapsed";
+/** The former shared preference remains a fallback for desktop installs. */
+const LEGACY_STORAGE_KEY = "marshal.card.details.collapsed";
+const STORAGE_KEYS = {
+  desktop: "marshal.card.details.collapsed.desktop",
+  mobile: "marshal.card.details.collapsed.mobile",
+} as const;
 
-function remembered(): boolean {
+function remembered(mobile: boolean): boolean {
   try {
-    return window.localStorage.getItem(STORAGE_KEY) === "1";
+    const saved = window.localStorage.getItem(mobile ? STORAGE_KEYS.mobile : STORAGE_KEYS.desktop);
+    if (saved === "1") return true;
+    if (saved === "0") return false;
+    if (mobile) return true;
+    return window.localStorage.getItem(LEGACY_STORAGE_KEY) === "1";
   } catch {
-    return false;
+    return mobile;
   }
 }
 
-const [collapsed, setCollapsed] = createSignal(remembered());
+const [desktopCollapsed, setDesktopCollapsed] = createSignal(remembered(false));
+const [mobileCollapsed, setMobileCollapsed] = createSignal(remembered(true));
 
 /**
- * Whether the open card's worktree, members, actions, and settings are folded away, so the tab
- * under them has the height. It is one choice for every card, kept on this device.
+ * Whether the open card's metadata, members, actions, and settings are folded away. Mobile and
+ * desktop keep independent choices on this device; mobile starts folded for more chat space.
  */
-export const detailsCollapsed = collapsed;
+export function detailsCollapsed(mobile = false): boolean {
+  return mobile ? mobileCollapsed() : desktopCollapsed();
+}
 
 /** Folds the card's details away, or brings them back. */
-export function toggleDetails(): void {
-  const next = !collapsed();
-  setCollapsed(next);
+export function toggleDetails(mobile = false): void {
+  const next = !detailsCollapsed(mobile);
+  (mobile ? setMobileCollapsed : setDesktopCollapsed)(next);
   try {
-    if (next) window.localStorage.setItem(STORAGE_KEY, "1");
-    else window.localStorage.removeItem(STORAGE_KEY);
+    window.localStorage.setItem(
+      mobile ? STORAGE_KEYS.mobile : STORAGE_KEYS.desktop,
+      next ? "1" : "0",
+    );
   } catch {
     // Without storage the choice lasts until the page is closed.
   }

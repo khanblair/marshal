@@ -1,8 +1,7 @@
-import { createEffect, createMemo, Match, Show, Switch } from "solid-js";
+import { createEffect, createMemo, Match, Switch } from "solid-js";
 import { type Card, M } from "~/mock";
 import { reloadMergeFlow } from "~/sync/integration-flow";
 import { ActivityTab } from "./ActivityTab";
-import { BypassBanner } from "./BypassBanner";
 import { CardHeader } from "./CardHeader";
 import { ChatTab } from "./ChatTab";
 import { ChecklistsTab } from "./ChecklistsTab";
@@ -21,7 +20,7 @@ export interface CardPanelProps {
   terminal: TerminalState;
 }
 
-/** The open card: bypass banner, header, and the tab that is selected. */
+/** The open card: header and the tab that is selected. */
 export function CardPanel(props: CardPanelProps) {
   const panel = createPanelState();
   const diff = createDiffList(() => props.card);
@@ -33,9 +32,6 @@ export function CardPanel(props: CardPanelProps) {
   createEffect(() => ensureNote(props.card));
   return (
     <>
-      <Show when={props.card.bypass}>
-        <BypassBanner cardId={props.card.id} />
-      </Show>
       <CardHeader card={props.card} c={c()} panel={panel} diffCount={diff.files().length} />
       <div
         role="tabpanel"

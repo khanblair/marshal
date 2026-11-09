@@ -58,10 +58,10 @@ function SettingsSummary(props: SessionSettingsProps & { onExpand: () => void })
       onClick={props.onExpand}
       aria-expanded={false}
       aria-controls="card-agent-settings"
-      class="flex items-center gap-1.5 -mx-1 px-1 py-0.5 rounded-sm text-small text-secondary text-left hover:bg-surface-hover"
+      class={`flex w-full items-center gap-1.5 px-1 py-0.5 rounded-sm border border-transparent bg-transparent appearance-none text-small text-secondary text-left whitespace-normal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink hover:bg-surface-hover ${M.mobile ? "min-h-11! rounded-lg!" : ""}`}
     >
-      <Icon name="chevron-right" size={14} class="flex-none text-muted" />
-      <span class="flex-1 min-w-0 truncate">
+      <Icon name="chevron-right" size={18} class="flex-none text-secondary" />
+      <span class="flex-1 min-w-0 whitespace-normal break-words">
         <For each={settings()}>
           {(setting, i) => (
             <>

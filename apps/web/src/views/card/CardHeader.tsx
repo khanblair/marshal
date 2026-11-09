@@ -1,4 +1,4 @@
-import { Badge, Icon, IconButton, IconLabel } from "@marshal/ui";
+import { Badge, Button, Icon, IconButton, IconLabel } from "@marshal/ui";
 import { Show } from "solid-js";
 import { type Card, type CardView, M } from "~/mock";
 import { CardActions } from "./CardActions";
@@ -26,6 +26,7 @@ function sessionIcon(card: Card): string {
 
 /** Card number, state pill, awake label, pinned, and the expand and close buttons. */
 function TopRow(props: Omit<CardHeaderProps, "diffCount">) {
+  const folded = () => detailsCollapsed(M.mobile);
   const expandLabel = () =>
     M.S.detailExpanded ? "Show board beside card" : "Expand card to full view";
   return (
@@ -57,14 +58,32 @@ function TopRow(props: Omit<CardHeaderProps, "diffCount">) {
         </IconLabel>
       </Show>
       <span class="flex-1" />
-      <IconButton
-        label={detailsCollapsed() ? "Show card details" : "Hide card details"}
-        title={detailsCollapsed() ? "Show card details" : "Hide card details"}
-        icon={detailsCollapsed() ? "chevron-right" : "chevron-down"}
-        aria-expanded={!detailsCollapsed()}
-        aria-controls="card-details"
-        onClick={toggleDetails}
-      />
+      <Show
+        when={M.mobile}
+        fallback={
+          <IconButton
+            label={folded() ? "Show card details" : "Hide card details"}
+            title={folded() ? "Show card details" : "Hide card details"}
+            icon={folded() ? "chevron-right" : "chevron-down"}
+            aria-expanded={!folded()}
+            aria-controls="card-details"
+            onClick={() => toggleDetails(false)}
+          />
+        }
+      >
+        <Button
+          variant="secondary"
+          size={36}
+          icon={folded() ? "chevron-right" : "chevron-down"}
+          iconSize={20}
+          aria-expanded={!folded()}
+          aria-controls="card-details"
+          onClick={() => toggleDetails(true)}
+          class="min-h-11! max-w-full rounded-lg!"
+        >
+          {folded() ? "Show details" : "Hide details"}
+        </Button>
+      </Show>
       <Show when={!M.mobile}>
         <IconButton
           label={expandLabel()}
@@ -79,11 +98,12 @@ function TopRow(props: Omit<CardHeaderProps, "diffCount">) {
 }
 
 /**
- * The card's title, meta line, merge row, members, actions, settings, and tabs. The chevron in the
- * top row folds the worktree, members, actions, and settings away so the tabs get the height; only
- * the action that leads, and a merge that needs a person, stay.
+ * The card's title, metadata, members, actions, settings, and tabs. On phones, Show details folds
+ * every row above the tabs away. Desktop keeps its compact meta, merge row, and leading action.
  */
 export function CardHeader(props: CardHeaderProps) {
+  const folded = () => detailsCollapsed(M.mobile);
+  const hideOnMobile = () => M.mobile && folded();
   return (
     <div class="flex-none pt-3 px-4 pb-0 flex flex-col gap-2.5 border-b border-border">
       <TopRow card={props.card} c={props.c} panel={props.panel} />
@@ -102,10 +122,12 @@ export function CardHeader(props: CardHeaderProps) {
       >
         <TitleField cardId={props.card.id} title={props.c.title} panel={props.panel} />
       </Show>
-      <CardMeta card={props.card} c={props.c} />
-      <MergeRow card={props.card} c={props.c} compact={detailsCollapsed()} />
+      <Show when={!hideOnMobile()}>
+        <CardMeta card={props.card} c={props.c} />
+        <MergeRow card={props.card} c={props.c} compact={folded()} />
+      </Show>
       <div id="card-details" class="contents">
-        <Show when={!detailsCollapsed()}>
+        <Show when={!folded()}>
           <div class="flex flex-col gap-2.5">
             <MembersRow card={props.card} panel={props.panel} />
             <CardActions card={props.card} panel={props.panel} />
@@ -113,7 +135,7 @@ export function CardHeader(props: CardHeaderProps) {
           </div>
         </Show>
       </div>
-      <Show when={detailsCollapsed()}>
+      <Show when={folded() && !M.mobile}>
         <CardActions card={props.card} panel={props.panel} primaryOnly />
       </Show>
       <CardTabs card={props.card} diffCount={props.diffCount} />
