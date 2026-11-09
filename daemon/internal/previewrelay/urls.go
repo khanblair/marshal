@@ -179,9 +179,13 @@ func validOriginHost(host string) bool {
 		return false
 	}
 	for _, r := range host {
-		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '.' || r == '-') {
+		if !asciiAlphaNumeric(r) && r != '.' && r != '-' {
 			return false
 		}
 	}
 	return true
+}
+
+func asciiAlphaNumeric(r rune) bool {
+	return r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9'
 }

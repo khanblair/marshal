@@ -33,21 +33,39 @@ func workspaceIdentity(root string) (string, error) {
 	if value.IsValid() && value.Kind() == reflect.Pointer && !value.IsNil() {
 		value = value.Elem()
 	}
-	if value.IsValid() && value.Kind() == reflect.Struct {
-		if dev, ok := integerField(value, "Dev"); ok {
-			if ino, ok := integerField(value, "Ino"); ok {
-				return "inode:" + dev + ":" + ino, nil
-			}
-		}
-		if volume, ok := integerField(value, "VolumeSerialNumber"); ok {
-			hi, hiOK := integerField(value, "FileIndexHigh")
-			lo, loOK := integerField(value, "FileIndexLow")
-			if hiOK && loOK {
-				return "fileid:" + volume + ":" + hi + ":" + lo, nil
-			}
-		}
+	if identity, ok := metadataIdentity(value); ok {
+		return identity, nil
 	}
 	return "path:" + filepath.Clean(root), nil
+}
+
+func metadataIdentity(value reflect.Value) (string, bool) {
+	if !value.IsValid() || value.Kind() != reflect.Struct {
+		return "", false
+	}
+	if identity, ok := unixMetadataIdentity(value); ok {
+		return identity, true
+	}
+	return windowsMetadataIdentity(value)
+}
+
+func unixMetadataIdentity(value reflect.Value) (string, bool) {
+	dev, devOK := integerField(value, "Dev")
+	ino, inoOK := integerField(value, "Ino")
+	if !devOK || !inoOK {
+		return "", false
+	}
+	return "inode:" + dev + ":" + ino, true
+}
+
+func windowsMetadataIdentity(value reflect.Value) (string, bool) {
+	volume, volumeOK := integerField(value, "VolumeSerialNumber")
+	hi, hiOK := integerField(value, "FileIndexHigh")
+	lo, loOK := integerField(value, "FileIndexLow")
+	if !volumeOK || !hiOK || !loOK {
+		return "", false
+	}
+	return "fileid:" + volume + ":" + hi + ":" + lo, true
 }
 
 func integerField(value reflect.Value, name string) (string, bool) {

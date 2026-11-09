@@ -42,7 +42,7 @@ func newPreviewExposure(node *Node, find func() string, run Runner, choosePort f
 			return exposeWithCLI(ctx, bin, localPort, secure, previewCLI{run: run, choosePort: choosePort, listen: listen})
 		}
 		if node == nil {
-			return "", nil, errors.New("Tailscale is unavailable")
+			return "", nil, errors.New("tailscale is unavailable")
 		}
 		return exposeWithNode(ctx, node, localPort, secure, choosePort)
 	}
@@ -114,7 +114,7 @@ func runBounded(ctx context.Context, run Runner, bin string, args ...string) ([]
 	defer cancel()
 	out, err := run(commandCtx, bin, args...)
 	if len(out) > 1<<20 {
-		return nil, errors.New("Tailscale response was too large")
+		return nil, errors.New("tailscale response was too large")
 	}
 	return out, err
 }
@@ -180,32 +180,46 @@ func funnelConfigured(raw []byte) bool {
 
 func funnelMapConfigured(root map[string]json.RawMessage) bool {
 	for key, value := range root {
-		switch key {
-		case "TCP", "Web", "Services":
-			if malformedFunnelMap(value) {
-				return true
-			}
-		case "Foreground":
-			foreground, ok := parseFunnelMap(value)
-			if !ok {
-				return true
-			}
-			for _, nested := range foreground {
-				if funnelConfigured(nested) {
-					return true
-				}
-			}
-		case "AllowFunnel":
-			routes, ok := parseFunnelRoutes(value)
-			if !ok {
-				return true
-			}
-			for _, enabled := range routes {
-				if enabled {
-					return true
-				}
-			}
-		default:
+		if funnelEntryConfigured(key, value) {
+			return true
+		}
+	}
+	return false
+}
+
+func funnelEntryConfigured(key string, value json.RawMessage) bool {
+	switch key {
+	case "TCP", "Web", "Services":
+		return malformedFunnelMap(value)
+	case "Foreground":
+		return foregroundFunnelConfigured(value)
+	case "AllowFunnel":
+		return allowFunnelConfigured(value)
+	default:
+		return true
+	}
+}
+
+func foregroundFunnelConfigured(value json.RawMessage) bool {
+	foreground, ok := parseFunnelMap(value)
+	if !ok {
+		return true
+	}
+	for _, nested := range foreground {
+		if funnelConfigured(nested) {
+			return true
+		}
+	}
+	return false
+}
+
+func allowFunnelConfigured(value json.RawMessage) bool {
+	routes, ok := parseFunnelRoutes(value)
+	if !ok {
+		return true
+	}
+	for _, enabled := range routes {
+		if enabled {
 			return true
 		}
 	}
