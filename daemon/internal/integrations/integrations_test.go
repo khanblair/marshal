@@ -26,6 +26,7 @@ import (
 	"github.com/khanblair/marshal/daemon/internal/security"
 	"github.com/khanblair/marshal/daemon/internal/store"
 	"github.com/khanblair/marshal/daemon/internal/store/db"
+	"github.com/khanblair/marshal/daemon/internal/testutil"
 )
 
 // testKey makes a throwaway RSA private key in the PEM form GitHub generates. Nothing is ever sent
@@ -52,7 +53,7 @@ type fixture struct {
 
 func newFixture(t *testing.T, opts ...func(*integrations.Options)) *fixture {
 	t.Helper()
-	st, err := store.Open(context.Background(), filepath.Join(t.TempDir(), "marshal.db"))
+	st, err := testutil.OpenStore(context.Background(), filepath.Join(t.TempDir(), "marshal.db"))
 	if err != nil {
 		t.Fatalf("open the store: %v", err)
 	}

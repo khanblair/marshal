@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/khanblair/marshal/daemon/internal/agents"
-	"github.com/khanblair/marshal/daemon/internal/store"
 	"github.com/khanblair/marshal/daemon/internal/store/db"
+	"github.com/khanblair/marshal/daemon/internal/testutil"
 )
 
 // stubbedAgent is a minimal agents.Agent for the one internal test that needs to call
@@ -230,7 +230,7 @@ func TestMarshalLogLineCoversEveryEventKind(t *testing.T) {
 // has a worktree but whose project cannot be read must not be decided without the worktree rule, so
 // containmentOf reports the error rather than a worktree with no containment.
 func TestContainmentOfFailsClosedWhenTheProjectCannotBeRead(t *testing.T) {
-	st, err := store.Open(context.Background(), filepath.Join(t.TempDir(), "marshal.db"))
+	st, err := testutil.OpenStore(context.Background(), filepath.Join(t.TempDir(), "marshal.db"))
 	if err != nil {
 		t.Fatalf("open the store: %v", err)
 	}

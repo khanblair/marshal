@@ -42,7 +42,7 @@ type stubEnv struct {
 func newStubEnv(t *testing.T, mutate ...func(*session.Config)) *stubEnv {
 	t.Helper()
 	dir := t.TempDir()
-	st, err := store.Open(context.Background(), filepath.Join(dir, "marshal.db"))
+	st, err := testutil.OpenStore(context.Background(), filepath.Join(dir, "marshal.db"))
 	if err != nil {
 		t.Fatalf("open the store: %v", err)
 	}

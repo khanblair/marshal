@@ -58,7 +58,7 @@ func newEnv(t *testing.T, opts ...projects.Option) *env {
 	ctx := context.Background()
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "marshal.db")
-	st, err := store.Open(ctx, dbPath)
+	st, err := testutil.OpenStore(ctx, dbPath)
 	if err != nil {
 		t.Fatalf("open the store: %v", err)
 	}

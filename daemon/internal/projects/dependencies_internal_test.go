@@ -9,7 +9,6 @@ import (
 
 	"github.com/khanblair/marshal/daemon/internal/events"
 	"github.com/khanblair/marshal/daemon/internal/protocol"
-	"github.com/khanblair/marshal/daemon/internal/store"
 	"github.com/khanblair/marshal/daemon/internal/testutil"
 )
 
@@ -20,7 +19,7 @@ import (
 func TestInsertCardLinksRefusesACardWaitingForItself(t *testing.T) {
 	ctx := context.Background()
 	dir := t.TempDir()
-	st, err := store.Open(ctx, filepath.Join(dir, "marshal.db"))
+	st, err := testutil.OpenStore(ctx, filepath.Join(dir, "marshal.db"))
 	if err != nil {
 		t.Fatalf("open the store: %v", err)
 	}

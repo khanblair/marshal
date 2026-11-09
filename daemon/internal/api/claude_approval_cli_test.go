@@ -1,79 +1,23 @@
 package api_test
 
 import (
-	"bufio"
-	"encoding/json"
-	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/khanblair/marshal/daemon/internal/agents"
 	"github.com/khanblair/marshal/daemon/internal/agents/claude"
 	"github.com/khanblair/marshal/daemon/internal/protocol"
+	"github.com/khanblair/marshal/daemon/internal/testutil"
 )
-
-// This subprocess speaks the actual CLI wire protocol. The production Claude
-// adapter, session manager, approval storage, and HTTP routes are all exercised.
-func runApprovalCLI() {
-	emit := func(value any) { _ = json.NewEncoder(os.Stdout).Encode(value) }
-	id := ""
-	for _, arg := range os.Args {
-		if value, ok := strings.CutPrefix(arg, "--session-id="); ok {
-			id = value
-		}
-	}
-	emit(map[string]any{"type": "system", "subtype": "init", "session_id": id})
-	cwd, _ := os.Getwd()
-	path := filepath.Join(cwd, "approved.txt")
-	scan := bufio.NewScanner(os.Stdin)
-	for scan.Scan() {
-		var message struct {
-			Type    string `json:"type"`
-			Message struct {
-				Content string `json:"content"`
-			} `json:"message"`
-			Response struct {
-				RequestID string `json:"request_id"`
-				Response  struct {
-					Behavior string `json:"behavior"`
-					Input    struct {
-						Path    string `json:"file_path"`
-						Content string `json:"content"`
-					} `json:"updatedInput"`
-				} `json:"response"`
-			} `json:"response"`
-		}
-		if json.Unmarshal(scan.Bytes(), &message) != nil {
-			continue
-		}
-		if message.Type == "user" {
-			emit(map[string]any{"type": "control_request", "request_id": "write-request", "request": map[string]any{"subtype": "can_use_tool", "tool_name": "Write", "tool_use_id": "write-call", "input": map[string]any{"file_path": path, "content": "approved content\n"}}})
-			if message.Message.Content == "cancel" {
-				emit(map[string]any{"type": "control_cancel_request", "request_id": "write-request"})
-				emit(map[string]any{"type": "result", "subtype": "success", "is_error": false})
-			}
-		}
-		if message.Type == "control_response" && message.Response.RequestID == "write-request" {
-			if message.Response.Response.Behavior == "allow" {
-				if err := os.WriteFile(message.Response.Response.Input.Path, []byte(message.Response.Response.Input.Content), 0o600); err != nil {
-					fmt.Fprintln(os.Stderr, err)
-					return
-				}
-			}
-			emit(map[string]any{"type": "result", "subtype": "success", "result": "answered", "is_error": false})
-		}
-	}
-}
 
 func TestClaudeApprovalThroughHTTPAndReopenedHistory(t *testing.T) {
 	for _, decision := range []protocol.ApprovalDecision{protocol.ApprovalDecisionApproved, protocol.ApprovalDecisionDenied} {
 		t.Run(string(decision), func(t *testing.T) {
 			st := newStack(t, withAgent(func() (agents.Agent, error) {
-				return claude.New(claude.Config{Path: os.Args[0], Env: []string{"MARSHAL_APPROVAL_CLI=1"}})
+				return claude.New(claude.Config{Path: testutil.ApprovalCLI(t)})
 			}))
 			project, _ := st.addProject("small-repo")
 			card := decode[protocol.Card](t, st.do(http.MethodPost, "/v1/projects/"+project.ID+"/cards", protocol.CreateCardRequest{Title: "Approval round trip", PermissionMode: protocol.PermissionModeAsk}).want(t, http.StatusCreated))
@@ -138,7 +82,7 @@ func TestClaudeApprovalThroughHTTPAndReopenedHistory(t *testing.T) {
 
 func TestClaudeCancelledApprovalCannotLeaveDeadButtons(t *testing.T) {
 	st := newStack(t, withAgent(func() (agents.Agent, error) {
-		return claude.New(claude.Config{Path: os.Args[0], Env: []string{"MARSHAL_APPROVAL_CLI=1"}})
+		return claude.New(claude.Config{Path: testutil.ApprovalCLI(t)})
 	}))
 	project, _ := st.addProject("small-repo")
 	card := decode[protocol.Card](t, st.do(http.MethodPost, "/v1/projects/"+project.ID+"/cards", protocol.CreateCardRequest{Title: "Cancel callback", PermissionMode: protocol.PermissionModeAsk}).want(t, http.StatusCreated))

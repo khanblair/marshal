@@ -413,7 +413,7 @@ func (st *stack) openCore() {
 	t.Helper()
 	ctx := context.Background()
 	var err error
-	if st.store, err = store.Open(ctx, filepath.Join(st.dir, "marshal.db")); err != nil {
+	if st.store, err = testutil.OpenStore(ctx, filepath.Join(st.dir, "marshal.db")); err != nil {
 		t.Fatalf("open the store: %v", err)
 	}
 	t.Cleanup(func() {
@@ -551,7 +551,7 @@ func (st *stack) advance(d time.Duration) {
 // has written to.
 func openStore(t *testing.T) *store.Store {
 	t.Helper()
-	st, err := store.Open(context.Background(), filepath.Join(t.TempDir(), "marshal.db"))
+	st, err := testutil.OpenStore(context.Background(), filepath.Join(t.TempDir(), "marshal.db"))
 	if err != nil {
 		t.Fatalf("open a store: %v", err)
 	}

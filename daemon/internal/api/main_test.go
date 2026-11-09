@@ -14,13 +14,10 @@ import (
 // builds it once for the whole process), and only then checks for goroutines that were left
 // running: goleak.VerifyTestMain exits the process itself, so nothing could follow it.
 func TestMain(m *testing.M) {
-	if os.Getenv("MARSHAL_APPROVAL_CLI") == "1" {
-		runApprovalCLI()
-		os.Exit(0)
-	}
 	code := m.Run()
 	testutil.CleanStubAgent()
 	testutil.CleanTerminalHelper()
+	testutil.CleanApprovalCLI()
 	if code == 0 {
 		if err := goleak.Find(); err != nil {
 			fmt.Fprintln(os.Stderr, err)

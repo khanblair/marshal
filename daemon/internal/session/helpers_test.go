@@ -60,7 +60,7 @@ type env struct {
 func newEnv(t *testing.T, mutate ...func(*session.Config)) *env {
 	t.Helper()
 	dir := t.TempDir()
-	st, err := store.Open(context.Background(), filepath.Join(dir, "marshal.db"))
+	st, err := testutil.OpenStore(context.Background(), filepath.Join(dir, "marshal.db"))
 	if err != nil {
 		t.Fatalf("open the store: %v", err)
 	}
