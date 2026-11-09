@@ -11,8 +11,12 @@ pub fn run() {
     #[cfg(mobile)]
     let builder = builder
         .plugin(tauri_plugin_barcode_scanner::init())
-        .plugin(tauri_plugin_haptics::init());
+        .plugin(tauri_plugin_haptics::init())
+        .plugin(system_bars::init());
     builder
         .run(tauri::generate_context!())
         .expect("marshal mobile failed to start");
 }
+
+#[cfg(mobile)]
+mod system_bars;

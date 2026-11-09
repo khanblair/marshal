@@ -9,6 +9,7 @@
   "platforms": ["android", "iOS"],
   "permissions": [
     "core:event:default",
+    "marshal-mobile:allow-set-system-bars",
     "deep-link:default",
     "barcode-scanner:default",
     "haptics:allow-impact-feedback",

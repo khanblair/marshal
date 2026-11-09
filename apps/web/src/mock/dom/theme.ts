@@ -1,5 +1,6 @@
 import type { State } from "../state-types";
 import type { ResolvedTheme } from "../types";
+import { setNativeSystemBars } from "~/platform/native-system-bars";
 
 const DARK_QUERY = "(prefers-color-scheme: dark)";
 
@@ -13,6 +14,7 @@ export function applyTheme(S: State): void {
   else theme = S.theme;
   document.documentElement.setAttribute("data-theme", theme);
   S.resolvedTheme = theme;
+  setNativeSystemBars(theme === "dark");
 }
 
 /** Re-applies the theme when the OS switches between light and dark. */

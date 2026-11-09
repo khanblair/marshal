@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import {
   copyLauncherIcons,
+  copySystemBarsPlugin,
   patchBuildTask,
   patchGradle,
   patchMainActivity,
@@ -136,6 +137,17 @@ test("Marshal's launcher icons replace the ones Tauri generates, and nothing els
   assert.equal(readFileSync(join(res, "values/strings.xml"), "utf8"), "kept");
   copyLauncherIcons(source, res);
   assert.equal(readFileSync(join(res, "mipmap-xxxhdpi/ic_launcher.png"), "utf8"), "marshal");
+});
+
+test("the native system bars plugin is copied into the generated Android app source", () => {
+  const source = mkdtempSync(join(tmpdir(), "system-bars-"));
+  const java = mkdtempSync(join(tmpdir(), "android-java-"));
+  writeFileSync(join(source, "SystemBarsPlugin.kt"), "class SystemBarsPlugin");
+  copySystemBarsPlugin(source, java);
+  const copied = join(java, "com", "marshal", "mobile", "systembars", "SystemBarsPlugin.kt");
+  assert.equal(readFileSync(copied, "utf8"), "class SystemBarsPlugin");
+  copySystemBarsPlugin(source, java);
+  assert.equal(readFileSync(copied, "utf8"), "class SystemBarsPlugin");
 });
 
 test("the committed icons are a whole launcher icon: every density, and the adaptive icon with its color", () => {

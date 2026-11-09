@@ -21,7 +21,7 @@
 //     never applied; they are copied over the generated ones, adaptive icon and all.
 
 import { spawnSync } from "node:child_process";
-import { cpSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -128,6 +128,17 @@ export function copyLauncherIcons(iconsDir, resDir) {
   cpSync(iconsDir, resDir, { recursive: true, force: true });
 }
 
+/** Copies the app's native status bar plugin into Tauri's generated Android app source. */
+export function copySystemBarsPlugin(sourceDir, appSrcDir) {
+  if (!existsSync(sourceDir)) {
+    console.error(`Missing ${sourceDir}. The native system bar plugin source is required.`);
+    process.exit(1);
+  }
+  const destination = join(appSrcDir, "com", "marshal", "mobile", "systembars");
+  mkdirSync(destination, { recursive: true });
+  cpSync(sourceDir, destination, { recursive: true, force: true });
+}
+
 function patchFile(path, patch) {
   if (!existsSync(path)) {
     console.error(
@@ -172,6 +183,10 @@ function main() {
     patchBuildTask,
   );
   copyLauncherIcons(join(root, "src-tauri", "icons", "android"), join(app, "src", "main", "res"));
+  copySystemBarsPlugin(
+    join(root, "src-tauri", "native", "system-bars"),
+    join(app, "src", "main", "java"),
+  );
   console.log(
     "The Android project allows the tailnet's plain-http address, takes shared text, and has Marshal's icons.",
   );
