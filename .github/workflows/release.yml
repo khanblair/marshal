@@ -360,19 +360,31 @@ jobs:
             const fs = require('node:fs');
             // A draft has no tag yet, and the by-tag lookup never returns drafts, so list the releases.
             const releases = await github.paginate(github.rest.repos.listReleases, { ...context.repo, per_page: 100 });
-            const release = releases.find(item => item.tag_name === process.env.RELEASE_TAG);
+            let release = releases.find(item => item.tag_name === process.env.RELEASE_TAG);
             if (!release) throw new Error(`No release or draft found for ${process.env.RELEASE_TAG}.`);
+            // A draft left by an earlier failed run still points at that run's commit. This run built and
+            // uploaded from the verified commit, so the draft is moved to it before it is tagged.
+            if (release.draft && release.target_commitish !== process.env.RELEASE_SHA) {
+              ({ data: release } = await github.rest.repos.updateRelease({ ...context.repo, release_id: release.id,
+                target_commitish: process.env.RELEASE_SHA }));
+            }
             // A draft records the commit it will tag. A published release already has its tag.
             const tagged = release.draft
               ? release.target_commitish
               : (await github.rest.repos.getCommit({ ...context.repo, ref: process.env.RELEASE_TAG })).data.sha;
             if (tagged !== process.env.RELEASE_SHA) throw new Error('Release tag changed since validation.');
             const { data: assets } = await github.rest.repos.listReleaseAssets({ ...context.repo, release_id: release.id, per_page: 100 });
-            for (const name of fs.readdirSync('release-assets')) {
+            const expected = fs.readdirSync('release-assets');
+            for (const name of expected) {
               const size = fs.statSync(`release-assets/${name}`).size;
               if (!assets.some(asset => asset.name === name && asset.size === size && asset.state === 'uploaded')) {
                 throw new Error(`Release asset missing or incomplete: ${name}`);
               }
+            }
+            // A stale draft must not carry a download this run did not build.
+            if (release.draft) {
+              const extra = assets.filter(asset => !expected.includes(asset.name)).map(asset => asset.name);
+              if (extra.length) throw new Error(`Draft holds downloads this run did not build: ${extra.join(', ')}`);
             }
             await github.rest.repos.updateRelease({ ...context.repo, release_id: release.id, draft: false,
               make_latest: process.env.NEW_RELEASE === 'true' ? 'true' : 'legacy' });
