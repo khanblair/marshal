@@ -212,6 +212,13 @@ Phase 2 (core UI) is scoped as eight slices, A to H, in `backend-checklist.md` s
 - Not changed: the browser test limits, `release-plan.mjs` (a superseded commit is still skipped), and the universal macOS build time (about 60 minutes).
 - Validation is GitHub-only. No local tests, lint, builds, or browser checks ran.
 
+### 2026-11-10 — Browser picker contracts
+
+- CI `42699668345` passed early and client gates. Browser boot now succeeded with the isolated fixture keychain. The browser job failed in two minutes and uploaded diagnostics, exposing stale native-select locators, a duplicated built-in catalog entry, and retired hard-coded prototype model assumptions. The attached watcher detected the completed failing job while macOS work was still running; that remaining run was cancelled to avoid validating a known failed candidate.
+- Added custom dropdown and card-disclosure browser helpers. Updated agent and hold specs to use real menu interactions, daemon catalog model/thinking flags, explicit unconfigured-provider messaging, and disclosed onboarding notes. Kept disabled-agent and missing-install assertions. No production UI behavior or tests were removed; no paid model calls are used.
+- No local tests, lint, builds, or browser checks ran. GitHub verification and v0.1.3 publication remain pending.
+
+
 ### 2026-11-10 — Headless browser startup
 
 - CI `42685870479` passed all light checks, every client test and coverage floor, all daemon/tool tests and daemon coverage, the build, and memory/size budgets. Browser testing then hit the thirty-minute job limit. Its logs showed repeated real Linux keychain reads failing because Secret Service was absent; the stub fixture daemon had incorrectly used the OS keychain.
@@ -239,19 +246,6 @@ Phase 2 (core UI) is scoped as eight slices, A to H, in `backend-checklist.md` s
 - Verification remains on GitHub only. No local tests, lint, type checks, builds, or browser checks were run. Release is not yet published.
 
 
-### 2026-11-09 — Installed runtime and mobile fixes (awaiting GitHub validation)
-
-- Added shared runtime PATH discovery for agents, project checks, and preview commands; local checks now retain stderr. Explicit workflow PATH still wins. No project workflow needs a machine-specific Bun path.
-- Added shared OS project leases across installed/dev daemons, including crash-release regression coverage. Existing coordinated subagents stay under their main agent.
-- Updated phone card disclosure, removed the bypass banner, added chat activity feedback, and added the Android theme/status-bar bridge.
-- Replaced daemon-backed preview placeholders with isolated interactive gateways and private Tailscale exposure. Card-chat localhost links open Preview instead of navigating to the phone itself.
-- Validation: focused regressions authored; source formatting and static review only. Per owner instruction, tests, lint, builds, browser checks, and CI run on GitHub, not this Mac. Release v0.1.3 remains pending those results and release artifact verification.
-
-
-_Older entries: [archive/progress-tracker-archive-2026-10.md](archive/progress-tracker-archive-2026-10.md)._
-
-Newest entries first.
-
 ## File changes log
 
 _Older entries: [archive/progress-tracker-archive-2026-10.md](archive/progress-tracker-archive-2026-10.md)._
@@ -260,6 +254,7 @@ Every file added, moved, renamed, or deleted in the repo. Newest first. The plan
 
 | Date | File | Change | Task | Notes |
 |---|---|---|---|---|
+| 2026-11-10 | `apps/web/e2e/support/{dropdown,card-details}.ts`, agent/hold specs | Added, Changed | Browser CI | Match custom menus and mobile disclosures; derive catalog expectations from the daemon. |
 | 2026-11-10 | `daemon/cmd/marshald/keychain{,_test}.go`, module wiring, browser setup/config, CI | Added, Changed | Browser CI | Isolate explicit stub fixtures from desktop credentials and fail early with diagnostics. |
 | 2026-11-09 | `.github/release.json`, `apps/desktop/scripts/release-plan{,.test}.mjs`, workflows, desktop package scripts, catalog PATH test | Added, Changed | Release order | Event driven CI to dual-platform build to verified publication; focused early regressions. |
 | 2026-11-09 | Runtime PATH/local-CI, workspace-lock, preview relay/exposure, native system-bars, and chat/disclosure files listed in project-structure.md | Added, Changed, Deleted | Runtime/mobile | Portable tool lookup, isolated previews, shared project ownership, mobile controls; removed bypass banner. |
@@ -282,6 +277,7 @@ Every change to a doc. Newest first.
 
 | Date | Doc | Change |
 |---|---|---|
+| 2026-11-10 | `project-structure.md`, `progress-tracker.md` | Recorded browser fixture recovery and current picker contracts, with CI/release still pending. |
 | 2026-11-10 | `development.md`, `project-structure.md`, `progress-tracker.md` | Documented headless fixture credentials, startup assertions, browser failure bounds, and actual successful CI gates. |
 | 2026-11-09 | `app-updates.md`, `development.md`, `project-structure.md`, `progress-tracker.md` | Replaced manual tag-triggered release instructions with the CI completion chain, blocking rules, and pending validation status. |
 | 2026-11-09 | `agent-sessions.md`, `mobile.md`, `ui-rules.md`, `direct-workspace.md`, `project-structure.md`, `progress-tracker.md` | Documented runtime discovery, preview access and limits, shared locks, and mobile behavior; validation remains pending GitHub. |

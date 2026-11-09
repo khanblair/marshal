@@ -279,3 +279,5 @@ Desktop `src-tauri/entitlements.plist` grants the executable-memory exception ne
 - `.github/workflows/release.yml` receives CI completion events, builds both platforms, stages artifacts, and publishes them together. `.github/workflows/e2e-macos.yml` is an optional manual browser check; the browser tests run in `ci-full.yml`.
 
 - `daemon/cmd/marshald/keychain{,_test}.go`: fixture-only credential isolation and mode guards; the shared keychain is wired through the core daemon modules. Browser startup assertions live in `apps/web/e2e/support/{global-setup,daemon-api}.ts`.
+
+- `apps/web/e2e/support/{dropdown,card-details}.ts`: browser interactions for custom combobox menus and mobile card/settings disclosure. Agent specs use the daemon's catalog and provider readiness instead of the retired prototype model list.

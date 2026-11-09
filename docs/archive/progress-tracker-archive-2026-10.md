@@ -399,3 +399,19 @@ Older log entries moved out of `../progress-tracker.md` to keep the live tracker
 
 - **Chat coding controls:** added explicit card-key commands for start, message, reply, status, stop, resume, agent choice, and completion. Task creation replies include the new key. Replies preserve stored agent text, use bounded chunks, and disable Discord mentions. Existing configured-chat checks and the project editor reservation apply. Production wiring is exercised with actual local stub-agent processes for both bot types.
 - **Mobile preview check:** verified that phones can request and retrieve authenticated screenshots. The live page in the current tab is a drawn placeholder, and a computer localhost URL cannot be opened directly on the phone. Documented the remaining interactive-preview gap.
+
+
+## Session log (archived 2026-11-10)
+
+### 2026-11-09 — Installed runtime and mobile fixes (awaiting GitHub validation)
+
+- Added shared runtime PATH discovery for agents, project checks, and preview commands; local checks now retain stderr. Explicit workflow PATH still wins. No project workflow needs a machine-specific Bun path.
+- Added shared OS project leases across installed/dev daemons, including crash-release regression coverage. Existing coordinated subagents stay under their main agent.
+- Updated phone card disclosure, removed the bypass banner, added chat activity feedback, and added the Android theme/status-bar bridge.
+- Replaced daemon-backed preview placeholders with isolated interactive gateways and private Tailscale exposure. Card-chat localhost links open Preview instead of navigating to the phone itself.
+- Validation: focused regressions authored; source formatting and static review only. Per owner instruction, tests, lint, builds, browser checks, and CI run on GitHub, not this Mac. Release v0.1.3 remains pending those results and release artifact verification.
+
+
+_Older entries: [archive/progress-tracker-archive-2026-10.md](archive/progress-tracker-archive-2026-10.md)._
+
+Newest entries first.
