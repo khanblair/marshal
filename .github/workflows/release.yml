@@ -365,9 +365,11 @@ jobs:
             // A draft left by an earlier failed run still points at that run's commit. This run built and
             // uploaded from the verified commit, so the draft is moved to it before it is tagged.
             if (release.draft && release.target_commitish !== process.env.RELEASE_SHA) {
+              // The tag name is sent again, or GitHub swaps it for an "untagged-" placeholder.
               ({ data: release } = await github.rest.repos.updateRelease({ ...context.repo, release_id: release.id,
-                target_commitish: process.env.RELEASE_SHA }));
+                tag_name: process.env.RELEASE_TAG, target_commitish: process.env.RELEASE_SHA }));
             }
+            if (release.tag_name !== process.env.RELEASE_TAG) throw new Error(`Release has tag ${release.tag_name}, not ${process.env.RELEASE_TAG}.`);
             // A draft records the commit it will tag. A published release already has its tag.
             const tagged = release.draft
               ? release.target_commitish
@@ -387,5 +389,11 @@ jobs:
               if (extra.length) throw new Error(`Draft holds downloads this run did not build: ${extra.join(', ')}`);
             }
             await github.rest.repos.updateRelease({ ...context.repo, release_id: release.id, draft: false,
+              tag_name: process.env.RELEASE_TAG, target_commitish: process.env.RELEASE_SHA,
               make_latest: process.env.NEW_RELEASE === 'true' ? 'true' : 'legacy' });
-            await core.summary.addHeading('Release published').addLink(process.env.RELEASE_TAG, release.html_url).write();
+            // The published release must own the real tag, on the verified commit.
+            const { data: published } = await github.rest.repos.getReleaseByTag({ ...context.repo, tag: process.env.RELEASE_TAG });
+            const { data: finalCommit } = await github.rest.repos.getCommit({ ...context.repo, ref: process.env.RELEASE_TAG });
+            if (published.draft || finalCommit.sha !== process.env.RELEASE_SHA)
+              throw new Error(`Release ${process.env.RELEASE_TAG} is not published at ${process.env.RELEASE_SHA}.`);
+            await core.summary.addHeading('Release published').addLink(process.env.RELEASE_TAG, published.html_url).write();
