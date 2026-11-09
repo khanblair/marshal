@@ -173,3 +173,52 @@ func TestDirectFailedChecksReleaseCompletionBeforeSendingCorrections(t *testing.
 		t.Fatal("failed checks could not return feedback to the main agent after releasing completion")
 	}
 }
+
+// The explicit Merge route must obey the same shared-folder safety rules as SendToMerge.
+func TestExplicitDirectMergeCompletesWithoutChangingTheProjectBranch(t *testing.T) {
+	w := &completionWorker{}
+	e := directEnv(t, func(d *integrator.Deps) { d.Worker = w })
+	card := directCard(t, e)
+	e.write(e.repo, "b.txt", "completed direct edit\n")
+	head, status := e.tip("HEAD"), e.status()
+	result, err := e.svc.Merge(e.ctx, card.ID)
+	if err != nil || !result.Merged || result.Commit == "" || e.state(card.ID).State != protocol.CardStateDone {
+		t.Fatalf("direct Merge did not complete: %+v, %v", result, err)
+	}
+	if !w.stopped || w.held || e.tip("HEAD") != head || e.status() != status {
+		t.Fatal("completion failed to stop its editor, release ownership, or preserve the project branch and files")
+	}
+	if _, err := e.svc.Merge(e.ctx, card.ID); err == nil {
+		t.Fatal("the explicit route accepted an already completed card")
+	}
+}
+
+func TestExplicitDirectMergeRefusesAnEditorThatCannotStop(t *testing.T) {
+	w := &completionWorker{stopErr: errors.New("editor still running")}
+	e := directEnv(t, func(d *integrator.Deps) { d.Worker = w })
+	card := directCard(t, e)
+	e.write(e.repo, "b.txt", "preserve unfinished work\n")
+	result, err := e.svc.Merge(e.ctx, card.ID)
+	if err == nil || result.Merged || e.state(card.ID).State == protocol.CardStateDone || w.held {
+		t.Fatalf("unsafe completion after stop failure: %+v, %v", result, err)
+	}
+	if e.read(e.repo, "b.txt") != "preserve unfinished work\n" {
+		t.Fatal("failed completion changed the project files")
+	}
+}
+
+func TestExplicitDirectMergeRefusesLegacyWorkAndShutdown(t *testing.T) {
+	e := directEnv(t, nil)
+	legacy := e.work("Preserved old task", protocol.CardStateWorking, map[string]string{"b.txt": "old work\n"})
+	head := e.tip("HEAD")
+	if _, err := e.svc.Merge(e.ctx, legacy.ID); err == nil || !strings.Contains(err.Error(), "preserved") {
+		t.Fatalf("legacy work was not refused: %v", err)
+	}
+	if e.tip("HEAD") != head {
+		t.Fatal("legacy completion moved the project branch")
+	}
+	e.svc.Close()
+	if _, err := e.svc.Merge(e.ctx, legacy.ID); err == nil || !strings.Contains(err.Error(), "shutting down") {
+		t.Fatalf("shutdown accepted completion: %v", err)
+	}
+}

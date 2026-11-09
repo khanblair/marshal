@@ -67,10 +67,19 @@ jobs:
             daemon/go.sum
             tools/*/go.sum
       - uses: actions/cache@v4
+        id: go-tools
         with:
           path: .tools
           key: go-tools-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/setup-tools.mjs') }}
       - run: pnpm setup:tools
+      # Save successful tool setup before tests run. Failed test jobs used to discard this
+      # cache, rebuilding every Go tool on the next macOS run.
+      - name: Cache installed Go tools
+        if: steps.go-tools.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .tools
+          key: go-tools-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/setup-tools.mjs') }}
       - run: pnpm gen
       # The daemon's tests write its coverage profile, and the web app and UI package tests fail
       # when they are below their floors. The next step checks the daemon against its floors.
