@@ -522,6 +522,7 @@ func buildLateModules(st *store.Store, bus *events.Bus, settings config.Settings
 	// Edge. Nothing is started here: the service starts a dev server only when it is asked to.
 	previewSvc, err := preview.New(preview.Deps{
 		Projects: core.proj, Bus: bus, DataDir: settings.DataDir, Log: log, Now: time.Now,
+		Options: preview.Options{BlockedPorts: []int{settings.Port}},
 	})
 	if err != nil {
 		return lateDaemonModules{}, fmt.Errorf("start the preview module: %w", err)

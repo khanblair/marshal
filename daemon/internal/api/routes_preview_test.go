@@ -670,3 +670,19 @@ func TestThePreviewStateIsPublishedOnTheCardsTopic(t *testing.T) {
 		t.Errorf("the second state change = %+v, want running with its address", runData.Preview)
 	}
 }
+
+// Connecting an existing project server neither starts nor stops its process. The ticket
+// belongs to a separate origin and the device's bearer token is absent from the response.
+func TestPreviewConnectUsesAnIsolatedOneUseGateway(t *testing.T) {
+	st, fakes := previewStack(t, nil)
+	card, _ := previewCard(t, st, "")
+	response := st.do(http.MethodPost, "/v1/cards/"+card.ID+"/preview/connect", protocol.PreviewConnectRequest{URL: "http://localhost:3000/dashboard", Origin: "http://localhost:3210"}).want(t, http.StatusOK)
+	answer := decode[protocol.PreviewConnection](t, response)
+	if !strings.HasPrefix(answer.URL, "http://localhost:") || !strings.Contains(answer.URL, "/__marshal_preview__/") || answer.SourceURL != "http://localhost:3000/dashboard" {
+		t.Fatalf("connection: %+v", answer)
+	}
+	if strings.Contains(answer.URL, st.token) || len(fakes.runner.asked()) != 0 {
+		t.Fatal("connection leaked pairing or started a second dev server")
+	}
+	st.do(http.MethodPost, "/v1/cards/"+card.ID+"/preview/connect", protocol.PreviewConnectRequest{URL: "http://localhost:47800", Origin: "http://localhost:3210"}).want(t, http.StatusUnprocessableEntity)
+}

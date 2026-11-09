@@ -261,7 +261,7 @@ func TestARouteIsRegisteredOnlyWhenItsServiceIsThere(t *testing.T) {
 	// The preview routes need the projects service, which owns the card, its worktree, and its
 	// project's dev command, and the preview module, which owns the dev server and its screenshots.
 	previewRoutes := []string{
-		"GET /v1/cards/{id}/preview", "POST /v1/cards/{id}/preview/start",
+		"GET /v1/cards/{id}/preview", "POST /v1/cards/{id}/preview/connect", "POST /v1/cards/{id}/preview/start",
 		"POST /v1/cards/{id}/preview/stop", "POST /v1/cards/{id}/preview/shots",
 		"GET /v1/cards/{id}/preview/shots/{file}",
 	}

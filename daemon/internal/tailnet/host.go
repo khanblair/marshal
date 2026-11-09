@@ -251,7 +251,8 @@ func (s cliStatus) phones() []protocol.TailnetPhone {
 
 // serveConfig is the part of `tailscale serve status --json` that is read.
 type serveConfig struct {
-	TCP map[string]struct {
+	AllowFunnel map[string]bool `json:"AllowFunnel"`
+	TCP         map[string]struct {
 		HTTP       bool   `json:"HTTP"`
 		HTTPS      bool   `json:"HTTPS"`
 		TCPForward string `json:"TCPForward"`
@@ -261,6 +262,7 @@ type serveConfig struct {
 			Proxy string `json:"Proxy"`
 		} `json:"Handlers"`
 	} `json:"Web"`
+	Foreground map[string]*serveConfig `json:"Foreground"`
 }
 
 // isLocalTo says an address is this computer's own loopback on the daemon's port, which is where a

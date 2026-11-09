@@ -324,6 +324,7 @@ func ciPreviewAndIntegrationRoutes() []routeSpec {
 		{"POST /v1/cards/{id}/ci-failure", needsCI | needsDevMode, (*Server).simulateCIFailure},
 		{"POST /v1/cards/{id}/local-ci", needsProjects | needsLocalCI, (*Server).runLocalCI},
 		{"GET /v1/cards/{id}/preview", needsProjects | needsPreview, (*Server).getPreview},
+		{"POST /v1/cards/{id}/preview/connect", needsProjects | needsPreview, (*Server).connectPreview},
 		{"POST /v1/cards/{id}/preview/start", needsProjects | needsPreview, (*Server).startPreview},
 		{"POST /v1/cards/{id}/preview/stop", needsProjects | needsPreview, (*Server).stopPreview},
 		{"POST /v1/cards/{id}/preview/shots", needsProjects | needsPreview, (*Server).takePreviewShot},

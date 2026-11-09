@@ -30,6 +30,7 @@ import (
 	"github.com/khanblair/marshal/daemon/internal/notify"
 	"github.com/khanblair/marshal/daemon/internal/outbox"
 	"github.com/khanblair/marshal/daemon/internal/platform"
+	"github.com/khanblair/marshal/daemon/internal/previewrelay"
 	"github.com/khanblair/marshal/daemon/internal/projects"
 	"github.com/khanblair/marshal/daemon/internal/protocol"
 	"github.com/khanblair/marshal/daemon/internal/session"
@@ -213,6 +214,7 @@ func serve(ctx context.Context, settings config.Settings, env platform.Env, log 
 	// the server has stopped accepting - see the defer just below.
 	node := buildTailnetNode(ctx, settings, st, log)
 	defer closeTailnet(node, &err)
+	mods.preview.SetExposure(previewrelay.Expose(tailnet.NewPreviewExposure(node)))
 
 	// The notification router (B9.4): which chat each kind of event reaches, grouped so a burst of
 	// things is one message, and an approval sent at once. It talks to no service itself - the

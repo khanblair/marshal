@@ -1,12 +1,14 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
 
 	"github.com/khanblair/marshal/daemon/internal/protocol"
+	"github.com/khanblair/marshal/daemon/internal/store"
 )
 
 // A card's live preview (docs/architecture.md section 11.2 and N10, docs/backend-checklist.md B6.6
@@ -152,4 +154,36 @@ func previewShotKindOf(r *http.Request) (protocol.PreviewShotKind, error) {
 		return "", notFoundID("screenshot", name)
 	}
 	return kind, nil
+}
+
+// connectPreview mints a one-use gateway ticket bound to the current pairing and card.
+func (s *Server) connectPreview(w http.ResponseWriter, r *http.Request) {
+	id, err := cardIDOf(r)
+	if err != nil {
+		s.writeError(w, err)
+		return
+	}
+	var req protocol.PreviewConnectRequest
+	if err := s.decodeJSON(r, &req); err != nil {
+		s.writeError(w, err)
+		return
+	}
+	hash := store.HashToken(bearerToken(r.Header.Get("Authorization")))
+	caller, _ := Principal(r.Context())
+	authorized := func(ctx context.Context) bool {
+		if _, err := s.projects.Card(ctx, id); err != nil {
+			return false
+		}
+		if caller.DeviceKind == protocol.DeviceKindDev {
+			return s.auth.dev != nil && sameHash(hash, s.auth.dev.hash)
+		}
+		current, err := s.auth.lookup(ctx, hash)
+		return err == nil && current.DeviceID == caller.DeviceID
+	}
+	answer, err := s.preview.Connect(r.Context(), id, req, authorized)
+	if err != nil {
+		s.writeError(w, translate(err))
+		return
+	}
+	s.writeJSON(w, http.StatusOK, answer)
 }
