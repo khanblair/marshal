@@ -144,7 +144,7 @@ function queries(ctx: Ctx) {
     // The bytes of a screenshot, fetched with the token and shown as an object URL, the way an
     // avatar is (`sync/avatar.ts`). Null when there is nothing to show.
     previewShotImage: previewWrites.readPreviewShotImage,
-    previewTarget: previewWrites.cardPreviewTarget,
+    previewTarget: (_ctx: Ctx, key: CardKey) => previewWrites.cardPreviewTarget(key),
     // True while a connection's row in Settings (S29a for GitHub) is the daemon's: the row then
     // reads its status, its sentence, and its last test from the daemon, and its buttons call the
     // daemon's routes rather than the mock's own "connect" story.
@@ -420,7 +420,8 @@ function cardActions(ctx: Ctx) {
     stopPreview: previewWrites.stopCardPreview,
     takePreviewShot: previewWrites.takeCardPreviewShot,
     connectPreview: previewWrites.connectCardPreview,
-    setPreviewTarget: previewWrites.setCardPreviewTarget,
+    setPreviewTarget: (_ctx: Ctx, key: CardKey, url: string) =>
+      previewWrites.setCardPreviewTarget(key, url),
     addComment: pick(commentsOnDaemon, panelWrites.addComment, comments.addComment),
     deleteComment: pick(commentsOnDaemon, panelWrites.deleteComment, comments.deleteComment),
     toggleMember: pick(commentsOnDaemon, panelWrites.toggleMember, comments.toggleMember),

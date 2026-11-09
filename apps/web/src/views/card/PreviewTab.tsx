@@ -196,7 +196,9 @@ export function PreviewTab(props: PreviewTabProps) {
   const savedTargetUrl = () => M.previewTarget(props.card.id) || previewUrl(props.card.id);
   const connection = () => {
     const current = connected();
-    return current?.sourceUrl === targetUrl() && Date.parse(current.expiresAt) > Date.now()
+    return current &&
+      current.sourceUrl === targetUrl() &&
+      Date.parse(current.expiresAt) > Date.now()
       ? current
       : undefined;
   };

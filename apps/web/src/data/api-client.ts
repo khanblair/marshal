@@ -405,6 +405,7 @@ type CardRoute =
   | "checkpoints"
   | "restoreCheckpoint"
   | "preview"
+  | "connectPreview"
   | "startPreview"
   | "stopPreview"
   | "takePreviewShot"
