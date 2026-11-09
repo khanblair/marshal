@@ -54,7 +54,7 @@ func seedThrough0008(ctx context.Context, t *testing.T) (*sql.DB, string) {
 
 // The rows of a card's history are copied as they are: every column, in the same order.
 func TestMigration0009KeepsACardsHistoryAsItWas(t *testing.T) {
-	ctx := testContext(t)
+	ctx := setupContext(t)
 	writer, _ := seedThrough0008(ctx, t)
 	log := slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
 	if err := migrate(ctx, writer, embeddedFiles(t), log); err != nil {
@@ -94,7 +94,7 @@ func TestMigration0009KeepsACardsHistoryAsItWas(t *testing.T) {
 // belongs to a card or a chat and never both or neither, a card's events number uniquely, and an
 // event cannot name a card that is not there.
 func TestMigration0009ConstrainsWhoOwnsAnEvent(t *testing.T) {
-	ctx := testContext(t)
+	ctx := setupContext(t)
 	writer, _ := seedThrough0008(ctx, t)
 	log := slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
 	if err := migrate(ctx, writer, embeddedFiles(t), log); err != nil {

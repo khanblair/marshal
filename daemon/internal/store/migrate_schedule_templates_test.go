@@ -11,7 +11,7 @@ import (
 // way it did: no starter, no parts, no chats, and not quiet.
 
 func TestMigration0033KeepsEveryExistingScheduleAsItWas(t *testing.T) {
-	ctx := testContext(t)
+	ctx := setupContext(t)
 	writer, _ := seedThrough0008(ctx, t)
 	log := slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
 	if err := migrate(ctx, writer, migrationsThrough(t, 32), log); err != nil {
@@ -39,7 +39,7 @@ func TestMigration0033KeepsEveryExistingScheduleAsItWas(t *testing.T) {
 }
 
 func TestTheQuietFlagTakesOnlyZeroOrOne(t *testing.T) {
-	ctx := testContext(t)
+	ctx := setupContext(t)
 	writer, _ := seedThrough0008(ctx, t)
 	log := slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
 	if err := migrate(ctx, writer, embeddedFiles(t), log); err != nil {

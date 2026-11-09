@@ -74,7 +74,7 @@ func searchEventIndex(ctx context.Context, t *testing.T, writer *sql.DB, term st
 // edit and out through a delete. Without the triggers a search would answer with words the event no
 // longer holds, or with an event that is gone.
 func TestTheSessionIndexFollowsTheEvent(t *testing.T) {
-	ctx := testContext(t)
+	ctx := setupContext(t)
 	writer := memorySchema(ctx, t)
 	seedSession(ctx, t, writer, "session-1", "card1")
 	seedSessionEvent(ctx, t, writer, sessionEventKey{"event-1", "card1", "session-1"}, "Added the health check endpoint")
@@ -104,7 +104,7 @@ func TestTheSessionIndexFollowsTheEvent(t *testing.T) {
 // the Chats kind of the same search, so indexing them here would answer one chat twice; an event with
 // no summary could never be found, and the index would carry a row per event for nothing.
 func TestTheSessionIndexHoldsOnlyACardsEventsWithASummary(t *testing.T) {
-	ctx := testContext(t)
+	ctx := setupContext(t)
 	writer := memorySchema(ctx, t)
 	seedSession(ctx, t, writer, "session-1", "card1")
 	seedSessionEvent(ctx, t, writer, sessionEventKey{"event-1", "card1", "session-1"}, "")
@@ -138,7 +138,7 @@ func TestTheSessionIndexHoldsOnlyACardsEventsWithASummary(t *testing.T) {
 // trigger migration 0009 writes; the indexed rows through the one this migration adds for exactly
 // this case, which removes them by the card whether or not the per-row delete trigger fires.
 func TestDeletingACardTakesItsSessionEventsFromTheIndex(t *testing.T) {
-	ctx := testContext(t)
+	ctx := setupContext(t)
 	writer := memorySchema(ctx, t)
 	seedSession(ctx, t, writer, "session-1", "card1")
 	seedSessionEvent(ctx, t, writer, sessionEventKey{"event-1", "card1", "session-1"}, "Added a liveness probe")
@@ -160,7 +160,7 @@ func TestDeletingACardTakesItsSessionEventsFromTheIndex(t *testing.T) {
 // The index is on the schema after the migration runs, and it is the virtual table the query joins
 // back to `session_events` through. A missing table would only show up as a failed search later.
 func TestMigration0021AddsTheSessionSearchIndex(t *testing.T) {
-	ctx := testContext(t)
+	ctx := setupContext(t)
 	writer := memorySchema(ctx, t)
 	var sql string
 	if err := writer.QueryRowContext(ctx,

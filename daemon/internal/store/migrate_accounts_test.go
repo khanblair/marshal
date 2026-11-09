@@ -17,7 +17,7 @@ import (
 func execAll(t *testing.T, s *Store, statements ...string) {
 	t.Helper()
 	for _, statement := range statements {
-		if _, err := s.writer.ExecContext(testContext(t), statement); err != nil {
+		if _, err := s.writer.ExecContext(setupContext(t), statement); err != nil {
 			t.Fatalf("%s: %v", statement, err)
 		}
 	}
@@ -26,7 +26,7 @@ func execAll(t *testing.T, s *Store, statements ...string) {
 // wantRefused runs a statement that the database must refuse, and says why in the failure.
 func wantRefused(t *testing.T, s *Store, why, statement string) {
 	t.Helper()
-	if _, err := s.writer.ExecContext(testContext(t), statement); err == nil {
+	if _, err := s.writer.ExecContext(setupContext(t), statement); err == nil {
 		t.Errorf("the database accepted %s: %s", why, statement)
 	}
 }
@@ -34,7 +34,7 @@ func wantRefused(t *testing.T, s *Store, why, statement string) {
 func countRows(t *testing.T, s *Store, query string) int {
 	t.Helper()
 	var n int
-	if err := s.reader.QueryRowContext(testContext(t), query).Scan(&n); err != nil {
+	if err := s.reader.QueryRowContext(setupContext(t), query).Scan(&n); err != nil {
 		t.Fatalf("%s: %v", query, err)
 	}
 	return n
@@ -45,7 +45,7 @@ func TestMigration0010TablesAreStrict(t *testing.T) {
 	s := openTemp(t)
 	for _, table := range []string{"saved_views", "user_preferences", "project_preferences"} {
 		var strict int
-		row := s.reader.QueryRowContext(testContext(t), "SELECT strict FROM pragma_table_list WHERE name = ?", table)
+		row := s.reader.QueryRowContext(setupContext(t), "SELECT strict FROM pragma_table_list WHERE name = ?", table)
 		if err := row.Scan(&strict); err != nil || strict != 1 {
 			t.Errorf("%s: strict = %d, %v; want a STRICT table", table, strict, err)
 		}
@@ -64,7 +64,7 @@ func TestMigration0010SavedViewsBelongToTheirProject(t *testing.T) {
 	s := openTemp(t)
 	execAll(t, s, insertProject, insertView)
 	var filters, swimlane string
-	row := s.reader.QueryRowContext(testContext(t), "SELECT filters_json, swimlane FROM saved_views WHERE id = 'v1'")
+	row := s.reader.QueryRowContext(setupContext(t), "SELECT filters_json, swimlane FROM saved_views WHERE id = 'v1'")
 	if err := row.Scan(&filters, &swimlane); err != nil || filters != "[]" || swimlane != "none" {
 		t.Errorf("defaults = %q, %q, %v; want [] and none", filters, swimlane, err)
 	}
@@ -91,7 +91,7 @@ func TestMigration0010PreferencesFollowTheirProjectAndSavedView(t *testing.T) {
 		`INSERT INTO project_preferences (user_id, project_id, saved_view_id, updated_at) VALUES ('u1', 'api', 'v1', 1)`)
 	var view, swimlane string
 	var showAllDone int
-	row := s.reader.QueryRowContext(testContext(t),
+	row := s.reader.QueryRowContext(setupContext(t),
 		"SELECT last_view, swimlane, show_all_done FROM project_preferences WHERE user_id = 'u1'")
 	if err := row.Scan(&view, &swimlane, &showAllDone); err != nil || view != "board" || swimlane != "none" || showAllDone != 0 {
 		t.Errorf("defaults = %q, %q, %d, %v; want board, none, 0", view, swimlane, showAllDone, err)
@@ -99,7 +99,7 @@ func TestMigration0010PreferencesFollowTheirProjectAndSavedView(t *testing.T) {
 
 	execAll(t, s, `DELETE FROM saved_views WHERE id = 'v1'`)
 	var linked sql.NullString
-	if err := s.reader.QueryRowContext(testContext(t), "SELECT saved_view_id FROM project_preferences").Scan(&linked); err != nil || linked.Valid {
+	if err := s.reader.QueryRowContext(setupContext(t), "SELECT saved_view_id FROM project_preferences").Scan(&linked); err != nil || linked.Valid {
 		t.Errorf("the saved view in use = %+v, %v; want none after its view was deleted", linked, err)
 	}
 	execAll(t, s, `DELETE FROM projects WHERE id = 'api'`)
@@ -124,12 +124,12 @@ func TestMigration0010UserRows(t *testing.T) {
 	execAll(t, s, insertUser, `INSERT INTO user_preferences (user_id, updated_at) VALUES ('u1', 1)`,
 		`INSERT INTO user_progress (user_id) VALUES ('u1')`)
 	var theme, columns, sort string
-	row := s.reader.QueryRowContext(testContext(t), "SELECT theme, list_columns_json, sort_json FROM user_preferences")
+	row := s.reader.QueryRowContext(setupContext(t), "SELECT theme, list_columns_json, sort_json FROM user_preferences")
 	if err := row.Scan(&theme, &columns, &sort); err != nil || theme != "system" || columns != "{}" || sort != "{}" {
 		t.Errorf("defaults = %q, %q, %q, %v; want system, {}, {}", theme, columns, sort, err)
 	}
 	var skipped int
-	if err := s.reader.QueryRowContext(testContext(t), "SELECT onboarding_skipped FROM user_progress").Scan(&skipped); err != nil || skipped != 0 {
+	if err := s.reader.QueryRowContext(setupContext(t), "SELECT onboarding_skipped FROM user_progress").Scan(&skipped); err != nil || skipped != 0 {
 		t.Errorf("onboarding_skipped = %d, %v; want 0", skipped, err)
 	}
 	wantRefused(t, s, "a second row of preferences for one person",
@@ -142,7 +142,7 @@ func TestMigration0010UserRows(t *testing.T) {
 // A database that was already in use keeps its people and its progress when it upgrades to 0010: the
 // new columns are empty for them, which reads as no avatar and an onboarding that was not skipped.
 func TestMigration0010KeepsWhatWasAlreadyThere(t *testing.T) {
-	ctx := testContext(t)
+	ctx := setupContext(t)
 	path := filepath.Join(t.TempDir(), "marshal.db")
 	log := slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
 	writer, err := openPool(ctx, dsn(path, false), writers)

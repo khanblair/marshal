@@ -38,7 +38,7 @@ At the end of every work session, whether by a person or an agent:
 | **Current phase** | Phase 4: Models (S19b, S26b, and S28 switched; built and in review for the controller) |
 | **Next milestone** | Phase 4's gate: no real model API in CI, and Home's cost numbers match the usage table (then Phase 5) |
 | **Last updated** | 2026-11-09 |
-| **Current focused change** | Automatic agent answers and durable card conversation links for Telegram and Discord, reusing the existing approval and notification flow. |
+| **Current focused change** | Fix repeated schema setup and approval fixture startup in macOS CI, then publish and verify v0.1.3. |
 
 ---
 
@@ -315,6 +315,8 @@ Newest entries first.
 
 ### 2026-11-09
 
+- **CI reliability and release:** investigated the macOS race and coverage run. API and session suites exhausted their package budgets while repeatedly running fresh database migrations. Added isolated fixture database copies built from the actual migrations once per process, retaining normal reopen and migration tests. Measured fresh setup at 2.53 seconds versus 0.34 seconds for a schema copy locally. Store tests now give schema setup its own bounded context while keeping operation timeouts. Extracted the Claude wire fixture into a small standalone program to remove API test binary startup overhead. v0.1.3 release verification is pending.
+
 - **Chat conversations:** completed agent answers are delivered automatically to linked Telegram replies, Discord replies/threads, and Telegram topics. Durable links and answer revisions survive restart; transport scopes isolate bot credentials/destinations. Existing approval options and notification settings remain authoritative. Connection changes stop old receive loops on the next recheck. Fixture tests cover routing, restart, retries, thread isolation, and unchanged approval buttons; production session checks launch the local stub CLI for both bot kinds.
 
 - **Chat coding controls:** added explicit card-key commands for start, message, reply, status, stop, resume, agent choice, and completion. Task creation replies include the new key. Replies preserve stored agent text, use bounded chunks, and disable Discord mentions. Existing configured-chat checks and the project editor reservation apply. Production wiring is exercised with actual local stub-agent processes for both bot types.
@@ -425,6 +427,7 @@ Every file added, moved, renamed, or deleted in the repo. Newest first. The plan
 
 | Date | File | Change | Task | Notes |
 |---|---|---|---|---|
+| 2026-11-09 | `daemon/internal/testutil/store{,_test}.go`, `daemon/internal/testutil/approvalcli.go`, `daemon/internal/api/testdata/approvalcli/main.go` | Added | CI reliability | Isolated schema fixtures and a standalone approval CLI fixture. |
 | 2026-11-09 | `daemon/internal/chatcmd/conversations{,_test}.go`, `daemon/internal/chatbot/conversation_test.go`, `daemon/cmd/marshald/chat_watch.go` | Added | Remote coding | Save conversation links and delivery revisions; test transport metadata, routing, and automatic replies. |
 | 2026-11-09 | `daemon/internal/chatcmd/control{,_test}.go`, `daemon/cmd/marshald/chat_control{,_test}.go` | Added | Remote coding | Route bot coding commands through the real session, history, and completion services. |
 | 2026-11-05 | `README.md` | Added | Docs | Add a GitHub entry point for users and developers. |
@@ -461,6 +464,7 @@ Every change to a doc. Newest first.
 
 | Date | Doc | Change |
 |---|---|---|
+| 2026-11-09 | `development.md`, `project-structure.md`, `progress-tracker.md` | Documented CI fixture isolation, setup deadlines, and approval protocol startup. |
 | 2026-11-09 | `agent-sessions.md`, `project-structure.md`, `progress-tracker.md` | Documented automatic answers, linked replies and threads, delivery bounds, and existing approval routing. |
 | 2026-11-09 | `agent-sessions.md`, `mobile.md`, `marshal-product-scope.md`, `project-structure.md`, `progress-tracker.md` | Documented bot coding commands and the current limits of project previews on phones. |
 | 2026-11-05 | `agent-sessions.md`, `ui-rules.md` | Documented the Codex startup check, the verified CLI version, and where to find version numbers. |

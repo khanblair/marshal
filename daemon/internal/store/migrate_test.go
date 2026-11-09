@@ -38,7 +38,7 @@ func migrationCount(t *testing.T, files fs.FS) int {
 // appliedVersions reads goose's own record of which migrations ran.
 func appliedVersions(t *testing.T, s *Store) []int64 {
 	t.Helper()
-	rows, err := s.reader.QueryContext(testContext(t), "SELECT version_id FROM goose_db_version WHERE version_id > 0 ORDER BY version_id")
+	rows, err := s.reader.QueryContext(setupContext(t), "SELECT version_id FROM goose_db_version WHERE version_id > 0 ORDER BY version_id")
 	if err != nil {
 		t.Fatalf("read the version table: %v", err)
 	}
@@ -59,7 +59,7 @@ func appliedVersions(t *testing.T, s *Store) []int64 {
 
 func tableNames(t *testing.T, s *Store) map[string]bool {
 	t.Helper()
-	rows, err := s.reader.QueryContext(testContext(t), "SELECT name FROM sqlite_master WHERE type = 'table'")
+	rows, err := s.reader.QueryContext(setupContext(t), "SELECT name FROM sqlite_master WHERE type = 'table'")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,7 +81,7 @@ func TestMigrationsRunOnOpenAndAgainOnReopen(t *testing.T) {
 	log := slog.New(slog.NewTextHandler(&logs, nil))
 	want := migrationCount(t, embeddedFiles(t))
 
-	first, err := Open(testContext(t), path, WithLogger(log))
+	first, err := Open(setupContext(t), path, WithLogger(log))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -214,7 +214,7 @@ func migrationsThrough(t *testing.T, maxVersion int) fs.FS {
 // `session_events` points at with ON DELETE CASCADE. A database that already has history in it
 // when it upgrades must not lose that history to the rebuild.
 func TestMigration0007KeepsSessionEventsWhenSessionsIsRebuilt(t *testing.T) {
-	ctx := testContext(t)
+	ctx := setupContext(t)
 	path := filepath.Join(t.TempDir(), "marshal.db")
 	log := slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
 
@@ -286,7 +286,7 @@ func TestMigration0007KeepsSessionEventsWhenSessionsIsRebuilt(t *testing.T) {
 // empty-string sentinel a chat-owned session stores there): deleting a card must still take its
 // session with it, the same guarantee the old REFERENCES ... ON DELETE CASCADE gave.
 func TestSessionsCardCascadeDeleteTrigger(t *testing.T) {
-	ctx := testContext(t)
+	ctx := setupContext(t)
 	s := openAt(t, filepath.Join(t.TempDir(), "marshal.db"))
 	now := int64(1700000000000)
 	exec := func(query string, args ...any) {
@@ -324,7 +324,7 @@ func TestSessionsCardCascadeDeleteTrigger(t *testing.T) {
 }
 
 func TestABrokenMigrationStopsOpen(t *testing.T) {
-	ctx := testContext(t)
+	ctx := setupContext(t)
 	writer, err := openPool(ctx, dsn(filepath.Join(t.TempDir(), "marshal.db"), false), writers)
 	if err != nil {
 		t.Fatal(err)

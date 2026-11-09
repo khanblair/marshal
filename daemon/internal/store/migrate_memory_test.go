@@ -83,7 +83,7 @@ func searchIndex(ctx context.Context, t *testing.T, writer *sql.DB, term string)
 // write of a card's note replaces the first rather than adding to it. The id and the birthday stay,
 // so a note that is edited is the same note.
 func TestANoteIsOnePerCard(t *testing.T) {
-	ctx := testContext(t)
+	ctx := setupContext(t)
 	writer := memorySchema(ctx, t)
 	first := `INSERT INTO notes (id, project_id, card_id, author, body, created_at, updated_at)
 		VALUES ('note-1', 'proj1', 'card1', 'person', 'Goal: add a health check.', ?, ?)`
@@ -122,7 +122,7 @@ func TestANoteIsOnePerCard(t *testing.T) {
 // The index follows the note through an edit and out through a delete, which is the whole job of the
 // migration's triggers. Without them a search would answer with text the note no longer holds.
 func TestTheNoteIndexFollowsTheNote(t *testing.T) {
-	ctx := testContext(t)
+	ctx := setupContext(t)
 	writer := memorySchema(ctx, t)
 	if _, err := writer.ExecContext(ctx,
 		`INSERT INTO notes (id, project_id, card_id, author, body, created_at, updated_at)
@@ -158,7 +158,7 @@ func TestTheNoteIndexFollowsTheNote(t *testing.T) {
 // which has no card - is never rejected for having none), and the indexed text follows the note
 // through notes_fts_delete underneath it.
 func TestDeletingACardTakesItsMemory(t *testing.T) {
-	ctx := testContext(t)
+	ctx := setupContext(t)
 	writer := memorySchema(ctx, t)
 	if _, err := writer.ExecContext(ctx,
 		`INSERT INTO notes (id, project_id, card_id, author, body, created_at, updated_at)
@@ -192,7 +192,7 @@ func TestDeletingACardTakesItsMemory(t *testing.T) {
 // the overlap warning is about (B7.2). The same card claiming it twice is one claim, so its age is
 // how long the card has had it and not how many times it asked.
 func TestTwoCardsMayClaimOnePathAndOneCardOnlyOnce(t *testing.T) {
-	ctx := testContext(t)
+	ctx := setupContext(t)
 	writer := memorySchema(ctx, t)
 	claim := `INSERT INTO file_claims (card_id, project_id, path_or_package, claimed_at)
 		VALUES (?, 'proj1', 'internal/api', ?) ON CONFLICT (card_id, path_or_package) DO NOTHING`
@@ -242,7 +242,7 @@ func TestTwoCardsMayClaimOnePathAndOneCardOnlyOnce(t *testing.T) {
 // The four tables and the index are on the schema after the migration runs. A missing one would only
 // show up as a failed query much later, so they are named here.
 func TestMigration0019AddsTheMemoryTables(t *testing.T) {
-	ctx := testContext(t)
+	ctx := setupContext(t)
 	writer := memorySchema(ctx, t)
 	for _, name := range []string{"notes", "file_claims", "mcp_servers", "skills", "notes_fts"} {
 		var sql string

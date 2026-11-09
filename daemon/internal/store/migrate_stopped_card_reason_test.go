@@ -10,7 +10,7 @@ import (
 // (0034_stopped_card_reason.sql), and leaves every other card as it was.
 
 func TestMigration0034ExplainsAStoppedCardAndNothingElse(t *testing.T) {
-	ctx := testContext(t)
+	ctx := setupContext(t)
 	writer, _ := seedThrough0008(ctx, t)
 	log := slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
 	if err := migrate(ctx, writer, migrationsThrough(t, 33), log); err != nil {

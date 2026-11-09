@@ -251,6 +251,8 @@ Two commands this section used to list do not exist yet: `pnpm test:agents` (a r
 ## 5. Testing notes
 
 - **Integration tests use the stub agent and fixture repos.** They never call real model APIs.
+- **Fixture databases use a migrated empty schema.** `testutil.OpenStore` runs the real migrations once per test process, closes SQLite to checkpoint its WAL, and copies that empty image into a separate private file for each test. Existing files use the normal open path, so restart and persistence checks still read real saved data. The image is never cached between test binaries or CI runs. Store migration tests continue using `store.Open` directly. Database operations retain their ten second test limit; schema setup has a separate one minute limit.
+- **Protocol fixture programs stay small.** Approval HTTP tests build a standalone Claude protocol fixture instead of launching the complete API test binary as a child. This keeps test binary initialization and coverage machinery out of the agent startup deadline. The production Claude adapter, permission decisions, file effects, and stored history remain under test.
 - **The stub agent can be scripted** to act out cases: ask for approval, fail a test, get stuck in a loop, resume after a restart. Scripts live in `tools/stub-agent/scenarios/`.
 - **Fixture repos** live in `daemon/testdata/repos/`: a small repo and a monorepo. Tests copy them into a temp folder, so fixtures are never changed.
 - **Real agent tests are opt-in.** Automatic tests use fake programs and the stub agent. A real session uses the owner's paid account, so it requires their explicit request; the lifecycle script below keeps it on Marshal's production path.

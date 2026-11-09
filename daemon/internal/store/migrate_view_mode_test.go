@@ -41,7 +41,7 @@ func migratedFrom0011(ctx context.Context, t *testing.T) *sql.DB {
 }
 
 func TestMigration0012PutsEveryExistingSessionInTheChatView(t *testing.T) {
-	ctx := testContext(t)
+	ctx := setupContext(t)
 	writer := migratedFrom0011(ctx, t)
 	rows, err := writer.QueryContext(ctx, `SELECT id, view_mode FROM sessions ORDER BY id`)
 	if err != nil {
@@ -68,7 +68,7 @@ func TestMigration0012PutsEveryExistingSessionInTheChatView(t *testing.T) {
 }
 
 func TestMigration0012OnlyAcceptsTheTwoViewsAndOnlyACardCanUseTheTerminal(t *testing.T) {
-	ctx := testContext(t)
+	ctx := setupContext(t)
 	writer := migratedFrom0011(ctx, t)
 	set := func(id, mode string) error {
 		_, err := writer.ExecContext(ctx, `UPDATE sessions SET view_mode = ? WHERE id = ?`, mode, id)
@@ -96,7 +96,7 @@ func TestMigration0012OnlyAcceptsTheTwoViewsAndOnlyACardCanUseTheTerminal(t *tes
 
 // A session that stops is back in the chat view, and every other state keeps the view it is in.
 func TestASessionThatStopsIsBackInTheChatView(t *testing.T) {
-	ctx := testContext(t)
+	ctx := setupContext(t)
 	writer := migratedFrom0011(ctx, t)
 	queries := db.New(writer)
 	write := func(state string) {

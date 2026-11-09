@@ -123,7 +123,7 @@ daemon/                       Go module (go.mod pins the toolchain). package.jso
     platform/                 Per-OS pieces: data folders, token files, the single-instance lock, and the login service installers (launchd, systemd, schtasks)
     config/, buildinfo/       Settings from flags, MARSHAL_* variables, and defaults; the version the daemon, tool, and app share
     fixture/, sample/         Dev sample data, safe to load on every start (--fixture prototype: the api, web, and mobile projects made from testdata/repos); the sample repository that ships in the daemon
-    testutil/                 Test-only helpers: golden files, fixture repos, builders for tools/stub-agent and the terminal helper program
+    testutil/                 Test-only helpers: golden files, fixture repos, isolated empty schema copies from real migrations, builders for tools/stub-agent, the terminal helper, and api/testdata/approvalcli
 ```
 
 ### Planned for later phases (not built yet)

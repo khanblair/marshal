@@ -19,6 +19,17 @@ import (
 // connection would otherwise never end.
 const testTimeout = 10 * time.Second
 
+// Building a complete schema is fixture setup, not a single database operation.
+// Race instrumentation on a shared runner can make all historical migrations take longer.
+const schemaSetupTimeout = time.Minute
+
+func setupContext(t *testing.T) context.Context {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(t.Context(), schemaSetupTimeout)
+	t.Cleanup(cancel)
+	return ctx
+}
+
 func testContext(t *testing.T) context.Context {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
@@ -30,7 +41,7 @@ func testContext(t *testing.T) context.Context {
 // because an in-memory database has no WAL and gives every connection its own empty copy.
 func openAt(t *testing.T, path string, opts ...Option) *Store {
 	t.Helper()
-	s, err := Open(testContext(t), path, opts...)
+	s, err := Open(setupContext(t), path, opts...)
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
@@ -315,11 +326,11 @@ func TestReadsCannotWrite(t *testing.T) {
 
 func TestDataSurvivesReopen(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "marshal.db")
-	ctx := testContext(t)
-	first, err := Open(ctx, path)
+	first, err := Open(setupContext(t), path)
 	if err != nil {
 		t.Fatal(err)
 	}
+	ctx := testContext(t)
 	owner, err := first.EnsureOwner(ctx, db.CreateUserParams{ID: "u1", Name: "Ada", CreatedAt: 5, UpdatedAt: 5})
 	if err != nil {
 		t.Fatal(err)
