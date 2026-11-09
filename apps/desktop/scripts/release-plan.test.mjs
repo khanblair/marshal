@@ -7,6 +7,10 @@ const REPOSITORY = { owner: "owner", repo: "marshal" };
 function missing() {
   throw Object.assign(new Error("Not found"), { status: 404 });
 }
+/** What GitHub really answers when a commit lookup names a tag that does not exist yet. */
+function noCommit() {
+  throw Object.assign(new Error("No commit found for SHA: v0.1.3"), { status: 422 });
+}
 function fixture(options = {}) {
   const run = {
     name: "ci",
@@ -37,7 +41,7 @@ function fixture(options = {}) {
             },
           }),
           getReleaseByTag: async () => (options.release ? { data: options.release } : missing()),
-          getCommit: async () => (options.tagSha ? { data: { sha: options.tagSha } } : missing()),
+          getCommit: async () => (options.tagSha ? { data: { sha: options.tagSha } } : noCommit()),
         },
         actions: {
           listWorkflowRuns: async () => ({ data: { workflow_runs: options.runs ?? [run] } }),
@@ -50,6 +54,15 @@ function fixture(options = {}) {
 test("successful latest main CI selects both platforms at its exact commit", async () => {
   const plan = await planRelease(fixture());
   assert.deepEqual(plan, { ready: true, sha: SHA, tag: "v0.1.3", target: "all", newRelease: true });
+});
+
+test("a version whose tag does not exist yet is ready, but other 422 answers still stop release", async () => {
+  assert.equal((await planRelease(fixture())).ready, true);
+  const broken = fixture();
+  broken.github.rest.repos.getCommit = async () => {
+    throw Object.assign(new Error("Validation Failed"), { status: 422 });
+  };
+  await assert.rejects(planRelease(broken), /Validation Failed/);
 });
 
 test("failed CI, pull requests, and foreign repositories never authorize release", async () => {

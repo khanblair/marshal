@@ -1,11 +1,16 @@
 import { parseReleaseTag } from "./prepare-release.mjs";
 
+/** GitHub answers 404 for a missing release, but 422 for a commit lookup of a tag that is not there yet. */
+function isMissing(error) {
+  return error.status === 404 || (error.status === 422 && /^No commit found/i.test(error.message));
+}
+
 /** Only a missing GitHub object is optional. Authentication and API failures must stop release. */
 async function optional(read) {
   try {
     return (await read()).data;
   } catch (error) {
-    if (error.status === 404) return null;
+    if (isMissing(error)) return null;
     throw error;
   }
 }
