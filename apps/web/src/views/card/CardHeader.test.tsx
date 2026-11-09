@@ -50,6 +50,12 @@ describe("CardHeader state pill and merge row", () => {
     expect(screen.getByText("Running 14 checks")).toBeInTheDocument();
   });
 
+  it("hides a stale merge note when no merge phase is recorded", () => {
+    show({ mergePhase: undefined, mergeNote: "Old check result" });
+    expect(screen.getByText("Merging")).toBeInTheDocument();
+    expect(screen.queryByText("Old check result")).toBeNull();
+  });
+
   it("offers the worktree once the card has one", () => {
     show({ worktree: "/data/worktrees/api/01HZ35" });
     expect(screen.getByRole("button", { name: "Previous workspace" })).toBeInTheDocument();
@@ -81,7 +87,12 @@ describe("CardHeader folding the details away", () => {
   });
 
   it("keeps the action that leads, so a card that needs an answer is never left without one", () => {
-    show({ state: "needs", session: "stopped", mergeNote: "Running checks" });
+    show({
+      state: "needs",
+      session: "stopped",
+      mergePhase: "testing",
+      mergeNote: "Running checks",
+    });
     fold();
     expect(screen.getByRole("button", { name: /Resume agent/ })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "More actions" })).toBeNull();
@@ -97,6 +108,7 @@ describe("CardHeader folding the details away", () => {
     show({
       worktree: "/data/worktrees/api/01HZ35",
       mergeNote: "Running checks",
+      mergePhase: "testing",
       state: "needs",
       session: "stopped",
     });

@@ -203,6 +203,11 @@ Phase 2 (core UI) is scoped as eight slices, A to H, in `backend-checklist.md` s
 
 ## Session log
 
+### 2026-11-09 — Early card regression failure
+
+- CI `42676743566` passed formatting, lint, types, and release-plan fixtures. Fast card regressions found two fixtures that expected a merge note without supplying the merge phase required by the existing decorator. Supplied the testing phase and added a regression for hiding stale notes without a phase. No production UI behavior or checks were weakened.
+- The detached watcher recorded the failure but could not resume this chat. It is a notification/status helper, not autonomous failure repair. Current validation remains on GitHub; no local tests, lint, builds, or browser checks were run.
+
 ### 2026-11-09 — GitHub release sequencing
 
 - CI `42668973961` passed light checks but failed the catalog PATH priority test. It assumed the service PATH must immediately follow the executable directory, while runtime discovery now recovers the login PATH first. Isolated that test from machine login configuration; existing runtime fixtures continue to cover recovered PATH behavior.
