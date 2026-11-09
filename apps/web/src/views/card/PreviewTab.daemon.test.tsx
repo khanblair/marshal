@@ -82,6 +82,18 @@ describe("a card's preview on the daemon", () => {
     expect(daemon.routes()).toContain(route(WEB, "start"));
   });
 
+  it("connects a running daemon preview through the separate-origin gateway", async () => {
+    render(() => <PreviewTab card={card(WEB)} />);
+    fireEvent.click(screen.getByRole("button", { name: "Start preview" }));
+    const frame = await screen.findByTitle("Live project preview");
+    await vi.waitFor(() =>
+      expect(frame).toHaveAttribute("src", expect.stringContaining("marshal.test")),
+    );
+    expect(frame).toHaveAttribute("sandbox", "allow-scripts allow-same-origin allow-forms");
+    expect(frame).toHaveAttribute("referrerpolicy", "no-referrer");
+    expect(daemon.routes()).toContain(`POST /v1/cards/${daemonId(WEB)}/preview/connect`);
+  });
+
   it("stops it again, and the daemon says it is stopped", async () => {
     render(() => <PreviewTab card={card(WEB)} />);
     fireEvent.click(screen.getByRole("button", { name: "Start preview" }));

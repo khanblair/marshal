@@ -487,6 +487,8 @@ function cardMethods({
     // dev command, which may take a while, so it takes the slow limit; and taking a screenshot drives
     // a browser, which is slower still, so that takes the slow limit too.
     preview: (cid, o) => request("GET", `/v1/cards/${id(cid)}/preview`, o),
+    connectPreview: (cid, body, o) =>
+      request("POST", `/v1/cards/${id(cid)}/preview/connect`, { ...o, body }),
     startPreview: (cid, o) => request("POST", `/v1/cards/${id(cid)}/preview/start`, slow(o)),
     stopPreview: (cid, o) => request("POST", `/v1/cards/${id(cid)}/preview/stop`, o),
     takePreviewShot: (cid, body, o) =>

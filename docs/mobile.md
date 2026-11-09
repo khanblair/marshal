@@ -65,7 +65,11 @@ flowchart LR
 
 The phone can request and view screenshots captured by the daemon on the computer. Screenshot images use the paired device's authenticated API connection.
 
-Interactive browsing of the running project is still unfinished. The Preview tab currently draws a placeholder page, and its displayed URL uses the computer's loopback address. Opening that localhost address on a phone points to the phone itself. Interactive preview needs a protected connection from the phone through Marshal to the project's dev server.
+The daemon-backed Preview tab connects to an existing local development server through a separate preview gateway. Tapping a localhost HTTP link in a card conversation opens this tab; an address can also be entered manually. The phone reaches the Mac over private Tailscale Serve (or the embedded tailnet node). Assets, relative routes, requests, and WebSocket upgrades are proxied at the gateway root. The original project process is not restarted or duplicated.
+
+The gateway uses a one-use bootstrap ticket and a short-lived HttpOnly cookie, checked against the current pairing and card. Marshal's pairing token stays out of the iframe. Gateways expire after 15 minutes; reconnect from Preview to renew access. They use a separate port and have no native IPC permissions. Marshal refuses its own ports and non-loopback source addresses, never enables Funnel for previews, and removes only the private Serve route it owns. Existing routes are preserved. HTTPS Marshal connections require HTTPS preview exposure. A Tailscale policy that blocks additional private ports must be updated by its owner.
+
+This implementation is awaiting GitHub validation and device verification; no local CI or browser check was run for this change.
 
 ### 2.3 Several machines
 
@@ -302,3 +306,7 @@ How it differs from the plan above:
 - **Plain http on the tailnet.** The build allows cleartext traffic because the daemon is reached at a tailnet address; the tunnel is already encrypted.
 
 Left for later: 9.13 (several machines and the switcher), 9.15 (app lock, confirm risky actions), 9.20 (iOS), the push relay, and Tailscale inside the app.
+
+### System bars and compact cards
+
+Android status and navigation glyphs follow the resolved Marshal theme, including manual theme changes that differ from Android's system theme. This requires the updated APK. The shared web UI defaults card details to collapsed on phones and keeps a labeled disclosure button visible. Opening details reveals the full action/settings area. Chat activity uses subtle dots and a text label, with motion disabled when reduced motion is requested.

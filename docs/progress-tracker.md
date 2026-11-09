@@ -38,7 +38,7 @@ At the end of every work session, whether by a person or an agent:
 | **Current phase** | Phase 4: Models (S19b, S26b, and S28 switched; built and in review for the controller) |
 | **Next milestone** | Phase 4's gate: no real model API in CI, and Home's cost numbers match the usage table (then Phase 5) |
 | **Last updated** | 2026-11-09 |
-| **Current focused change** | Fix repeated schema setup and approval fixture startup in macOS CI, then publish and verify v0.1.3. |
+| **Current focused change** | Finish mobile controls, live project preview, cross-daemon editing locks, and installed-app tool lookup; validate on GitHub before publishing v0.1.3. |
 
 ---
 
@@ -309,6 +309,15 @@ Phase 2 (core UI) is scoped as eight slices, A to H, in `backend-checklist.md` s
 
 ## Session log
 
+### 2026-11-09 — Installed runtime and mobile fixes (awaiting GitHub validation)
+
+- Added shared runtime PATH discovery for agents, project checks, and preview commands; local checks now retain stderr. Explicit workflow PATH still wins. No project workflow needs a machine-specific Bun path.
+- Added shared OS project leases across installed/dev daemons, including crash-release regression coverage. Existing coordinated subagents stay under their main agent.
+- Updated phone card disclosure, removed the bypass banner, added chat activity feedback, and added the Android theme/status-bar bridge.
+- Replaced daemon-backed preview placeholders with isolated interactive gateways and private Tailscale exposure. Card-chat localhost links open Preview instead of navigating to the phone itself.
+- Validation: focused regressions authored; source formatting and static review only. Per owner instruction, tests, lint, builds, browser checks, and CI run on GitHub, not this Mac. Release v0.1.3 remains pending those results and release artifact verification.
+
+
 _Older entries: [archive/progress-tracker-archive-2026-10.md](archive/progress-tracker-archive-2026-10.md)._
 
 Newest entries first.
@@ -427,6 +436,7 @@ Every file added, moved, renamed, or deleted in the repo. Newest first. The plan
 
 | Date | File | Change | Task | Notes |
 |---|---|---|---|---|
+| 2026-11-09 | Runtime PATH/local-CI, workspace-lock, preview relay/exposure, native system-bars, and chat/disclosure files listed in project-structure.md | Added, Changed, Deleted | Runtime/mobile | Portable tool lookup, isolated previews, shared project ownership, mobile controls; removed bypass banner. |
 | 2026-11-09 | `daemon/internal/testutil/store{,_test}.go`, `daemon/internal/testutil/approvalcli.go`, `daemon/internal/api/testdata/approvalcli/main.go` | Added | CI reliability | Isolated schema fixtures and a standalone approval CLI fixture. |
 | 2026-11-09 | `daemon/internal/chatcmd/conversations{,_test}.go`, `daemon/internal/chatbot/conversation_test.go`, `daemon/cmd/marshald/chat_watch.go` | Added | Remote coding | Save conversation links and delivery revisions; test transport metadata, routing, and automatic replies. |
 | 2026-11-09 | `daemon/internal/chatcmd/control{,_test}.go`, `daemon/cmd/marshald/chat_control{,_test}.go` | Added | Remote coding | Route bot coding commands through the real session, history, and completion services. |
@@ -464,6 +474,7 @@ Every change to a doc. Newest first.
 
 | Date | Doc | Change |
 |---|---|---|
+| 2026-11-09 | `agent-sessions.md`, `mobile.md`, `ui-rules.md`, `direct-workspace.md`, `project-structure.md`, `progress-tracker.md` | Documented runtime discovery, preview access and limits, shared locks, and mobile behavior; validation remains pending GitHub. |
 | 2026-11-09 | `development.md`, `project-structure.md`, `progress-tracker.md` | Documented CI fixture isolation, setup deadlines, and approval protocol startup. |
 | 2026-11-09 | `agent-sessions.md`, `project-structure.md`, `progress-tracker.md` | Documented automatic answers, linked replies and threads, delivery bounds, and existing approval routing. |
 | 2026-11-09 | `agent-sessions.md`, `mobile.md`, `marshal-product-scope.md`, `project-structure.md`, `progress-tracker.md` | Documented bot coding commands and the current limits of project previews on phones. |

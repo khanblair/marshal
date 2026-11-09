@@ -48,6 +48,12 @@ describe("one typed method for each route", () => {
     [`POST /v1/cards/${card.id}/fork`]: () => jsonAnswer(card, 201),
     [`POST /v1/cards/${card.id}/ci-failure`]: () =>
       jsonAnswer(golden("simulate-ci-failure-result")),
+    [`POST /v1/cards/${card.id}/preview/connect`]: () =>
+      jsonAnswer({
+        url: "https://preview.marshal.test/",
+        sourceUrl: "http://localhost:3000",
+        expiresAt: "2026-11-09T13:00:00Z",
+      }),
     "GET /v1/projects/web-dashboard/labels": () => jsonAnswer(labelSnapshot),
     "POST /v1/projects/web-dashboard/labels": () => jsonAnswer(label, 201),
     [`PATCH /v1/labels/${label.id}`]: () => jsonAnswer(label),
@@ -96,6 +102,16 @@ describe("one typed method for each route", () => {
     expect(await client.simulateCIFailure(card.id, { mode: "synthetic" })).toEqual(
       golden("simulate-ci-failure-result"),
     );
+    expect(
+      await client.connectPreview(card.id, {
+        url: "http://localhost:3000",
+        origin: "https://marshal.test",
+      }),
+    ).toEqual({
+      url: "https://preview.marshal.test/",
+      sourceUrl: "http://localhost:3000",
+      expiresAt: "2026-11-09T13:00:00Z",
+    });
     expect(await client.listLabels("web-dashboard")).toEqual(labelSnapshot);
     expect(await client.createLabel("web-dashboard", { name: "auth" })).toEqual(label);
     expect(await client.updateLabel(label.id, { color: "red" })).toEqual(label);

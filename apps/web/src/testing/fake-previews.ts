@@ -150,6 +150,22 @@ export function answerPreviewRoute(
     if (rest[0] === "start") return start(store, card);
     if (rest[0] === "stop") return stop(store, card);
     if (rest[0] === "shots") return screenshot(store, card, request);
+    if (rest[0] === "connect") {
+      const body = JSON.parse(request.body ?? "{}") as { url?: string };
+      if (!body.url || !/^http:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?(?:\/|$)/i.test(body.url)) {
+        return errorAnswer(
+          STATUS.badRequest,
+          "invalid_argument",
+          "Enter a local HTTP preview address.",
+        );
+      }
+      const now = store.now();
+      return jsonAnswer({
+        url: `https://preview-${encodeURIComponent(card.id)}.marshal.test/`,
+        sourceUrl: body.url,
+        expiresAt: new Date(Date.parse(now) + 5 * 60_000).toISOString(),
+      });
+    }
   }
   // The image itself, named by the file the shot's own address carries: `before.png` or `after.png`.
   if (request.method === "GET" && rest.length === 2 && rest[0] === "shots") {

@@ -1,4 +1,5 @@
 import {
+  type PreviewConnection,
   type PreviewShot,
   type PreviewShotKind,
   PreviewShotKindAfter,
@@ -7,6 +8,7 @@ import {
 import { Button, Icon } from "@marshal/ui";
 import { createEffect, createSignal, Index, onCleanup, Show } from "solid-js";
 import { type Card, M } from "~/mock";
+import { isLoopbackHttpUrl } from "./preview-link";
 import {
   DARK_PREVIEW_CARD_ID,
   previewOf,
@@ -178,12 +180,61 @@ function NoPreview() {
 export function PreviewTab(props: PreviewTabProps) {
   const state = () => previewState(props.card.id);
   const stopped = () => state() === "stopped";
+  const [target, setTarget] = createSignal("");
+  const [connecting, setConnecting] = createSignal(false);
+  const [connectError, setConnectError] = createSignal("");
+  const [connected, setConnected] = createSignal<PreviewConnection>();
+  const [autoAttempted, setAutoAttempted] = createSignal("");
+  let requestId = 0;
+  let disposed = false;
+  onCleanup(() => {
+    disposed = true;
+    requestId += 1;
+  });
+  const daemonPreview = () => M.previewOnDaemon();
+  const targetUrl = () => target() || M.previewTarget(props.card.id) || previewUrl(props.card.id);
+  const savedTargetUrl = () => M.previewTarget(props.card.id) || previewUrl(props.card.id);
+  const connection = () => {
+    const current = connected();
+    return current?.sourceUrl === targetUrl() && Date.parse(current.expiresAt) > Date.now()
+      ? current
+      : undefined;
+  };
+  const connect = async (url = targetUrl()) => {
+    if (!url) return;
+    if (!isLoopbackHttpUrl(url)) {
+      setConnectError("Enter a local HTTP address such as http://localhost:3000.");
+      return;
+    }
+    const currentRequest = ++requestId;
+    setConnecting(true);
+    setConnectError("");
+    M.setPreviewTarget(props.card.id, url);
+    const result = await M.connectPreview(props.card.id, url);
+    if (disposed || currentRequest !== requestId) return;
+    setConnected(result ?? undefined);
+    setConnecting(false);
+    if (!result)
+      setConnectError("Could not connect to this preview. Check the address and try again.");
+  };
+  createEffect(() => {
+    const url = savedTargetUrl();
+    if (
+      daemonPreview() &&
+      url &&
+      (state() === "running" || M.previewTarget(props.card.id)) &&
+      autoAttempted() !== url
+    ) {
+      setAutoAttempted(url);
+      void connect(url);
+    }
+  });
   return (
     <div class="flex-1 min-h-0 overflow-auto py-3 px-4 flex flex-col gap-3">
-      <Show when={props.card.p === "api"}>
+      <Show when={props.card.p === "api" && !daemonPreview()}>
         <NoPreview />
       </Show>
-      <Show when={props.card.p !== "api"}>
+      <Show when={props.card.p !== "api" || daemonPreview()}>
         <div class="flex items-center gap-2">
           <div class="flex-1 min-w-0 flex items-center gap-2 h-8 px-2.5 rounded-sm border border-border-strong bg-surface-sunken">
             <Show when={state() === "starting"}>
@@ -215,8 +266,62 @@ export function PreviewTab(props: PreviewTabProps) {
         </div>
         <span class="text-small text-secondary">{previewStatus(props.card.id)}</span>
         <Show when={state() === "running"}>
-          <PagePreview card={props.card} />
-          <Screenshots card={props.card} />
+          <Show when={!daemonPreview()}>
+            <PagePreview card={props.card} />
+          </Show>
+          <Show when={props.card.p !== "api"}>
+            <Screenshots card={props.card} />
+          </Show>
+        </Show>
+      </Show>
+      <Show when={daemonPreview()}>
+        <div class="flex flex-wrap items-center gap-2">
+          <label class="sr-only" for={`preview-url-${props.card.id}`}>
+            Preview address
+          </label>
+          <input
+            id={`preview-url-${props.card.id}`}
+            class="h-8 phone:h-(--control-h) min-w-0 flex-1 rounded-sm border border-border-strong bg-surface px-2.5 text-small font-mono"
+            type="url"
+            placeholder="http://localhost:3000"
+            value={targetUrl()}
+            disabled={connecting()}
+            onInput={(event) => setTarget(event.currentTarget.value)}
+          />
+          <Button variant="secondary" disabled={connecting()} onClick={() => void connect()}>
+            {connecting() ? "Connecting…" : connection() ? "Refresh connection" : "Connect"}
+          </Button>
+        </div>
+        <Show when={connectError()}>
+          <div role="alert" class="flex items-center gap-2 text-small text-status-danger-solid">
+            <span class="flex-1">{connectError()}</span>
+            <Button variant="secondary" onClick={() => void connect()}>
+              Retry
+            </Button>
+          </div>
+        </Show>
+        <Show
+          when={connection()}
+          fallback={
+            <div
+              role="status"
+              class="flex min-h-75 items-center justify-center rounded-md border border-border bg-surface-sunken text-small text-secondary"
+            >
+              {connecting()
+                ? "Connecting to the running preview…"
+                : "Connect a running local preview to view it here."}
+            </div>
+          }
+        >
+          {(connected) => (
+            <iframe
+              title="Live project preview"
+              src={connected().url}
+              sandbox="allow-scripts allow-same-origin allow-forms"
+              referrerPolicy="no-referrer"
+              class="w-full min-h-75 flex-1 rounded-md border border-border bg-surface"
+            />
+          )}
         </Show>
       </Show>
     </div>

@@ -70,6 +70,8 @@ import type {
   PreviewShotRequest,
   PreviewShotResult,
   PreviewSnapshot,
+  PreviewConnectRequest,
+  PreviewConnection,
   Profile,
   Progress,
   Project,
@@ -450,6 +452,12 @@ export interface ApiClient extends SettingsApi {
    * looking at the tab never starts a dev server on the person's machine.
    */
   preview(cardId: string, options?: CallOptions): Promise<PreviewSnapshot>;
+  /** Creates a short lived, separate-origin browser gateway for an already running preview URL. */
+  connectPreview(
+    cardId: string,
+    body: PreviewConnectRequest,
+    options?: CallOptions,
+  ): Promise<PreviewConnection>;
   /**
    * Runs the project's dev command for the card in the card's own worktree, on a port picked for
    * it, and answers the preview as it is now. Starting a dev server may take a while, so it takes

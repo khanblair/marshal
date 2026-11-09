@@ -1,5 +1,6 @@
 import {
   EventTypePreviewStateChanged,
+  type PreviewConnection,
   type Preview,
   type PreviewShotKind,
   type Event as WireEvent,
@@ -11,6 +12,41 @@ import { isDaemon } from "~/data/sections";
 import type { CardKey } from "~/mock/card-key";
 import { type Ctx, sectionsOf } from "~/mock/context";
 import { toast } from "~/mock/engine";
+
+const previewTargets = new Map<CardKey, string>();
+
+/** Stores the loopback destination a person selected from this card's chat. */
+export function setCardPreviewTarget(key: CardKey, url: string): void {
+  previewTargets.set(key, url);
+}
+
+export const cardPreviewTarget = (key: CardKey): string => previewTargets.get(key) ?? "";
+
+/** Exchanges a local development address for the daemon's short lived, separate-origin gateway. */
+export async function connectCardPreview(
+  ctx: Ctx,
+  key: CardKey,
+  url: string,
+): Promise<PreviewConnection | null> {
+  const card = ctx.S.cards.find((one) => one.id === key);
+  const api = ctx.env.data?.api;
+  if (!card?.daemonId || !api) {
+    toast(ctx, NOT_CONNECTED);
+    return null;
+  }
+  try {
+    return await api.connectPreview(card.daemonId, {
+      url,
+      origin: window.location.origin,
+    });
+  } catch (error) {
+    toast(
+      ctx,
+      error instanceof Error ? error.message : "Marshal could not connect to this preview.",
+    );
+    return null;
+  }
+}
 
 /*
  * A card's live preview (section S13, docs/backend-checklist.md B6.6 and B6.7, docs/architecture.md

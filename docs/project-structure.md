@@ -260,3 +260,14 @@ There is no `gen.mjs`, `dev-reset.mjs`, or `build.mjs`: `pnpm gen` and `pnpm bui
 App updates: `apps/web/src/features/updates/` owns the shared native update state and automatic notice; `views/settings/UpdatesSection.tsx` presents the update controls. Desktop `src-tauri/src/updater.rs` owns signed check/install/restart commands, scoped by `permissions/updates.toml`. Desktop `scripts/prepare-release.mjs` produces the release config and updater manifest, with fixture tests alongside it. See `app-updates.md`.
 
 Desktop `src-tauri/entitlements.plist` grants the executable-memory exception needed by the secret scanner while retaining hardened runtime. `scripts/check-bundle.mjs` gates publication by executing the signed archive’s Go helpers and checking its isolated daemon and embedded web app.
+
+## November 2026 runtime and mobile fixes
+
+- `daemon/internal/agents/catalog/runtime_env.go`: bounded login PATH recovery and project tool directories; `runtime_env_test.go` covers fallback, caching, and tool order.
+- `daemon/internal/localci/run_test.go`: GUI service PATH, explicit workflow PATH, and bounded error diagnostics.
+- `daemon/internal/session/workspace_lock*.go`: cross-daemon project leases and process-exit regression coverage.
+- `daemon/internal/preview/connect.go`, `internal/previewrelay/`: isolated live preview gateways, one-use bootstrap authorization, root-path HTTP/WebSocket forwarding, and security regression cases.
+- `daemon/internal/tailnet/preview_exposure*.go`: additive private Serve exposure, safe cleanup, and embedded-node forwarding.
+- `apps/web/src/features/chat/{AgentActivity.tsx,agent-activity*.ts}`: state-driven activity feedback.
+- `apps/web/src/views/card/{details-collapsed*.ts,preview-link*.ts}`: device-specific disclosure preferences and local preview links. The old `BypassBanner.tsx` was removed.
+- `apps/web/src/platform/native-system-bars*.ts`, `apps/mobile/src-tauri/src/system_bars.rs`, `native/system-bars/SystemBarsPlugin.kt`: narrow Android system-bar theme bridge. `patch-android.mjs` copies the Kotlin source into generated Android output.
