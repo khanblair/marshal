@@ -190,7 +190,8 @@ func funnelMapConfigured(root map[string]json.RawMessage) bool {
 func funnelEntryConfigured(key string, value json.RawMessage) bool {
 	switch key {
 	case "TCP", "Web", "Services":
-		return malformedFunnelMap(value)
+		var entries map[string]json.RawMessage
+		return json.Unmarshal(value, &entries) != nil && string(value) != "null"
 	case "Foreground":
 		return foregroundFunnelConfigured(value)
 	case "AllowFunnel":
@@ -201,8 +202,8 @@ func funnelEntryConfigured(key string, value json.RawMessage) bool {
 }
 
 func foregroundFunnelConfigured(value json.RawMessage) bool {
-	foreground, ok := parseFunnelMap(value)
-	if !ok {
+	var foreground map[string]json.RawMessage
+	if json.Unmarshal(value, &foreground) != nil && string(value) != "null" {
 		return true
 	}
 	for _, nested := range foreground {
@@ -214,8 +215,8 @@ func foregroundFunnelConfigured(value json.RawMessage) bool {
 }
 
 func allowFunnelConfigured(value json.RawMessage) bool {
-	routes, ok := parseFunnelRoutes(value)
-	if !ok {
+	var routes map[string]bool
+	if json.Unmarshal(value, &routes) != nil && string(value) != "null" {
 		return true
 	}
 	for _, enabled := range routes {
@@ -224,27 +225,6 @@ func allowFunnelConfigured(value json.RawMessage) bool {
 		}
 	}
 	return false
-}
-
-func malformedFunnelMap(raw json.RawMessage) bool {
-	_, ok := parseFunnelMap(raw)
-	return !ok
-}
-
-func parseFunnelMap(raw json.RawMessage) (map[string]json.RawMessage, bool) {
-	var entries map[string]json.RawMessage
-	if json.Unmarshal(raw, &entries) != nil {
-		return nil, string(raw) == "null"
-	}
-	return entries, true
-}
-
-func parseFunnelRoutes(raw json.RawMessage) (map[string]bool, bool) {
-	var routes map[string]bool
-	if json.Unmarshal(raw, &routes) != nil {
-		return nil, string(raw) == "null"
-	}
-	return routes, true
 }
 
 func ownsServeRoute(cfg serveConfig, port int, target string, secure bool) bool {
