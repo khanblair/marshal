@@ -130,3 +130,17 @@ type PreviewEventData struct {
 	// Preview is the card's preview.
 	Preview Preview `json:"preview"`
 }
+
+// PreviewConnectRequest connects a card to an existing loopback development server.
+type PreviewConnectRequest struct {
+	URL    string `json:"url"`
+	Origin string `json:"origin"`
+}
+
+// PreviewConnection contains a one-use bootstrap URL on a separate preview origin.
+// It never contains the device's pairing token.
+type PreviewConnection struct {
+	URL       string    `json:"url"`
+	SourceURL string    `json:"sourceUrl"`
+	ExpiresAt Timestamp `json:"expiresAt"`
+}

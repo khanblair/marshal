@@ -26,6 +26,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/khanblair/marshal/daemon/internal/previewrelay"
 	"github.com/khanblair/marshal/daemon/internal/protocol"
 )
 
@@ -164,6 +165,8 @@ type Prober interface {
 // Options are the seams a test replaces. Every one of them has a real default, and nothing but a
 // test sets them.
 type Options struct {
+	// BlockedPorts prevents previews from reaching Marshal itself.
+	BlockedPorts []int
 	// Runner starts the dev server. Nil uses CommandRunner.
 	Runner DevRunner
 	// Shooter takes a screenshot. Nil uses the chromedp-backed shooter.
@@ -205,6 +208,7 @@ type Deps struct {
 // Service runs one dev server per card and takes the screenshots of it. It is safe for use by many
 // goroutines: every card's state is guarded by its own lock, and the map of cards by the service's.
 type Service struct {
+	relay    *previewrelay.Service
 	projects Projects
 	bus      Publisher
 	log      *slog.Logger
@@ -281,7 +285,7 @@ func New(deps Deps) (*Service, error) {
 	}
 	base, stop := context.WithCancel(context.Background())
 	return &Service{
-		projects: deps.Projects, bus: deps.Bus, log: log, now: now,
+		relay: previewrelay.New(opts.BlockedPorts), projects: deps.Projects, bus: deps.Bus, log: log, now: now,
 		root:   filepath.Join(filepath.Clean(deps.DataDir), previewsFolder),
 		runner: runner, shooter: shooter, browser: browser, ports: ports, probe: probe,
 		ready: ready, every: every, width: width, height: height,
@@ -458,6 +462,7 @@ func (s *Service) ShotFile(cardID string, kind protocol.PreviewShotKind) (path s
 // Close stops every dev server this service started. It is called when the daemon shuts down, so a
 // person's machine is not left with a dev server running after Marshal is gone.
 func (s *Service) Close() {
+	s.relay.Close()
 	s.mu.Lock()
 	procs := make([]Process, 0, len(s.cards))
 	for _, l := range s.cards {

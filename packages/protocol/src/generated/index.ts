@@ -4739,6 +4739,20 @@ export interface PreviewEventData {
   /** Preview is the card's preview. */
   preview: Preview;
 }
+/** PreviewConnectRequest connects a card to an existing loopback development server. */
+export interface PreviewConnectRequest {
+  url: string;
+  origin: string;
+}
+/**
+ * PreviewConnection contains a one-use bootstrap URL on a separate preview origin.
+ * It never contains the device's pairing token.
+ */
+export interface PreviewConnection {
+  url: string;
+  sourceUrl: string;
+  expiresAt: Timestamp;
+}
 
 //////////
 // source: previewshot.go
