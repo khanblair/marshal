@@ -13,6 +13,7 @@ import {
   createProjectViaApi,
   removeProjectViaApi,
 } from "./support/daemon-api";
+import { pickDropdown } from "./support/dropdown";
 import { makeRepo } from "./support/git";
 
 /**
@@ -71,9 +72,10 @@ test.describe("a card the daemon runs", () => {
 
       // Make the card the way a person does, with the stub agent the daemon runs.
       await page.evaluate(() => window.M?.newCard());
-      await newCardDialog(page)
-        .getByRole("combobox", { name: "Agent" })
-        .selectOption(stub?.name ?? "");
+      await pickDropdown(
+        newCardDialog(page).getByRole("combobox", { name: "Agent" }),
+        stub?.name ?? "",
+      );
       await newCardDialog(page).getByRole("textbox", { name: "Title" }).fill(TITLE);
       await newCardDialog(page).getByRole("button", { name: "Create card" }).click();
       await expect.poll(async () => (await cardOf(request, id, TITLE))?.title ?? "").toBe(TITLE);

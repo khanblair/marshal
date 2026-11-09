@@ -1,17 +1,10 @@
 import { expect, type Page, test } from "@playwright/test";
 import { expectCleanScreen, openApp, SIZES, type Size, THEMES, type Theme } from "./support/app";
+import { revealCardSettings } from "./support/card-details";
 import { agentsViaApi, type WireAgent } from "./support/daemon-api";
+import { dropdownOptions, dropdownValue, pickDropdown } from "./support/dropdown";
 
 const BUILT_IN = "Built-in agent";
-/** The built-in agent is Marshal's own until the daemon lists it: five models, two of them without thinking. */
-const BUILT_IN_MODELS = [
-  "claude-sonnet-4-5",
-  "gpt-5-mini",
-  "deepseek-chat",
-  "gemini-2.5-flash",
-  "qwen2.5-coder:32b",
-];
-const BUILT_IN_WITHOUT_THINKING = ["deepseek-chat", "qwen2.5-coder:32b"];
 const NOT_INSTALLED = "Codex is not installed. Install it with: npm install -g @openai/codex";
 const UNTESTED = "Marshal has not been tested with Gemini CLI 9.9.9. It usually works.";
 
@@ -24,7 +17,7 @@ interface Case {
 const dialog = (page: Page) => page.getByRole("dialog", { name: /^New card in / });
 const agentPicker = (page: Page) => dialog(page).getByRole("combobox", { name: "Agent" });
 const optionTexts = (page: Page, name: string) =>
-  page.getByRole("combobox", { name }).locator("option").allTextContents();
+  dropdownOptions(page.getByRole("combobox", { name }));
 
 async function openNewCard(page: Page): Promise<void> {
   await page.evaluate(() => {
@@ -36,7 +29,7 @@ async function openNewCard(page: Page): Promise<void> {
 
 /** Creates a card with this agent through the dialog, and opens it. Returns the card's key. */
 async function createCardWith(page: Page, agent: string, title: string): Promise<string> {
-  await agentPicker(page).selectOption(agent);
+  await pickDropdown(agentPicker(page), agent);
   await dialog(page).getByRole("textbox", { name: "Title" }).fill(title);
   await dialog(page).getByRole("button", { name: "Create card" }).click();
   await expect(dialog(page)).toHaveCount(0);
@@ -46,6 +39,7 @@ async function createCardWith(page: Page, agent: string, title: string): Promise
   );
   expect(key).not.toBe("");
   await page.evaluate((id) => window.M?.openCard(id), key);
+  await revealCardSettings(page);
   return key;
 }
 
@@ -91,7 +85,7 @@ async function choose(
   value: string,
 ): Promise<void> {
   for (let attempt = 0; attempt < CHOOSE_ATTEMPTS; attempt += 1) {
-    await page.getByRole("combobox", { name: label }).selectOption(value);
+    await pickDropdown(page.getByRole("combobox", { name: label }), value);
     try {
       await expect.poll(() => settingOf(page, key), { timeout: SETTLE_MS }).toBe(value);
       return;
@@ -105,10 +99,14 @@ async function choose(
 async function checkPickerListsCatalog({ page, size, theme }: Case, agents: WireAgent[]) {
   const problems = await openApp(page, size, { theme });
   await openNewCard(page);
-  expect(await optionTexts(page, "Agent")).toEqual([...agents.map((a) => a.name), BUILT_IN]);
+  expect(await optionTexts(page, "Agent")).toEqual(agents.map((a) => a.name));
+  await agentPicker(page).click();
+  await expect(
+    agentPicker(page).locator("..").locator('[role="menuitemradio"]:disabled'),
+  ).toHaveCount(0);
+  await agentPicker(page).click();
   // The stub reports every agent as installed, so nothing is disabled and no note is drawn.
-  await expect(agentPicker(page).locator("option:disabled")).toHaveCount(0);
-  await expect(agentPicker(page)).toHaveValue(agents[0]?.name ?? "");
+  expect(await dropdownValue(agentPicker(page))).toBe(agents[0]?.name ?? "");
   await expectCleanScreen(page, problems, theme);
 }
 
@@ -123,12 +121,14 @@ async function checkModelsFollowAgent({ page, size, theme }: Case, agents: WireA
   expect(await optionTexts(page, "Model")).toEqual(second.models.map((m) => m.id));
   await expectThinking(page, offersThinking(second, second.models[0]?.id ?? ""));
 
-  for (const agent of agents) {
+  for (const agent of agents.filter(
+    (item) => item.status !== "missing" && item.models.length > 0,
+  )) {
     // The agent carries the model that agent starts its cards on, so both land together.
     await choose(page, "Agent", "agent", agent.name);
     await saved(page, "model", agent.models[0]?.id ?? "");
     expect(await optionTexts(page, "Model")).toEqual(agent.models.map((m) => m.id));
-    await expect(page.getByRole("combobox", { name: "Model" })).toHaveValue(
+    expect(await dropdownValue(page.getByRole("combobox", { name: "Model" }))).toBe(
       agent.models[0]?.id ?? "",
     );
     for (const model of agent.models) {
@@ -139,15 +139,18 @@ async function checkModelsFollowAgent({ page, size, theme }: Case, agents: WireA
   await expectCleanScreen(page, problems, theme);
 }
 
-async function checkThinkingFollowsModel({ page, size, theme }: Case) {
+async function checkBuiltinReadiness({ page, size, theme }: Case, agents: WireAgent[]) {
   const problems = await openApp(page, size, { theme });
+  const builtin = agents.find((agent) => agent.kind === "builtin");
+  if (!builtin) throw new Error("the daemon did not report its built-in agent");
   await openNewCard(page);
-  await createCardWith(page, BUILT_IN, `Thinking e2e ${size.width} ${theme}`);
-  expect(await optionTexts(page, "Model")).toEqual(BUILT_IN_MODELS);
-  for (const model of BUILT_IN_MODELS) {
-    await choose(page, "Model", "model", model);
-    await expectThinking(page, !BUILT_IN_WITHOUT_THINKING.includes(model));
-  }
+  await pickDropdown(agentPicker(page), builtin.name);
+  // Fixture runs have no real provider credentials. The picker must explain that instead
+  // of inventing prototype models or attempting a paid model call.
+  expect(builtin.models).toHaveLength(0);
+  expect(builtin.warning).not.toBe("");
+  await expect(dialog(page).getByText(builtin.warning, { exact: true })).toBeVisible();
+  expect(await dropdownValue(agentPicker(page))).toBe(builtin.name);
   await expectCleanScreen(page, problems, theme);
 }
 
@@ -172,12 +175,16 @@ async function checkMissingAndUntested({ page, size, theme }: Case) {
   const problems = await openApp(page, size, { theme });
   await openNewCard(page);
   // A missing agent stays in the list, disabled, and its install command is on the screen.
-  const codex = agentPicker(page).locator("option", { hasText: "Codex (not installed)" });
-  await expect(codex).toHaveJSProperty("disabled", true);
+  await agentPicker(page).click();
+  const codex = agentPicker(page)
+    .locator("..")
+    .getByRole("menuitemradio", { name: "Codex (not installed)", exact: true });
+  await expect(codex).toBeDisabled();
+  await agentPicker(page).click();
   await expect(dialog(page).getByText(NOT_INSTALLED)).toBeVisible();
   // An untested agent can be picked, and its warning shows while it is.
   await expect(dialog(page).getByText(UNTESTED)).toHaveCount(0);
-  await agentPicker(page).selectOption("Gemini CLI");
+  await pickDropdown(agentPicker(page), "Gemini CLI");
   await expect(dialog(page).getByText(UNTESTED)).toBeVisible();
   await expectCleanScreen(page, problems, theme);
 
@@ -193,8 +200,11 @@ async function checkOnboardingStatuses({ page, size, theme }: Case, agents: Wire
   const problems = await openApp(page, size, { theme });
   await page.evaluate(() => window.M?.set({ onboarding: true, obStep: 2 }));
   const rows = page.getByRole("dialog").getByRole("listitem");
-  await expect(rows).toHaveCount(agents.length);
+  await expect(rows).toHaveCount(agents.filter((agent) => agent.kind !== "builtin").length);
+  await expect(rows.filter({ hasText: "Gemini CLI" })).toContainText("Found");
+  await page.getByRole("button", { name: "Show details of Codex" }).click();
   await expect(rows.filter({ hasText: "Not installed" })).toContainText(NOT_INSTALLED);
+  await page.getByRole("button", { name: "Show details of Gemini CLI" }).click();
   await expect(rows.filter({ hasText: "Gemini CLI" })).toContainText(UNTESTED);
   await expect(rows.getByText(BUILT_IN, { exact: true })).toHaveCount(0);
   await expectCleanScreen(page, problems, theme);
@@ -203,7 +213,7 @@ async function checkOnboardingStatuses({ page, size, theme }: Case, agents: Wire
 for (const size of SIZES) {
   for (const theme of THEMES) {
     test.describe(`${size.name} (${size.width} by ${size.height}), ${theme} theme`, () => {
-      test("the New card dialog lists the agents the daemon reports, then the built-in agent", async ({
+      test("the New card dialog lists exactly the agents the daemon reports", async ({
         page,
         request,
       }) => checkPickerListsCatalog({ page, size, theme }, await agentsViaApi(request)));
@@ -211,8 +221,10 @@ for (const size of SIZES) {
         page,
         request,
       }) => checkModelsFollowAgent({ page, size, theme }, await agentsViaApi(request)));
-      test("the built-in agent offers thinking except for the two models without it", ({ page }) =>
-        checkThinkingFollowsModel({ page, size, theme }));
+      test("the built-in agent explains that provider setup is required", async ({
+        page,
+        request,
+      }) => checkBuiltinReadiness({ page, size, theme }, await agentsViaApi(request)));
       test("an agent that is not installed is disabled with its install command, and an untested one shows its warning", ({
         page,
       }) => checkMissingAndUntested({ page, size, theme }));
