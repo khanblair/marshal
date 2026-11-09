@@ -358,9 +358,15 @@ jobs:
         with:
           script: |
             const fs = require('node:fs');
-            const { data: release } = await github.rest.repos.getReleaseByTag({ ...context.repo, tag: process.env.RELEASE_TAG });
-            const { data: commit } = await github.rest.repos.getCommit({ ...context.repo, ref: process.env.RELEASE_TAG });
-            if (commit.sha !== process.env.RELEASE_SHA) throw new Error('Release tag changed since validation.');
+            // A draft has no tag yet, and the by-tag lookup never returns drafts, so list the releases.
+            const releases = await github.paginate(github.rest.repos.listReleases, { ...context.repo, per_page: 100 });
+            const release = releases.find(item => item.tag_name === process.env.RELEASE_TAG);
+            if (!release) throw new Error(`No release or draft found for ${process.env.RELEASE_TAG}.`);
+            // A draft records the commit it will tag. A published release already has its tag.
+            const tagged = release.draft
+              ? release.target_commitish
+              : (await github.rest.repos.getCommit({ ...context.repo, ref: process.env.RELEASE_TAG })).data.sha;
+            if (tagged !== process.env.RELEASE_SHA) throw new Error('Release tag changed since validation.');
             const { data: assets } = await github.rest.repos.listReleaseAssets({ ...context.repo, release_id: release.id, per_page: 100 });
             for (const name of fs.readdirSync('release-assets')) {
               const size = fs.statSync(`release-assets/${name}`).size;
