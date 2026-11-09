@@ -21,8 +21,9 @@ type Telegram struct {
 	bot    *tgbot.Bot
 	chatID any
 	// chat is the chat as it was configured, kept as typed to check who a message came from.
-	chat string
-	now  func() time.Time
+	chat  string
+	scope string
+	now   func() time.Time
 
 	// handle is the receive loop's own handler, set once by Start and read by the update handler.
 	// The mutex is here because Start is called from the daemon's goroutine while an update may
@@ -59,7 +60,8 @@ func NewTelegram(cfg TelegramConfig) (*Telegram, error) {
 	if now == nil {
 		now = time.Now
 	}
-	t := &Telegram{chatID: telegramChatID(cfg.ChatID), chat: strings.TrimSpace(cfg.ChatID), now: now}
+	chat := strings.TrimSpace(cfg.ChatID)
+	t := &Telegram{chatID: telegramChatID(chat), chat: chat, scope: conversationScope(KindTelegram, cfg.Token, chat), now: now}
 	// The default handler catches every update that has no more specific one, which is every
 	// message including a voice note. Registering only a text handler would silently drop a voice
 	// note, and a dropped message looks exactly like a broken bot.
@@ -105,10 +107,13 @@ func (t *Telegram) onUpdate(ctx context.Context, _ *tgbot.Bot, update *tgbotmode
 		return
 	}
 	handle(ctx, Incoming{
-		ChatID:   strconv.FormatInt(message.Chat.ID, 10),
-		ChatName: chatName(message.Chat.Username),
-		Text:     message.Text,
-		Voice:    message.Voice != nil,
+		ChatID:    strconv.FormatInt(message.Chat.ID, 10),
+		MessageID: strconv.Itoa(message.ID),
+		ReplyToID: telegramReplyID(message.ReplyToMessage),
+		ThreadID:  telegramThreadID(message.MessageThreadID),
+		ChatName:  chatName(message.Chat.Username),
+		Text:      message.Text,
+		Voice:     message.Voice != nil,
 	})
 }
 
@@ -134,16 +139,37 @@ func telegramChatID(given string) any {
 // Kind is which service this bot talks to.
 func (t *Telegram) Kind() Kind { return KindTelegram }
 
+// Scope identifies this bot's configured destination without revealing its token or chat id.
+func (t *Telegram) Scope() string { return t.scope }
+
 // Notify sends one notice to the chat.
 func (t *Telegram) Notify(ctx context.Context, notice Notice) error {
+	_, err := t.SendReply(ctx, notice, Incoming{})
+	return err
+}
+
+// SendReply sends to the configured chat and replies in the same message thread when possible.
+func (t *Telegram) SendReply(ctx context.Context, notice Notice, to Incoming) (string, error) {
 	params := &tgbot.SendMessageParams{ChatID: t.chatID, Text: render(notice)}
+	if to.ChatID != "" {
+		if !t.Accepts(to) {
+			return "", errors.New("refuse to reply to an unaccepted Telegram chat")
+		}
+		if id, err := strconv.Atoi(to.MessageID); err == nil && id > 0 {
+			params.ReplyParameters = &tgbotmodels.ReplyParameters{MessageID: id, AllowSendingWithoutReply: true}
+		}
+		if threadID, err := strconv.Atoi(to.ThreadID); err == nil && threadID > 0 {
+			params.MessageThreadID = threadID
+		}
+	}
 	if keyboard := telegramKeyboard(notice.Actions); keyboard != nil {
 		params.Text, params.ReplyMarkup = renderPlain(notice), keyboard
 	}
-	if _, err := t.bot.SendMessage(ctx, params); err != nil {
-		return fmt.Errorf("send a Telegram notice: %w", err)
+	message, err := t.bot.SendMessage(ctx, params)
+	if err != nil {
+		return "", fmt.Errorf("send a Telegram notice: %w", err)
 	}
-	return nil
+	return strconv.Itoa(message.ID), nil
 }
 
 // Test checks the connection and answers what to show the person. It makes two calls and says what
@@ -222,8 +248,11 @@ func telegramFailure(err error, what string) (message, fix string) {
 // carries, and tells Telegram the press was seen so the button stops spinning.
 func (t *Telegram) onCallback(ctx context.Context, query *tgbotmodels.CallbackQuery) {
 	_, _ = t.bot.AnswerCallbackQuery(ctx, &tgbot.AnswerCallbackQueryParams{CallbackQueryID: query.ID})
+	if query.Message.Message == nil {
+		return
+	}
 	message := query.Message.Message
-	if message == nil || query.Data == "" {
+	if query.Data == "" {
 		return
 	}
 	t.mu.Lock()
@@ -233,10 +262,27 @@ func (t *Telegram) onCallback(ctx context.Context, query *tgbotmodels.CallbackQu
 		return
 	}
 	handle(ctx, Incoming{
-		ChatID:   strconv.FormatInt(message.Chat.ID, 10),
-		ChatName: chatName(message.Chat.Username),
-		Text:     query.Data,
+		ChatID:    strconv.FormatInt(message.Chat.ID, 10),
+		MessageID: strconv.Itoa(message.ID),
+		ReplyToID: telegramReplyID(message.ReplyToMessage),
+		ThreadID:  telegramThreadID(message.MessageThreadID),
+		ChatName:  chatName(message.Chat.Username),
+		Text:      query.Data,
 	})
+}
+
+func telegramReplyID(message *tgbotmodels.Message) string {
+	if message == nil {
+		return ""
+	}
+	return strconv.Itoa(message.ID)
+}
+
+func telegramThreadID(threadID int) string {
+	if threadID <= 0 {
+		return ""
+	}
+	return strconv.Itoa(threadID)
 }
 
 // maxTelegramCallbackBytes is the longest text Telegram lets a button carry back.

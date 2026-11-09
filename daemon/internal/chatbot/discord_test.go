@@ -95,7 +95,11 @@ func discordServer(t *testing.T, refuse bool) (*httptest.Server, *discordCalls) 
 				discordErrorCode(w, http.StatusForbidden, calls.channelCode)
 				return
 			}
-			discordOK(w, `{"id":"555","name":"general","type":0}`)
+			if strings.Contains(path, "/channels/thread-1") {
+				discordOK(w, `{"id":"thread-1","name":"topic","type":11,"parent_id":"555"}`)
+			} else {
+				discordOK(w, `{"id":"555","name":"general","type":0}`)
+			}
 		default:
 			http.Error(w, "no such endpoint", http.StatusNotFound)
 		}
@@ -311,6 +315,48 @@ func TestDiscordAcceptsOnlyItsChannelAndNtfyAcceptsNothing(t *testing.T) {
 	}
 	if n.Accepts(chatbot.Incoming{ChatID: "t"}) {
 		t.Error("ntfy accepted a message, but it only sends")
+	}
+}
+
+func TestDiscordConversationReplyUsesValidatedThreadAndOpaqueScope(t *testing.T) {
+	srv, calls := discordServer(t, false)
+	bot, err := chatbot.NewDiscord(chatbot.DiscordConfig{Token: "TESTTOKEN", ChannelID: "555", HTTPClient: discordClient(t, srv)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var conversationBot chatbot.ConversationBot = bot
+	if conversationBot.Scope() == "" || strings.Contains(conversationBot.Scope(), "TESTTOKEN") || strings.Contains(conversationBot.Scope(), "555") {
+		t.Fatalf("scope exposed configuration: %q", conversationBot.Scope())
+	}
+	in := chatbot.Incoming{ChatID: "thread-1", MessageID: "message-9", ThreadID: "thread-1"}
+	if !bot.Accepts(in) {
+		t.Fatal("Discord rejected a thread whose REST metadata names the configured parent")
+	}
+	id, err := conversationBot.SendReply(context.Background(), chatbot.Notice{Title: "Reply"}, in)
+	if err != nil {
+		t.Fatalf("SendReply: %v", err)
+	}
+	if id != "2" {
+		t.Fatalf("outgoing id = %q, want 2", id)
+	}
+	var sent struct {
+		Reference struct {
+			MessageID       string `json:"message_id"`
+			ChannelID       string `json:"channel_id"`
+			FailIfNotExists *bool  `json:"fail_if_not_exists"`
+		} `json:"message_reference"`
+	}
+	if err := json.Unmarshal([]byte(calls.sent[len(calls.sent)-1]), &sent); err != nil {
+		t.Fatal(err)
+	}
+	if sent.Reference.MessageID != "message-9" || sent.Reference.ChannelID != "thread-1" || sent.Reference.FailIfNotExists == nil || *sent.Reference.FailIfNotExists {
+		t.Fatalf("reply reference = %+v", sent.Reference)
+	}
+	if _, err := conversationBot.SendReply(context.Background(), chatbot.Notice{Title: "Refuse"}, chatbot.Incoming{ChatID: "untrusted-channel", MessageID: "message-10"}); err == nil {
+		t.Fatal("SendReply accepted an untrusted explicit channel")
+	}
+	if calls.messages != 1 {
+		t.Fatalf("Discord sent %d messages after a rejected destination, want 1", calls.messages)
 	}
 }
 

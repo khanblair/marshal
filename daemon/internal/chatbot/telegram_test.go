@@ -198,18 +198,58 @@ func TestATelegramButtonPressReachesTheHandlerAsTheTextItCarriesAndIsAnswered(t 
 	defer cancel()
 	// The receive loop is not started (it would call Telegram); the update handler is what is under test.
 	bot.HandleUpdateForTest(ctx, func(_ context.Context, in chatbot.Incoming) { got <- in },
-		`{"update_id":1,"callback_query":{"id":"cb1","from":{"id":9,"is_bot":false,"first_name":"A"},"data":"approval:X:allow_once","message":{"message_id":3,"date":1700000000,"chat":{"id":555,"type":"private"}}}}`)
+		`{"update_id":1,"callback_query":{"id":"cb1","from":{"id":9,"is_bot":false,"first_name":"A"},"data":"approval:X:allow_once","message":{"message_id":3,"message_thread_id":7,"reply_to_message":{"message_id":2,"date":1699999999,"chat":{"id":555,"type":"private"}},"date":1700000000,"chat":{"id":555,"type":"private"}}}}`)
 	var in chatbot.Incoming
 	select {
 	case in = <-got:
 	case <-time.After(3 * time.Second):
 		t.Fatal("the press never reached the handler")
 	}
-	if in.Text != "approval:X:allow_once" || in.ChatID != "555" {
+	if in.Text != "approval:X:allow_once" || in.ChatID != "555" || in.MessageID != "3" || in.ReplyToID != "2" || in.ThreadID != "7" {
 		t.Fatalf("incoming = %+v", in)
 	}
 	if calls.answered != 1 {
 		t.Fatalf("the press was answered %d times, want 1", calls.answered)
+	}
+}
+
+func TestTelegramConversationReplyKeepsConfiguredChatAndUsesAcceptedReplyMetadata(t *testing.T) {
+	srv, calls := telegramServer(t, false)
+	bot, err := chatbot.NewTelegram(chatbot.TelegramConfig{Token: "123:TESTTOKEN", ChatID: "555", BaseURL: srv.URL})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var conversationBot chatbot.ConversationBot = bot
+	if conversationBot.Scope() == "" || strings.Contains(conversationBot.Scope(), "TESTTOKEN") || strings.Contains(conversationBot.Scope(), "555") {
+		t.Fatalf("scope exposed configuration: %q", conversationBot.Scope())
+	}
+	id, err := conversationBot.SendReply(context.Background(), chatbot.Notice{Title: "Reply"}, chatbot.Incoming{
+		ChatID: "555", MessageID: "42", ThreadID: "7",
+	})
+	if err != nil {
+		t.Fatalf("SendReply: %v", err)
+	}
+	if id != "1" {
+		t.Fatalf("outgoing id = %q, want 1", id)
+	}
+	if !strings.Contains(calls.raw[0], `name="chat_id"`) || !strings.Contains(calls.raw[0], `"message_id":42`) || !strings.Contains(calls.raw[0], `name="message_thread_id"`) || !strings.Contains(calls.raw[0], "7\r\n") {
+		t.Fatalf("reply did not use configured chat, message, and thread: %s", calls.raw[0])
+	}
+	calls.raw = nil
+	_, err = conversationBot.SendReply(context.Background(), chatbot.Notice{Title: "Reject"}, chatbot.Incoming{
+		ChatID: "556", MessageID: "99", ThreadID: "8",
+	})
+	if err == nil {
+		t.Fatal("SendReply accepted an untrusted explicit chat")
+	}
+	if calls.sendMessage != 1 {
+		t.Fatalf("Telegram sent %d messages after a rejected destination, want 1", calls.sendMessage)
+	}
+	if _, err := conversationBot.SendReply(context.Background(), chatbot.Notice{Title: "Refuse"}, chatbot.Incoming{ChatID: "556", MessageID: "100"}); err == nil {
+		t.Fatal("SendReply accepted an untrusted explicit chat")
+	}
+	if calls.sendMessage != 1 {
+		t.Fatalf("Telegram sent %d messages after a rejected destination, want 1", calls.sendMessage)
 	}
 }
 

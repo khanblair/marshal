@@ -19,6 +19,7 @@ import (
 type Discord struct {
 	session   *discordgo.Session
 	channelID string
+	scope     string
 	now       func() time.Time
 }
 
@@ -60,25 +61,48 @@ func NewDiscord(cfg DiscordConfig) (*Discord, error) {
 	if now == nil {
 		now = time.Now
 	}
-	return &Discord{session: session, channelID: cfg.ChannelID, now: now}, nil
+	return &Discord{session: session, channelID: cfg.ChannelID, scope: conversationScope(KindDiscord, cfg.Token, cfg.ChannelID), now: now}, nil
 }
 
 // Kind is which service this bot talks to.
 func (d *Discord) Kind() Kind { return KindDiscord }
 
+// Scope identifies this bot's configured destination without revealing its token or channel id.
+func (d *Discord) Scope() string { return d.scope }
+
 // Notify sends one notice to the channel.
-func (d *Discord) Notify(_ context.Context, notice Notice) error {
+func (d *Discord) Notify(ctx context.Context, notice Notice) error {
+	_, err := d.SendReply(ctx, notice, Incoming{})
+	return err
+}
+
+// SendReply sends in an accepted channel or thread. It never creates a thread.
+func (d *Discord) SendReply(ctx context.Context, notice Notice, to Incoming) (string, error) {
+	channelID := d.channelID
+	var reference *discordgo.MessageReference
+	if to.ChatID != "" {
+		if !d.Accepts(to) {
+			return "", errors.New("refuse to reply to an unaccepted Discord channel")
+		}
+		channelID = to.ChatID
+		if to.MessageID != "" {
+			failIfNotExists := false
+			reference = &discordgo.MessageReference{MessageID: to.MessageID, ChannelID: to.ChatID, FailIfNotExists: &failIfNotExists}
+		}
+	}
 	message := &discordgo.MessageSend{
 		Content:         render(notice),
+		Reference:       reference,
 		AllowedMentions: &discordgo.MessageAllowedMentions{Parse: []discordgo.AllowedMentionType{}},
 	}
 	if rows := discordButtons(notice.Actions); rows != nil {
 		message.Content, message.Components = renderPlain(notice), rows
 	}
-	if _, err := d.session.ChannelMessageSendComplex(d.channelID, message); err != nil {
-		return fmt.Errorf("send a Discord notice: %w", err)
+	sent, err := d.session.ChannelMessageSendComplex(channelID, message, discordgo.WithContext(ctx))
+	if err != nil {
+		return "", fmt.Errorf("send a Discord notice: %w", err)
 	}
-	return nil
+	return sent.ID, nil
 }
 
 // Test checks the connection and answers what to show the person. It makes a few REST calls and
@@ -213,7 +237,7 @@ func (d *Discord) Start(ctx context.Context, handle Handler) error {
 		if m.Author == nil || m.Author.Bot {
 			return
 		}
-		handle(ctx, Incoming{ChatID: m.ChannelID, Text: m.Content})
+		handle(ctx, d.incoming(m.Message, m.Content))
 	})
 	if err := d.session.Open(); err != nil {
 		return fmt.Errorf("open the Discord gateway: %w", err)
@@ -268,12 +292,49 @@ func (d *Discord) onInteraction(ctx context.Context, i *discordgo.InteractionCre
 	if data == "" {
 		return
 	}
-	handle(ctx, Incoming{ChatID: i.ChannelID, Text: data})
+	in := Incoming{ChatID: i.ChannelID, Text: data}
+	if i.Message != nil {
+		in = d.incoming(i.Message, data)
+	}
+	handle(ctx, in)
 }
 
-// Accepts is true for a message from the channel this bot was set up with.
+// Accepts is true for the configured channel, or a thread Discord confirms belongs to it.
 func (d *Discord) Accepts(in Incoming) bool {
-	return d.channelID != "" && in.ChatID == d.channelID
+	if d.channelID == "" || in.ChatID == "" {
+		return false
+	}
+	if in.ChatID == d.channelID {
+		return true
+	}
+	return d.isConfiguredThread(in.ChatID)
+}
+
+func (d *Discord) incoming(message *discordgo.Message, text string) Incoming {
+	in := Incoming{ChatID: message.ChannelID, MessageID: message.ID, Text: text}
+	if message.MessageReference != nil {
+		in.ReplyToID = message.MessageReference.MessageID
+	}
+	if d.isConfiguredThread(in.ChatID) {
+		in.ThreadID = in.ChatID
+	}
+	return in
+}
+
+func (d *Discord) isConfiguredThread(channelID string) bool {
+	if channelID == "" || channelID == d.channelID || d.channelID == "" {
+		return false
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), discordThreadLookupTimeout)
+	defer cancel()
+	channel, err := d.session.Channel(channelID, discordgo.WithContext(ctx))
+	return err == nil && channel != nil && channel.ID == channelID && isDiscordThread(channel.Type) && channel.ParentID == d.channelID
+}
+
+const discordThreadLookupTimeout = 5 * time.Second
+
+func isDiscordThread(channelType discordgo.ChannelType) bool {
+	return channelType == discordgo.ChannelTypeGuildPublicThread || channelType == discordgo.ChannelTypeGuildPrivateThread || channelType == discordgo.ChannelTypeGuildNewsThread
 }
 
 // Close ends the bot. A session whose gateway was never opened has nothing to close, and a failure

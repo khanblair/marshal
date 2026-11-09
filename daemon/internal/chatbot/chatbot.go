@@ -15,6 +15,8 @@ package chatbot
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"strings"
 
 	"github.com/khanblair/marshal/daemon/internal/protocol"
@@ -38,6 +40,11 @@ const (
 // both Telegram and Discord.
 const checkConnectionFix = "Check this computer's connection, then test again."
 
+func conversationScope(kind Kind, token, destination string) string {
+	digest := sha256.Sum256([]byte(string(kind) + "\x00" + token + "\x00" + destination))
+	return hex.EncodeToString(digest[:])
+}
+
 // Valid reports whether k is a chat service Marshal knows.
 func (k Kind) Valid() bool { return k == KindTelegram || k == KindDiscord || k == KindNtfy }
 
@@ -55,6 +62,8 @@ type Action struct {
 // is the same shape whatever the service, so the routing half (B9.4) never knows which service a
 // notice is going to.
 type Notice struct {
+	// CardID associates this notice with the card that raised it. Transports do not render it.
+	CardID string
 	// Title is the one line that says what happened, such as "Card 42 needs you".
 	Title string
 	// Body is the detail under it. Empty when the title says everything.
@@ -89,11 +98,25 @@ type Bot interface {
 	Close() error
 }
 
+// ConversationBot can send a notice as a reply to a specific incoming message. Scope is a stable,
+// opaque identifier for the configured bot destination; it must not expose credentials.
+type ConversationBot interface {
+	Bot
+	Scope() string
+	SendReply(ctx context.Context, notice Notice, to Incoming) (string, error)
+}
+
 // Incoming is one message read from a chat and handed to the daemon's own command handling. It is
 // the reading half's own shape, kept apart from a Notice so the two directions never get confused.
 type Incoming struct {
 	// ChatID is the chat the message came from, so a reply goes back to the same place.
 	ChatID string
+	// MessageID identifies the incoming message when the service provides one.
+	MessageID string
+	// ReplyToID identifies the message this incoming message replied to.
+	ReplyToID string
+	// ThreadID identifies the existing thread containing this message.
+	ThreadID string
 	// ChatName is the chat's public name where the service has one, such as "@my_channel" on
 	// Telegram. Empty otherwise.
 	ChatName string
