@@ -145,11 +145,14 @@ async function checkBuiltinReadiness({ page, size, theme }: Case, agents: WireAg
   if (!builtin) throw new Error("the daemon did not report its built-in agent");
   await openNewCard(page);
   await pickDropdown(agentPicker(page), builtin.name);
-  // Fixture runs have no real provider credentials. The picker must explain that instead
-  // of inventing prototype models or attempting a paid model call.
-  expect(builtin.models).toHaveLength(0);
-  expect(builtin.warning).not.toBe("");
-  await expect(dialog(page).getByText(builtin.warning, { exact: true })).toBeVisible();
+  // The built-in agent has the models of the providers that are set up, so the daemon decides which
+  // case this run is in. With none, the picker must say so. With some, it must not warn.
+  if (builtin.models.length === 0) {
+    expect(builtin.warning).not.toBe("");
+    await expect(dialog(page).getByText(builtin.warning, { exact: true })).toBeVisible();
+  } else {
+    expect(builtin.warning).toBe("");
+  }
   expect(await dropdownValue(agentPicker(page))).toBe(builtin.name);
   await expectCleanScreen(page, problems, theme);
 }
@@ -221,7 +224,7 @@ for (const size of SIZES) {
         page,
         request,
       }) => checkModelsFollowAgent({ page, size, theme }, await agentsViaApi(request)));
-      test("the built-in agent explains that provider setup is required", async ({
+      test("the built-in agent shows its models, or says that provider setup is required", async ({
         page,
         request,
       }) => checkBuiltinReadiness({ page, size, theme }, await agentsViaApi(request)));
