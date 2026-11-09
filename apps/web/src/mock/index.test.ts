@@ -144,6 +144,9 @@ const API = [
   "meId",
   "pin",
   "previewOnDaemon",
+  "connectPreview",
+  "previewTarget",
+  "setPreviewTarget",
   "previewShotImage",
   "proj",
   "quickAdd",
@@ -369,6 +372,9 @@ describe("index.ts boot", () => {
       "stopPreview",
       "takePreviewShot",
       "previewOnDaemon",
+      "connectPreview",
+      "previewTarget",
+      "setPreviewTarget",
       "previewShotImage",
       // The GitHub connection (S29a, B6.1 and B6.7) is the daemon's own: it signs in through GitHub's
       // device flow or keeps a pasted token in the OS keychain, and tests the connection, so the

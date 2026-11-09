@@ -50,19 +50,38 @@ jobs:
       - name: Fast card and mobile regressions
         run: |
           node --test apps/mobile/scripts/patch-android.test.mjs
-          pnpm --filter web exec vitest run --coverage.enabled=false src/views/card/CardHeader.test.tsx src/views/card/SessionSettings.test.tsx src/views/card/DiffTab.test.tsx src/views/card/PreviewTab.daemon.test.tsx src/views/card/details-collapsed.test.ts src/views/card/preview-link.test.ts src/features/chat/agent-activity.test.ts src/platform/native-system-bars.test.ts
+          pnpm --filter web exec vitest run --coverage.enabled=false src/views/card/CardHeader.test.tsx src/views/card/SessionSettings.test.tsx src/views/card/DiffTab.test.tsx src/views/card/PreviewTab.daemon.test.tsx src/views/card/details-collapsed.test.ts src/views/card/preview-link.test.ts src/features/chat/agent-activity.test.ts src/platform/native-system-bars.test.ts src/mock/index.test.ts src/styles/responsive-guards.test.ts
       - name: Fast runtime and preview regressions
         working-directory: daemon
         run: node ../scripts/go-tool.mjs go test -timeout 2m ./internal/agents/catalog ./internal/tailnet ./internal/previewrelay
       - run: pnpm smells
       - run: pnpm --filter @marshal/tokens check:contrast
 
+  client-tests:
+    name: client tests and coverage
+    timeout-minutes: 20
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Protocol and UI indexes were already regenerated and checked by lint. Only token CSS
+      # is untracked build output needed by these tests; no Go toolchain is needed here.
+      - run: pnpm --filter @marshal/tokens gen
+      - name: Test every client package with its existing coverage floors
+        run: pnpm -r --filter web --filter @marshal/ui --filter @marshal/tokens --filter @marshal/protocol --filter desktop --filter mobile --workspace-concurrency=1 --if-present test
+
   # The slow checks, once the light ones have passed. Marshal is macOS first, so only macOS runs
   # them for now. To test Linux or Windows again, add `ubuntu-latest` or `windows-latest` to the list.
   check:
     timeout-minutes: 60
     name: check (${{ matrix.os }})
-    needs: lint
+    needs: [lint, client-tests]
     strategy:
       fail-fast: false
       matrix:
@@ -99,9 +118,10 @@ jobs:
           path: .tools
           key: go-tools-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/setup-tools.mjs') }}
       - run: pnpm gen
-      # The daemon's tests write its coverage profile, and the web app and UI package tests fail
-      # when they are below their floors. The next step checks the daemon against its floors.
-      - run: pnpm test
+      # Client tests already passed in their own job. Retain every remaining workspace test
+      # (daemon and Go tools), including race instrumentation and the daemon coverage profile.
+      - name: Test daemon and tools
+        run: pnpm -r --filter '!marshal' --filter '!web' --filter '!@marshal/ui' --filter '!@marshal/tokens' --filter '!@marshal/protocol' --filter '!desktop' --filter '!mobile' --workspace-concurrency=1 --if-present test
         env:
           # Race-instrumented API and storage suites both create databases and subprocesses.
           # Bound concurrent Go packages on the standard runner; keep checks and deadlines.
@@ -153,7 +173,7 @@ jobs:
     timeout-minutes: 5
     name: Explain CI result and release gate
     if: always()
-    needs: [lint, check, e2e]
+    needs: [lint, client-tests, check, e2e]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/github-script@v7

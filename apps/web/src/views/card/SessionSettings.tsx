@@ -58,7 +58,7 @@ function SettingsSummary(props: SessionSettingsProps & { onExpand: () => void })
       onClick={props.onExpand}
       aria-expanded={false}
       aria-controls="card-agent-settings"
-      class={`flex w-full items-center gap-1.5 px-1 py-0.5 rounded-sm border border-transparent bg-transparent appearance-none text-small text-secondary text-left whitespace-normal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink hover:bg-surface-hover ${M.mobile ? "min-h-11! rounded-lg!" : ""}`}
+      class="flex w-full items-center gap-1.5 px-1 py-0.5 rounded-sm border border-transparent bg-transparent appearance-none text-small text-secondary text-left whitespace-normal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink hover:bg-surface-hover phone:min-h-(--control-h) phone:rounded-lg"
     >
       <Icon name="chevron-right" size={18} class="flex-none text-secondary" />
       <span class="flex-1 min-w-0 whitespace-normal break-words">

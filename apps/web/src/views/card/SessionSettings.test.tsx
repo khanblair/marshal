@@ -214,7 +214,8 @@ describe("SessionSettings collapsed", () => {
       "focus-visible:outline-2",
       "focus-visible:outline-offset-2",
       "focus-visible:outline-ink",
-      "min-h-11!",
+      "phone:min-h-(--control-h)",
+      "phone:rounded-lg",
       "whitespace-normal",
     );
     expect(summary).toHaveTextContent(longRole);
