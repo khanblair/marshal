@@ -1,10 +1,13 @@
 import { Index, Show } from "solid-js";
 import type { MsgView } from "~/mock";
+import { AgentActivity } from "./AgentActivity";
 import { MessageRow } from "./MessageRow";
 
 export interface ChatThreadProps {
   /** View models from `M.decoMsgs(list, cardId)`. */
   items: readonly MsgView[];
+  activity?: string;
+  onPreviewLink?: (url: string, event: MouseEvent) => boolean | void;
 }
 
 /**
@@ -20,10 +23,11 @@ export function ChatThread(props: ChatThreadProps) {
       <Index each={props.items}>
         {(item) => (
           <Show when={item().id} keyed>
-            {(_id) => <MessageRow item={item()} />}
+            {(_id) => <MessageRow item={item()} onPreviewLink={props.onPreviewLink} />}
           </Show>
         )}
       </Index>
+      <Show when={props.activity}>{(label) => <AgentActivity label={label()} />}</Show>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { cx, ErrorState, JumpToLatest, SkeletonGroup, SkeletonLines } from "@marshal/ui";
 import { createMemo, For, Show } from "solid-js";
+import { agentActivity } from "~/features/chat/agent-activity";
 import { ChatThread } from "~/features/chat/ChatThread";
 import type { Chat } from "~/mock";
 import { M } from "~/mock";
@@ -51,7 +52,14 @@ export function ChatMessages(props: ChatMessagesProps) {
               Say what you want in plain words. The first message names this chat.
             </p>
           </Show>
-          <ChatThread items={items()} />
+          <ChatThread
+            items={items()}
+            activity={agentActivity(
+              props.chat.session,
+              props.chat.pendingSends ?? 0,
+              props.chat.msgs,
+            )}
+          />
         </div>
       </div>
       <Show when={props.scroll.showJump()}>

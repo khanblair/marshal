@@ -4,6 +4,8 @@ import {
   EventTypeSessionToolCall,
   SessionStateStopped,
   SessionStateWorking,
+  SessionStateValues,
+  type SessionState,
   type Event as WireEvent,
 } from "@marshal/protocol";
 import { batch, createEffect, untrack } from "solid-js";
@@ -213,6 +215,8 @@ function applyToChat(ctx: Ctx, chat: Chat, event: WireEvent): void {
     return;
   }
   if (event.type !== EventTypeSessionStateChanged || !data) return;
+  if (SessionStateValues.some((state) => state === data.state))
+    chat.session = data.state as SessionState;
   if (data.state !== SessionStateWorking) endStreaming(chat.msgs);
   const reason = typeof data.reason === "string" ? data.reason : "";
   if (data.state === SessionStateStopped && reason) {
@@ -254,6 +258,7 @@ export async function sendToChat(
   await readsOf(ctx).get(chatId)?.done;
   const shown: Msg = { id: `s${takeMid(ctx.ids)}`, k: "user", text: said };
   chat.msgs.push(shown);
+  chat.pendingSends = (chat.pendingSends ?? 0) + 1;
   try {
     await api.sendChatMessage(chatId, { text: said });
     return true;
@@ -261,5 +266,7 @@ export async function sendToChat(
     withdraw(chat, shown);
     toast(ctx, sentence(error, SEND_FAILED));
     return false;
+  } finally {
+    chat.pendingSends = Math.max(0, (chat.pendingSends ?? 1) - 1);
   }
 }

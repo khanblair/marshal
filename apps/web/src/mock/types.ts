@@ -142,6 +142,8 @@ export interface Card {
    * on a daemon card (`isAwake`).
    */
   session?: SessionState | null;
+  /** Messages still being handed to the daemon, separate from an active agent turn. */
+  pendingSends?: number;
   /**
    * Which view the card opens in (section S9), as the daemon stores it: undefined on a card the
    * mock made, which has no stored view of its own (the mock's own switch, `S.mode`, is global to
@@ -300,6 +302,8 @@ export interface DiffFile {
 }
 
 export interface Chat {
+  session?: SessionState | null;
+  pendingSends?: number;
   id: string;
   pid: string;
   title: string;

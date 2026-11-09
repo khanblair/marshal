@@ -11,6 +11,7 @@ import { ToolCallRow } from "./ToolCallRow";
 
 export interface MessageRowProps {
   item: MsgView;
+  onPreviewLink?: (url: string, event: MouseEvent) => boolean | void;
 }
 
 /** One message. Exactly one kind flag of the view model is set, so exactly one branch renders. */
@@ -18,13 +19,16 @@ export function MessageRow(props: MessageRowProps) {
   return (
     <>
       <Show when={props.item.isUser}>
-        <div class="self-end max-w-[min(72ch,88%)] py-2 px-3 rounded-lg border border-border bg-surface-sunken whitespace-pre-wrap text-pretty">
+        <div class="self-end max-w-[min(72ch,88%)] [overflow-wrap:anywhere] py-2 px-3 rounded-lg border border-border bg-surface-sunken whitespace-pre-wrap text-pretty">
           {props.item.text}
         </div>
       </Show>
       <Show when={props.item.isAgent}>
-        <div aria-busy={props.item.streaming} class="max-w-[72ch] text-primary">
-          <Markdown text={props.item.text} />
+        <div
+          aria-busy={props.item.streaming}
+          class="min-w-0 max-w-[min(72ch,100%)] text-primary [overflow-wrap:anywhere]"
+        >
+          <Markdown text={props.item.text} onLinkClick={props.onPreviewLink} />
         </div>
       </Show>
       <Show when={props.item.isSystem}>

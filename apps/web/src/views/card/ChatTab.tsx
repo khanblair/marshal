@@ -1,6 +1,8 @@
 import { Composer, Icon, JumpToLatest, SegmentedControl, StatusDot } from "@marshal/ui";
 import { Show } from "solid-js";
+import { agentActivity } from "~/features/chat/agent-activity";
 import { ChatThread } from "~/features/chat/ChatThread";
+import { isLoopbackHttpUrl } from "./preview-link";
 import { type Card, type CardView, M, type Mode } from "~/mock";
 import { controlSize } from "./control-size";
 import type { Panel } from "./panel-state";
@@ -98,7 +100,16 @@ function ChatPane(props: ChatTabProps & { scroll: ReturnType<typeof createAutoSc
             This card hasn't started. Start the card, or send a message to start its session.
           </div>
         </Show>
-        <ChatThread items={M.decoMsgs(list(), props.card.id)} />
+        <ChatThread
+          items={M.decoMsgs(list(), props.card.id)}
+          activity={agentActivity(props.card.session, props.card.pendingSends ?? 0, list())}
+          onPreviewLink={(url) => {
+            if (!isLoopbackHttpUrl(url)) return;
+            M.setPreviewTarget(props.card.id, url);
+            M.openCard(props.card.id, "preview");
+            return true;
+          }}
+        />
       </div>
       <Show when={props.panel.state.away && props.panel.state.unseen}>
         <JumpToLatest offset={10} onClick={props.scroll.jump} />
@@ -117,7 +128,7 @@ function ChatPane(props: ChatTabProps & { scroll: ReturnType<typeof createAutoSc
           sendSize={controlSize()}
           maxHeight={140}
         />
-        <span class="block mt-1.5 text-caption leading-4 text-muted">
+        <span class="block mt-1.5 text-caption leading-4 text-muted phone:hidden">
           Enter sends. Shift and Enter adds a new line.
         </span>
       </div>

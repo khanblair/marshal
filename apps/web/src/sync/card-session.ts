@@ -295,6 +295,7 @@ export async function sendToCard(
   ctx.S.chat[key] = chat;
   const shown = { id: `s${takeMid(ctx.ids)}`, k: "user" as const, text: said };
   chat.push(shown);
+  card.pendingSends = (card.pendingSends ?? 0) + 1;
   try {
     await api.sendMessage(card.daemonId, { text: said });
     return true;
@@ -306,5 +307,7 @@ export async function sendToCard(
       error instanceof ApiError ? error.message : "Marshal could not send that. Try again.",
     );
     return false;
+  } finally {
+    card.pendingSends = Math.max(0, (card.pendingSends ?? 1) - 1);
   }
 }
