@@ -271,3 +271,9 @@ Desktop `src-tauri/entitlements.plist` grants the executable-memory exception ne
 - `apps/web/src/features/chat/{AgentActivity.tsx,agent-activity*.ts}`: state-driven activity feedback.
 - `apps/web/src/views/card/{details-collapsed*.ts,preview-link*.ts}`: device-specific disclosure preferences and local preview links. The old `BypassBanner.tsx` was removed.
 - `apps/web/src/platform/native-system-bars*.ts`, `apps/mobile/src-tauri/src/system_bars.rs`, `native/system-bars/SystemBarsPlugin.kt`: narrow Android system-bar theme bridge. `patch-android.mjs` copies the Kotlin source into generated Android output.
+
+### Release sequencing
+
+- `.github/release.json` records the requested version. It remains pending until publication succeeds.
+- `apps/desktop/scripts/release-plan.mjs` selects the exact successful main CI commit, skips stale/already published requests, and guards manual tag retries. Its fixture tests run in the fast CI gate and desktop test script.
+- `.github/workflows/release.yml` receives CI completion events, builds both platforms, stages artifacts, and publishes them together. `.github/workflows/e2e-macos.yml` is an optional manual browser check; required browser tests are part of `ci.yml`.

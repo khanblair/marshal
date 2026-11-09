@@ -5,11 +5,19 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # The light checks run first, on one Linux runner, so a formatting, type, or generated-file
   # problem stops the run before the slow job (and the macOS minutes) is spent. This job is only a
   # tool runner, so it stays on Linux, where it is cheapest.
   lint:
+    timeout-minutes: 25
     name: light checks (generated files, format, lint, types, smells, contrast)
     runs-on: ubuntu-latest
     steps:
@@ -37,12 +45,22 @@ jobs:
       - run: pnpm format:check
       - run: pnpm lint
       - run: pnpm typecheck
+      - name: Release ordering regressions
+        run: node --test apps/desktop/scripts/release-plan.test.mjs
+      - name: Fast card and mobile regressions
+        run: |
+          node --test apps/mobile/scripts/patch-android.test.mjs
+          pnpm --filter web exec vitest run --coverage.enabled=false src/views/card/CardHeader.test.tsx src/views/card/SessionSettings.test.tsx src/views/card/DiffTab.test.tsx src/views/card/PreviewTab.daemon.test.tsx src/views/card/details-collapsed.test.ts src/views/card/preview-link.test.ts src/features/chat/agent-activity.test.ts src/platform/native-system-bars.test.ts
+      - name: Fast runtime and preview regressions
+        working-directory: daemon
+        run: node ../scripts/go-tool.mjs go test -timeout 2m ./internal/agents/catalog ./internal/tailnet ./internal/previewrelay
       - run: pnpm smells
       - run: pnpm --filter @marshal/tokens check:contrast
 
   # The slow checks, once the light ones have passed. Marshal is macOS first, so only macOS runs
   # them for now. To test Linux or Windows again, add `ubuntu-latest` or `windows-latest` to the list.
   check:
+    timeout-minutes: 60
     name: check (${{ matrix.os }})
     needs: lint
     strategy:
@@ -96,6 +114,7 @@ jobs:
           MARSHAL_BUDGET_IDLE: 60s
 
   e2e:
+    timeout-minutes: 30
     name: e2e (phone, tablet, desktop)
     runs-on: ubuntu-latest
     needs: check
@@ -129,3 +148,25 @@ jobs:
           path: |
             apps/web/test-results/
             apps/web/playwright-report/
+
+  summary:
+    timeout-minutes: 5
+    name: Explain CI result and release gate
+    if: always()
+    needs: [lint, check, e2e]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        env:
+          CHECK_RESULTS: ${{ toJSON(needs) }}
+        with:
+          script: |
+            const checks = JSON.parse(process.env.CHECK_RESULTS);
+            const rows = Object.entries(checks).map(([name, job]) => [name, job.result]);
+            const passed = Object.values(checks).every(job => job.result === 'success');
+            await core.summary.addHeading('CI and release order')
+              .addTable([[{data: 'Stage', header: true}, {data: 'Result', header: true}], ...rows])
+              .addRaw(passed
+                ? 'CI passed. The release workflow will check .github/release.json and build an unpublished requested version automatically.'
+                : 'Release is blocked. Fix the failed stage above and push again; skipped downstream jobs are expected.')
+              .write();

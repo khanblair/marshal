@@ -9,7 +9,7 @@
     "build:universal": "node scripts/bundle-sidecar.mjs --universal && tauri build --target universal-apple-darwin",
     "icons": "tauri icon src-tauri/icons/icon.png -o src-tauri/icons",
     "typecheck": "true",
-    "test": "node --test scripts/prepare-release.test.mjs",
+    "test": "node --test scripts/prepare-release.test.mjs scripts/release-plan.test.mjs",
     "check:bundle": "node scripts/check-bundle.mjs"
   },
   "devDependencies": {

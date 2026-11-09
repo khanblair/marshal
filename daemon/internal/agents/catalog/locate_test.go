@@ -83,6 +83,8 @@ func TestJoinPath(t *testing.T) {
 
 func TestProgramEnvPutsTheProgramsFolderFirst(t *testing.T) {
 	dir := t.TempDir()
+	// This test isolates service PATH order. Login PATH recovery has its own shell fixtures.
+	t.Setenv("SHELL", filepath.Join(dir, "unsupported-shell"))
 	t.Setenv("PATH", "/somewhere/else")
 	env := ProgramEnv(filepath.Join(dir, "gemini"))
 	if len(env) != 1 || !strings.HasPrefix(env[0], "PATH=") {

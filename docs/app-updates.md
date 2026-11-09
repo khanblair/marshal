@@ -44,7 +44,21 @@ See the [Tauri updater documentation](https://v2.tauri.app/plugin/updater/) for 
 - `node --test apps/desktop/scripts/prepare-release.test.mjs` checks release configuration and manifest generation.
 - A real signed upgrade between two installed releases remains a release acceptance check. It must use the production signing configuration and is not replaced by these fixture tests.
 
-Release runs accept a `target` choice (`all`, `desktop`, or `android`) when started manually. This lets a failed platform be retried for the same source tag without rebuilding the other platform. Tag pushes still build both. Android SDK setup uses the supported action that no longer requests Google’s removed `tools` package.
+## Release order
+
+1. Set the requested version in `.github/release.json` and push to `main`.
+2. CI runs generation, formatting, lint, types, focused release/card/mobile/runtime regressions, and the other light checks. A failure stops the slower jobs.
+3. The macOS job runs the full tests and coverage, builds Marshal, and checks size and idle-memory budgets.
+4. Required browser tests run on Linux at phone, tablet, and desktop sizes.
+5. A successful CI completion triggers `release.yml` on GitHub. It accepts only a push to this repository's `main`, uses that exact verified commit, and skips superseded commits or an already published version. No agent or local watcher is needed to advance this chain.
+6. The Mac installer/updater files and signed Android APK/AAB build in parallel. Each job uploads verified artifacts. A missing signing configuration fails the selected build.
+7. Only after both builds succeed, the publish job uploads all downloads to a draft, checks their names and sizes and the tag's commit, then makes the release public. Failed new uploads leave a draft, rather than a partially published new release.
+
+Failed CI blocks release. A failed platform build blocks publication. A corrected push starts the chain again with the requested version still pending. The CI summary names the blocking stage; GitHub sends its own workflow notifications according to your account settings. This chain advances successful jobs automatically; it does not automatically edit code after failures.
+
+Tag pushes alone no longer trigger release. GitHub creates the version tag at publication, on the verified commit. Never move an existing version tag. Bump the version if a different source commit is needed for an existing tag.
+
+Manual release runs accept an existing `tag` and a `target` (`all`, `desktop`, or `android`). The tag's exact commit must have a successful main push CI run. A platform-only retry is allowed for an existing published release; a new release requires both platforms. The extra macOS browser workflow is manual only; the required browser gate is already in CI. Android SDK setup uses the supported action that no longer requests Google’s removed `tools` package.
 
 ## Hardened runtime and secret scanning
 
@@ -57,6 +71,6 @@ References: [Apple executable-memory entitlement](https://developer.apple.com/do
 
 ## Android release downloads
 
-The release workflow builds both an APK for direct installation and an AAB for Google Play. Signed builds are attached to the GitHub release as `Marshal_<version>_universal.apk` and `Marshal_<version>_universal.aab`. The workflow verifies the APK signature with Android's `apksigner` before publishing it. An unsigned build is kept only as an Actions artifact because it cannot be installed on a phone.
+The release workflow builds both an APK for direct installation and an AAB for Google Play. Signed builds are attached to the GitHub release as `Marshal_<version>_universal.apk` and `Marshal_<version>_universal.aab`. The workflow verifies the APK signature with Android's `apksigner` and the AAB signature with Java's `jarsigner` before publishing them. An unsigned build is kept only as an Actions artifact because it cannot be installed on a phone.
 
 Android signing was configured on 2026-11-09. GitHub Actions uses `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, and `ANDROID_KEY_PASSWORD`. A private keystore and credential backup are kept outside this repository. Keep the same signing key for future APK updates, and back it up securely. This signing key is free and separate from Tauri updater signatures and Apple signing.

@@ -1,51 +1,16 @@
-# Builds the desktop shell (apps/desktop) on a GitHub-hosted macOS runner and publishes the
-# result, so a signed .dmg never has to be built on the owner's own Mac.
-#
-# Triggers: pushing a tag that looks like a version ("v0.1.0"), or running this workflow by hand
-# from the Actions tab with a "tag" input.
-#
-# A release is published, not left as a draft, the moment its build succeeds: the publish step runs
-# only after every earlier step passed, so a failed build never makes a release. It shows on the
-# repository's Releases page with notes generated from the commits since the last release. The
-# phone job below attaches to the same release without turning it back into a draft.
-#
-# The dmg is a universal build: one app that runs on both Intel and Apple silicon Macs
-# (`universal-apple-darwin`). The runner is Intel;
-# the Apple silicon half is cross-compiled, and the daemon's two programs are built for both chips and
-# joined by apps/desktop/scripts/bundle-sidecar.mjs --universal.
-#
-# The build step is the same command a person runs locally: this workflow only adds the environment Tauri's own macOS bundler
-# reads to sign and notarize, rather than wrapping the build in a separate signing action. Code
-# signing and notarization turn on automatically once these repository secrets exist (Settings ->
-# Secrets and variables -> Actions), and the build stays ad-hoc signed (installable, but with a
-# Gatekeeper "unidentified developer" prompt) when they do not. Every desktop release also requires
-# TAURI_SIGNING_PRIVATE_KEY and the MARSHAL_UPDATER_PUBLIC_KEY repository variable; the optional
-# TAURI_SIGNING_PRIVATE_KEY_PASSWORD is used when the private key is password protected:
-#   APPLE_CERTIFICATE            Base64 of a Developer ID Application .p12 export
-#   APPLE_CERTIFICATE_PASSWORD   The .p12's export password
-#   APPLE_SIGNING_IDENTITY       The certificate's name, e.g. "Developer ID Application: ..."
-#   APPLE_ID                     The Apple ID used for notarization
-#   APPLE_PASSWORD                An app-specific password for that Apple ID (not its real one)
-#   APPLE_TEAM_ID                 The Apple Developer team ID
-#
-# The Android job (apps/mobile) builds the phone app the same way, on a Linux runner, and attaches a
-# signed .apk (direct install) and .aab (Google Play) to the same release. The phone app does
-# not embed the web app or the daemon - it opens the page the daemon serves - so this job needs
-# neither. It signs when these repository secrets exist, and leaves the build unsigned when they do
-# not (an unsigned .apk cannot be installed, so the job says so instead of publishing one):
-#   ANDROID_KEYSTORE_BASE64      Base64 of the upload keystore (.jks)
-#   ANDROID_KEYSTORE_PASSWORD    The keystore's password
-#   ANDROID_KEY_ALIAS            The key's alias inside it
-#   ANDROID_KEY_PASSWORD         The key's password
 name: release
 
+# A successful CI completion is the event, not an agent polling GitHub.
+# .github/release.json requests a version. Published versions are skipped.
 on:
-  push:
-    tags: ["v*"]
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
     inputs:
       tag:
-        description: "Version tag for this build (e.g. v0.1.0). Publishes a release when the build succeeds."
+        description: "Existing tag to retry. Its exact commit must have passed main CI."
         required: true
       target:
         description: "Build both platforms, or retry just one platform for this release tag."
@@ -55,23 +20,75 @@ on:
 
 permissions:
   contents: write
+  actions: read
+
+concurrency:
+  group: marshal-release
+  cancel-in-progress: false
 
 jobs:
+  prepare:
+    timeout-minutes: 5
+    name: Select verified release commit
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.plan.outputs.ready }}
+      sha: ${{ steps.plan.outputs.sha }}
+      tag: ${{ steps.plan.outputs.tag }}
+      target: ${{ steps.plan.outputs.target }}
+      new-release: ${{ steps.plan.outputs.new-release }}
+    steps:
+      # Use the trusted default branch for orchestration, including retries of older tags.
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/github-script@v7
+        id: plan
+        env:
+          REQUESTED_TAG: ${{ inputs.tag }}
+          REQUESTED_TARGET: ${{ inputs.target || 'all' }}
+        with:
+          script: |
+            const { planRelease } = await import(`${process.env.GITHUB_WORKSPACE}/apps/desktop/scripts/release-plan.mjs`);
+            const plan = await planRelease({ github, context, tag: process.env.REQUESTED_TAG, target: process.env.REQUESTED_TARGET });
+            core.setOutput('ready', String(plan.ready));
+            if (plan.ready) {
+              core.setOutput('sha', plan.sha);
+              core.setOutput('tag', plan.tag);
+              core.setOutput('target', plan.target);
+              core.setOutput('new-release', String(plan.newRelease));
+            }
+            await core.summary.addHeading('Release order').addRaw(plan.ready
+              ? `CI passed for ${plan.sha}. Build and verify both platforms, upload artifacts, then publish ${plan.tag}.`
+              : plan.reason).write();
+
   macos-dmg:
-    if: github.event_name != 'workflow_dispatch' || inputs.target != 'android'
+    needs: prepare
+    if: needs.prepare.outputs.ready == 'true' && needs.prepare.outputs.target != 'android'
+    timeout-minutes: 90
     name: macOS (dmg)
     runs-on: macos-15-intel
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.tag || github.ref }}
+          ref: ${{ needs.prepare.outputs.sha }}
           fetch-depth: 0
 
       - name: Resolve the release tag
         id: tag
         env:
-          RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
-        run: node apps/desktop/scripts/prepare-release.mjs resolve-tag "$RELEASE_TAG" "$GITHUB_OUTPUT"
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          node apps/desktop/scripts/prepare-release.mjs resolve-tag "$RELEASE_TAG" "$GITHUB_OUTPUT"
+          # Release notes need a local tag. Only the final publish job creates it on GitHub.
+          if ! git rev-parse --verify "refs/tags/$RELEASE_TAG" >/dev/null 2>&1; then
+            git tag "$RELEASE_TAG"
+          fi
 
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
@@ -159,36 +176,41 @@ jobs:
           RELEASE_TAG: ${{ steps.tag.outputs.name }}
         run: node apps/desktop/scripts/prepare-release.mjs manifest "$RELEASE_TAG" apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/macos "$RUNNER_TEMP/latest.json"
 
-      - name: Publish the release
-        uses: softprops/action-gh-release@v2
+      - name: Stage verified desktop downloads
+        run: |
+          mkdir -p "$RUNNER_TEMP/marshal-release-assets"
+          cp apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg "$RUNNER_TEMP/marshal-release-assets/"
+          cp apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/macos/Marshal.app.tar.gz "$RUNNER_TEMP/marshal-release-assets/"
+          cp apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/macos/Marshal.app.tar.gz.sig "$RUNNER_TEMP/marshal-release-assets/"
+          cp "$RUNNER_TEMP/latest.json" "$RUNNER_TEMP/marshal-release-assets/"
+      - uses: actions/upload-artifact@v4
         with:
-          tag_name: ${{ steps.tag.outputs.name }}
-          name: "Marshal ${{ steps.tag.outputs.name }}"
-          body: "Built from release tag ${{ steps.tag.outputs.name }}."
-          generate_release_notes: true
-          draft: false
-          make_latest: true
-          fail_on_unmatched_files: true
-          files: |
-            apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
-            apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/macos/Marshal.app.tar.gz
-            apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/macos/Marshal.app.tar.gz.sig
-            ${{ runner.temp }}/latest.json
+          name: marshal-release-desktop
+          path: ${{ runner.temp }}/marshal-release-assets/*
+          if-no-files-found: error
+
 
   android:
-    if: github.event_name != 'workflow_dispatch' || inputs.target != 'desktop'
+    needs: prepare
+    if: needs.prepare.outputs.ready == 'true' && needs.prepare.outputs.target != 'desktop'
+    timeout-minutes: 60
     name: Android (apk, aab)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.tag || github.ref }}
+          ref: ${{ needs.prepare.outputs.sha }}
 
       - name: Resolve the release tag
         id: tag
         env:
-          RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
-        run: node apps/desktop/scripts/prepare-release.mjs resolve-tag "$RELEASE_TAG" "$GITHUB_OUTPUT"
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          node apps/desktop/scripts/prepare-release.mjs resolve-tag "$RELEASE_TAG" "$GITHUB_OUTPUT"
+          # Release notes need a local tag. Only the final publish job creates it on GitHub.
+          if ! git rev-parse --verify "refs/tags/$RELEASE_TAG" >/dev/null 2>&1; then
+            git tag "$RELEASE_TAG"
+          fi
 
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
@@ -234,9 +256,8 @@ jobs:
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           if [ -z "$KEYSTORE" ]; then
-            echo "The Android signing secrets are not set, so this build is unsigned and will not be published."
-            echo "signed=false" >> "$GITHUB_OUTPUT"
-            exit 0
+            echo "Android signing secrets are required for an installable release."
+            exit 1
           fi
           android="apps/mobile/src-tauri/gen/android"
           echo "$KEYSTORE" | base64 --decode > "$RUNNER_TEMP/marshal.jks"
@@ -272,24 +293,81 @@ jobs:
           test "$apk_count" -eq 1
           for bundle in "$bundle_dir"/*.aab; do
             test -f "$bundle"
+            jarsigner -J-Duser.language=en -J-Duser.country=US -verify -verbose -certs "$bundle" > "$RUNNER_TEMP/aab-signature.txt"
+            grep -Fxq 'jar verified.' "$RUNNER_TEMP/aab-signature.txt"
             cp "$bundle" "dist/android/Marshal_${RELEASE_VERSION}_universal.aab"
           done
 
-      - name: Attach to the release
-        if: steps.signing.outputs.signed == 'true'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: marshal-release-android
+          path: dist/android/*
+          if-no-files-found: error
+
+  publish:
+    timeout-minutes: 10
+    name: Publish verified downloads together
+    needs: [prepare, macos-dmg, android]
+    if: >-
+      always() && !cancelled() && needs.prepare.result == 'success' &&
+      needs.prepare.outputs.ready == 'true' &&
+      ((needs.macos-dmg.result == 'success' && needs.android.result == 'success') ||
+       (needs.prepare.outputs.target == 'desktop' && needs.macos-dmg.result == 'success') ||
+       (needs.prepare.outputs.target == 'android' && needs.android.result == 'success'))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: marshal-release-*
+          merge-multiple: true
+          path: release-assets
+      - name: Require the selected platform downloads
+        env:
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+          RELEASE_TARGET: ${{ needs.prepare.outputs.target }}
+        run: |
+          set -euo pipefail
+          if [ "$RELEASE_TARGET" != android ]; then
+            test -s release-assets/Marshal.app.tar.gz
+            test -s release-assets/Marshal.app.tar.gz.sig
+            test -s release-assets/latest.json
+            test "$(find release-assets -maxdepth 1 -name '*.dmg' | wc -l)" -eq 1
+          fi
+          if [ "$RELEASE_TARGET" != desktop ]; then
+            test -s "release-assets/Marshal_${RELEASE_TAG#v}_universal.apk"
+            test -s "release-assets/Marshal_${RELEASE_TAG#v}_universal.aab"
+          fi
+      - name: Upload all downloads before making a new release public
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.tag.outputs.name }}
-          name: "Marshal ${{ steps.tag.outputs.name }}"
-          draft: false
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          target_commitish: ${{ needs.prepare.outputs.sha }}
+          name: "Marshal ${{ needs.prepare.outputs.tag }}"
+          body: "Built from CI-verified commit ${{ needs.prepare.outputs.sha }}."
+          generate_release_notes: true
+          draft: ${{ needs.prepare.outputs.new-release == 'true' }}
+          make_latest: ${{ needs.prepare.outputs.new-release == 'true' && 'false' || 'legacy' }}
           fail_on_unmatched_files: true
-          files: |
-            dist/android/Marshal_*_universal.apk
-            dist/android/Marshal_*_universal.aab
-
-      - name: Keep the unsigned build as a run artifact
-        if: steps.signing.outputs.signed != 'true'
-        uses: actions/upload-artifact@v4
+          files: release-assets/*
+      - name: Verify uploaded assets and publish
+        uses: actions/github-script@v7
+        env:
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+          RELEASE_SHA: ${{ needs.prepare.outputs.sha }}
+          NEW_RELEASE: ${{ needs.prepare.outputs.new-release }}
         with:
-          name: android-unsigned
-          path: apps/mobile/src-tauri/gen/android/app/build/outputs/**/*
+          script: |
+            const fs = require('node:fs');
+            const { data: release } = await github.rest.repos.getReleaseByTag({ ...context.repo, tag: process.env.RELEASE_TAG });
+            const { data: commit } = await github.rest.repos.getCommit({ ...context.repo, ref: process.env.RELEASE_TAG });
+            if (commit.sha !== process.env.RELEASE_SHA) throw new Error('Release tag changed since validation.');
+            const { data: assets } = await github.rest.repos.listReleaseAssets({ ...context.repo, release_id: release.id, per_page: 100 });
+            for (const name of fs.readdirSync('release-assets')) {
+              const size = fs.statSync(`release-assets/${name}`).size;
+              if (!assets.some(asset => asset.name === name && asset.size === size && asset.state === 'uploaded')) {
+                throw new Error(`Release asset missing or incomplete: ${name}`);
+              }
+            }
+            await github.rest.repos.updateRelease({ ...context.repo, release_id: release.id, draft: false,
+              make_latest: process.env.NEW_RELEASE === 'true' ? 'true' : 'legacy' });
+            await core.summary.addHeading('Release published').addLink(process.env.RELEASE_TAG, release.html_url).write();

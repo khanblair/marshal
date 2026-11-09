@@ -1,27 +1,18 @@
 name: e2e (macOS)
 
-# The browser suite on macOS. It runs only after the main `ci` run has passed on `main`, and never
-# on a pull request, because macOS minutes cost more than Linux ones.
-#
-# To run it by hand: Actions, "e2e (macOS)", Run workflow.
-# To stop it: delete this file, or open it in the Actions tab and choose "Disable workflow".
+# Optional extra macOS browser run. Required browser coverage is already the final CI job.
+# Run this manually when investigating browser behavior specific to macOS.
 on:
-  workflow_run:
-    workflows: [ci]
-    types: [completed]
-    branches: [main]
   workflow_dispatch:
 
 jobs:
   e2e:
     name: e2e (macos, phone, tablet, desktop)
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: macos-15-intel
     steps:
       - uses: actions/checkout@v4
         with:
-          # The commit that `ci` just passed, not whatever `main` has moved on to.
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ github.sha }}
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
