@@ -1,5 +1,4 @@
-// Package chatcmd turns what a person types at a chat bot into the one thing the daemon lets a chat
-// do today: answering an approval (B9.3, build-plan 9.5 and 9.6).
+// Package chatcmd handles coding cards and approvals from configured chat connections.
 //
 // It sits between internal/chatbot (which knows how to talk to Telegram and Discord) and the session
 // manager (which knows what an approval is), and it owns neither's rules. What it owns is the
@@ -54,6 +53,7 @@ type Service struct {
 	approver Approver
 	log      *slog.Logger
 	cards    Cards
+	control  Control
 }
 
 // WithCards lets a chat add cards ("new <project> <title>"). Without it the service still answers
@@ -102,8 +102,12 @@ func (s *Service) handle(ctx context.Context, bot chatbot.Bot, in chatbot.Incomi
 		s.reply(ctx, bot, "Marshal heard a voice note but does not read them. Please type your answer.")
 		return
 	}
-	if cmd := chatbot.Parse(in.Text); cmd.Verb == chatbot.VerbNew {
+	cmd := chatbot.Parse(in.Text)
+	if cmd.Verb == chatbot.VerbNew {
 		s.newCard(ctx, bot, cmd)
+		return
+	}
+	if s.controlCommand(ctx, bot, cmd) {
 		return
 	}
 	target, decision, asked := s.read(in.Text)
@@ -189,8 +193,20 @@ func answerFor(decision protocol.ApprovalDecision, id string) string {
 // A reply that fails is logged and dropped: the decision has already been made, and a person who
 // cannot hear back is still better off than one whose approval never landed.
 func (s *Service) reply(ctx context.Context, bot chatbot.Bot, text string) {
-	if err := bot.Notify(ctx, chatbot.Notice{Title: text}); err != nil {
-		s.log.Warn("a chat reply could not be sent", "err", err)
+	// At most 900 runes also fits Discord's 2000 UTF-16-unit message limit for emoji.
+	const chunkRunes = 900
+	const maxReplyRunes = 6000
+	runes := []rune(text)
+	if len(runes) > maxReplyRunes {
+		runes = append(runes[:maxReplyRunes], []rune("\nOpen Marshal for the rest of this answer.")...)
+	}
+	for len(runes) > 0 {
+		size := min(len(runes), chunkRunes)
+		if err := bot.Notify(ctx, chatbot.Notice{Title: string(runes[:size])}); err != nil {
+			s.log.Warn("a chat reply could not be sent", "err", err)
+			return
+		}
+		runes = runes[size:]
 	}
 }
 
@@ -227,7 +243,7 @@ func (s *Service) newCard(ctx context.Context, bot chatbot.Bot, cmd chatbot.Comm
 		return
 	}
 	s.log.Info("added a card from a chat", "card", card.ID, "project", project.ID)
-	s.reply(ctx, bot, fmt.Sprintf("Added %q to %s.", card.Title, project.Name))
+	s.reply(ctx, bot, fmt.Sprintf("Added %q to %s.\nCard %s. Send start %s to begin.", card.Title, project.Name, card.Key, card.Key))
 }
 
 // chooseProject finds the project a message names, by id or name, ignoring case. A word that is only

@@ -2,6 +2,7 @@ package chatbot_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -278,6 +279,17 @@ func TestDiscordNoticeReachesTheChannel(t *testing.T) {
 		if !strings.Contains(calls.sent[0], want) {
 			t.Errorf("the notice sent does not contain %q:\n%s", want, calls.sent[0])
 		}
+	}
+	var message struct {
+		AllowedMentions *struct {
+			Parse []string `json:"parse"`
+		} `json:"allowed_mentions"`
+	}
+	if err := json.Unmarshal([]byte(calls.sent[0]), &message); err != nil {
+		t.Fatal(err)
+	}
+	if message.AllowedMentions == nil || message.AllowedMentions.Parse == nil || len(message.AllowedMentions.Parse) != 0 {
+		t.Fatal("bot replies must not trigger Discord mentions")
 	}
 }
 

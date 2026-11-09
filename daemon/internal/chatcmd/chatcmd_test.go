@@ -224,7 +224,7 @@ func (f *fakeCards) CreateCard(_ context.Context, projectID string, in protocol.
 	}
 	f.created = append(f.created, in)
 	f.inside = append(f.inside, projectID)
-	return protocol.Card{ID: "card-1", Title: in.Title}, nil
+	return protocol.Card{ID: "card-1", Key: projectID + "#1", Title: in.Title}, nil
 }
 
 // hearWithCards drives one message through a service that can add cards.
@@ -258,7 +258,7 @@ func TestANewMessageAddsACardInTheProjectItNames(t *testing.T) {
 	if len(cards.created) != 1 || cards.inside[0] != "web" || cards.created[0].Title != "Fix the flaky login test" {
 		t.Fatalf("the cards made were %+v in %v, want one in web", cards.created, cards.inside)
 	}
-	if reply != `Added "Fix the flaky login test" to web-dashboard.` {
+	if reply != "Added \"Fix the flaky login test\" to web-dashboard.\nCard web#1. Send start web#1 to begin." {
 		t.Errorf("the reply is %q, want it to say where the card went", reply)
 	}
 }

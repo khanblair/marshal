@@ -382,6 +382,9 @@ func startChatCommands(ctx context.Context, log *slog.Logger, mods daemonModules
 	}
 	if mods.proj != nil {
 		commands.WithCards(chatCards{svc: mods.proj})
+		commands.WithControl(chatControl{
+			projects: mods.proj, sessions: mods.sessions, history: mods.history, finisher: mods.integrator,
+		})
 	}
 	go watchChats(ctx, log, mods.integrations, commands)
 	return nil

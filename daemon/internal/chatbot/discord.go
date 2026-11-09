@@ -68,7 +68,10 @@ func (d *Discord) Kind() Kind { return KindDiscord }
 
 // Notify sends one notice to the channel.
 func (d *Discord) Notify(_ context.Context, notice Notice) error {
-	message := &discordgo.MessageSend{Content: render(notice)}
+	message := &discordgo.MessageSend{
+		Content:         render(notice),
+		AllowedMentions: &discordgo.MessageAllowedMentions{Parse: []discordgo.AllowedMentionType{}},
+	}
 	if rows := discordButtons(notice.Actions); rows != nil {
 		message.Content, message.Components = renderPlain(notice), rows
 	}

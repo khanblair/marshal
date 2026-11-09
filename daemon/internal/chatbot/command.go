@@ -19,6 +19,20 @@ const (
 	VerbNew Verb = "new"
 	// VerbStatus asks what is happening, and is answered with a short summary.
 	VerbStatus Verb = "status"
+	// VerbStart starts a card's coding session.
+	VerbStart Verb = "start"
+	// VerbResume continues a stopped session.
+	VerbResume Verb = "resume"
+	// VerbStop stops a coding session.
+	VerbStop Verb = "stop"
+	// VerbMessage sends instructions to a card.
+	VerbMessage Verb = "message"
+	// VerbReply reads a card's latest answer.
+	VerbReply Verb = "reply"
+	// VerbAgent selects a card's coding agent.
+	VerbAgent Verb = "agent"
+	// VerbFinish requests the project's normal review and completion checks.
+	VerbFinish Verb = "finish"
 	// VerbHelp asks what Marshal understands.
 	VerbHelp Verb = "help"
 	// VerbUnknown is anything else. It is answered with the help text rather than silently dropped,
@@ -33,7 +47,7 @@ type Command struct {
 	// Target is the id a decision is about, or the project a new card goes in. Empty when the verb
 	// needs neither.
 	Target string
-	// Text is the rest of the message: a new card's title. Empty otherwise.
+	// Text is a new card's title, instructions, or an agent name.
 	Text string
 }
 
@@ -41,18 +55,21 @@ type Command struct {
 // whitespace, so "Approve abc123" and "approve abc123" are the same, and a bot mention in front of
 // the word ("@marshal approve abc123") is skipped rather than turning the message into an unknown.
 func Parse(message string) Command {
-	words := strings.Fields(strings.TrimSpace(message))
+	message = strings.TrimSpace(message)
+	words := strings.Fields(message)
 	if len(words) == 0 {
 		return Command{Verb: VerbUnknown}
 	}
 	// A leading @mention is the service naming the bot, not a person's instruction.
 	if strings.HasPrefix(words[0], "@") {
+		message = strings.TrimSpace(message[len(words[0]):])
 		words = words[1:]
 	}
 	if len(words) == 0 {
 		return Command{Verb: VerbUnknown}
 	}
-	verb := Verb(strings.ToLower(words[0]))
+	word := strings.SplitN(strings.TrimPrefix(words[0], "/"), "@", 2)[0]
+	verb := Verb(strings.ToLower(word))
 	rest := words[1:]
 	switch verb {
 	case VerbApprove, VerbReject:
@@ -62,7 +79,26 @@ func Parse(message string) Command {
 		return Command{Verb: verb, Target: rest[0]}
 	case VerbNew:
 		return parseNew(rest)
-	case VerbStatus, VerbHelp:
+	case VerbMessage, VerbAgent:
+		if len(rest) < 2 {
+			return Command{Verb: VerbUnknown}
+		}
+		body := strings.TrimSpace(message[len(words[0]):])
+		return Command{Verb: verb, Target: rest[0], Text: strings.TrimSpace(body[len(rest[0]):])}
+	case VerbStart, VerbResume, VerbStop, VerbReply, VerbFinish:
+		if len(rest) != 1 {
+			return Command{Verb: VerbUnknown}
+		}
+		return Command{Verb: verb, Target: rest[0]}
+	case VerbStatus:
+		if len(rest) == 1 {
+			return Command{Verb: verb, Target: rest[0]}
+		}
+		if len(rest) != 0 {
+			return Command{Verb: VerbUnknown}
+		}
+		return Command{Verb: verb}
+	case VerbHelp:
 		return Command{Verb: verb}
 	default:
 		return Command{Verb: VerbUnknown}
@@ -90,6 +126,13 @@ func Help() string {
 		"approve <id> - approve what a notice is asking about\n" +
 		"reject <id> - reject it\n" +
 		"new <project> <title> - add a card\n" +
-		"status - what is happening right now\n" +
+		"agent <project#card> <claude|codex|gemini|builtin> - choose the agent\n" +
+		"start <project#card> - start coding\n" +
+		"message <project#card> <instructions> - send a follow-up\n" +
+		"reply <project#card> - read the latest answer\n" +
+		"stop <project#card> - stop the session\n" +
+		"resume <project#card> - continue the session\n" +
+		"finish <project#card> - request review and completion\n" +
+		"status [project#card] - see progress\n" +
 		"help - this list"
 }
