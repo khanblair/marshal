@@ -38,7 +38,7 @@ At the end of every work session, whether by a person or an agent:
 | **Current phase** | Phase 4: Models (S19b, S26b, and S28 switched; built and in review for the controller) |
 | **Next milestone** | Phase 4's gate: no real model API in CI, and Home's cost numbers match the usage table (then Phase 5) |
 | **Last updated** | 2026-11-09 |
-| **Current focused change** | Telegram and Discord coding controls through the production card/session services. Investigated mobile previews, which support authenticated screenshots but still lack an interactive connection to the localhost dev server. |
+| **Current focused change** | Automatic agent answers and durable card conversation links for Telegram and Discord, reusing the existing approval and notification flow. |
 
 ---
 
@@ -315,6 +315,8 @@ Newest entries first.
 
 ### 2026-11-09
 
+- **Chat conversations:** completed agent answers are delivered automatically to linked Telegram replies, Discord replies/threads, and Telegram topics. Durable links and answer revisions survive restart; transport scopes isolate bot credentials/destinations. Existing approval options and notification settings remain authoritative. Connection changes stop old receive loops on the next recheck. Fixture tests cover routing, restart, retries, thread isolation, and unchanged approval buttons; production session checks launch the local stub CLI for both bot kinds.
+
 - **Chat coding controls:** added explicit card-key commands for start, message, reply, status, stop, resume, agent choice, and completion. Task creation replies include the new key. Replies preserve stored agent text, use bounded chunks, and disable Discord mentions. Existing configured-chat checks and the project editor reservation apply. Production wiring is exercised with actual local stub-agent processes for both bot types.
 - **Mobile preview check:** verified that phones can request and retrieve authenticated screenshots. The live page in the current tab is a drawn placeholder, and a computer localhost URL cannot be opened directly on the phone. Documented the remaining interactive-preview gap.
 
@@ -423,6 +425,7 @@ Every file added, moved, renamed, or deleted in the repo. Newest first. The plan
 
 | Date | File | Change | Task | Notes |
 |---|---|---|---|---|
+| 2026-11-09 | `daemon/internal/chatcmd/conversations{,_test}.go`, `daemon/internal/chatbot/conversation_test.go`, `daemon/cmd/marshald/chat_watch.go` | Added | Remote coding | Save conversation links and delivery revisions; test transport metadata, routing, and automatic replies. |
 | 2026-11-09 | `daemon/internal/chatcmd/control{,_test}.go`, `daemon/cmd/marshald/chat_control{,_test}.go` | Added | Remote coding | Route bot coding commands through the real session, history, and completion services. |
 | 2026-11-05 | `README.md` | Added | Docs | Add a GitHub entry point for users and developers. |
 | 2026-11-05 | `install.sh` | Added | 0.14 | Install the public universal DMG from Terminal and preserve existing app copies. |
@@ -458,6 +461,7 @@ Every change to a doc. Newest first.
 
 | Date | Doc | Change |
 |---|---|---|
+| 2026-11-09 | `agent-sessions.md`, `project-structure.md`, `progress-tracker.md` | Documented automatic answers, linked replies and threads, delivery bounds, and existing approval routing. |
 | 2026-11-09 | `agent-sessions.md`, `mobile.md`, `marshal-product-scope.md`, `project-structure.md`, `progress-tracker.md` | Documented bot coding commands and the current limits of project previews on phones. |
 | 2026-11-05 | `agent-sessions.md`, `ui-rules.md` | Documented the Codex startup check, the verified CLI version, and where to find version numbers. |
 | 2026-11-05 | `README.md`, `direct-workspace.md`, `marshal-product-scope.md` | Documented adding a local folder and how Marshal sets up local Git for card diffs. |

@@ -218,18 +218,15 @@ func serve(ctx context.Context, settings config.Settings, env platform.Env, log 
 	// things is one message, and an approval sent at once. It talks to no service itself - the
 	// connections service builds the bot for the channel - so a daemon with no chat connected routes
 	// to nowhere rather than failing, and it runs for as long as the daemon does.
+	mods.chatCommands, err = startChatCommands(ctx, log, mods, st)
+	if err != nil {
+		return err
+	}
 	alerts := buildNotifications(ctx, log, mods, bus, linkBase(node, settings.Port), offline{network: network, box: box})
 	// The outbox sends what was saved while the internet was down. It starts after the notices and the
 	// briefs can be sent, flushes at start, and again each time the internet returns.
-	registerOutbox(box, mods.integrations)
+	registerOutbox(box, mods.integrations, mods.chatCommands)
 	go box.Run(ctx)
-
-	// The chat receive loops (B9.3): Telegram and Discord can answer an approval the same way a
-	// screen does. They start the first time a connection for them is saved, so a person who adds a
-	// bot from Settings does not have to restart the daemon, and each one runs for as long as it does.
-	if err := startChatCommands(ctx, log, mods); err != nil {
-		return err
-	}
 
 	dev, err := api.EnsureAccounts(ctx, st, api.AccountsConfig{
 		DataDir: settings.DataDir, Dev: settings.Dev(), Now: time.Now, Log: log,
@@ -372,13 +369,13 @@ func startAutomationWatchers(ctx context.Context, mods daemonModules) (func() er
 // startChatCommands starts the chat command service and its receive-loop watcher (B9.3), when the
 // daemon has a session manager to run a command against. A daemon built in stub mode still has one,
 // so this only ever skips when sessions itself failed to build.
-func startChatCommands(ctx context.Context, log *slog.Logger, mods daemonModules) error {
+func startChatCommands(ctx context.Context, log *slog.Logger, mods daemonModules, st *store.Store) (*chatcmd.Service, error) {
 	if mods.sessions == nil {
-		return nil
+		return nil, nil
 	}
 	commands, err := chatcmd.New(mods.sessions, log)
 	if err != nil {
-		return fmt.Errorf("start chat commands: %w", err)
+		return nil, fmt.Errorf("start chat commands: %w", err)
 	}
 	if mods.proj != nil {
 		commands.WithCards(chatCards{svc: mods.proj})
@@ -386,8 +383,9 @@ func startChatCommands(ctx context.Context, log *slog.Logger, mods daemonModules
 			projects: mods.proj, sessions: mods.sessions, history: mods.history, finisher: mods.integrator,
 		})
 	}
+	commands.WithConversations(st)
 	go watchChats(ctx, log, mods.integrations, commands)
-	return nil
+	return commands, nil
 }
 
 // startCardWork loads the fixture named by --fixture or MARSHAL_FIXTURE, or, when none was asked
@@ -501,7 +499,7 @@ func buildNotifications(
 ) api.AlertSettings {
 	links := mods.integrations
 	sender := notify.SenderFunc(func(callCtx context.Context, channel notify.Channel, notice chatbot.Notice) error {
-		err := sendNotice(callCtx, links, channel, notice)
+		err := sendNotice(callCtx, links, channel, notice, mods.chatCommands)
 		// The internet is down: the notice is saved and sent when it is back, not lost.
 		if saved, saveErr := saveIfOffline(callCtx, off, outbox.KindNotice, string(channel), notice, err); saved {
 			return saveErr
@@ -585,45 +583,6 @@ func linkBase(node *tailnet.Node, port int) func() string {
 // since it last looked. Nothing announces a connection as "ready for a receive loop", so a watcher
 // is what turns a token pasted in Settings into a bot that starts answering.
 const chatRecheckInterval = 10 * time.Second
-
-// watchChats starts each chat bot's receive loop the first time a connection for it is saved, and
-// leaves it running (B9.3, build-plan 9.5 and 9.6).
-//
-// It is a watcher rather than one call at start-up because a bot is most often connected from
-// Settings after the daemon is already up, and a person who has just pasted a token should not have
-// to restart anything for it to work. Each kind is started at most once: the loop the bot started
-// keeps running, and a second bot of the same kind would answer the same messages twice.
-func watchChats(ctx context.Context, log *slog.Logger, links *integrations.Service, commands *chatcmd.Service) {
-	if links == nil {
-		return
-	}
-	started := map[chatbot.Kind]bool{}
-	for {
-		for _, kind := range []chatbot.Kind{chatbot.KindTelegram, chatbot.KindDiscord} {
-			if started[kind] {
-				continue
-			}
-			bot, err := links.ChatBot(ctx, kind)
-			if err != nil {
-				// No connection saved for this service yet, which is the ordinary state of a
-				// daemon nobody has set a bot up on. Nothing is wrong and nothing is logged.
-				continue
-			}
-			started[kind] = true
-			log.Info("chat commands are on", "service", kind)
-			go func(bot chatbot.Bot) {
-				if err := commands.Run(ctx, bot); err != nil && ctx.Err() == nil {
-					log.Warn("a chat bot stopped receiving", "service", bot.Kind(), "error", err)
-				}
-			}(bot)
-		}
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(chatRecheckInterval):
-		}
-	}
-}
 
 // vaultRoot is where the memory module keeps a person's knowledge base: one `vault` folder under the
 // daemon's data folder (docs/architecture.md section 12).

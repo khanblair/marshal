@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	"fmt"
 	"strings"
 
 	"github.com/khanblair/marshal/daemon/internal/cardhistory"
@@ -75,17 +77,23 @@ func (c chatControl) Finish(ctx context.Context, id string) error {
 }
 
 func (c chatControl) Reply(ctx context.Context, id string) (string, error) {
+	text, _, err := c.Answer(ctx, id)
+	return text, err
+}
+
+func (c chatControl) Answer(ctx context.Context, id string) (string, string, error) {
 	const maxPages = 4
 	const maxBytes = 64 << 10
 	const maxRunes = 6000
 	var cursor int64
 	var chunks []string
+	var identity strings.Builder
 	bytes := 0
 	done := false
 	for range maxPages {
 		page, err := c.history.Messages(ctx, id, cursor, cardhistory.MaxPageSize)
 		if err != nil {
-			return "", err
+			return "", "", err
 		}
 		for _, message := range page.Items {
 			if message.Kind == protocol.ChatMessageKindUser {
@@ -93,6 +101,7 @@ func (c chatControl) Reply(ctx context.Context, id string) (string, error) {
 				break
 			}
 			if message.Kind == protocol.ChatMessageKindAgent {
+				fmt.Fprintf(&identity, "%s:%d;", message.ID, message.Seq)
 				chunks = append(chunks, message.Text)
 				bytes += len(message.Text)
 				if bytes >= maxBytes {
@@ -110,9 +119,10 @@ func (c chatControl) Reply(ctx context.Context, id string) (string, error) {
 	for i := len(chunks) - 1; i >= 0; i-- {
 		answer.WriteString(chunks[i])
 	}
+	revision := fmt.Sprintf("%x", sha256.Sum256([]byte(identity.String()+answer.String())))
 	text := []rune(answer.String())
 	if len(text) > maxRunes {
-		return "(Latest answer excerpt)\n" + string(text[len(text)-maxRunes:]), nil
+		return "(Latest answer excerpt)\n" + string(text[len(text)-maxRunes:]), revision, nil
 	}
-	return string(text), nil
+	return string(text), revision, nil
 }

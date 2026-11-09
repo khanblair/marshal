@@ -18,6 +18,7 @@ import (
 	"github.com/khanblair/marshal/daemon/internal/briefs"
 	"github.com/khanblair/marshal/daemon/internal/cardhistory"
 	"github.com/khanblair/marshal/daemon/internal/cardpanel"
+	"github.com/khanblair/marshal/daemon/internal/chatcmd"
 	"github.com/khanblair/marshal/daemon/internal/chats"
 	"github.com/khanblair/marshal/daemon/internal/ci"
 	"github.com/khanblair/marshal/daemon/internal/codemap"
@@ -57,6 +58,7 @@ import (
 // daemonModules are the parts of the daemon that buildModules makes together, once the store and
 // the bus are ready.
 type daemonModules struct {
+	chatCommands *chatcmd.Service
 	// clock tells time in the zone the person chose in their profile.
 	clock    *zone.Clock
 	proj     *projects.Service

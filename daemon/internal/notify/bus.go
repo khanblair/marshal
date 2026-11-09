@@ -137,6 +137,7 @@ func approvalNotice(data protocol.ApprovalRequestedEventData) Event {
 	}
 	return Event{
 		Type:    EventApproval,
+		CardID:  data.CardID,
 		Title:   title,
 		Body:    body,
 		Actions: actions,

@@ -91,7 +91,7 @@ func (s *Service) noticeFor(e Event, channel Channel) chatbot.Notice {
 	if url == "" {
 		url = s.linkFor(channel, e.CardID)
 	}
-	return chatbot.Notice{Title: e.Title, Body: e.Body, URL: url, Actions: e.Actions}
+	return chatbot.Notice{Title: e.Title, Body: e.Body, URL: url, Actions: e.Actions, CardID: e.CardID}
 }
 
 // linkFor is where a notice about a card leads. The ntfy app opens the phone app through its own
@@ -309,7 +309,18 @@ func (s *Service) Flush(ctx context.Context) {
 		if len(notices) == 0 {
 			continue
 		}
-		s.send(ctx, []Channel{channel}, group(notices))
+		// Keep each card addressable when several tasks finish together.
+		var general []chatbot.Notice
+		for _, notice := range notices {
+			if notice.CardID == "" {
+				general = append(general, notice)
+			} else {
+				s.send(ctx, []Channel{channel}, notice)
+			}
+		}
+		if len(general) > 0 {
+			s.send(ctx, []Channel{channel}, group(general))
+		}
 	}
 }
 

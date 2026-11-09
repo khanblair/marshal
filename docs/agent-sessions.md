@@ -21,7 +21,13 @@ Send `new web Fix the login bug` to add a card to the project named `web`. Marsh
 | `finish web#12` | Request the project's configured review, checks, and card completion |
 | `approve <approval-id>` / `reject <approval-id>` | Answer a permission request |
 
-Telegram also accepts slash commands, including `/start web#12`. Follow-up instructions keep their spacing and line breaks. Replies are requested with `reply`, split into chat-sized messages, and bounded to an excerpt for long answers. The app retains the full transcript. Voice notes still ask you to type.
+Telegram also accepts slash commands, including `/start web#12`. Follow-up instructions keep their spacing and line breaks. After a card is created or addressed through a bot, completed agent answers arrive automatically in that conversation. `reply` still reads an answer on demand. Answers are split into chat-sized messages and bounded to an excerpt for long answers. The app retains the full transcript. Voice notes still ask you to type.
+
+Reply to a linked Marshal message in Telegram or Discord to send instructions to its card without typing the key again. Existing Discord threads and Telegram topics become linked when you address a card there. A linked thread stays with that card; use another thread or the main channel for another card. Inside a linked reply or thread, `start`, `stop`, `resume`, `reply`, `finish`, `status`, `agent codex`, and `message <instructions>` use that card. Unknown slash commands show help. Ordinary unlinked text never starts an editing task.
+
+Reply links and delivered answer revisions are saved in Marshal's private database, scoped to the bot credentials and configured destination. The service checks linked cards every two seconds and forwards completed answers, with a maximum of 64 tracked cards and 512 message links per connection. Older links expire as these limits are reached; explicit card commands still work. Failed sends retry while the daemon and connection remain active. Delivery is at least once: a crash after a successful send but before its database save can repeat that answer. Changing bot credentials or destination starts a separate set of links. The receive loop checks connection changes every ten seconds.
+
+Approval, completion, and needs-you notices keep the existing notification settings and agent-provided buttons. For a linked card, they arrive as replies in its conversation. The same approval ID and option reach the normal session service. No second approval flow is added.
 
 These commands use the same services as the app. The project editor reservation, permission requests, resume checks, and completion checks apply to bot commands too. A second card cannot take over a project folder that another session owns.
 

@@ -116,7 +116,7 @@ daemon/                       Go module (go.mod pins the toolchain). package.jso
     integrations/             Saved connections: github/, trello/, googleclient/ (Marshal's own OAuth client), googlecal/, gmailread/, googlefiles/ (Drive, Docs, Sheets, Slides)
     connectiontest/           The shared connection-test machinery: time limit, cooldown, saved result
     netwatch/, outbox/, resend/   Whether the internet is reachable, checked only after a failure; notices and briefs saved while it was down and sent when it is back; the Resend email client (architecture.md 19.5, 19.6)
-    notify/, chatbot/, chatcmd/   Which notices reach a person and where; Telegram and Discord bots; control.go routes coding commands to the production services through cmd/marshald/chat_control.go
+    notify/, chatbot/, chatcmd/   Which notices reach a person and where; Telegram and Discord bots; control.go routes coding commands to the production services through cmd/marshald/chat_control.go; cmd/marshald/chat_watch.go restarts changed connections; conversations.go saves reply links and delivered revisions, forwards completed answers, and routes notices to the card conversation
     audit/, auditlog/         The append-only audit log, and reading it back
     tailnet/                  Joins the daemon to the person's Tailscale tailnet from inside the process
     # Platform and support

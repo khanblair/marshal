@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -137,4 +138,73 @@ func waitCardIdle(t *testing.T, mods daemonModules, id string) {
 		time.Sleep(20 * time.Millisecond)
 	}
 	t.Fatal("card did not finish its turn")
+}
+
+// These checks launch Marshal's actual stub CLI through the production session manager.
+// Only the chat transport is in process; no real bot credentials are used.
+type linkedCommandBot struct{ commandBot }
+
+func (b *linkedCommandBot) Scope() string { return "stub-conversation-" + string(b.kind) }
+func (b *linkedCommandBot) SendReply(ctx context.Context, notice chatbot.Notice, _ chatbot.Incoming) (string, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.replies = append(b.replies, notice.Title)
+	return fmt.Sprint(len(b.replies)), nil
+}
+func (b *linkedCommandBot) awaitAnswer(t *testing.T, after int) (string, int) {
+	t.Helper()
+	deadline := time.Now().Add(15 * time.Second)
+	for time.Now().Before(deadline) {
+		b.mu.Lock()
+		for i := after; i < len(b.replies); i++ {
+			if strings.Contains(b.replies[i], "— answer") {
+				id := fmt.Sprint(i + 1)
+				count := len(b.replies)
+				b.mu.Unlock()
+				return id, count
+			}
+		}
+		b.mu.Unlock()
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatal("agent CLI answer never arrived automatically")
+	return "", 0
+}
+func TestChatConversationDeliversCLIAnswersAndRoutesFollowups(t *testing.T) {
+	for _, kind := range []chatbot.Kind{chatbot.KindTelegram, chatbot.KindDiscord} {
+		t.Run(string(kind), func(t *testing.T) {
+			mods, st, _, _ := buildTestModules(t, testutil.StubAgent(t))
+			ctx, cancel := context.WithCancel(t.Context())
+			t.Cleanup(cancel)
+			project, err := mods.proj.Create(ctx, protocol.CreateProjectRequest{Source: protocol.ProjectSourceFolder, Path: t.TempDir(), Name: "web"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			svc, err := chatcmd.New(mods.sessions, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			svc.WithCards(chatCards{svc: mods.proj}).WithControl(chatControl{projects: mods.proj, sessions: mods.sessions, history: mods.history, finisher: mods.integrator}).WithConversations(st)
+			bot := &linkedCommandBot{commandBot: commandBot{kind: kind}}
+			if err := svc.Run(ctx, bot); err != nil {
+				t.Fatal(err)
+			}
+			bot.handler(ctx, chatbot.Incoming{ChatID: "owner", MessageID: "create", Text: "new web Fix login"})
+			bot.handler(ctx, chatbot.Incoming{ChatID: "owner", MessageID: "start", Text: "start web#1"})
+			replyID, count := bot.awaitAnswer(t, 0)
+			bot.handler(ctx, chatbot.Incoming{ChatID: "owner", MessageID: "followup", ReplyToID: replyID, Text: "Review the plan once more."})
+			bot.awaitAnswer(t, count)
+			card, err := mods.proj.CardByKey(ctx, protocol.CardKey{ProjectID: project.ID, Number: 1})
+			if err != nil {
+				t.Fatal(err)
+			}
+			text, err := chatControl{history: mods.history}.Reply(ctx, card.ID)
+			if err != nil || !strings.Contains(text, "plan.md") {
+				t.Fatalf("CLI followup did not persist its answer: %q %v", text, err)
+			}
+			if _, err := os.Stat(filepath.Join(project.Path, "notes", "plan.md")); err != nil {
+				t.Fatalf("CLI did not edit project files: %v", err)
+			}
+		})
+	}
 }

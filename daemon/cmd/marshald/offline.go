@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/khanblair/marshal/daemon/internal/chatbot"
+	"github.com/khanblair/marshal/daemon/internal/chatcmd"
 	"github.com/khanblair/marshal/daemon/internal/integrations"
 	"github.com/khanblair/marshal/daemon/internal/netwatch"
 	"github.com/khanblair/marshal/daemon/internal/notify"
@@ -46,7 +47,7 @@ func saveIfOffline(ctx context.Context, off offline, kind, target string, payloa
 
 // sendNotice sends one notice through the channel's connection. A channel nobody connected is not an
 // error: the notice goes nowhere, which is how a daemon with no chat set up behaves.
-func sendNotice(ctx context.Context, links *integrations.Service, channel notify.Channel, notice chatbot.Notice) error {
+func sendNotice(ctx context.Context, links *integrations.Service, channel notify.Channel, notice chatbot.Notice, commands ...*chatcmd.Service) error {
 	if links == nil {
 		return nil
 	}
@@ -58,13 +59,18 @@ func sendNotice(ctx context.Context, links *integrations.Service, channel notify
 		return err
 	}
 	defer func() { _ = bot.Close() }()
+	if len(commands) > 0 && commands[0] != nil {
+		if handled, err := commands[0].Deliver(ctx, bot, notice); handled {
+			return err
+		}
+	}
 	return bot.Notify(ctx, notice)
 }
 
 // registerOutbox says how each saved message is sent. A notice goes through the channel's chat again,
 // and a brief through the same delivery a schedule uses. A message that waited is marked as late, so
 // a person who reads it an hour after it happened is not misled about when.
-func registerOutbox(box *outbox.Service, links *integrations.Service) {
+func registerOutbox(box *outbox.Service, links *integrations.Service, commands ...*chatcmd.Service) {
 	box.Register(outbox.KindNotice, func(ctx context.Context, item outbox.Item) error {
 		var notice chatbot.Notice
 		if err := json.Unmarshal(item.Payload, &notice); err != nil {
@@ -73,7 +79,7 @@ func registerOutbox(box *outbox.Service, links *integrations.Service) {
 		if _, late := item.Late(time.Now()); late {
 			notice.Title = lateTitle(notice.Title)
 		}
-		return sendNotice(ctx, links, notify.Channel(item.Target), notice)
+		return sendNotice(ctx, links, notify.Channel(item.Target), notice, commands...)
 	})
 	box.Register(outbox.KindBrief, func(ctx context.Context, item outbox.Item) error {
 		var brief briefPayload

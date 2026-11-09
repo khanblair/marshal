@@ -50,10 +50,11 @@ type Cards interface {
 
 // Service runs a bot's receive loop against the daemon.
 type Service struct {
-	approver Approver
-	log      *slog.Logger
-	cards    Cards
-	control  Control
+	approver      Approver
+	log           *slog.Logger
+	cards         Cards
+	control       Control
+	conversations *conversationStore
 }
 
 // WithCards lets a chat add cards ("new <project> <title>"). Without it the service still answers
@@ -79,9 +80,7 @@ func New(approver Approver, log *slog.Logger) (*Service, error) {
 // one returns as soon as its gateway is open and keeps receiving on its own, so the caller runs this
 // in a goroutine either way and treats a return as "started".
 func (s *Service) Run(ctx context.Context, bot chatbot.Bot) error {
-	return bot.Start(ctx, func(callCtx context.Context, in chatbot.Incoming) {
-		s.handle(callCtx, bot, in)
-	})
+	return s.runConversation(ctx, bot)
 }
 
 // handle reads one message, acts on it, and always answers it. Every path out of here says
@@ -103,6 +102,14 @@ func (s *Service) handle(ctx context.Context, bot chatbot.Bot, in chatbot.Incomi
 		return
 	}
 	cmd := chatbot.Parse(in.Text)
+	if linked, ok := bot.(*linkedBot); ok {
+		var allowed bool
+		cmd, allowed = linked.resolve(cmd, in.Text)
+		if !allowed {
+			s.reply(ctx, bot, "This thread belongs to another card. Use that card’s thread or send its full command in the main channel.")
+			return
+		}
+	}
 	if cmd.Verb == chatbot.VerbNew {
 		s.newCard(ctx, bot, cmd)
 		return
@@ -184,29 +191,11 @@ func answerFor(decision protocol.ApprovalDecision, id string) string {
 	return "Approved - " + id
 }
 
-// reply sends one message back. It goes to the channel notices are sent to rather than to the
-// chat the command came from: those are the same place in every setup Marshal writes down - a
-// person talks to the bot in the chat Marshal talks back in - and a Notice carries no address of
-// its own. If someone ever chats with one bot in a dozen places, this is the line that has to
-// learn the difference.
-//
-// A reply that fails is logged and dropped: the decision has already been made, and a person who
-// cannot hear back is still better off than one whose approval never landed.
+// reply sends bounded text through the current conversation wrapper when one is available.
+// An acknowledgement failure is logged; an action already accepted is never repeated here.
 func (s *Service) reply(ctx context.Context, bot chatbot.Bot, text string) {
-	// At most 900 runes also fits Discord's 2000 UTF-16-unit message limit for emoji.
-	const chunkRunes = 900
-	const maxReplyRunes = 6000
-	runes := []rune(text)
-	if len(runes) > maxReplyRunes {
-		runes = append(runes[:maxReplyRunes], []rune("\nOpen Marshal for the rest of this answer.")...)
-	}
-	for len(runes) > 0 {
-		size := min(len(runes), chunkRunes)
-		if err := bot.Notify(ctx, chatbot.Notice{Title: string(runes[:size])}); err != nil {
-			s.log.Warn("a chat reply could not be sent", "err", err)
-			return
-		}
-		runes = runes[size:]
+	if err := sendAnswer(ctx, bot, text); err != nil {
+		s.log.Warn("a chat reply could not be sent", "err", err)
 	}
 }
 
@@ -240,6 +229,10 @@ func (s *Service) newCard(ctx context.Context, bot chatbot.Bot, cmd chatbot.Comm
 		}
 		s.log.Warn("a chat could not add a card", "project", project.ID, "err", err)
 		s.reply(ctx, bot, "Marshal could not add that card. Try again in a moment.")
+		return
+	}
+	if err := s.linkCard(ctx, bot, card); err != nil {
+		s.controlError(ctx, bot, err)
 		return
 	}
 	s.log.Info("added a card from a chat", "card", card.ID, "project", project.ID)

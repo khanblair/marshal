@@ -53,6 +53,10 @@ func (s *Service) controlCommand(ctx context.Context, bot chatbot.Bot, cmd chatb
 		s.controlError(ctx, bot, err)
 		return true
 	}
+	if err := s.linkCard(ctx, bot, card); err != nil {
+		s.controlError(ctx, bot, err)
+		return true
+	}
 	answer, err := s.runControl(ctx, card, cmd)
 	if err != nil {
 		s.controlError(ctx, bot, err)
