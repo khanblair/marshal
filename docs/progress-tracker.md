@@ -204,6 +204,12 @@ Phase 2 (core UI) is scoped as eight slices, A to H, in `backend-checklist.md` s
 
 ## Session log
 
+### 2026-11-10 — First automatic release run failed
+
+- The first automatic release run (`42706000182`, after `ci` passed on `b3c1516`) failed in `Select verified release commit` with "No commit found for SHA: v0.1.3". For a tag that does not exist yet, GitHub answers a commit lookup with 422, not 404, and `release-plan.mjs` treated only 404 as "missing". A new version could never start its first automatic release. A 422 whose message starts with "No commit found" now counts as missing; any other 422 still stops the release. The test fixture now answers like GitHub does, and a new test covers both cases.
+- `ci-full` browser run on the same commit: the built-in agent test assumed the fixture daemon lists no models for it, but the daemon listed five. The test now follows what the daemon reports: a warning when there are no models, none otherwise. Only five failures ran before the browser limit stopped the run, so more may show.
+- Validation is GitHub-only apart from the 7 release-plan unit tests, which ran locally and pass.
+
 ### 2026-11-10 — Fast release gate
 
 - Owner asked to cut CI time before a release. `ci.yml` is now only the release gate: the light checks, focused regressions, and every client test with its coverage floors (about eight minutes). The macOS daemon and tool tests, coverage, build and budgets, and the Linux browser tests moved unchanged into `ci-full.yml`. It runs on the same triggers beside the gate and does not block a release.
