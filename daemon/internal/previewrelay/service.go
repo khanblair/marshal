@@ -233,7 +233,7 @@ func (s *Service) newGatewayLocked(ctx context.Context, key string, upstream *ur
 		key: key, upstream: upstream,
 		clientOrigin: clientOrigin, publicBase: base, publicHost: strings.ToLower(base.Host),
 		prefix: prefix, cookieName: "marshal-preview-" + prefixToken,
-		secureCookie: base.Scheme == "https", listener: listener, exposeClose: cleanup,
+		secureCookie: base.Scheme == httpsScheme, listener: listener, exposeClose: cleanup,
 		expiresAt: time.Now().Add(CapabilityTTL), tickets: make(map[string]ticket),
 		sessions: make(map[string]authorization),
 	}

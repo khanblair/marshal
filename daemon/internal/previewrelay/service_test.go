@@ -51,7 +51,7 @@ func authorizePreview(t *testing.T, connection Connection) (*http.Client, string
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode != http.StatusOK {
 		data, _ := io.ReadAll(response.Body)
 		t.Fatalf("authorize %d %s", response.StatusCode, data)
@@ -286,7 +286,7 @@ func TestRelayCarriesWebSocketMessages(t *testing.T) {
 		if err != nil {
 			return
 		}
-		defer connection.CloseNow()
+		defer func() { _ = connection.CloseNow() }()
 		kind, data, err := connection.Read(r.Context())
 		if err == nil {
 			_ = connection.Write(r.Context(), kind, data)
@@ -308,7 +308,7 @@ func TestRelayCarriesWebSocketMessages(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer socket.CloseNow()
+	defer func() { _ = socket.CloseNow() }()
 	if err := socket.Write(ctx, websocket.MessageText, []byte("reload")); err != nil {
 		t.Fatal(err)
 	}

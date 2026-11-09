@@ -163,7 +163,7 @@ func checkRunnable(path string) error {
 	if !info.Mode().IsRegular() {
 		return errors.New("that path is not a file")
 	}
-	if runtime.GOOS != "windows" && info.Mode().Perm()&0o111 == 0 {
+	if runtime.GOOS != windowsGOOS && info.Mode().Perm()&0o111 == 0 {
 		return errors.New("that file is not marked as runnable")
 	}
 	return nil

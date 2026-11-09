@@ -32,13 +32,13 @@ func knownDirs(goos, home string, getenv func(string) string) []string {
 	add(home, ".npm-global", "bin")
 	add(home, ".bun", "bin")
 	if prefix := getenv("NPM_CONFIG_PREFIX"); prefix != "" {
-		if goos == "windows" {
+		if goos == windowsGOOS {
 			add(prefix)
 		} else {
 			add(prefix, "bin")
 		}
 	}
-	if goos == "windows" {
+	if goos == windowsGOOS {
 		add(getenv("APPDATA"), "npm")
 		add(getenv("LOCALAPPDATA"), "Programs")
 		return dirs

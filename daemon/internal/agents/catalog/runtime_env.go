@@ -18,6 +18,7 @@ const (
 	loginPathLifetime = time.Minute
 	maxLoginPathBytes = 64 << 10
 	loginPathMarker   = "__MARSHAL_TOOL_PATH__"
+	windowsGOOS       = "windows"
 )
 
 var loginPaths struct { //nolint:gochecknoglobals // bounded, synchronized discovery cache shared by subprocess launchers
@@ -68,7 +69,7 @@ func runtimeDirs(home string) []string {
 }
 
 func loginPath(home string) string {
-	if runtime.GOOS == "windows" || home == "" {
+	if runtime.GOOS == windowsGOOS || home == "" {
 		return ""
 	}
 	shell := os.Getenv("SHELL")

@@ -44,7 +44,7 @@ func headerHasToken(h http.Header, key, token string) bool {
 
 func parseSourceURL(raw string) (*url.URL, string, error) {
 	u, err := url.Parse(raw)
-	if err != nil || !u.IsAbs() || u.Opaque != "" || !strings.EqualFold(u.Scheme, "http") || u.User != nil || u.Host == "" {
+	if err != nil || !u.IsAbs() || u.Opaque != "" || !strings.EqualFold(u.Scheme, httpScheme) || u.User != nil || u.Host == "" {
 		return nil, "", errors.New("preview source must be an HTTP URL to a loopback development server")
 	}
 	portText := u.Port()
@@ -67,7 +67,7 @@ func parseSourceURL(raw string) (*url.URL, string, error) {
 	if !validRelativePath(path) {
 		return nil, "", errors.New("preview source path is invalid")
 	}
-	upstream := &url.URL{Scheme: "http", Host: net.JoinHostPort(strings.ToLower(hostname), portText)}
+	upstream := &url.URL{Scheme: httpScheme, Host: net.JoinHostPort(strings.ToLower(hostname), portText)}
 	return upstream, path, nil
 }
 
@@ -86,7 +86,7 @@ func rawQueryAndFragment(u *url.URL) string {
 
 func parseOrigin(raw string) (string, error) {
 	u, err := url.Parse(raw)
-	if err != nil || !u.IsAbs() || u.Opaque != "" || u.User != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") || (u.Path != "" && u.Path != "/") || u.RawQuery != "" || u.Fragment != "" {
+	if err != nil || !u.IsAbs() || u.Opaque != "" || u.User != nil || u.Host == "" || (u.Scheme != httpScheme && u.Scheme != httpsScheme) || (u.Path != "" && u.Path != "/") || u.RawQuery != "" || u.Fragment != "" {
 		return "", errors.New("expected an http(s) origin")
 	}
 	if !validOriginHost(u.Hostname()) || strings.ContainsAny(u.Host, "\\\r\n\t ") || u.Port() == "" && strings.Contains(u.Host, ":") && !strings.HasPrefix(u.Host, "[") {
@@ -97,7 +97,7 @@ func parseOrigin(raw string) (string, error) {
 		if parseErr != nil || p < 1 || p > 65535 {
 			return "", errors.New("invalid origin port")
 		}
-		if (u.Scheme == "http" && p == 80) || (u.Scheme == "https" && p == 443) {
+		if (u.Scheme == httpScheme && p == 80) || (u.Scheme == httpsScheme && p == 443) {
 			u.Host = u.Hostname()
 			if strings.Contains(u.Host, ":") {
 				u.Host = "[" + u.Host + "]"
@@ -110,7 +110,7 @@ func parseOrigin(raw string) (string, error) {
 
 func parsePublicBase(raw string) (*url.URL, error) {
 	u, err := url.Parse(raw)
-	if err != nil || !u.IsAbs() || u.User != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") || (u.Path != "" && u.Path != "/") || u.RawQuery != "" || u.Fragment != "" {
+	if err != nil || !u.IsAbs() || u.User != nil || u.Host == "" || (u.Scheme != httpScheme && u.Scheme != httpsScheme) || (u.Path != "" && u.Path != "/") || u.RawQuery != "" || u.Fragment != "" {
 		return nil, errors.New("expected an http(s) origin")
 	}
 	if _, err := parseOrigin(u.Scheme + "://" + u.Host); err != nil {

@@ -92,7 +92,7 @@ func (g *gateway) serveAuthorize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, maxBootstrapBody)
-	defer r.Body.Close()
+	defer func() { _ = r.Body.Close() }()
 	var payload authorizePayload
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil || payload.Ticket == "" || len(payload.Ticket) > 128 || !validRelativePath(payload.Path) {
 		writeHTML(w, http.StatusForbidden, "Preview expired", reopenPreview, "")

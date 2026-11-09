@@ -17,7 +17,12 @@ import (
 	"time"
 )
 
-const previewExposureTimeout = 5 * time.Second
+const (
+	previewExposureTimeout = 5 * time.Second
+	httpScheme             = "http"
+	httpsScheme            = "https"
+	loopbackHTTPURL        = "http://127.0.0.1:"
+)
 
 // PreviewExposure is the callback shape used by preview relay services.
 type PreviewExposure func(ctx context.Context, localPort int, secure bool) (publicBase string, cleanup func(), err error)
@@ -77,11 +82,11 @@ func exposeWithCLI(ctx context.Context, bin string, localPort int, secure bool, 
 		return "", nil, err
 	}
 	mode := "--http="
-	scheme := "http"
+	scheme := httpScheme
 	if secure {
-		mode, scheme = "--https=", "https"
+		mode, scheme = "--https=", httpsScheme
 	}
-	target := "http://127.0.0.1:" + strconv.Itoa(localPort)
+	target := loopbackHTTPURL + strconv.Itoa(localPort)
 	if _, err := runBounded(ctx, cli.run, bin, "serve", "--bg", mode+strconv.Itoa(port), target); err != nil {
 		return "", nil, errors.New("could not start private Tailscale Serve route")
 	}
@@ -170,16 +175,19 @@ func funnelConfigured(raw []byte) bool {
 	if json.Unmarshal(raw, &root) != nil || root == nil {
 		return true // Fail closed when the status format is unknown.
 	}
+	return funnelMapConfigured(root)
+}
+
+func funnelMapConfigured(root map[string]json.RawMessage) bool {
 	for key, value := range root {
 		switch key {
 		case "TCP", "Web", "Services":
-			var entries map[string]json.RawMessage
-			if json.Unmarshal(value, &entries) != nil && string(value) != "null" {
+			if malformedFunnelMap(value) {
 				return true
 			}
 		case "Foreground":
-			var foreground map[string]json.RawMessage
-			if json.Unmarshal(value, &foreground) != nil && string(value) != "null" {
+			foreground, ok := parseFunnelMap(value)
+			if !ok {
 				return true
 			}
 			for _, nested := range foreground {
@@ -188,8 +196,8 @@ func funnelConfigured(raw []byte) bool {
 				}
 			}
 		case "AllowFunnel":
-			var routes map[string]bool
-			if json.Unmarshal(value, &routes) != nil && string(value) != "null" {
+			routes, ok := parseFunnelRoutes(value)
+			if !ok {
 				return true
 			}
 			for _, enabled := range routes {
@@ -204,11 +212,32 @@ func funnelConfigured(raw []byte) bool {
 	return false
 }
 
+func malformedFunnelMap(raw json.RawMessage) bool {
+	_, ok := parseFunnelMap(raw)
+	return !ok
+}
+
+func parseFunnelMap(raw json.RawMessage) (map[string]json.RawMessage, bool) {
+	var entries map[string]json.RawMessage
+	if json.Unmarshal(raw, &entries) != nil {
+		return nil, string(raw) == "null"
+	}
+	return entries, true
+}
+
+func parseFunnelRoutes(raw json.RawMessage) (map[string]bool, bool) {
+	var routes map[string]bool
+	if json.Unmarshal(raw, &routes) != nil {
+		return nil, string(raw) == "null"
+	}
+	return routes, true
+}
+
 func ownsServeRoute(cfg serveConfig, port int, target string, secure bool) bool {
 	portKey := strconv.Itoa(port)
-	protocol := "http"
+	protocol := httpScheme
 	if secure {
-		protocol = "https"
+		protocol = httpsScheme
 	}
 	found := false
 	matchingHandlerCount := 0
@@ -231,7 +260,7 @@ func ownsServeRoute(cfg serveConfig, port int, target string, secure bool) bool 
 		return false
 	}
 	rule := cfg.TCP[portKey]
-	return protocol == "http" && rule.HTTP && !rule.HTTPS || protocol == "https" && rule.HTTPS && !rule.HTTP
+	return protocol == httpScheme && rule.HTTP && !rule.HTTPS || protocol == httpsScheme && rule.HTTPS && !rule.HTTP
 }
 
 func exposeWithNode(ctx context.Context, node *Node, localPort int, secure bool, choosePort func() (int, error)) (string, func(), error) {
@@ -256,7 +285,7 @@ func exposeWithNode(ctx context.Context, node *Node, localPort int, secure bool,
 	if err != nil {
 		return "", nil, errors.New("could not open a private embedded Tailscale listener")
 	}
-	target, _ := url.Parse("http://127.0.0.1:" + strconv.Itoa(localPort))
+	target, _ := url.Parse(loopbackHTTPURL + strconv.Itoa(localPort))
 	proxy := httputil.NewSingleHostReverseProxy(target)
 	proxy.ErrorLog = log.New(io.Discard, "", 0)
 	server := &http.Server{Handler: proxy, ReadHeaderTimeout: 5 * time.Second}
@@ -270,9 +299,9 @@ func exposeWithNode(ctx context.Context, node *Node, localPort int, secure bool,
 	}()
 	var once sync.Once
 	cleanup := func() { once.Do(func() { cancel(); _ = listener.Close() }) }
-	scheme := "http"
+	scheme := httpScheme
 	if secure {
-		scheme = "https"
+		scheme = httpsScheme
 	}
 	return scheme + "://" + strings.TrimSuffix(status.DNSName, ".") + ":" + strconv.Itoa(port), cleanup, nil
 }
