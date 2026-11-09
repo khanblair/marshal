@@ -341,7 +341,7 @@ These are managed from the web UI on another device, over Tailscale.
 6. Publish installers, daemon packages, checksums, and updater files.
 7. Publish release notes.
 
-**What exists today:** `.github/workflows/release.yml` follows successful CI on the latest `main` commit. Request a version in `.github/release.json` and push normally. CI runs light checks and focused regressions, then all client tests/coverage on Linux, then daemon/tool tests/coverage/build/budgets on macOS, then required Linux browser tests. Release builds the universal Mac app and signed Android APK/AAB from the exact successful commit. Both must succeed before files are uploaded and a new release is made public. It creates the immutable tag at publication. Tag pushes alone do not start release. Existing published versions are skipped. Manual retries require an existing tag with successful CI on its exact commit. See [app-updates.md](app-updates.md#release-order) for the stage and blocking rules. The universal DMG remains ad-hoc Apple signed unless the optional Apple signing/notarization secrets are configured; updater and Android signing remain required. Local installer builds are run only when the owner explicitly requests them.
+**What exists today:** `.github/workflows/release.yml` follows successful CI on the latest `main` commit. Request a version in `.github/release.json` and push normally. CI runs light checks and focused regressions, then all client tests/coverage on Linux, then macOS daemon/tool tests/coverage/build/budgets and required Linux browser tests in parallel. Release waits for both. Release builds the universal Mac app and signed Android APK/AAB from the exact successful commit. Both must succeed before files are uploaded and a new release is made public. It creates the immutable tag at publication. Tag pushes alone do not start release. Existing published versions are skipped. Manual retries require an existing tag with successful CI on its exact commit. See [app-updates.md](app-updates.md#release-order) for the stage and blocking rules. The universal DMG remains ad-hoc Apple signed unless the optional Apple signing/notarization secrets are configured; updater and Android signing remain required. Local installer builds are run only when the owner explicitly requests them.
 
 ---
 
@@ -360,3 +360,9 @@ These are managed from the web UI on another device, over Tailscale.
 ### In-app update releases
 
 The signed desktop update workflow and one-time signing setup are described in [app-updates.md](app-updates.md). Source builds show updates as disabled. The release workflow requires the updater signing secret and matching public-key variable before publishing the macOS desktop release; it ships the archive, signature, and manifest along with the DMG. A real signed upgrade still needs release acceptance testing.
+
+### Headless browser fixture isolation
+
+A dev daemon with both a stub agent and an explicit fixture uses one in-memory keychain shared by provider and integration services. It starts empty and is discarded with the fixture process, so browser tests neither require a Linux desktop Secret Service nor access the owner's OS credentials. Normal mode, real agents, and dev mode without a fixture continue to use the real OS keychain and retain its error behavior.
+
+Browser global setup checks authenticated projects, agents, providers, and integration routes before opening the viewport matrix. CI stops after five browser failures or a twenty-minute suite deadline, leaving time inside the thirty-minute job budget to upload traces, screenshots, and the HTML report. The same full suite is required for success. These limits produce earlier failures and diagnostics; they do not skip failures or permit release.

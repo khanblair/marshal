@@ -37,7 +37,7 @@ At the end of every work session, whether by a person or an agent:
 |---|---|
 | **Current phase** | Phase 4: Models (S19b, S26b, and S28 switched; built and in review for the controller) |
 | **Next milestone** | Phase 4's gate: no real model API in CI, and Home's cost numbers match the usage table (then Phase 5) |
-| **Last updated** | 2026-11-09 |
+| **Last updated** | 2026-11-10 |
 | **Current focused change** | Fix the remaining PATH test and order GitHub CI, dual-platform builds, and publication automatically for requested v0.1.3. |
 
 ---
@@ -203,6 +203,14 @@ Phase 2 (core UI) is scoped as eight slices, A to H, in `backend-checklist.md` s
 
 ## Session log
 
+### 2026-11-10 — Headless browser startup
+
+- CI `42685870479` passed all light checks, every client test and coverage floor, all daemon/tool tests and daemon coverage, the build, and memory/size budgets. Browser testing then hit the thirty-minute job limit. Its logs showed repeated real Linux keychain reads failing because Secret Service was absent; the stub fixture daemon had incorrectly used the OS keychain.
+- Added a shared, empty in-memory keychain only for explicit dev stub fixtures, with tests for normal/dev/real/stub/fixture combinations and process isolation. Production modes retain the OS keychain; no missing-service error is silently treated as a real saved key.
+- Added authenticated boot endpoint checks before the browser matrix. Set five-failure and twenty-minute browser limits so failures return before the job deadline and preserve traces, screenshots, and HTML diagnostics. Artifacts exclude the daemon data directory. The complete suite is still required to pass. The early Go gate includes the fixture keychain tests. Browser and macOS validation now run independently after client tests; both remain required release gates, so browser startup failures can surface without waiting for the macOS suite.
+- Validation remains GitHub-only. No local tests, lint, builds, or browser checks ran. Requested release v0.1.3 remains unpublished until required checks and both release builds succeed.
+
+
 ### 2026-11-09 — Full client regression failures
 
 - CI `42677607801` passed the early gate and every daemon/Go tool test. Full web testing passed 3,362 tests and found two failures: the API contract list omitted the three preview methods, and the settings summary used a phone sizing ternary contrary to the existing responsive guard. Updated both explicit API lists and replaced the ternary with phone CSS variants and the control-height token. Kept all guards and assertions enabled.
@@ -235,15 +243,6 @@ _Older entries: [archive/progress-tracker-archive-2026-10.md](archive/progress-t
 
 Newest entries first.
 
-### 2026-11-09
-
-- **CI reliability and release:** investigated the macOS race and coverage run. API and session suites exhausted their package budgets while repeatedly running fresh database migrations. Added isolated fixture database copies built from the actual migrations once per process, retaining normal reopen and migration tests. Measured fresh setup at 2.53 seconds versus 0.34 seconds for a schema copy locally. Store tests now give schema setup its own bounded context while keeping operation timeouts. Extracted the Claude wire fixture into a small standalone program to remove API test binary startup overhead. Added explicit direct completion regression checks to retain the integrator coverage floor, and saved successful macOS Go tool setup before the test step so failed tests do not trigger a complete tool rebuild. Configured Android release signing with a private backup outside the repository, added APK signature verification and named APK/AAB release assets, and bounded Vitest CI workers to reduce scheduling timeouts. GitHub CI and v0.1.3 release verification are pending. Local CI execution was stopped at the owner’s request; future validation runs on GitHub unless explicitly requested locally.
-
-- **Chat conversations:** completed agent answers are delivered automatically to linked Telegram replies, Discord replies/threads, and Telegram topics. Durable links and answer revisions survive restart; transport scopes isolate bot credentials/destinations. Existing approval options and notification settings remain authoritative. Connection changes stop old receive loops on the next recheck. Fixture tests cover routing, restart, retries, thread isolation, and unchanged approval buttons; production session checks launch the local stub CLI for both bot kinds.
-
-- **Chat coding controls:** added explicit card-key commands for start, message, reply, status, stop, resume, agent choice, and completion. Task creation replies include the new key. Replies preserve stored agent text, use bounded chunks, and disable Discord mentions. Existing configured-chat checks and the project editor reservation apply. Production wiring is exercised with actual local stub-agent processes for both bot types.
-- **Mobile preview check:** verified that phones can request and retrieve authenticated screenshots. The live page in the current tab is a drawn placeholder, and a computer localhost URL cannot be opened directly on the phone. Documented the remaining interactive-preview gap.
-
 ## File changes log
 
 _Older entries: [archive/progress-tracker-archive-2026-10.md](archive/progress-tracker-archive-2026-10.md)._
@@ -252,6 +251,7 @@ Every file added, moved, renamed, or deleted in the repo. Newest first. The plan
 
 | Date | File | Change | Task | Notes |
 |---|---|---|---|---|
+| 2026-11-10 | `daemon/cmd/marshald/keychain{,_test}.go`, module wiring, browser setup/config, CI | Added, Changed | Browser CI | Isolate explicit stub fixtures from desktop credentials and fail early with diagnostics. |
 | 2026-11-09 | `.github/release.json`, `apps/desktop/scripts/release-plan{,.test}.mjs`, workflows, desktop package scripts, catalog PATH test | Added, Changed | Release order | Event driven CI to dual-platform build to verified publication; focused early regressions. |
 | 2026-11-09 | Runtime PATH/local-CI, workspace-lock, preview relay/exposure, native system-bars, and chat/disclosure files listed in project-structure.md | Added, Changed, Deleted | Runtime/mobile | Portable tool lookup, isolated previews, shared project ownership, mobile controls; removed bypass banner. |
 | 2026-11-09 | `daemon/internal/testutil/store{,_test}.go`, `daemon/internal/testutil/approvalcli.go`, `daemon/internal/api/testdata/approvalcli/main.go` | Added | CI reliability | Isolated schema fixtures and a standalone approval CLI fixture. |
@@ -273,6 +273,7 @@ Every change to a doc. Newest first.
 
 | Date | Doc | Change |
 |---|---|---|
+| 2026-11-10 | `development.md`, `project-structure.md`, `progress-tracker.md` | Documented headless fixture credentials, startup assertions, browser failure bounds, and actual successful CI gates. |
 | 2026-11-09 | `app-updates.md`, `development.md`, `project-structure.md`, `progress-tracker.md` | Replaced manual tag-triggered release instructions with the CI completion chain, blocking rules, and pending validation status. |
 | 2026-11-09 | `agent-sessions.md`, `mobile.md`, `ui-rules.md`, `direct-workspace.md`, `project-structure.md`, `progress-tracker.md` | Documented runtime discovery, preview access and limits, shared locks, and mobile behavior; validation remains pending GitHub. |
 | 2026-11-09 | `development.md`, `project-structure.md`, `progress-tracker.md` | Documented CI fixture isolation, setup deadlines, and approval protocol startup. |

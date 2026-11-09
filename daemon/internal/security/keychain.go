@@ -143,8 +143,8 @@ func (k *OSKeychain) check(provider string) error {
 	return nil
 }
 
-// MemoryKeychain is a Keychain kept in memory. It is a test double: the daemon never builds one,
-// and nothing it holds outlives the process. Tests hand it to the provider store so a suite can
+// MemoryKeychain is a Keychain kept in memory for tests and explicitly selected dev stub fixtures.
+// Nothing it holds outlives the process. Tests hand it to the provider store so a suite can
 // save and remove keys without touching the machine's real keychain.
 type MemoryKeychain struct {
 	mu      sync.Mutex

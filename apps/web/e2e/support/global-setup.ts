@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { finishFirstLaunch } from "./daemon-api";
+import { assertBootEndpoints, finishFirstLaunch } from "./daemon-api";
 import { DATA_DIR, VITE_PORT } from "./e2e-env";
 
 /**
@@ -26,4 +26,5 @@ export default async function globalSetup(): Promise<void> {
     );
   }
   await finishFirstLaunch();
+  await assertBootEndpoints();
 }

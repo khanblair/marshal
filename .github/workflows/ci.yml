@@ -53,7 +53,9 @@ jobs:
           pnpm --filter web exec vitest run --coverage.enabled=false src/views/card/CardHeader.test.tsx src/views/card/SessionSettings.test.tsx src/views/card/DiffTab.test.tsx src/views/card/PreviewTab.daemon.test.tsx src/views/card/details-collapsed.test.ts src/views/card/preview-link.test.ts src/features/chat/agent-activity.test.ts src/platform/native-system-bars.test.ts src/mock/index.test.ts src/styles/responsive-guards.test.ts
       - name: Fast runtime and preview regressions
         working-directory: daemon
-        run: node ../scripts/go-tool.mjs go test -timeout 2m ./internal/agents/catalog ./internal/tailnet ./internal/previewrelay
+        run: |
+          node ../scripts/go-tool.mjs go test -timeout 2m ./internal/agents/catalog ./internal/tailnet ./internal/previewrelay
+          node ../scripts/go-tool.mjs go test -timeout 2m ./cmd/marshald -run '^TestDaemonKeychain'
       - run: pnpm smells
       - run: pnpm --filter @marshal/tokens check:contrast
 
@@ -137,7 +139,7 @@ jobs:
     timeout-minutes: 30
     name: e2e (phone, tablet, desktop)
     runs-on: ubuntu-latest
-    needs: check
+    needs: [lint, client-tests]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -162,11 +164,11 @@ jobs:
       - run: pnpm build
       - run: pnpm test:e2e
       - uses: actions/upload-artifact@v4
-        if: failure()
+        if: ${{ !cancelled() && failure() }}
         with:
           name: e2e-report
           path: |
-            apps/web/test-results/
+            apps/web/test-results/playwright/
             apps/web/playwright-report/
 
   summary:

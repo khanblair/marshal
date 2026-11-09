@@ -24,6 +24,20 @@ async function daemonCall(path: string, method: string, body?: unknown): Promise
   });
 }
 
+/** Fail once at setup when a required boot endpoint is broken, before repeating every viewport. */
+export async function assertBootEndpoints(): Promise<void> {
+  for (const path of ["/v1/projects", "/v1/agents", "/v1/providers", "/v1/integrations"]) {
+    const response = await fetch(`${DAEMON_ORIGIN}${path}`, {
+      headers: auth(),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!response.ok)
+      throw new Error(
+        `E2E daemon boot failed at ${path}: HTTP ${response.status}. Check daemon logs.`,
+      );
+  }
+}
+
 /**
  * Ends the first launch the way a person who skipped it does, so every spec starts inside the app
  * instead of on the first-launch screens. This run's daemon is made new each time, so its first

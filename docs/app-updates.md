@@ -48,8 +48,8 @@ See the [Tauri updater documentation](https://v2.tauri.app/plugin/updater/) for 
 
 1. Set the requested version in `.github/release.json` and push to `main`.
 2. CI runs generation, formatting, lint, types, focused release/card/mobile/runtime regressions, and the other light checks. A failure stops the slower jobs.
-3. The full client suites and their coverage floors run on Linux. After they pass, the macOS job runs daemon and Go tool tests with race instrumentation, checks daemon coverage, builds Marshal, and checks size and idle-memory budgets. The packages tested remain the same; client failures no longer wait behind Go tests.
-4. Required browser tests run on Linux at phone, tablet, and desktop sizes.
+3. The full client suites and their coverage floors run on Linux. After they pass, the macOS job runs daemon and Go tool tests with race instrumentation, checks daemon coverage, builds Marshal, and checks size and idle-memory budgets. In parallel, the Linux browser job builds its own test app and runs browser checks. The packages tested remain the same; client failures no longer wait behind Go tests.
+4. Both the macOS validation and required Linux browser tests at phone, tablet, and desktop sizes must succeed. They do not depend on one another, but either failure blocks release.
 5. A successful CI completion triggers `release.yml` on GitHub. It accepts only a push to this repository's `main`, uses that exact verified commit, and skips superseded commits or an already published version. No agent or local watcher is needed to advance this chain.
 6. The Mac installer/updater files and signed Android APK/AAB build in parallel. Each job uploads verified artifacts. A missing signing configuration fails the selected build.
 7. Only after both builds succeed, the publish job uploads all downloads to a draft, checks their names and sizes and the tag's commit, then makes the release public. Failed new uploads leave a draft, rather than a partially published new release.

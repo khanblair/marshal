@@ -156,6 +156,7 @@ type daemonModules struct {
 // coreDaemonModules is git, the project and session machinery, and the recorders every later
 // module needs - buildModules' first stage.
 type coreDaemonModules struct {
+	keys             security.Keychain
 	git              *gitx.Git
 	lateMem          *lateMemory
 	proj             *projects.Service
@@ -207,7 +208,8 @@ func buildCoreModules(st *store.Store, bus *events.Bus, settings config.Settings
 	// The notice writer is deliberately left out: telling a person about a fallback needs the
 	// notices surface, which is Phase 5's (B5.6). A fallback is logged either way
 	// (providers.noticeFallback), so nothing happens silently in the meantime.
-	providerSvc, err := providers.New(security.NewOSKeychain(platform.AppName(settings.Mode)), providers.Options{
+	keys := daemonKeychain(settings)
+	providerSvc, err := providers.New(keys, providers.Options{
 		Logger:   log,
 		Recorder: providers.NewStoreRecorder(st, rand.Reader, providers.WithLocation(clock.Location)),
 		Now:      time.Now,
@@ -268,7 +270,7 @@ func buildCoreModules(st *store.Store, bus *events.Bus, settings config.Settings
 	}
 	late.manager.Store(sessions)
 	return coreDaemonModules{
-		git: git, lateMem: lateMem, proj: proj, providerSvc: providerSvc, costLimits: costLimits,
+		keys: keys, git: git, lateMem: lateMem, proj: proj, providerSvc: providerSvc, costLimits: costLimits,
 		sleepSettingsSvc: sleepSettingsSvc, connectionTests: connectionTests, catalogSrc: catalogSrc, agentPrefs: agentPrefs,
 		historyStore: historyStore, auditRec: auditRec, sessions: sessions, clock: clock,
 	}, nil
@@ -471,7 +473,7 @@ func buildLateModules(st *store.Store, bus *events.Bus, settings config.Settings
 	// in from the memory module, so the Obsidian row and the test name the one folder Marshal writes
 	// memory in rather than a second copy of the same path.
 	gcalRedirect := fmt.Sprintf("http://%s/v1/integrations/gcal/callback", loopbackAddress(settings.Port))
-	integrationSvc, err := integrations.New(st, security.NewOSKeychain(platform.AppName(settings.Mode)),
+	integrationSvc, err := integrations.New(st, core.keys,
 		integrations.Options{
 			Logger: log, Now: core.clock.Now, VaultRoot: cm.mem.Root(), GCalRedirectURL: gcalRedirect,
 			ResendRecipient: func(ctx context.Context) (string, error) { return ownerEmail(ctx, st) },

@@ -277,3 +277,5 @@ Desktop `src-tauri/entitlements.plist` grants the executable-memory exception ne
 - `.github/release.json` records the requested version. It remains pending until publication succeeds.
 - `apps/desktop/scripts/release-plan.mjs` selects the exact successful main CI commit, skips stale/already published requests, and guards manual tag retries. Its fixture tests run in the fast CI gate and desktop test script.
 - `.github/workflows/release.yml` receives CI completion events, builds both platforms, stages artifacts, and publishes them together. `.github/workflows/e2e-macos.yml` is an optional manual browser check; required browser tests are part of `ci.yml`.
+
+- `daemon/cmd/marshald/keychain{,_test}.go`: fixture-only credential isolation and mode guards; the shared keychain is wired through the core daemon modules. Browser startup assertions live in `apps/web/e2e/support/{global-setup,daemon-api}.ts`.

@@ -16,12 +16,20 @@ const DAEMON_STOP_MS = 10_000;
 export default defineConfig({
   testDir: "e2e",
   fullyParallel: true,
-  reporter: "list",
+  reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
+  // End failing runs while there is still time for GitHub to upload diagnostics.
+  maxFailures: process.env.CI ? 5 : undefined,
+  globalTimeout: process.env.CI ? 20 * 60_000 : undefined,
+  workers: process.env.CI ? 2 : undefined,
   // Playwright empties its output folder; the daemon's data folder lives beside it, not in it.
   outputDir: "test-results/playwright",
   // Stops the run early when a server that was already running is not the one made for it.
   globalSetup: "./e2e/support/global-setup.ts",
-  use: { baseURL: `http://localhost:${VITE_PORT}` },
+  use: {
+    baseURL: `http://localhost:${VITE_PORT}`,
+    trace: "retain-on-failure",
+    screenshot: "only-on-failure",
+  },
   projects: [
     { name: "app", testIgnore: [LIFECYCLE_SPEC, ONBOARDING_SPEC] },
     // Stopping the daemon would break every other spec that is running, so this one runs alone, after them.
