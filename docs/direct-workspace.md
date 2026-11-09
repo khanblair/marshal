@@ -41,3 +41,9 @@ Deleting a direct card removes Marshal's task/session data and keeps the project
 The database and API still use the older `worktree` path field to identify a card's workspace. Direct cards store the original project folder in it. Existing merge route names remain compatible but route direct cards through completion. Internal legacy code remains for tests and recovery compatibility; application wiring always selects direct workspaces, with no user-facing worktree option.
 
 Only one dev-server preview may run for the same source folder at a time. Cards share the source and dependencies; their screenshot profiles remain separate.
+
+## Installed and development instances
+
+Normal and development daemons use different ports and data folders, but editing sessions now acquire an OS lock in the user's shared Marshal workspace-lock folder. The lock identifies the physical project directory, so symlink aliases do not bypass it. Another card or coding chat in another updated daemon must wait until the owner stops or sleeps. The main agent's coordinated native subagents remain part of the same owner. The OS releases the lock if the daemon exits or crashes; lock files are not deleted during release.
+
+Both instances must run the updated daemon for this protection. An older installed version does not acquire these locks. Do not restart a daemon underneath an active coding session merely to apply this change.

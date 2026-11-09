@@ -19,6 +19,10 @@ import (
 
 func directMode(c *session.Config) { c.DirectWorkspace = true }
 
+func workspaceLockDir(dir string) func(*session.Config) {
+	return func(c *session.Config) { c.WorkspaceLockDir = dir }
+}
+
 func TestDirectCardUsesProjectFolderWithoutStagingOrCommittingUserEdits(t *testing.T) {
 	e := newEnv(t, directMode)
 	t.Cleanup(func() { _ = e.mgr.Close() })
@@ -90,6 +94,55 @@ func TestDirectCardsSerializeMainSessionsAndAllowDifferentProjects(t *testing.T)
 	}
 	if _, err := e.mgr.Start(ctx, b.ID); err != nil {
 		t.Fatalf("stopped editor kept the project: %v", err)
+	}
+}
+
+func TestDirectWorkspaceLeaseIsSharedAcrossManagersAndDataDirs(t *testing.T) {
+	lockDir := filepath.Join(t.TempDir(), "shared-workspace-locks")
+	first := newEnv(t, directMode, workspaceLockDir(lockDir))
+	t.Cleanup(func() { _ = first.mgr.Close() })
+	project := first.project(t, "small-repo")
+	firstCard := first.card(t, project.ID, "First daemon editor")
+
+	second := newEnv(t, directMode, workspaceLockDir(lockDir))
+	t.Cleanup(func() { _ = second.mgr.Close() })
+	secondProject, err := second.proj.Create(context.Background(), protocol.CreateProjectRequest{
+		Source: protocol.ProjectSourceFolder, Path: project.Path,
+	})
+	if err != nil {
+		t.Fatalf("register the same folder in a second data directory: %v", err)
+	}
+	secondCard := second.card(t, secondProject.ID, "Second daemon editor")
+
+	if _, err := first.mgr.Start(context.Background(), firstCard.ID); err != nil {
+		t.Fatalf("start the first manager's editor: %v", err)
+	}
+	_, err = second.mgr.Start(context.Background(), secondCard.ID)
+	perr := wantCode(t, err, protocol.ErrorCodeRefused)
+	if perr.Details["reason"] != "project_editor_busy" || perr.Details["owner"] != "another Marshal instance" {
+		t.Fatalf("cross-manager refusal details = %#v", perr.Details)
+	}
+
+	if err := first.mgr.Stop(context.Background(), firstCard.ID); err != nil {
+		t.Fatalf("stop the first manager's editor: %v", err)
+	}
+	if _, err := second.mgr.Start(context.Background(), secondCard.ID); err != nil {
+		t.Fatalf("second manager could not acquire the released project lease: %v", err)
+	}
+	if err := second.mgr.Stop(context.Background(), secondCard.ID); err != nil {
+		t.Fatalf("stop the second manager's editor: %v", err)
+	}
+	if _, err := first.mgr.Start(context.Background(), firstCard.ID); err != nil {
+		t.Fatalf("restart the first manager's editor: %v", err)
+	}
+	if err := first.mgr.Close(); err != nil {
+		t.Fatalf("close the first manager: %v", err)
+	}
+	if _, err := second.mgr.Start(context.Background(), secondCard.ID); err != nil {
+		t.Fatalf("second manager could not acquire the lease after close: %v", err)
+	}
+	if err := second.mgr.Stop(context.Background(), secondCard.ID); err != nil {
+		t.Fatalf("stop the second manager's editor after close: %v", err)
 	}
 }
 

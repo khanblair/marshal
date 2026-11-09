@@ -2,11 +2,13 @@ package session
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"sync"
 
 	"github.com/khanblair/marshal/daemon/internal/gitx"
+	"github.com/khanblair/marshal/daemon/internal/platform"
 	"github.com/khanblair/marshal/daemon/internal/protocol"
 )
 
@@ -48,17 +50,36 @@ func (m *Manager) acquireEditorLocked(root, key string) error {
 	if m.closed {
 		return protocol.Unavailable("Marshal is shutting down.")
 	}
-	if owner := m.workspaceEditors[root]; owner != "" && owner != key {
+	identity, err := workspaceIdentity(root)
+	if err != nil {
+		return protocol.Unavailable("Marshal could not reserve this project folder for editing.").WithCause(err)
+	}
+	if owner := m.workspaceEditors[identity]; owner != "" && owner != key {
 		return protocol.Refused("Another coding session owns this project folder. Stop or sleep it before starting a different card or coding chat.").
 			With("reason", "project_editor_busy").With("editorId", owner)
 	}
 	if m.workspaceBlocked[key] || m.workspaceStops[key] > 0 {
 		return protocol.Refused("The previous agent could not be stopped. End that process before starting another coding session.").With("reason", "project_editor_stopping")
 	}
+	if owner := m.workspaceEditors[identity]; owner == key {
+		return nil
+	}
+	lease, err := acquireWorkspaceLock(identity, m.cfg.WorkspaceLockDir)
+	if err != nil {
+		if errors.Is(err, platform.ErrAlreadyRunning) {
+			return protocol.Refused("Another Marshal instance owns this project folder. Stop or sleep its coding session before starting a different card or coding chat.").
+				With("reason", "project_editor_busy").With("owner", "another Marshal instance").WithCause(err)
+		}
+		return protocol.Unavailable("Marshal could not reserve this project folder for editing.").WithCause(err)
+	}
 	if m.workspaceEditors == nil {
 		m.workspaceEditors = make(map[string]string)
 	}
-	m.workspaceEditors[root] = key
+	if m.workspaceLeases == nil {
+		m.workspaceLeases = make(map[string]*platform.Lock)
+	}
+	m.workspaceEditors[identity] = key
+	m.workspaceLeases[identity] = lease
 	return nil
 }
 
@@ -72,9 +93,15 @@ func (m *Manager) releaseEditorLocked(key string) {
 	if _, switching := m.switching[key]; switching {
 		return
 	}
-	for root, owner := range m.workspaceEditors {
+	for identity, owner := range m.workspaceEditors {
 		if owner == key {
-			delete(m.workspaceEditors, root)
+			delete(m.workspaceEditors, identity)
+			if lease := m.workspaceLeases[identity]; lease != nil {
+				delete(m.workspaceLeases, identity)
+				if err := lease.Release(); err != nil {
+					m.log.Error("could not release the project workspace lock", "error", err)
+				}
+			}
 		}
 	}
 }

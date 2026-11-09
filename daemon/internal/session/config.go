@@ -65,6 +65,10 @@ type Config struct {
 	// DirectWorkspace runs cards in the project's original folder. Only one main coding
 	// session owns a project folder; that session may delegate to its native subagents.
 	DirectWorkspace bool
+	// WorkspaceLockDir is the shared folder for cross-process direct-workspace locks. An empty
+	// value uses the user's config folder, shared by normal and dev daemon instances. Tests may
+	// set it to a temporary folder.
+	WorkspaceLockDir string
 	// History stores the typed history and activity of every session this manager runs (migration
 	// 0006), so a card's chat can be paged rather than replayed from a log file. Left unset, the
 	// manager writes to the store it already has; set it to share the history module's own store,

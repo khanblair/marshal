@@ -52,6 +52,7 @@ type env struct {
 	registry *agents.Registry
 	agent    *fakeAgent
 	dataDir  string
+	lockDir  string
 	sub      *events.Subscription
 }
 
@@ -76,6 +77,7 @@ func newEnv(t *testing.T, mutate ...func(*session.Config)) *env {
 	t.Cleanup(bus.Close)
 	git := testutil.Git()
 	dataDir := filepath.Join(dir, "data")
+	lockDir := filepath.Join(dir, "workspace-locks")
 	states, err := session.NewStoredStates(st)
 	if err != nil {
 		t.Fatalf("make the session states: %v", err)
@@ -91,7 +93,8 @@ func newEnv(t *testing.T, mutate ...func(*session.Config)) *env {
 		t.Fatalf("register the fake agent: %v", err)
 	}
 	e := &env{
-		store: st, bus: bus, proj: proj, git: git, registry: registry, agent: agent, dataDir: dataDir,
+		store: st, bus: bus, proj: proj, git: git, registry: registry, agent: agent,
+		dataDir: dataDir, lockDir: lockDir,
 		sub: bus.Subscribe(events.AllTopics()),
 	}
 	e.mgr = e.reopen(t, mutate...)
@@ -103,7 +106,7 @@ func newEnv(t *testing.T, mutate ...func(*session.Config)) *env {
 // process. It does not replace e.mgr; callers that want a real restart reassign it themselves.
 func (e *env) reopen(t *testing.T, mutate ...func(*session.Config)) *session.Manager {
 	t.Helper()
-	cfg := session.Config{DataDir: e.dataDir}
+	cfg := session.Config{DataDir: e.dataDir, WorkspaceLockDir: e.lockDir}
 	for _, m := range mutate {
 		m(&cfg)
 	}

@@ -15,6 +15,7 @@ import (
 	"github.com/khanblair/marshal/daemon/internal/harness"
 	"github.com/khanblair/marshal/daemon/internal/history"
 	"github.com/khanblair/marshal/daemon/internal/keyedlock"
+	"github.com/khanblair/marshal/daemon/internal/platform"
 	"github.com/khanblair/marshal/daemon/internal/projects"
 	"github.com/khanblair/marshal/daemon/internal/protocol"
 	"github.com/khanblair/marshal/daemon/internal/security"
@@ -54,8 +55,9 @@ type Manager struct {
 	switching map[string]struct{}         // cardID -> a switch of its view is in flight
 	approvals map[string]*pendingApproval // approval id -> a permission request no one has answered
 	// Direct workspace ownership is shared by pending starts, live sessions, replacements,
-	// and completion checks. Keys are canonical project folders, values are card/chat IDs.
+	// and completion checks. Keys identify physical project folders, values are card/chat IDs.
 	workspaceEditors map[string]string
+	workspaceLeases  map[string]*platform.Lock
 	workspaceChats   map[string]bool
 	workspaceBlocked map[string]bool
 	workspaceStops   map[string]int
