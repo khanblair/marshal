@@ -15,7 +15,7 @@ func KnownDirs() []string {
 	if err != nil {
 		home = ""
 	}
-	return knownDirs(runtime.GOOS, home, os.Getenv)
+	return append(knownDirs(runtime.GOOS, home, os.Getenv), runtimeDirs(home)...)
 }
 
 // knownDirs builds the list for an operating system, a home folder, and an environment lookup.
@@ -30,6 +30,7 @@ func knownDirs(goos, home string, getenv func(string) string) []string {
 	add(home, ".local", "bin")
 	add(home, ".claude", "local")
 	add(home, ".npm-global", "bin")
+	add(home, ".bun", "bin")
 	if prefix := getenv("NPM_CONFIG_PREFIX"); prefix != "" {
 		if goos == "windows" {
 			add(prefix)
@@ -53,7 +54,7 @@ func knownDirs(goos, home string, getenv func(string) string) []string {
 // started as a user service may have no node on its own PATH. The rest of the PATH follows, and
 // then the well-known folders. Pass the result in the Env of a proc.Spec or an adapter Config.
 func ProgramEnv(programPath string) []string {
-	return []string{"PATH=" + joinPath(filepath.Dir(programPath), os.Getenv("PATH"), KnownDirs())}
+	return RuntimeEnv("", programPath)
 }
 
 // joinPath makes a PATH from a folder that goes first, an existing PATH, and more folders that go

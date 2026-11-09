@@ -9,6 +9,7 @@ import (
 	"io"
 	"strconv"
 
+	"github.com/khanblair/marshal/daemon/internal/agents/catalog"
 	"github.com/khanblair/marshal/daemon/internal/proc"
 )
 
@@ -24,7 +25,7 @@ func (CommandRunner) Start(ctx context.Context, req DevRequest) (Process, error)
 		Path: "/bin/sh",
 		Args: []string{"-e", "-c", req.Command},
 		Dir:  req.Dir,
-		Env:  []string{"HOST=127.0.0.1", "PORT=" + strconv.Itoa(req.Port)},
+		Env:  append(catalog.RuntimeEnv(req.Dir, ""), "HOST=127.0.0.1", "PORT="+strconv.Itoa(req.Port)),
 	})
 	if err != nil {
 		return nil, err

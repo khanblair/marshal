@@ -27,7 +27,7 @@ func TestKnownDirs(t *testing.T) {
 			// runs the test, so the expectation is built the same way.
 			want: []string{
 				filepath.Join("/Users/pat", ".local", "bin"), filepath.Join("/Users/pat", ".claude", "local"),
-				filepath.Join("/Users/pat", ".npm-global", "bin"),
+				filepath.Join("/Users/pat", ".npm-global", "bin"), filepath.Join("/Users/pat", ".bun", "bin"),
 				"/opt/homebrew/bin", "/usr/local/bin",
 			},
 		},
@@ -38,7 +38,7 @@ func TestKnownDirs(t *testing.T) {
 			vars: map[string]string{"NPM_CONFIG_PREFIX": "/opt/npm"},
 			want: []string{
 				filepath.Join("/home/pat", ".local", "bin"), filepath.Join("/home/pat", ".claude", "local"),
-				filepath.Join("/home/pat", ".npm-global", "bin"), filepath.Join("/opt/npm", "bin"),
+				filepath.Join("/home/pat", ".npm-global", "bin"), filepath.Join("/home/pat", ".bun", "bin"), filepath.Join("/opt/npm", "bin"),
 				"/opt/homebrew/bin", "/usr/local/bin",
 			},
 		},
@@ -51,6 +51,7 @@ func TestKnownDirs(t *testing.T) {
 				filepath.Join(`C:\Users\pat`, ".local", "bin"),
 				filepath.Join(`C:\Users\pat`, ".claude", "local"),
 				filepath.Join(`C:\Users\pat`, ".npm-global", "bin"),
+				filepath.Join(`C:\Users\pat`, ".bun", "bin"),
 				filepath.Join(`C:\Users\pat\AppData\Roaming`, "npm"),
 				filepath.Join(`C:\Users\pat\AppData\Local`, "Programs"),
 			},

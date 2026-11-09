@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/khanblair/marshal/daemon/internal/agents/catalog"
 	"github.com/khanblair/marshal/daemon/internal/proc"
 )
 
@@ -104,17 +105,20 @@ func (c *CommandRunner) Run(ctx context.Context, req RunRequest) (RunResult, err
 	defer cancel()
 	started := time.Now()
 	child, err := proc.Start(ctx, proc.Spec{
-		Path: shell, Args: shellArgs(shell, req.Command), Dir: req.Dir, Env: req.Env,
+		Path: shell, Args: shellArgs(shell, req.Command), Dir: req.Dir, Env: append(catalog.RuntimeEnv(req.Dir, ""), req.Env...),
 	})
 	if err != nil {
 		return RunResult{Took: time.Since(started)}, fmt.Errorf("start the step: %w", err)
 	}
 	tail := &tailWriter{limit: c.maxBytes}
 	_, readErr := io.Copy(tail, child.Stdout)
-	// Stop ends the whole tree, which is what makes a command that spawned a helper quit too. It is
-	// safe after a clean exit, and it is what bounds a command that keeps printing past the read.
-	_ = child.Stop(context.WithoutCancel(ctx), stopGrace)
+	// Wait for the shell exit rather than killing it when it closes stdout. The timeout
+	// bounds its lifetime; proc reaps descendants when the shell exits.
 	exit := child.Wait()
+	_ = child.Stop(context.WithoutCancel(ctx), stopGrace)
+	if stderr := child.StderrTail(); stderr != "" {
+		_, _ = tail.Write([]byte("\n[stderr]\n" + stderr))
+	}
 	out := tailLines(tail.String(), c.maxLines)
 	took := time.Since(started)
 	if readErr != nil && !errors.Is(readErr, io.EOF) {
