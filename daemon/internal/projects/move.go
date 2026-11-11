@@ -68,6 +68,14 @@ func checkMove(card protocol.Card, target protocol.CardState) *protocol.Error {
 	if target == card.State {
 		return nil
 	}
+	if card.State == protocol.CardStateNeeds && card.NeedsReason != nil &&
+		card.NeedsReason.Kind == protocol.NeedsReasonKindLimit {
+		switch target {
+		case protocol.CardStateWorking, protocol.CardStateReview, protocol.CardStateDone:
+			return protocol.Refused("Open the card to review the role limit or finish the work.").
+				With("reason", string(protocol.NeedsReasonKindLimit))
+		}
+	}
 	switch {
 	case card.State == protocol.CardStateDone:
 		return refusedMove(protocol.MoveRefusalReasonFromDone)

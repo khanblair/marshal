@@ -2,14 +2,17 @@ package session_test
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/khanblair/marshal/daemon/internal/agents"
 	"github.com/khanblair/marshal/daemon/internal/audit"
 	"github.com/khanblair/marshal/daemon/internal/harness"
 	"github.com/khanblair/marshal/daemon/internal/protocol"
+	"github.com/khanblair/marshal/daemon/internal/providers"
 )
 
 // The harness wired to a card's live session (B5.3, build-plan 5.3 and 5.4): a card is stopped for
@@ -124,6 +127,46 @@ func TestARolesRoundCeilingStopsTheCardOnTheTurnPastIt(t *testing.T) {
 	if !strings.Contains(notes[0].Summary, "past the role's limit") {
 		t.Errorf("the card's own notes = %+v, want the reason the harness stopped it", summaries(notes))
 	}
+}
+
+func TestARoleCostLimitBlocksAnotherTurnAfterMovingTheCard(t *testing.T) {
+	ctx := context.Background()
+	e := newEnv(t)
+	t.Cleanup(func() { _ = e.mgr.Close() })
+	project := e.project(t, "small-repo")
+	card := cardWithRole(t, e, project.ID, "Cap the cost", "Worker")
+	recorder := providers.NewStoreRecorder(e.store, rand.Reader)
+	if err := recorder.Record(ctx, providers.UsageRecord{
+		CardID: card.ID, ProjectID: project.ID, Provider: "anthropic",
+		Model: "sonnet", CostMicros: 9_540_000, At: time.Now(),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	e.mgr.SetRoleLimits(&fakeRoles{byName: map[string]harness.Limits{"Worker": {CostDollars: 5}}})
+	if _, err := e.proj.SetNeeds(ctx, card.ID, protocol.NeedsReason{Kind: protocol.NeedsReasonKindLimit, Text: "Over budget"}); err != nil {
+		t.Fatal(err)
+	}
+	var refusal *protocol.Error
+	_, err := e.proj.MoveCard(ctx, card.ID, protocol.MoveCardRequest{State: protocol.CardStateWorking})
+	if !errors.As(err, &refusal) || refusal.Details["reason"] != string(protocol.NeedsReasonKindLimit) {
+		t.Fatalf("manual move = %v, want role limit refusal", err)
+	}
+	// An internal state transition still cannot make a new turn affordable.
+	if _, err := e.proj.SetState(ctx, card.ID, protocol.CardStateWorking); err != nil {
+		t.Fatal(err)
+	}
+	err = e.mgr.Send(ctx, card.ID, "continue")
+	if !errors.As(err, &refusal) || refusal.Details["reason"] != string(protocol.NeedsReasonKindLimit) {
+		t.Fatalf("send over the role limit = %v, want role limit refusal", err)
+	}
+	if got := e.agent.sentTexts(); len(got) != 0 {
+		t.Fatalf("sent %d messages while over the role limit", len(got))
+	}
+	e.mgr.SetRoleLimits(&fakeRoles{byName: map[string]harness.Limits{"Worker": {CostDollars: 12}}})
+	if err := e.mgr.Send(ctx, card.ID, "continue"); err != nil {
+		t.Fatalf("send after increasing the limit: %v", err)
+	}
+	e.untilType(t, protocol.EventTypeSessionOutput)
 }
 
 // A card with no role is not limited at all, however many turns it takes: nobody set a ceiling for

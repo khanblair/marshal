@@ -28,6 +28,9 @@ func (m *Manager) Send(ctx context.Context, cardID, text string) error {
 	// A message that arrives while the card's view is being switched waits for the switch, and then
 	// goes to whichever session it made.
 	defer m.viewLocks.Lock(cardID)()
+	if err := m.checkBeforeSend(ctx, cardID); err != nil {
+		return err
+	}
 	ls, err := m.live(cardID)
 	if err != nil {
 		if !errors.Is(err, ErrNoLiveSession) {

@@ -1,3 +1,4 @@
+import { NeedsReasonKindLimit } from "@marshal/protocol";
 import { type Card, M } from "~/mock";
 import { cardLabel } from "~/mock/card-key";
 
@@ -33,8 +34,10 @@ export function stopSession(card: Card): void {
 export function actionsFor(card: Card): AgentAction[] {
   const id = card.id;
   const label = cardLabel(card);
+  const open =
+    card.state === "needs" && card.reasonKind === NeedsReasonKindLimit ? "Resolve limit" : "Open";
   const actions: AgentAction[] = [
-    { label: "Open", icon: "panel-right-open", aria: `Open ${label}`, run: () => M.openCard(id) },
+    { label: open, icon: "panel-right-open", aria: `${open} ${label}`, run: () => M.openCard(id) },
   ];
   if (card.state === "done") return actions;
   actions.push(

@@ -222,6 +222,11 @@ Phase 2 (core UI) is scoped as eight slices, A to H, in `backend-checklist.md` s
 - A browser trace showed that another device removing a project during startup made a board request return 404. The client now continues loading the other project snapshots, and chat-test cleanup preserves the original failure.
 - GitHub will verify the complete workflow on the next push.
 
+### 2026-11-11 — Role-limit recovery
+
+- Confirmed the installed ReelCast card had $9.54 recorded, a role-limit hold, and zero pending approvals. Added a recovery notice and an entry from Agents.
+- Refused new turns over cumulative role limits and kept review or check findings on the card when that refusal prevents agent follow-up. Added regression cases for changing columns and continuing after a limit change.
+
 ### 2026-11-11 — Desktop restart, preview, and card usage
 
 - GitHub CI rejected the Preview tab for exceeding the function line limit. Extracted the server start and stop actions and kept the lint rule enabled.
@@ -311,7 +316,7 @@ Every change to a doc. Newest first.
 
 | Date | Doc | Change |
 |---|---|---|
-| 2026-11-11 | `app-updates.md`, `mobile.md`, `agent-sessions.md`, `project-structure.md`, `progress-tracker.md` | Recorded desktop restart recovery, preview controls, and usage readings. |
+| 2026-11-11 | `app-updates.md`, `mobile.md`, `agent-sessions.md`, `project-structure.md`, `progress-tracker.md` | Recorded desktop restart recovery, preview controls, usage readings, and role-limit recovery. |
 | 2026-11-10 | `project-structure.md`, `progress-tracker.md` | Recorded browser fixture recovery and current picker contracts, with CI/release still pending. |
 | 2026-11-10 | `development.md`, `project-structure.md`, `progress-tracker.md` | Documented headless fixture credentials, startup assertions, browser failure bounds, and actual successful CI gates. |
 | 2026-11-09 | `app-updates.md`, `development.md`, `project-structure.md`, `progress-tracker.md` | Replaced manual tag-triggered release instructions with the CI completion chain, blocking rules, and pending validation status. |

@@ -123,14 +123,11 @@ func (m *Manager) startForSend(ctx context.Context, cardID string) (bool, error)
 // holding is delivered; when there is no live process (a sleeping or stopped session, or one left
 // over from an earlier run), the card's own session is resumed through its saved id.
 func (m *Manager) startHeld(ctx context.Context, card protocol.Card) (protocol.Card, error) {
-	no := false
-	released, err := m.projects.SetHold(ctx, card.ID, &no, nil)
+	released, err := m.Unpause(ctx, card.ID)
 	if err != nil {
 		return protocol.Card{}, err
 	}
 	if m.liveOf(card.ID) != nil {
-		m.deliverHeld(card.ID)
-		m.log.Info("released a card's pause", "card_id", card.ID)
 		return released, nil
 	}
 	if err := m.reserve(card.ID); err != nil {

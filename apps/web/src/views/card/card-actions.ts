@@ -1,4 +1,4 @@
-import { SessionStateStopped } from "@marshal/protocol";
+import { NeedsReasonKindLimit, SessionStateStopped } from "@marshal/protocol";
 import { batch } from "solid-js";
 import { type ApprovalMsg, type Card, type Column, M, type PlanMsg } from "~/mock";
 import type { CardKey } from "~/mock/card-key";
@@ -127,7 +127,10 @@ export function cardActions(card: Card, mobile: boolean): CardAction[] {
         () => mergeReady(card),
       ),
     );
-  } else if (canSendToMerge(card)) {
+  } else if (
+    canSendToMerge(card) &&
+    !(M.S.tab === "chat" && usesProjectFolder(card) && card.reasonKind === NeedsReasonKindLimit)
+  ) {
     actions.push(
       action(
         usesProjectFolder(card) ? "Finish card" : "Send to merge",

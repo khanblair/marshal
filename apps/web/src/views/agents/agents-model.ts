@@ -1,3 +1,4 @@
+import { NeedsReasonKindLimit } from "@marshal/protocol";
 import { breakpoints } from "@marshal/tokens/tokens";
 import { compareSortValues, type TableSort } from "@marshal/ui";
 import { type Card, M } from "~/mock";
@@ -77,7 +78,9 @@ export function sessionIcon(card: Card): string {
 
 /** What the Current activity column says, whether or not it is shown as live. */
 export function activityOf(card: Card): string {
-  if (card.state === "needs") return card.reason;
+  if (card.state === "needs") {
+    return card.reasonKind === NeedsReasonKindLimit ? "Role limit reached" : card.reason;
+  }
   if (card.paused) return "Paused by you";
   return card.doing || (card.state === "done" ? "Merged" : "Idle");
 }

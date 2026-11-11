@@ -99,4 +99,8 @@ Project `.venv`/`venv`, `node_modules/.bin`, and `vendor/bin` folders take prior
 
 The card header and role budget check read the same recorded usage ledger. The header shows cents. A CLI may report a pay-per-token estimate for a subscription. Historical warnings keep their original wording.
 
+A role limit appears as **Needs you** with a **Role limit reached** notice in the card's chat. **Review role limits** opens the role editor. Once the effective limit allows more work, sending a message continues the session. New messages cannot start another turn while recorded cost or rounds are already over the effective limit. A manual move to Working, In review, or Done leaves the role-limit hold in place and points to the card’s recovery actions.
+
+For a card using the project folder, **Finish card** runs the configured completion review and checks. If the review or checks require corrections while the card is over its role limit, the card returns to the limit notice and the findings remain on the card. A pending tool permission is answered through its own approval prompt in chat.
+
 Claude Code context uses the last main-agent response's input, cached input, and output tokens together with the window size reported for that model. Codex reports the most recent request's total and the model window. Marshal saves the measurement when the turn ends. Missing measurements, including cards with no reported turn yet, display **Context unavailable**.

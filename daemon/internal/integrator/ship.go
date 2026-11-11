@@ -198,6 +198,15 @@ func (s *Service) sendBack(ctx context.Context, card protocol.Card, toWorker, re
 		if err == nil {
 			return
 		}
+		var refusal *protocol.Error
+		if errors.As(err, &refusal) && refusal.Details["reason"] == string(protocol.NeedsReasonKindLimit) {
+			if _, err := s.cards.SetNeeds(ctx, card.ID, protocol.NeedsReason{
+				Kind: protocol.NeedsReasonKindLimit, Text: refusal.Message,
+			}); err != nil {
+				s.log.Warn("could not record the card's role limit", "card_id", card.ID, "error", err)
+			}
+			return
+		}
 		s.log.Warn("could not tell a card's agent what to fix", "card_id", card.ID, "error", err)
 	}
 	s.needs(ctx, card.ID, reason+" Its agent could not be reached, so it needs you.")

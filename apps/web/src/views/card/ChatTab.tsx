@@ -1,11 +1,23 @@
-import { Composer, Icon, JumpToLatest, SegmentedControl, StatusDot } from "@marshal/ui";
-import { Show } from "solid-js";
+import { NeedsReasonKindLimit } from "@marshal/protocol";
+import {
+  Button,
+  Callout,
+  Composer,
+  Icon,
+  JumpToLatest,
+  SegmentedControl,
+  StatusDot,
+} from "@marshal/ui";
+import { createSignal, Show } from "solid-js";
+import { openSettingsSection } from "~/app/shell-actions";
 import { agentActivity } from "~/features/chat/agent-activity";
 import { ChatThread } from "~/features/chat/ChatThread";
-import { isLoopbackHttpUrl } from "./preview-link";
 import { type Card, type CardView, M, type Mode } from "~/mock";
+import { sendToMerge } from "~/sync/integration-flow";
 import { controlSize } from "./control-size";
+import { usesProjectFolder } from "./merge-model";
 import type { Panel } from "./panel-state";
+import { isLoopbackHttpUrl } from "./preview-link";
 import { TerminalView } from "./TerminalView";
 import type { TerminalState } from "./terminal-state";
 import { createAutoScroll } from "./use-auto-scroll";
@@ -25,7 +37,7 @@ const MODES = (switching: false | Mode) =>
 
 /** What the bar says when the agent is not working on anything right now. */
 function idleText(card: Card): string {
-  if (card.state === "needs") return card.reason;
+  if (card.state === "needs") return card.reasonKind === NeedsReasonKindLimit ? "" : card.reason;
   if (card.asleep) return "Asleep. Sending a message wakes the session.";
   if (card.paused) return "Paused by you";
   if (card.state === "backlog") return "Not started";
@@ -81,11 +93,60 @@ function SwitchingBody() {
   );
 }
 
+function RoleLimitNotice(props: { card: Card }) {
+  const [finishing, setFinishing] = createSignal(false);
+  const canFinish = () => usesProjectFolder(props.card);
+  async function finish() {
+    setFinishing(true);
+    try {
+      await sendToMerge(props.card.id);
+    } finally {
+      setFinishing(false);
+    }
+  }
+  return (
+    <Callout class="mx-4 mt-3 flex-none" icon="triangle-alert">
+      <div class="min-w-0">
+        <strong>Role limit reached</strong>
+        <p class="m-0 mt-1 break-words">{props.card.reason}</p>
+        <p class="m-0 mt-1">
+          {canFinish() && "Finish if the work is ready. "}
+          To keep coding, review the role limits and then send a message.
+        </p>
+        <div class="mt-2 flex flex-wrap gap-2">
+          <Show when={canFinish()}>
+            <Button variant="secondary" disabled={finishing()} onClick={() => void finish()}>
+              Finish card
+            </Button>
+          </Show>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              M.set({ roleSel: props.card.role });
+              openSettingsSection("roles");
+            }}
+          >
+            Review role limits
+          </Button>
+        </div>
+      </div>
+    </Callout>
+  );
+}
+
 function ChatPane(props: ChatTabProps & { scroll: ReturnType<typeof createAutoScroll> }) {
   const draft = () => props.panel.state.draft;
+  let submission = 0;
   const send = () => {
-    M.send(props.card.id, draft());
+    const text = draft();
+    const attempt = ++submission;
+    const result = M.send(props.card.id, text);
     props.panel.set({ draft: "", away: false });
+    if (result) {
+      void result.then((sent) => {
+        if (!sent && attempt === submission && draft() === "") props.panel.set({ draft: text });
+      });
+    }
   };
   const list = () => M.S.chat[props.card.id] ?? [];
   return (
@@ -142,6 +203,9 @@ export function ChatTab(props: ChatTabProps) {
   return (
     <>
       <ModeBar card={props.card} c={props.c} />
+      <Show when={props.card.state === "needs" && props.card.reasonKind === NeedsReasonKindLimit}>
+        <RoleLimitNotice card={props.card} />
+      </Show>
       <Show when={M.S.mode === "chat" && !M.S.switching}>
         <ChatPane {...props} scroll={scroll} />
       </Show>

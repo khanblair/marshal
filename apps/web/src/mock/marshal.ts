@@ -445,7 +445,7 @@ function chatActions(ctx: Ctx) {
     send: isDaemon("S8a", sectionsOf(ctx.env))
       ? (target: Ctx, id: CardKey, text: string) => {
           const api = target.env.data?.api;
-          if (api) void sendToCard(target, api, id, text);
+          if (api) return sendToCard(target, api, id, text);
         }
       : messages.send,
     chatSend: onDaemon ? sendToChat : chats.chatSend,

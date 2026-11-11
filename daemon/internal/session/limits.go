@@ -75,11 +75,9 @@ func (m *Manager) limitsOf(card protocol.Card) (harness.Limits, bool) {
 // Cost is read in whole dollars, which is the unit a role's ceiling is in, and is rounded down, so
 // a card is never stopped early by a fraction of a cent.
 func (m *Manager) usageOf(ls *liveSession) (harness.Usage, error) {
-	rounds, err := m.store.Queries().CountSessionEventsOfKind(m.ctx, db.CountSessionEventsOfKindParams{
-		CardID: ls.cardID, Kind: string(history.KindUser),
-	})
+	rounds, err := m.recordedRounds(m.ctx, ls.cardID)
 	if err != nil {
-		return harness.Usage{}, fmt.Errorf("count the turns of card %s: %w", ls.cardID, err)
+		return harness.Usage{}, err
 	}
 	micros, err := m.store.Queries().SumUsageForCard(m.ctx, ls.cardID)
 	if err != nil {
@@ -88,8 +86,46 @@ func (m *Manager) usageOf(ls *liveSession) (harness.Usage, error) {
 	return harness.Usage{
 		TurnMinutes: ls.turnMinutes(m.cfg.Now()),
 		CostMicros:  micros,
-		Rounds:      int(rounds),
+		Rounds:      rounds,
 	}, nil
+}
+
+func (m *Manager) recordedRounds(ctx context.Context, cardID string) (int, error) {
+	rounds, err := m.store.Queries().CountSessionEventsOfKind(ctx, db.CountSessionEventsOfKindParams{
+		CardID: cardID, Kind: string(history.KindUser),
+	})
+	if err != nil {
+		return 0, fmt.Errorf("count the turns of card %s: %w", cardID, err)
+	}
+	return int(rounds), nil
+}
+
+// checkBeforeSend keeps another turn from starting when recorded usage is
+// already over a cumulative limit. The time limit applies to one turn.
+func (m *Manager) checkBeforeSend(ctx context.Context, cardID string) error {
+	if m.roleLimits() == nil {
+		return nil
+	}
+	card, err := m.projects.Card(ctx, cardID)
+	if err != nil {
+		return err
+	}
+	limits, ok := m.limitsOf(card)
+	if !ok || (limits.CostDollars == 0 && limits.Rounds == 0) {
+		return nil
+	}
+	usage := harness.Usage{CostMicros: card.CostMicros}
+	if limits.Rounds > 0 {
+		usage.Rounds, err = m.recordedRounds(ctx, cardID)
+		if err != nil {
+			return err
+		}
+	}
+	if reason, hit := limits.Check(usage); hit {
+		return protocol.Refused(reason.Text+" Review the role's limits before sending another message.").
+			With("reason", string(protocol.NeedsReasonKindLimit))
+	}
+	return nil
 }
 
 // checkAfterTurn decides whether a card must stop now that a turn has ended, and reports whether it

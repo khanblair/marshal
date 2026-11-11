@@ -110,6 +110,11 @@ func (m *Manager) Unpause(ctx context.Context, cardID string) (protocol.Card, er
 	if !card.Paused {
 		return card, nil
 	}
+	if m.heldMessages(cardID) > 0 {
+		if err := m.checkBeforeSend(ctx, cardID); err != nil {
+			return protocol.Card{}, err
+		}
+	}
 	no := false
 	released, err := m.projects.SetHold(ctx, cardID, &no, nil)
 	if err != nil {

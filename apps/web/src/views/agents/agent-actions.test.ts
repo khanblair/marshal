@@ -39,6 +39,17 @@ describe("actionsFor", () => {
     ]);
   });
 
+  it("opens the card's chat from Resolve limit", () => {
+    const card = live("api#41");
+    card.state = "needs";
+    card.reasonKind = "limit";
+    const resolve = actionsFor(card)[0];
+    expect(resolve?.label).toBe("Resolve limit");
+    resolve?.run();
+    expect(M.S.openId).toBe(card.id);
+    expect(M.S.tab).toBe("chat");
+  });
+
   it("offers Wake instead of Sleep and no Stop on a sleeping card", () => {
     expect(labels("web#115")).toEqual(["Open", "Wake", "Pin"]);
   });
