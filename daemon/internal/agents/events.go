@@ -1,6 +1,9 @@
 package agents
 
-import "time"
+import (
+	"math"
+	"time"
+)
 
 // MaxContentBytes is the most text one event carries from a tool: its output and the text of its
 // diffs together. Events stay small because they cross the event bus, and what does not fit is
@@ -159,8 +162,19 @@ type Usage struct {
 	CostMicros int64
 }
 
+// ContextPercent returns a bounded percentage for one model request. Zero
+// represents missing data. Nonempty contexts always occupy at least one percent.
+func ContextPercent(tokens, window int64) int {
+	if tokens <= 0 || window <= 0 {
+		return 0
+	}
+	return int(math.Min(100, math.Ceil(100*float64(tokens)/float64(window))))
+}
+
 // TurnEnded says that a turn is over and the agent waits for the next message.
 type TurnEnded struct {
+	// ContextUsed is the latest measured window percentage, or zero when unavailable.
+	ContextUsed int
 	// Reason is one of the Turn constants.
 	Reason string
 	// Usage is what the turn used, or nil when the agent does not say.

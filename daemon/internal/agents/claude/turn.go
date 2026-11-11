@@ -2,6 +2,7 @@ package claude
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -23,6 +24,7 @@ func (s *session) send(msg agents.UserMessage) error {
 	}
 	needsRelaunch := s.resumeNeeded
 	s.turnActive = true
+	s.contextModel, s.contextTokens = "", 0
 	s.interrupted = false
 	s.mu.Unlock()
 
@@ -101,13 +103,17 @@ func (s *session) commitResumed(p *proc.Process, stdoutDone <-chan struct{}) err
 // endTurn is called with every "result" line. It clears the turn state and reports how the turn
 // ended, unless Interrupt already claimed it: the state is cleared before the event is sent, so a
 // reader that reacts to TurnEnded by sending again does not get ErrBusy.
-func (s *session) endTurn(m resultLine, usage *agents.Usage) {
+func (s *session) endTurn(m resultLine, reported usageLine) {
 	s.mu.Lock()
 	if !s.turnActive {
 		s.mu.Unlock()
 		return
 	}
 	s.turnActive = false
+	usage := reported.usageOf()
+	var window int64
+	_ = json.Unmarshal(reported.ModelUsage[s.contextModel].ContextWindow, &window)
+	contextUsed := agents.ContextPercent(s.contextTokens, window)
 	interrupted := s.interrupted
 	s.permissions = nil
 	s.interrupted = false
@@ -115,14 +121,14 @@ func (s *session) endTurn(m resultLine, usage *agents.Usage) {
 	s.mu.Unlock()
 
 	if interrupted {
-		s.emit(agents.TurnEnded{Reason: agents.TurnCancelled, Usage: usage})
+		s.emit(agents.TurnEnded{Reason: agents.TurnCancelled, Usage: usage, ContextUsed: contextUsed})
 		return
 	}
 	if m.IsError {
 		msg := resultFailureMessage(m)
 		s.emit(agents.Failed{Message: msg, Detail: resultFailureDetail(m), SignedOut: isSignedOut(msg)})
 	}
-	s.emit(agents.TurnEnded{Reason: turnReason(m), Usage: usage})
+	s.emit(agents.TurnEnded{Reason: turnReason(m), Usage: usage, ContextUsed: contextUsed})
 }
 
 // stopInterruptTimer stops and clears the interrupt grace timer. The caller holds s.mu.

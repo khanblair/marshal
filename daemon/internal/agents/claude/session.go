@@ -47,19 +47,21 @@ type session struct {
 	life       context.Context
 	lifeCancel context.CancelFunc
 
-	mu           sync.Mutex
-	id           string
-	commonArgs   []string
-	proc         *proc.Process
-	turnActive   bool
-	interrupted  bool
-	resumeNeeded bool
-	stopping     bool
-	ended        bool
-	endedInTurn  bool
-	interruptTmr *time.Timer
-	controlSeq   uint64
-	permissions  map[string]json.RawMessage
+	mu            sync.Mutex
+	id            string
+	commonArgs    []string
+	proc          *proc.Process
+	turnActive    bool
+	contextModel  string
+	contextTokens int64
+	interrupted   bool
+	resumeNeeded  bool
+	stopping      bool
+	ended         bool
+	endedInTurn   bool
+	interruptTmr  *time.Timer
+	controlSeq    uint64
+	permissions   map[string]json.RawMessage
 
 	stdinMu sync.Mutex
 

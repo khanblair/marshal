@@ -52,9 +52,27 @@ func (s *session) handleStreamEvent(line []byte) {
 // Only its tool_use blocks are new information here; text and thinking already arrived as
 // stream_event deltas, so taking them again here would show every answer twice.
 func (s *session) handleAssistant(line []byte) {
-	s.forEachBlock(line, "an assistant message", "tool_use", func(b contentBlock) agents.AgentEvent {
-		return toolCallEvent(b)
-	})
+	var m messageLine
+	if err := json.Unmarshal(line, &m); err != nil {
+		s.log.Warn("could not read an assistant message", "err", err)
+		return
+	}
+	// Child agents have separate context windows. Remember only the main agent's
+	// most recent request, including cached input.
+	var usage tokenUsage
+	if m.ParentToolUseID == nil && m.Message.Model != "" && json.Unmarshal(m.Message.Usage, &usage) == nil {
+		tokens := usage.input() + usage.OutputTokens
+		s.mu.Lock()
+		if s.turnActive && tokens > 0 {
+			s.contextModel, s.contextTokens = m.Message.Model, tokens
+		}
+		s.mu.Unlock()
+	}
+	for _, block := range m.Message.Content {
+		if block.Type == "tool_use" {
+			s.emit(toolCallEvent(block))
+		}
+	}
 }
 
 // handleUser reads a "user" line. In stream-json output this is Claude Code echoing a tool's
@@ -100,7 +118,7 @@ func (s *session) handleResult(line []byte) {
 		s.log.Warn("could not read a result from claude code", "err", err)
 		return
 	}
-	s.endTurn(m, usageOf(line))
+	s.endTurn(m, decodeUsage(line))
 }
 
 // handleAPIRetry turns Claude Code's "api_retry" line into a Retrying event, so a card can say its agent

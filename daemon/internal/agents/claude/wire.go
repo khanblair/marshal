@@ -55,8 +55,11 @@ type streamEventLine struct {
 // block, so only its tool_use blocks are new information here; its text and thinking already
 // arrived as stream_event deltas.
 type messageLine struct {
-	Message struct {
-		Content []contentBlock `json:"content"`
+	ParentToolUseID *string `json:"parent_tool_use_id"`
+	Message         struct {
+		Content []contentBlock  `json:"content"`
+		Model   string          `json:"model"`
+		Usage   json.RawMessage `json:"usage"`
 	} `json:"message"`
 }
 
@@ -87,29 +90,40 @@ type resultLine struct {
 
 // usageLine is the part of a result line that says what the turn cost.
 type usageLine struct {
-	TotalCostUSD float64 `json:"total_cost_usd"`
-	Usage        struct {
-		InputTokens         int64 `json:"input_tokens"`
-		OutputTokens        int64 `json:"output_tokens"`
-		CacheCreationTokens int64 `json:"cache_creation_input_tokens"`
-		CacheReadTokens     int64 `json:"cache_read_input_tokens"`
-	} `json:"usage"`
+	TotalCostUSD float64    `json:"total_cost_usd"`
+	Usage        tokenUsage `json:"usage"`
 	// ModelUsage is keyed by model name. The model with the highest cost names the turn.
 	ModelUsage map[string]struct {
-		CostUSD float64 `json:"costUSD"`
+		CostUSD       float64         `json:"costUSD"`
+		ContextWindow json.RawMessage `json:"contextWindow"`
 	} `json:"modelUsage"`
+}
+
+type tokenUsage struct {
+	InputTokens         int64 `json:"input_tokens"`
+	OutputTokens        int64 `json:"output_tokens"`
+	CacheCreationTokens int64 `json:"cache_creation_input_tokens"`
+	CacheReadTokens     int64 `json:"cache_read_input_tokens"`
+}
+
+func (u tokenUsage) input() int64 {
+	return u.InputTokens + u.CacheCreationTokens + u.CacheReadTokens
 }
 
 const microsPerDollar = 1_000_000
 
-// usageOf reads what a result line says the turn cost. It returns nil when the line says nothing
-// about it, or when its usage cannot be read: the cost is extra, and the turn ends either way.
-func usageOf(line []byte) *agents.Usage {
-	var u usageLine
-	if err := json.Unmarshal(line, &u); err != nil {
-		return nil
+// decodeUsage keeps optional measurements separate from the result that ends the turn.
+func decodeUsage(line []byte) usageLine {
+	var usage usageLine
+	if json.Unmarshal(line, &usage) != nil {
+		return usageLine{}
 	}
-	in := u.Usage.InputTokens + u.Usage.CacheCreationTokens + u.Usage.CacheReadTokens
+	return usage
+}
+
+// usageOf returns nil if the agent did not report any tokens or cost.
+func (u usageLine) usageOf() *agents.Usage {
+	in := u.Usage.input()
 	out := u.Usage.OutputTokens
 	cost := int64(math.Round(u.TotalCostUSD * microsPerDollar))
 	if in == 0 && out == 0 && cost == 0 {

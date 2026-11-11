@@ -30,6 +30,8 @@ func (s *session) dispatch(m rpcMessage) {
 			}
 			s.mu.Unlock()
 		}
+	case "thread/tokenUsage/updated":
+		s.updateContext(m.Params)
 	case "turn/completed":
 		var p struct {
 			Thread string `json:"threadId"`
@@ -84,6 +86,27 @@ func (s *session) dispatch(m rpcMessage) {
 		}
 	}
 }
+func (s *session) updateContext(raw json.RawMessage) {
+	var update struct {
+		Thread string `json:"threadId"`
+		Turn   string `json:"turnId"`
+		Usage  struct {
+			Last struct {
+				Tokens int64 `json:"totalTokens"`
+			} `json:"last"`
+			Window int64 `json:"modelContextWindow"`
+		} `json:"tokenUsage"`
+	}
+	if json.Unmarshal(raw, &update) != nil || update.Thread != s.threadID() || update.Turn == "" {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.busy && s.turn == update.Turn {
+		s.contextUsed = agents.ContextPercent(update.Usage.Last.Tokens, update.Usage.Window)
+	}
+}
+
 func (s *session) owns(thread, turn string) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()

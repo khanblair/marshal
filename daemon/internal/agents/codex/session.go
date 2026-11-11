@@ -49,6 +49,7 @@ type session struct {
 	next          atomic.Uint64
 	turn          string
 	busy          bool
+	contextUsed   int
 	closing       bool
 	done          chan struct{}
 	turnReady     chan struct{}
@@ -228,6 +229,7 @@ func (s *session) send(ctx context.Context, msg agents.UserMessage) error {
 		return agents.ErrBusy
 	}
 	s.busy = true
+	s.contextUsed = 0
 	s.turnReady = make(chan struct{})
 	s.turnReadyOnce = sync.Once{}
 	s.mu.Unlock()
@@ -346,6 +348,7 @@ func (s *session) endTurn(reason, detail string) {
 	}
 	s.busy = false
 	s.turn = ""
+	contextUsed := s.contextUsed
 	s.clearPendingLocked()
 	if s.turnReady != nil {
 		s.turnReadyOnce.Do(func() { close(s.turnReady) })
@@ -354,7 +357,7 @@ func (s *session) endTurn(reason, detail string) {
 	if detail != "" {
 		s.sink.Emit(agents.Failed{Message: detail})
 	}
-	s.sink.Emit(agents.TurnEnded{Reason: reason})
+	s.sink.Emit(agents.TurnEnded{Reason: reason, ContextUsed: contextUsed})
 }
 func (s *session) setTurn(id string) {
 	if id == "" {
