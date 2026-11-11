@@ -206,6 +206,8 @@ Phase 2 (core UI) is scoped as eight slices, A to H, in `backend-checklist.md` s
 
 ### 2026-11-11 — Desktop restart, preview, and card usage
 
+- GitHub CI rejected the Preview tab for exceeding the function line limit. Extracted the server start and stop actions and kept the lint rule enabled.
+
 - Restart the desktop shell before replacing the service. The new shell waits on its bundled startup screen and displays service startup errors.
 - Expand Preview inside Marshal on any screen and select a viewport without recreating the iframe. Separate stopping a managed server from disconnecting an attached address.
 - Use the recorded usage ledger for both the card and its budget. Save reported Claude Code and Codex context and show unavailable for cards without a measurement. The installed Reelcast card ledger held $9.54 and its stored context was zero.

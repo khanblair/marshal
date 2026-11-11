@@ -177,13 +177,34 @@ function NoPreview() {
   );
 }
 
+function createPreviewServerActions(cardId: Card["id"]) {
+  const [stopping, setStopping] = createSignal(false);
+  const [starting, setStarting] = createSignal(false);
+  async function stopServer() {
+    setStopping(true);
+    try {
+      await M.stopPreview(cardId);
+    } finally {
+      setStopping(false);
+    }
+  }
+  async function startServer() {
+    setStarting(true);
+    try {
+      await M.startPreview(cardId);
+    } finally {
+      setStarting(false);
+    }
+  }
+  return { starting, stopping, startServer, stopServer };
+}
+
 /** The Preview tab: start the card's dev server and see the app it serves. */
 export function PreviewTab(props: PreviewTabProps) {
   const state = () => previewState(props.card.id);
   const stopped = () => state() === "stopped";
   const [target, setTarget] = createSignal<string>();
-  const [stopping, setStopping] = createSignal(false);
-  const [starting, setStarting] = createSignal(false);
+  const { starting, stopping, startServer, stopServer } = createPreviewServerActions(props.card.id);
   const [connecting, setConnecting] = createSignal(false);
   const [connectError, setConnectError] = createSignal("");
   const [connected, setConnected] = createSignal<PreviewConnection>();
@@ -229,22 +250,6 @@ export function PreviewTab(props: PreviewTabProps) {
     setConnectError("");
     setTarget(undefined);
     M.setPreviewTarget(props.card.id, "");
-  }
-  async function stopServer() {
-    setStopping(true);
-    try {
-      await M.stopPreview(props.card.id);
-    } finally {
-      setStopping(false);
-    }
-  }
-  async function startServer() {
-    setStarting(true);
-    try {
-      await M.startPreview(props.card.id);
-    } finally {
-      setStarting(false);
-    }
   }
   let lastServerUrl = "";
   createEffect(() => {
