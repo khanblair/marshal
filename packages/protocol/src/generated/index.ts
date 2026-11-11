@@ -546,7 +546,9 @@ export interface Card {
    * one: architecture.md section 11.5 and the design-port deviations list).
    */
   ci?: CIState | null;
-  /** ContextUsed is how full the agent's context window is, as a percentage from 0 to 100. */
+  /** CostMicros is the total recorded usage for this card in micro-dollars. */
+  costMicros?: number /* int64 */;
+  /** ContextUsed is the latest measured window percentage. Zero means no reading. */
   contextUsed: number /* int */;
   /** NeedsReason is why the card waits on a person. Null unless State is needs. */
   needsReason?: NeedsReason | null;

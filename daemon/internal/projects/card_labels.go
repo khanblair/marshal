@@ -31,6 +31,11 @@ func (s *Service) cardWithLabels(ctx context.Context, row db.Card) (protocol.Car
 // read that fails is an error rather than a null: a card that said it had no session while it had
 // one would tell a client its agent is gone.
 func (s *Service) withSession(ctx context.Context, card protocol.Card) (protocol.Card, error) {
+	cost, err := s.store.Queries().SumUsageForCard(ctx, card.ID)
+	if err != nil {
+		return protocol.Card{}, fmt.Errorf("read usage for card %s: %w", card.ID, err)
+	}
+	card.CostMicros = cost
 	info, err := s.states.CardSession(ctx, card.ID)
 	if err != nil {
 		return protocol.Card{}, fmt.Errorf("read the session state of card %s: %w", card.ID, err)
@@ -62,7 +67,16 @@ func (s *Service) withSessions(ctx context.Context, projectID string, cards []pr
 	if err != nil {
 		return nil, fmt.Errorf("read the session states of project %s: %w", projectID, err)
 	}
+	totals, err := s.store.Queries().SumUsageByProjectCard(ctx, projectID)
+	if err != nil {
+		return nil, fmt.Errorf("read card usage for project %s: %w", projectID, err)
+	}
+	costs := make(map[string]int64, len(totals))
+	for _, total := range totals {
+		costs[total.CardID] = total.CostMicros
+	}
 	for i := range cards {
+		cards[i].CostMicros = costs[cards[i].ID]
 		if info, ok := infos[cards[i].ID]; ok {
 			cards[i] = withSessionInfo(cards[i], info)
 		}

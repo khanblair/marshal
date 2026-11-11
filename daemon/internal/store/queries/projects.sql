@@ -158,3 +158,6 @@ SELECT forked_from FROM cards WHERE id = ?;
 -- Moves a project's card counter past a number a fixture wrote, so the next card a person adds
 -- does not take a number that is already on the board. It never moves the counter backwards.
 UPDATE projects SET next_card_number = ? WHERE id = ? AND next_card_number < ?;
+
+-- name: SetCardContextUsed :exec
+UPDATE cards SET context_used = sqlc.arg(context_used) WHERE id = sqlc.arg(id) AND context_used <> sqlc.arg(context_used);

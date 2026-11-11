@@ -38,7 +38,8 @@ type fakeAgent struct {
 	// TurnEnded is always emitted after them, so a script never has to end its own turn.
 	turnScript []agents.AgentEvent
 	// turnUsage, when set, is the usage every ended turn reports, as Claude Code does.
-	turnUsage *agents.Usage
+	turnUsage   *agents.Usage
+	turnContext int
 	// startHold, when set, makes Start wait for a receive on it before returning, so a test can
 	// create a reliable window during which two Start calls for the same card overlap.
 	startHold chan struct{}
@@ -184,7 +185,7 @@ func (a *fakeAgent) runTurn(s *fakeSession, msg agents.UserMessage) {
 	a.mu.Lock()
 	hold := a.hold
 	script := append([]agents.AgentEvent(nil), a.turnScript...)
-	usage := a.turnUsage
+	usage, contextUsed := a.turnUsage, a.turnContext
 	a.mu.Unlock()
 	if hold != nil {
 		<-hold
@@ -200,7 +201,7 @@ func (a *fakeAgent) runTurn(s *fakeSession, msg agents.UserMessage) {
 	} else {
 		s.sink.Emit(agents.MessageChunk{Text: fmt.Sprintf("turn %d remembers %d earlier turns: %s", n, n-1, msg.Text)})
 	}
-	s.sink.Emit(agents.TurnEnded{Reason: agents.TurnEndTurn, Usage: usage})
+	s.sink.Emit(agents.TurnEnded{Reason: agents.TurnEndTurn, Usage: usage, ContextUsed: contextUsed})
 	s.mu.Lock()
 	s.busy = false
 	s.mu.Unlock()

@@ -3,6 +3,7 @@ package session
 import (
 	"github.com/khanblair/marshal/daemon/internal/agents"
 	"github.com/khanblair/marshal/daemon/internal/providers"
+	"github.com/khanblair/marshal/daemon/internal/store/db"
 )
 
 // recordUsage files what a finished turn cost, when the agent said. It runs before the session goes
@@ -24,5 +25,20 @@ func (m *Manager) recordUsage(ls *liveSession, ev agents.TurnEnded) {
 	})
 	if err != nil {
 		m.log.Error("could not record what a turn cost", ls.noun()+"_id", ls.key(), "error", err)
+	}
+}
+
+// recordContext saves the latest turn's measurement before the card update is published.
+func (m *Manager) recordContext(ls *liveSession, used int) {
+	if ls.isChat() {
+		return
+	}
+	err := m.store.Write(m.ctx, func(q *db.Queries) error {
+		return q.SetCardContextUsed(m.ctx, db.SetCardContextUsedParams{
+			ID: ls.cardID, ContextUsed: int64(used),
+		})
+	})
+	if err != nil {
+		m.log.Error("could not record card context", "card_id", ls.cardID, "error", err)
 	}
 }

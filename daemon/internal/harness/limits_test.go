@@ -15,11 +15,11 @@ import (
 // The ceiling is gone past only when the card is over it: the number a role allows is allowed.
 func TestACeilingIsGonePastOnlyWhenTheCardIsOverIt(t *testing.T) {
 	limits := harness.Limits{TurnMinutes: 5, CostDollars: 10, Rounds: 12}
-	at := harness.Usage{TurnMinutes: 5, CostDollars: 10, Rounds: 12}
+	at := harness.Usage{TurnMinutes: 5, CostMicros: 10_000_000, Rounds: 12}
 	if reason, hit := limits.Check(at); hit {
 		t.Errorf("a card exactly at its ceilings was stopped: %+v", reason)
 	}
-	over := harness.Usage{TurnMinutes: 6, CostDollars: 11, Rounds: 13}
+	over := harness.Usage{TurnMinutes: 6, CostMicros: 11_000_000, Rounds: 13}
 	if _, hit := limits.Check(over); !hit {
 		t.Error("a card over every ceiling was not stopped")
 	}
@@ -31,7 +31,7 @@ func TestAZeroCeilingIsNoCeiling(t *testing.T) {
 	if !limits.IsZero() {
 		t.Error("a limits with no numbers is not zero")
 	}
-	far := harness.Usage{TurnMinutes: 10_000, CostDollars: 10_000, Rounds: 10_000}
+	far := harness.Usage{TurnMinutes: 10_000, CostMicros: 10_000_000_000, Rounds: 10_000}
 	if reason, hit := limits.Check(far); hit {
 		t.Errorf("a role with no ceilings stopped a card: %+v", reason)
 	}
@@ -51,8 +51,8 @@ func TestEachCeilingStopsTheCardWithItsOwnSentence(t *testing.T) {
 			"This card's turn ran 9 minutes, past the role's 5 minute limit.",
 		},
 		{
-			"cost", harness.Limits{CostDollars: 3}, harness.Usage{CostDollars: 4},
-			"This card has cost $4, past the role's $3 limit.",
+			"cost", harness.Limits{CostDollars: 3}, harness.Usage{CostMicros: 4_540_000},
+			"This card has recorded $4.54 in usage, past the role's $3 limit.",
 		},
 		{
 			"rounds", harness.Limits{Rounds: 12}, harness.Usage{Rounds: 13},
@@ -79,7 +79,7 @@ func TestEachCeilingStopsTheCardWithItsOwnSentence(t *testing.T) {
 // then cost, then rounds. The same usage always answers the same way.
 func TestTheMostImmediateCeilingIsNamedFirst(t *testing.T) {
 	limits := harness.Limits{TurnMinutes: 1, CostDollars: 1, Rounds: 1}
-	over := harness.Usage{TurnMinutes: 2, CostDollars: 2, Rounds: 2}
+	over := harness.Usage{TurnMinutes: 2, CostMicros: 2_000_000, Rounds: 2}
 	reason, hit := limits.Check(over)
 	if !hit {
 		t.Fatal("a card over every ceiling was not stopped")
@@ -89,13 +89,13 @@ func TestTheMostImmediateCeilingIsNamedFirst(t *testing.T) {
 	}
 
 	// With the time ceiling satisfied, the cost ceiling is the next one named.
-	reason, _ = limits.Check(harness.Usage{TurnMinutes: 1, CostDollars: 2, Rounds: 2})
+	reason, _ = limits.Check(harness.Usage{TurnMinutes: 1, CostMicros: 2_000_000, Rounds: 2})
 	if !strings.Contains(reason.Text, "has cost") {
 		t.Errorf("text = %q, want the cost ceiling named next", reason.Text)
 	}
 
 	// And with time and cost satisfied, rounds is what stops the card.
-	reason, _ = limits.Check(harness.Usage{TurnMinutes: 1, CostDollars: 1, Rounds: 2})
+	reason, _ = limits.Check(harness.Usage{TurnMinutes: 1, CostMicros: 1_000_000, Rounds: 2})
 	if !strings.Contains(reason.Text, "has taken") {
 		t.Errorf("text = %q, want the round ceiling named last", reason.Text)
 	}

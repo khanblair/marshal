@@ -87,7 +87,7 @@ func (m *Manager) usageOf(ls *liveSession) (harness.Usage, error) {
 	}
 	return harness.Usage{
 		TurnMinutes: ls.turnMinutes(m.cfg.Now()),
-		CostDollars: int(micros / 1_000_000),
+		CostMicros:  micros,
 		Rounds:      int(rounds),
 	}, nil
 }
@@ -128,7 +128,7 @@ func (m *Manager) checkAfterTurn(ls *liveSession) bool {
 	}
 	m.stopCard(ls, reason, audit.ActionLimitReached, map[string]any{
 		cardIDDetailKey: ls.cardID, "role": card.Role, "reason": reason.Text,
-		"turnMinutes": usage.TurnMinutes, "costDollars": usage.CostDollars, "rounds": usage.Rounds,
+		"turnMinutes": usage.TurnMinutes, "costDollars": usage.WholeCostDollars(), "rounds": usage.Rounds,
 		"limits": limits,
 	})
 	return true

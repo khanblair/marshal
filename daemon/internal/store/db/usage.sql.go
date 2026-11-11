@@ -148,6 +148,40 @@ func (q *Queries) ListUsageForProject(ctx context.Context, arg ListUsageForProje
 	return items, nil
 }
 
+const sumUsageByProjectCard = `-- name: SumUsageByProjectCard :many
+SELECT card_id, CAST(SUM(cost_micros) AS INTEGER) AS cost_micros FROM usage
+WHERE project_id = ? AND card_id <> ''
+GROUP BY card_id
+`
+
+type SumUsageByProjectCardRow struct {
+	CardID     string
+	CostMicros int64
+}
+
+func (q *Queries) SumUsageByProjectCard(ctx context.Context, projectID string) ([]SumUsageByProjectCardRow, error) {
+	rows, err := q.db.QueryContext(ctx, sumUsageByProjectCard, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []SumUsageByProjectCardRow{}
+	for rows.Next() {
+		var i SumUsageByProjectCardRow
+		if err := rows.Scan(&i.CardID, &i.CostMicros); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const sumUsageForCard = `-- name: SumUsageForCard :one
 SELECT CAST(COALESCE(SUM(cost_micros), 0) AS INTEGER) AS cost_micros FROM usage WHERE card_id = ?
 `

@@ -2,6 +2,7 @@ package session_test
 
 import (
 	"context"
+	"crypto/rand"
 	"sync"
 	"testing"
 	"time"
@@ -78,5 +79,37 @@ func TestATurnThatReportsNoUsageRecordsNothing(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	if rows := rec.all(); len(rows) != 0 {
 		t.Errorf("recorded %+v, want nothing", rows)
+	}
+}
+
+func TestCardAndBoardShowTheRecordedCostAndMeasuredContext(t *testing.T) {
+	ctx := context.Background()
+	e := newEnv(t)
+	t.Cleanup(func() { _ = e.mgr.Close() })
+	project := e.project(t, "small-repo")
+	card := e.card(t, project.ID, "Add a health check")
+	const cost, contextUsed = 9_540_000, 42
+	recorder := providers.NewStoreRecorder(e.store, rand.Reader)
+	if err := recorder.Record(ctx, providers.UsageRecord{
+		CardID: card.ID, ProjectID: project.ID, Provider: "anthropic",
+		Model: "claude-sonnet-5-5", CostMicros: cost, At: time.Now(),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	e.agent.turnContext = contextUsed
+	startCard(t, e, card)
+	if err := e.mgr.Send(ctx, card.ID, "go"); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, "recorded cost and context", func() bool {
+		got, err := e.proj.Card(ctx, card.ID)
+		return err == nil && got.CostMicros == cost && got.ContextUsed == contextUsed
+	})
+	board, err := e.proj.Board(ctx, project.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(board.Cards) != 1 || board.Cards[0].CostMicros != cost || board.Cards[0].ContextUsed != contextUsed {
+		t.Fatalf("board cards = %+v, want one card with the recorded cost and context", board.Cards)
 	}
 }

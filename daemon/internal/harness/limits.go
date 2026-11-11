@@ -34,10 +34,17 @@ type Limits struct {
 type Usage struct {
 	// TurnMinutes is how long the turn that just ended ran, in whole minutes.
 	TurnMinutes int
-	// CostDollars is the card's spend so far, in whole dollars.
-	CostDollars int
+	// CostMicros is the card's recorded spend in micro-dollars.
+	CostMicros int64
 	// Rounds is the number of turns the card has taken, counting the one that just ended.
 	Rounds int
+}
+
+const microsPerDollar = 1_000_000
+
+// WholeCostDollars rounds down for the role's whole-dollar enforcement.
+func (u Usage) WholeCostDollars() int {
+	return int(u.CostMicros / microsPerDollar)
 }
 
 // Reason is why a card is stopped: the kind a client acts on and the sentence a person reads. A zero
@@ -59,10 +66,10 @@ func (l Limits) Check(u Usage) (Reason, bool) {
 		return Reason{Kind: protocol.NeedsReasonKindLimit, Text: fmt.Sprintf(
 			"This card's turn ran %d minutes, past the role's %d minute limit.",
 			u.TurnMinutes, l.TurnMinutes)}, true
-	case l.CostDollars > 0 && u.CostDollars > l.CostDollars:
+	case l.CostDollars > 0 && u.WholeCostDollars() > l.CostDollars:
 		return Reason{Kind: protocol.NeedsReasonKindLimit, Text: fmt.Sprintf(
-			"This card has cost $%d, past the role's $%d limit.",
-			u.CostDollars, l.CostDollars)}, true
+			"This card has recorded $%.2f in usage, past the role's $%d limit.",
+			float64(u.CostMicros)/microsPerDollar, l.CostDollars)}, true
 	case l.Rounds > 0 && u.Rounds > l.Rounds:
 		return Reason{Kind: protocol.NeedsReasonKindLimit, Text: fmt.Sprintf(
 			"This card has taken %d turns, past the role's limit of %d.",

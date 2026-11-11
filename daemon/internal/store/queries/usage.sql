@@ -32,3 +32,8 @@ LIMIT ?;
 -- cost ceiling (B5.3, docs/architecture.md section 9 step 4). A card with no provider call yet sums
 -- to zero, so a caller needs no special case for a card that has not spent anything.
 SELECT CAST(COALESCE(SUM(cost_micros), 0) AS INTEGER) AS cost_micros FROM usage WHERE card_id = ?;
+
+-- name: SumUsageByProjectCard :many
+SELECT card_id, CAST(SUM(cost_micros) AS INTEGER) AS cost_micros FROM usage
+WHERE project_id = ? AND card_id <> ''
+GROUP BY card_id;

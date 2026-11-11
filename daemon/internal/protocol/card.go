@@ -52,7 +52,9 @@ type Card struct {
 	// CI is the state of the card's CI run. Null when the card has no CI data (nothing invents
 	// one: architecture.md section 11.5 and the design-port deviations list).
 	CI *CIState `json:"ci" tstype:"CIState | null"`
-	// ContextUsed is how full the agent's context window is, as a percentage from 0 to 100.
+	// CostMicros is the total recorded usage for this card in micro-dollars.
+	CostMicros int64 `json:"costMicros,omitempty"`
+	// ContextUsed is the latest measured window percentage. Zero means no reading.
 	ContextUsed int `json:"contextUsed"`
 	// NeedsReason is why the card waits on a person. Null unless State is needs.
 	NeedsReason *NeedsReason `json:"needsReason" tstype:"NeedsReason | null"`

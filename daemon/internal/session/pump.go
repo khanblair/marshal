@@ -77,6 +77,7 @@ func (m *Manager) handleEvent(ls *liveSession, ev agents.AgentEvent) {
 		m.publishToolCall(ls, e)
 	case agents.TurnEnded:
 		m.recordUsage(ls, e)
+		m.recordContext(ls, e.ContextUsed)
 		m.onTurnEnded(ls)
 	case agents.TerminalOutput:
 		m.clearRetry(ls)

@@ -909,6 +909,20 @@ func (q *Queries) ReserveCardNumber(ctx context.Context, id string) (int64, erro
 	return column_1, err
 }
 
+const setCardContextUsed = `-- name: SetCardContextUsed :exec
+UPDATE cards SET context_used = ?1 WHERE id = ?2 AND context_used <> ?1
+`
+
+type SetCardContextUsedParams struct {
+	ContextUsed int64
+	ID          string
+}
+
+func (q *Queries) SetCardContextUsed(ctx context.Context, arg SetCardContextUsedParams) error {
+	_, err := q.db.ExecContext(ctx, setCardContextUsed, arg.ContextUsed, arg.ID)
+	return err
+}
+
 const setCardForkFields = `-- name: SetCardForkFields :execrows
 UPDATE cards SET forked_from = ?, doing_now = ?, updated_at = ? WHERE id = ?
 `
