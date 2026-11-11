@@ -204,6 +204,11 @@ Phase 2 (core UI) is scoped as eight slices, A to H, in `backend-checklist.md` s
 
 ## Session log
 
+### 2026-11-11 — Release v0.1.4 requested
+
+- Fast CI 43053846750 passed. The release workflow still requested the already published v0.1.3. Set the requested version to v0.1.4 so GitHub can build the next version after fast CI passes.
+- Full CI 43053848131 passed the macOS job. The browser container reached the build and failed when Go tried to read Git status. Marked the mounted checkout as safe for the container user and added a direct Git check before the build.
+
 ### 2026-11-11 — Full CI recovery
 
 - GitHub run 43049745755 found an outdated cost-warning assertion and Ubuntu mirror DNS failures during browser setup. Updated the assertion, added the harness suite to fast CI, and pinned the Linux browser job to the matching Playwright image.

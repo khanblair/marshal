@@ -85,6 +85,10 @@ jobs:
       options: --ipc=host
     steps:
       - uses: actions/checkout@v4
+      - name: Verify Git access to the mounted checkout
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git status --short
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
