@@ -64,7 +64,6 @@ export const cardsSyncer: Syncer<DaemonBoard[]> = {
 function storedCard(card: WireCard, now: number): Card {
   return {
     ...toStoredCard(card, now),
-    cost: 0,
     deps: [],
     members: [],
     checklists: [],

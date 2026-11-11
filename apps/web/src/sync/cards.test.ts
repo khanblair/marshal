@@ -146,14 +146,13 @@ describe("applying a snapshot", () => {
     });
   });
 
-  it("leaves the fields the daemon does not own alone, so the mock's own figures survive a reload", () => {
+  it("updates the recorded cost and preserves client-owned fields on reload", () => {
     const ctx = contextOf(createTestMarshal());
     ctx.S.cards = [];
     applyCardSnapshot(ctx, [boardOf("api", [api41()])]);
     const card = ctx.S.cards[0]!;
-    card.cost = 4.2;
     card.members = ["ada"];
-    applyCardSnapshot(ctx, [boardOf("api", [api41({ state: "review" })])]);
+    applyCardSnapshot(ctx, [boardOf("api", [api41({ state: "review", costMicros: 4_200_000 })])]);
     expect(ctx.S.cards[0]).toMatchObject({ cost: 4.2, members: ["ada"], state: "review" });
   });
 

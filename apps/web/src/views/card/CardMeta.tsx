@@ -19,8 +19,8 @@ function ContextMeter(props: { ctx: number }) {
   const percent = () => Math.round(props.ctx * PERCENT);
   const tip = () =>
     near()
-      ? "Context is near full. Auto-compaction starts at 90%. Add card notes to keep key facts."
-      : "Context window used. Auto-compaction starts at 90%.";
+      ? "Context is nearly full. Add card notes to keep key facts."
+      : "Context at the last reported turn.";
   return (
     <span title={tip()} class="inline-flex items-center gap-1.5">
       <span>Context</span>
@@ -110,8 +110,18 @@ export function CardMeta(props: CardMetaProps) {
       </Show>
       <TrelloMarker card={props.card} />
       <SharedFiles card={props.card} />
-      <IconLabel icon="circle-dollar-sign">{props.c.cost}</IconLabel>
-      <ContextMeter ctx={props.card.ctx} />
+      <IconLabel
+        icon="circle-dollar-sign"
+        title="Recorded usage. Subscription estimates are not charges."
+      >
+        {props.c.cost}
+      </IconLabel>
+      <Show
+        when={props.card.ctx > 0}
+        fallback={<span title="The agent has not reported context use.">Context unavailable</span>}
+      >
+        <ContextMeter ctx={props.card.ctx} />
+      </Show>
     </div>
   );
 }

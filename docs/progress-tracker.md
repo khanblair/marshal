@@ -204,6 +204,13 @@ Phase 2 (core UI) is scoped as eight slices, A to H, in `backend-checklist.md` s
 
 ## Session log
 
+### 2026-11-11 — Desktop restart, preview, and card usage
+
+- Restart the desktop shell before replacing the service. The new shell waits on its bundled startup screen and displays service startup errors.
+- Expand Preview inside Marshal on any screen and select a viewport without recreating the iframe. Separate stopping a managed server from disconnecting an attached address.
+- Use the recorded usage ledger for both the card and its budget. Save reported Claude Code and Codex context and show unavailable for cards without a measurement. The installed Reelcast card ledger held $9.54 and its stored context was zero.
+- Added regression coverage for frame retention, disconnect, cost and context. A signed desktop upgrade and the automated suites still need verification.
+
 ### 2026-11-10 — First automatic release run failed
 
 - The first automatic release run (`42706000182`, after `ci` passed on `b3c1516`) failed in `Select verified release commit` with "No commit found for SHA: v0.1.3". For a tag that does not exist yet, GitHub answers a commit lookup with 422, not 404, and `release-plan.mjs` treated only 404 as "missing". A new version could never start its first automatic release. A 422 whose message starts with "No commit found" now counts as missing; any other 422 still stops the release. The test fixture now answers like GitHub does, and a new test covers both cases.
@@ -263,6 +270,7 @@ Every file added, moved, renamed, or deleted in the repo. Newest first. The plan
 
 | Date | File | Change | Task | Notes |
 |---|---|---|---|---|
+| 2026-11-11 | `apps/web/src/views/card/LivePreview.tsx` | Added | Preview | In-window expansion, device sizes, and server controls. |
 | 2026-11-10 | `apps/web/e2e/support/{dropdown,card-details}.ts`, agent/hold specs | Added, Changed | Browser CI | Match custom menus and mobile disclosures; derive catalog expectations from the daemon. |
 | 2026-11-10 | `daemon/cmd/marshald/keychain{,_test}.go`, module wiring, browser setup/config, CI | Added, Changed | Browser CI | Isolate explicit stub fixtures from desktop credentials and fail early with diagnostics. |
 | 2026-11-09 | `.github/release.json`, `apps/desktop/scripts/release-plan{,.test}.mjs`, workflows, desktop package scripts, catalog PATH test | Added, Changed | Release order | Event driven CI to dual-platform build to verified publication; focused early regressions. |
@@ -272,9 +280,6 @@ Every file added, moved, renamed, or deleted in the repo. Newest first. The plan
 | 2026-11-09 | `daemon/internal/chatcmd/control{,_test}.go`, `daemon/cmd/marshald/chat_control{,_test}.go` | Added | Remote coding | Route bot coding commands through the real session, history, and completion services. |
 | 2026-11-05 | `README.md` | Added | Docs | Add a GitHub entry point for users and developers. |
 | 2026-11-05 | `install.sh` | Added | 0.14 | Install the public universal DMG from Terminal and preserve existing app copies. |
-| 2026-11-05 | `apps/desktop/src-tauri/entitlements.plist`, `apps/desktop/scripts/check-bundle.mjs`; desktop config, package scripts, release workflow | Added, Changed | 0.14 | Allow the secret scanner’s generated code under hardened runtime and gate release publication on a signed-archive CLI/server check. |
-| 2026-11-05 | `apps/web/src/features/updates/*`, `views/settings/UpdatesSection{,.test}.tsx`, `apps/desktop/scripts/prepare-release{,.test}.mjs`, `apps/desktop/src-tauri/permissions/updates.toml`, `docs/app-updates.md`; existing desktop/update/release/navigation files | Added, Changed | Updates | Add visible signed app-update controls and release plumbing. |
-| 2026-11-05 | `daemon/internal/session/oneshot_internal_test.go`, `oneshot_failure_test.go`, `oneshot.go` | Added, Changed | Verification | Preserve the actual review failure instead of returning partial text as an answer. |
 
 ---
 
@@ -286,6 +291,7 @@ Every change to a doc. Newest first.
 
 | Date | Doc | Change |
 |---|---|---|
+| 2026-11-11 | `app-updates.md`, `mobile.md`, `agent-sessions.md`, `project-structure.md`, `progress-tracker.md` | Recorded desktop restart recovery, preview controls, and usage readings. |
 | 2026-11-10 | `project-structure.md`, `progress-tracker.md` | Recorded browser fixture recovery and current picker contracts, with CI/release still pending. |
 | 2026-11-10 | `development.md`, `project-structure.md`, `progress-tracker.md` | Documented headless fixture credentials, startup assertions, browser failure bounds, and actual successful CI gates. |
 | 2026-11-09 | `app-updates.md`, `development.md`, `project-structure.md`, `progress-tracker.md` | Replaced manual tag-triggered release instructions with the CI completion chain, blocking rules, and pending validation status. |
@@ -295,9 +301,6 @@ Every change to a doc. Newest first.
 | 2026-11-09 | `agent-sessions.md`, `mobile.md`, `marshal-product-scope.md`, `project-structure.md`, `progress-tracker.md` | Documented bot coding commands and the current limits of project previews on phones. |
 | 2026-11-05 | `agent-sessions.md`, `ui-rules.md` | Documented the Codex startup check, the verified CLI version, and where to find version numbers. |
 | 2026-11-05 | `README.md`, `direct-workspace.md`, `marshal-product-scope.md` | Documented adding a local folder and how Marshal sets up local Git for card diffs. |
-| 2026-11-05 | `README.md`, `development.md`, `project-structure.md`, `progress-tracker.md` | Added the root README and corrected desktop development prerequisites. |
-| 2026-11-05 | `app-updates.md`, `project-structure.md`, `progress-tracker.md` | Documented fresh installation from Terminal and its verification. |
-| 2026-11-05 | `app-updates.md`, `README.md`, `project-structure.md`, `development.md`, `progress-tracker.md` | Documented the update flow, signed release setup, browser/mobile limits, and acceptance checks. |
 
 ---
 

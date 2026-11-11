@@ -93,3 +93,10 @@ For the owner-requested complete coding check, `node scripts/coding-task-smoke.m
 An app opened from Finder can inherit a short system PATH. Agent subprocesses, local workflow checks, and preview dev commands recover only PATH from the user's login shell with a three-second bound and a one-minute cache. Standard Bun, npm, Homebrew, pnpm, Cargo, Go, pyenv, asdf, and mise folders supplement discovery. Workflow PATH entries remain authoritative. No other shell variables or credentials are imported.
 
 Project `.venv`/`venv`, `node_modules/.bin`, and `vendor/bin` folders take priority when present. This supports locally installed Python/Django, JavaScript workspaces, and PHP/Laravel tools without hard-coded paths in the project's CI workflow. It does not install missing runtimes or dependencies, reproduce hosted CI setup actions, or override a project's version-manager requirements. Steps run in their configured project working folder and retain bounded stderr as well as stdout, so missing commands have visible diagnostics.
+
+
+## Card usage
+
+The card header and role budget check read the same recorded usage ledger. The header shows cents. A CLI may report a pay-per-token estimate for a subscription. Historical warnings keep their original wording.
+
+Claude Code context uses the last main-agent response's input, cached input, and output tokens together with the window size reported for that model. Codex reports the most recent request's total and the model window. Marshal saves the measurement when the turn ends. Missing measurements, including cards with no reported turn yet, display **Context unavailable**.

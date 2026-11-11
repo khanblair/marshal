@@ -18,6 +18,7 @@ import type {
   Card as WireCard,
 } from "@marshal/protocol";
 import { agentKindOf, permissionModeOf, thinkingModeOf } from "~/data/mappers/card";
+import { dollarsToMicros } from "~/data/mappers/limits";
 import type { Ctx } from "~/mock/context";
 import { createIds } from "~/mock/ids";
 import { seedCardExtras } from "~/mock/seed/card-extras";
@@ -139,6 +140,7 @@ const wireFrom = (card: Card, base: number): WireCard =>
     due: atDay(base, card.due),
     pullRequest: card.pr === null ? null : { number: card.pr, url: "" },
     ci: card.ci,
+    costMicros: dollarsToMicros(card.cost),
     contextUsed: Math.round(card.ctx * PERCENT),
     needsReason: wireReason(card),
     doingNow: card.doing,

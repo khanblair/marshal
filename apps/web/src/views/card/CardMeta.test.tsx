@@ -69,3 +69,12 @@ describe("CardMeta files shared with other cards", () => {
     expect(screen.queryByText(/Shares/)).toBeNull();
   });
 });
+
+it("shows measured context and identifies missing readings", () => {
+  const card = cardOf("api#41");
+  card.ctx = 0;
+  show();
+  expect(screen.getByText("Context unavailable")).toBeInTheDocument();
+  card.ctx = 0.42;
+  expect(screen.getByText("42%")).toBeInTheDocument();
+});

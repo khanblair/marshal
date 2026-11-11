@@ -415,3 +415,21 @@ Older log entries moved out of `../progress-tracker.md` to keep the live tracker
 _Older entries: [archive/progress-tracker-archive-2026-10.md](archive/progress-tracker-archive-2026-10.md)._
 
 Newest entries first.
+
+## Archived on 2026-11-11
+
+### File changes log
+
+| Date | File | Change | Task | Notes |
+|---|---|---|---|---|
+| 2026-11-05 | `apps/desktop/src-tauri/entitlements.plist`, `apps/desktop/scripts/check-bundle.mjs`; desktop config, package scripts, release workflow | Added, Changed | 0.14 | Allow the secret scanner’s generated code under hardened runtime and gate release publication on a signed-archive CLI/server check. |
+| 2026-11-05 | `apps/web/src/features/updates/*`, `views/settings/UpdatesSection{,.test}.tsx`, `apps/desktop/scripts/prepare-release{,.test}.mjs`, `apps/desktop/src-tauri/permissions/updates.toml`, `docs/app-updates.md`; existing desktop/update/release/navigation files | Added, Changed | Updates | Add visible signed app-update controls and release plumbing. |
+| 2026-11-05 | `daemon/internal/session/oneshot_internal_test.go`, `oneshot_failure_test.go`, `oneshot.go` | Added, Changed | Verification | Preserve the actual review failure instead of returning partial text as an answer. |
+
+### Doc changes log
+
+| Date | Doc | Change |
+|---|---|---|
+| 2026-11-05 | `README.md`, `development.md`, `project-structure.md`, `progress-tracker.md` | Added the root README and corrected desktop development prerequisites. |
+| 2026-11-05 | `app-updates.md`, `project-structure.md`, `progress-tracker.md` | Documented fresh installation from Terminal and its verification. |
+| 2026-11-05 | `app-updates.md`, `README.md`, `project-structure.md`, `development.md`, `progress-tracker.md` | Documented the update flow, signed release setup, browser/mobile limits, and acceptance checks. |

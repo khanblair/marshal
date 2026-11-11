@@ -18,6 +18,7 @@ import {
   type Card as WireCard,
 } from "@marshal/protocol";
 import { startOfDay } from "../zone";
+import { microsToDollars } from "./limits";
 import { toMillis } from "./time";
 
 /** A day in milliseconds, for the day numbers the Timeline and the calendar draw. */
@@ -34,7 +35,7 @@ const DAY_MS = 86_400_000;
  *   - The daemon sends `claude`, `auto-edits`, and `high`. The screens show "Claude Code",
  *     "Auto-accept edits", and "High".
  *   - The daemon has timestamps; the Timeline and the calendar draw day numbers relative to today.
- *   - The daemon has no dependencies, members, checklists, comments, or cost yet (their own
+ *   - The daemon has no dependencies, members, checklists, or comments in this payload (their own
  *     phases), so a real card carries none, and the parts of a card that own them show their empty
  *     states.
  */
@@ -224,6 +225,7 @@ export interface DaemonCard {
   e: number | null;
   due: number | null;
   ctx: number;
+  cost: number;
   upd: number;
   pr: number | null;
 }
@@ -264,6 +266,7 @@ export function toStoredCard(card: WireCard, now: number): DaemonCard {
     e: dayOf(now, card.plannedEnd ? toMillis(card.plannedEnd) : null),
     due: dayOf(now, card.due ? toMillis(card.due) : null),
     ctx: card.contextUsed / PERCENT,
+    cost: microsToDollars(card.costMicros ?? 0),
     upd: toMillis(card.updatedAt),
     pr: card.pullRequest?.number ?? null,
   };
