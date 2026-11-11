@@ -49,29 +49,34 @@ async fn on_ready(app: tauri::AppHandle) {
     #[cfg(not(debug_assertions))]
     {
         use tauri::Manager;
-        if daemon::ensure_running(app.clone()).await {
-            let token = daemon::owner_token(&app).await;
+        if let Err(error) = daemon::ensure_running(&app).await {
+            eprintln!("{error}");
+            notifications::notify(&app, "Marshal could not start", &error);
             if let Some(window) = app.get_webview_window("main") {
-                if let Ok(url) = daemon::url().parse() {
-                    let _ = window.navigate(url);
-                }
-                // "The desktop app gets one on install" (docs/architecture.md): sign the window
-                // in with the owner's own token, the same one `marshal token --show` prints, so
-                // the person never sees the plain-browser sign-in screen on this machine. The
-                // navigation above only starts loading the new page; a few short retries give it
-                // time to reach a document `eval` can run against before giving up quietly (a
-                // failure here just leaves the sign-in screen showing, not a crash).
-                if let Some(token) = token {
-                    seed_token(&window, &token).await;
-                }
+                let detail = serde_json::Value::String(error);
+                let _ = window.eval(format!(
+                    "document.getElementById('startup-status').textContent = 'Could not start Marshal';\
+                     document.getElementById('startup-detail').textContent = {detail};\
+                     document.getElementById('startup-recovery').hidden = false;\
+                     document.getElementById('startup-spinner').hidden = true;"
+                ));
             }
-        } else {
-            notifications::notify(
-                &app,
-                "Marshal could not start",
-                "The daemon did not answer in time. Try opening Marshal again, or run \
-                 `marshal service status` from a terminal to see what it says.",
-            );
+            return;
+        }
+        let token = daemon::owner_token(&app).await;
+        if let Some(window) = app.get_webview_window("main") {
+            if let Ok(url) = daemon::url().parse() {
+                let _ = window.navigate(url);
+            }
+            // "The desktop app gets one on install" (docs/architecture.md): sign the window
+            // in with the owner's own token, the same one `marshal token --show` prints, so
+            // the person never sees the plain-browser sign-in screen on this machine. The
+            // navigation above only starts loading the new page; a few short retries give it
+            // time to reach a document `eval` can run against before giving up quietly (a
+            // failure here just leaves the sign-in screen showing, not a crash).
+            if let Some(token) = token {
+                seed_token(&window, &token).await;
+            }
         }
     }
 }

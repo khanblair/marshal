@@ -5,7 +5,6 @@
 
 use std::time::Duration;
 
-use tauri_plugin_shell::process::CommandEvent;
 use tauri_plugin_shell::ShellExt;
 
 /// The daemon's normal (non-dev) port, `internal/config.DefaultPort`. The desktop app always
@@ -47,48 +46,40 @@ async fn healthy(expected_version: &str) -> bool {
     }
 }
 
-/// Runs the bundled `marshal` sidecar's `service install`, the same command
-/// `marshal service install` runs from a terminal (cmd/marshal/cmd_service.go): it installs the
-/// per-user launchd agent for `marshald` if it is not there yet, and starts it either way. Errors
-/// are logged, not surfaced as a hard failure here: the health poll after this call is what
-/// actually decides whether the app can proceed, since an install racing an already-starting
-/// daemon is expected, not exceptional.
-fn install_service(app: &tauri::AppHandle) {
-    let shell = app.shell();
-    let Ok((mut rx, _child)) = shell
-        .sidecar("marshal")
-        .and_then(|c| c.args(["service", "install"]).spawn())
-    else {
-        eprintln!("marshal service install: could not start the sidecar");
-        return;
-    };
-    tauri::async_runtime::spawn(async move {
-        while let Some(event) = rx.recv().await {
-            if let CommandEvent::Stderr(line) = event {
-                eprintln!(
-                    "marshal service install: {}",
-                    String::from_utf8_lossy(&line)
-                );
-            }
-        }
-    });
-}
-
-/// Ensures the daemon is reachable, installing and starting its service if it was not already
-/// running. Returns once it answers, or once `READY_TIMEOUT` passes without an answer.
-pub async fn ensure_running(app: tauri::AppHandle) -> bool {
-    if healthy(&app.package_info().version.to_string()).await {
-        return true;
+/// Keep a matching service. Otherwise run the installer from this shell's bundle
+/// and wait for the new version before loading the daemon-served page.
+pub async fn ensure_running(app: &tauri::AppHandle) -> Result<(), String> {
+    let expected = app.package_info().version.to_string();
+    if healthy(&expected).await {
+        return Ok(());
     }
-    install_service(&app);
+    let install = app
+        .shell()
+        .sidecar("marshal")
+        .map_err(|e| e.to_string())?
+        .args(["service", "install"])
+        .output();
+    let output = tokio::time::timeout(READY_TIMEOUT, install)
+        .await
+        .map_err(|_| "Installing the background service took too long.".to_string())?
+        .map_err(|e| e.to_string())?;
+    if !output.status.success() {
+        let detail = String::from_utf8_lossy(&output.stderr);
+        return Err(format!(
+            "The background service could not be installed. {}",
+            detail.trim()
+        ));
+    }
     let deadline = std::time::Instant::now() + READY_TIMEOUT;
     while std::time::Instant::now() < deadline {
-        if healthy(&app.package_info().version.to_string()).await {
-            return true;
+        if healthy(&expected).await {
+            return Ok(());
         }
         tokio::time::sleep(POLL_INTERVAL).await;
     }
-    false
+    Err(format!(
+        "The background service did not answer with version {expected}."
+    ))
 }
 
 /// The owner's own access token, the same one `marshal token --show` prints
@@ -118,28 +109,4 @@ pub async fn owner_token(app: &tauri::AppHandle) -> Option<String> {
     } else {
         Some(token)
     }
-}
-
-/// Reinstall the updated bundled service before restarting the shell, so its web UI and daemon
-/// advance together. Only the explicit Restart action calls this; normal launches keep sessions.
-pub async fn replace_service(app: &tauri::AppHandle, expected_version: &str) -> Result<(), String> {
-    let output = app
-        .shell()
-        .sidecar("marshal")
-        .map_err(|e| e.to_string())?
-        .args(["service", "install"])
-        .output()
-        .await
-        .map_err(|e| e.to_string())?;
-    if !output.status.success() {
-        return Err("The updated daemon could not restart. Try Restart again.".into());
-    }
-    let deadline = std::time::Instant::now() + READY_TIMEOUT;
-    while std::time::Instant::now() < deadline {
-        if healthy(expected_version).await {
-            return Ok(());
-        }
-        tokio::time::sleep(POLL_INTERVAL).await;
-    }
-    Err("The updated daemon did not answer. Try Restart again.".into())
 }

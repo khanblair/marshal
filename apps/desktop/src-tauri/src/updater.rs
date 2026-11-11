@@ -161,25 +161,17 @@ pub async fn restart_updated_app(
     state: State<'_, UpdateState>,
 ) -> Result<(), String> {
     authorize(&window)?;
-    let target = {
+    {
         let mut pending = state.0.lock().map_err(|e| e.to_string())?;
         if pending.snapshot.status != "installed" {
             return Err("Install the update before restarting.".into());
         }
         pending.snapshot.status = "restarting".into();
-        pending
-            .snapshot
-            .version
-            .clone()
-            .ok_or("The installed update version is missing.")?
-    };
-    if let Err(err) = crate::daemon::replace_service(&app, &target).await {
-        let mut pending = state.0.lock().map_err(|e| e.to_string())?;
-        pending.snapshot.status = "installed".into();
-        pending.snapshot.error = Some(err.clone());
-        return Err(err);
     }
-    app.restart();
+    // Keep the current daemon serving the window until the shell exits. The new
+    // shell starts on the bundled splash and replaces the daemon if needed.
+    app.request_restart();
+    Ok(())
 }
 #[cfg(test)]
 mod tests {
