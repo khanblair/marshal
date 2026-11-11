@@ -8,6 +8,7 @@ import {
 import { Button, Icon } from "@marshal/ui";
 import { createEffect, createSignal, Index, onCleanup, Show } from "solid-js";
 import { type Card, M } from "~/mock";
+import { LivePreview } from "./LivePreview";
 import { isLoopbackHttpUrl } from "./preview-link";
 import {
   DARK_PREVIEW_CARD_ID,
@@ -180,7 +181,9 @@ function NoPreview() {
 export function PreviewTab(props: PreviewTabProps) {
   const state = () => previewState(props.card.id);
   const stopped = () => state() === "stopped";
-  const [target, setTarget] = createSignal("");
+  const [target, setTarget] = createSignal<string>();
+  const [stopping, setStopping] = createSignal(false);
+  const [starting, setStarting] = createSignal(false);
   const [connecting, setConnecting] = createSignal(false);
   const [connectError, setConnectError] = createSignal("");
   const [connected, setConnected] = createSignal<PreviewConnection>();
@@ -192,16 +195,14 @@ export function PreviewTab(props: PreviewTabProps) {
     requestId += 1;
   });
   const daemonPreview = () => M.previewOnDaemon();
-  const targetUrl = () => target() || M.previewTarget(props.card.id) || previewUrl(props.card.id);
+  const targetUrl = () => target() ?? savedTargetUrl();
   const savedTargetUrl = () => M.previewTarget(props.card.id) || previewUrl(props.card.id);
   const connection = () => {
     const current = connected();
-    return current &&
-      current.sourceUrl === targetUrl() &&
-      Date.parse(current.expiresAt) > Date.now()
-      ? current
-      : undefined;
+    return current && Date.parse(current.expiresAt) > Date.now() ? current : undefined;
   };
+  const external = () =>
+    Boolean(connection() && connection()?.sourceUrl !== previewUrl(props.card.id));
   const connect = async (url = targetUrl()) => {
     if (!url) return;
     if (!isLoopbackHttpUrl(url)) {
@@ -211,18 +212,54 @@ export function PreviewTab(props: PreviewTabProps) {
     const currentRequest = ++requestId;
     setConnecting(true);
     setConnectError("");
-    M.setPreviewTarget(props.card.id, url);
+    const managed = url === previewUrl(props.card.id);
+    M.setPreviewTarget(props.card.id, managed ? "" : url);
     const result = await M.connectPreview(props.card.id, url);
     if (disposed || currentRequest !== requestId) return;
-    setConnected(result ?? undefined);
     setConnecting(false);
+    if (managed && previewUrl(props.card.id) !== url) return;
+    setConnected(result ?? undefined);
     if (!result)
       setConnectError("Could not connect to this preview. Check the address and try again.");
   };
+  function disconnect() {
+    requestId += 1;
+    setConnected(undefined);
+    setConnecting(false);
+    setConnectError("");
+    setTarget(undefined);
+    M.setPreviewTarget(props.card.id, "");
+  }
+  async function stopServer() {
+    setStopping(true);
+    try {
+      await M.stopPreview(props.card.id);
+    } finally {
+      setStopping(false);
+    }
+  }
+  async function startServer() {
+    setStarting(true);
+    try {
+      await M.startPreview(props.card.id);
+    } finally {
+      setStarting(false);
+    }
+  }
+  let lastServerUrl = "";
+  createEffect(() => {
+    const url = previewUrl(props.card.id);
+    if (lastServerUrl && !url) {
+      if (connected()?.sourceUrl === lastServerUrl) disconnect();
+      if (autoAttempted() === lastServerUrl) setAutoAttempted("");
+    }
+    lastServerUrl = url;
+  });
   createEffect(() => {
     const url = savedTargetUrl();
     if (
       daemonPreview() &&
+      !connection() &&
       url &&
       (state() === "running" || M.previewTarget(props.card.id)) &&
       autoAttempted() !== url
@@ -236,7 +273,7 @@ export function PreviewTab(props: PreviewTabProps) {
       <Show when={props.card.p === "api" && !daemonPreview()}>
         <NoPreview />
       </Show>
-      <Show when={props.card.p !== "api" || daemonPreview()}>
+      <Show when={(props.card.p !== "api" || daemonPreview()) && (!external() || !stopped())}>
         <div class="flex items-center gap-2">
           <div class="flex-1 min-w-0 flex items-center gap-2 h-8 px-2.5 rounded-sm border border-border-strong bg-surface-sunken">
             <Show when={state() === "starting"}>
@@ -259,24 +296,20 @@ export function PreviewTab(props: PreviewTabProps) {
           <Button
             variant={stopped() ? "primary" : "secondary"}
             class="font-semibold!"
-            onClick={() =>
-              stopped() ? void M.startPreview(props.card.id) : void M.stopPreview(props.card.id)
-            }
+            disabled={starting() || stopping()}
+            onClick={() => (stopped() ? void startServer() : void stopServer())}
           >
-            {stopped() ? "Start preview" : "Stop preview"}
+            {stopped() ? "Start preview" : "Stop preview server"}
           </Button>
         </div>
         <span class="text-small text-secondary">{previewStatus(props.card.id)}</span>
-        <Show when={state() === "running"}>
-          <Show when={!daemonPreview()}>
-            <PagePreview card={props.card} />
-          </Show>
-          <Show when={props.card.p !== "api"}>
-            <Screenshots card={props.card} />
-          </Show>
-        </Show>
       </Show>
       <Show when={daemonPreview()}>
+        <Show when={external()}>
+          <p class="m-0 text-small text-secondary">
+            Connected to a server started outside Preview. Stop it where it was started.
+          </p>
+        </Show>
         <div class="flex flex-wrap items-center gap-2">
           <label class="sr-only" for={`preview-url-${props.card.id}`}>
             Preview address
@@ -316,14 +349,22 @@ export function PreviewTab(props: PreviewTabProps) {
           }
         >
           {(connected) => (
-            <iframe
-              title="Live project preview"
-              src={connected().url}
-              sandbox="allow-scripts allow-same-origin allow-forms"
-              referrerPolicy="no-referrer"
-              class="w-full min-h-75 flex-1 rounded-md border border-border bg-surface"
+            <LivePreview
+              url={connected().url}
+              external={external()}
+              stopping={stopping()}
+              onStop={() => void stopServer()}
+              onDisconnect={disconnect}
             />
           )}
+        </Show>
+      </Show>
+      <Show when={state() === "running"}>
+        <Show when={!daemonPreview()}>
+          <PagePreview card={props.card} />
+        </Show>
+        <Show when={props.card.p !== "api"}>
+          <Screenshots card={props.card} />
         </Show>
       </Show>
     </div>

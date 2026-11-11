@@ -269,6 +269,7 @@ Desktop `src-tauri/entitlements.plist` grants the executable-memory exception ne
 - `daemon/internal/preview/connect.go`, `internal/previewrelay/`: isolated live preview gateways, one-use bootstrap authorization, root-path HTTP/WebSocket forwarding, and security regression cases.
 - `daemon/internal/tailnet/preview_exposure*.go`: additive private Serve exposure, safe cleanup, and embedded-node forwarding.
 - `apps/web/src/features/chat/{AgentActivity.tsx,agent-activity*.ts}`: state-driven activity feedback.
+- `apps/web/src/views/card/LivePreview.tsx`: app-window expansion and device viewport controls for the live preview frame.
 - `apps/web/src/views/card/{details-collapsed*.ts,preview-link*.ts}`: device-specific disclosure preferences and local preview links. The old `BypassBanner.tsx` was removed.
 - `apps/web/src/platform/native-system-bars*.ts`, `apps/mobile/src-tauri/src/system_bars.rs`, `native/system-bars/SystemBarsPlugin.kt`: narrow Android system-bar theme bridge. `patch-android.mjs` copies the Kotlin source into generated Android output.
 

@@ -78,7 +78,7 @@ describe("a card's preview on the daemon", () => {
     fireEvent.click(screen.getByRole("button", { name: "Start preview" }));
     await vi.waitFor(() => expect(status()).toHaveTextContent("Running pnpm dev on port 5100"));
     expect(screen.getByText("http://127.0.0.1:5100")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Stop preview" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Stop preview server" })).toBeInTheDocument();
     expect(daemon.routes()).toContain(route(WEB, "start"));
   });
 
@@ -94,11 +94,41 @@ describe("a card's preview on the daemon", () => {
     expect(daemon.routes()).toContain(`POST /v1/cards/${daemonId(WEB)}/preview/connect`);
   });
 
+  it("keeps the iframe in place when expanding and selecting a phone viewport", async () => {
+    fireEvent.click(
+      render(() => <PreviewTab card={card(WEB)} />).getByRole("button", {
+        name: "Start preview",
+      }),
+    );
+    const frame = await screen.findByTitle("Live project preview");
+    const dialog = screen.getByRole("dialog", { name: "Project preview" }) as HTMLDialogElement;
+    dialog.showModal = vi.fn(() => dialog.setAttribute("open", ""));
+    dialog.close = vi.fn(() => dialog.removeAttribute("open"));
+    fireEvent.click(screen.getByRole("button", { name: "Expand preview" }));
+    expect(dialog.showModal).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByRole("combobox", { name: "Preview viewport" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: /Mobile/ }));
+    expect(frame).toHaveStyle({ width: "375px", height: "812px" });
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    expect(dialog.close).toHaveBeenCalledOnce();
+    expect(screen.getByTitle("Live project preview")).toBe(frame);
+  });
+
+  it("disconnects an attached server without stopping it", async () => {
+    M.setPreviewTarget(WEB, "http://localhost:3000");
+    render(() => <PreviewTab card={card(WEB)} />);
+    await screen.findByTitle("Live project preview");
+    expect(screen.queryByText("No server running")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Disconnect" }));
+    expect(screen.queryByTitle("Live project preview")).not.toBeInTheDocument();
+    expect(daemon.routes()).not.toContain(route(WEB, "stop"));
+  });
+
   it("stops it again, and the daemon says it is stopped", async () => {
     render(() => <PreviewTab card={card(WEB)} />);
     fireEvent.click(screen.getByRole("button", { name: "Start preview" }));
     await vi.waitFor(() => expect(status()).toHaveTextContent("Running pnpm dev on port 5100"));
-    fireEvent.click(screen.getByRole("button", { name: "Stop preview" }));
+    fireEvent.click(screen.getByRole("button", { name: "Stop preview server" }));
     await vi.waitFor(() => expect(status()).toHaveTextContent(/^Stopped\./));
     expect(screen.getByText("No server running")).toBeInTheDocument();
     expect(daemon.routes()).toContain(route(WEB, "stop"));
