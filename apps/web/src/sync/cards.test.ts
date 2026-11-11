@@ -1,6 +1,7 @@
 import type { Card as WireCard } from "@marshal/protocol";
 import { createEffect, createRoot } from "solid-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { ApiError } from "~/data/api-error";
 import { toDaemonProject } from "~/data/mappers/project";
 import { sectionStatus } from "~/data/sections";
 import type { Ctx } from "~/mock/context";
@@ -72,6 +73,17 @@ describe("the cards section", () => {
     expect(d.routes()).toContain("GET /v1/projects/api/board");
     expect(d.routes()).toContain("GET /v1/projects/web/board");
     expect(d.routes()).toContain("GET /v1/projects/mobile/board");
+    expect(keys(M)).toEqual(["api#41"]);
+  });
+
+  it("loads the remaining boards when a project disappears during startup", async () => {
+    const d = open({ projects: PROTOTYPE_PROJECTS, cards: [api41()] });
+    const read = d.data.api.board.bind(d.data.api);
+    const missing = new ApiError({ code: "not_found", message: "Project removed", status: 404 });
+    vi.spyOn(d.data.api, "board").mockImplementation((id) =>
+      id === "web" ? Promise.reject(missing) : read(id),
+    );
+    const M = await synced(d);
     expect(keys(M)).toEqual(["api#41"]);
   });
 

@@ -13,7 +13,7 @@ import { isRecord } from "~/data/guards";
 import { toMillis } from "~/data/mappers/time";
 import type { Ctx } from "~/mock/context";
 import type { Card, Chat } from "~/mock/types";
-import type { Syncer } from "./syncer";
+import { loadProjectSnapshots, type Syncer } from "./syncer";
 
 /**
  * Section S17: a project's chats, and the `chat.*` events of every project's topic.
@@ -41,16 +41,13 @@ export const chatsSyncer: Syncer<WireChat[]> = {
   async load(api: ApiClient, ctx: Ctx) {
     // One pair of lists per project: there is no call that lists chats across projects, and the
     // view keeps the archived ones behind its Archived toggle, so both halves are read.
-    const projects = ctx.S.projects.map((project) => project.id);
-    const lists = await Promise.all(
-      projects.map(async (projectId) => {
-        const [live, archived] = await Promise.all([
-          api.listChats(projectId),
-          api.listChats(projectId, true),
-        ]);
-        return [...live.chats, ...archived.chats];
-      }),
-    );
+    const lists = await loadProjectSnapshots(ctx, async (projectId) => {
+      const [live, archived] = await Promise.all([
+        api.listChats(projectId),
+        api.listChats(projectId, true),
+      ]);
+      return [...live.chats, ...archived.chats];
+    });
     return lists.flat();
   },
   apply: applyChatSnapshot,

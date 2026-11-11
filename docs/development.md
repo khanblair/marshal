@@ -244,6 +244,8 @@ The required macOS check and the optional, manually started macOS browser workfl
 | Browser suite (`pnpm test:e2e`) | Not part of `pnpm check` | The `e2e` job of `ci-full.yml` on Linux, beside `check` (not a release gate); `e2e-macos.yml` on macOS is started by hand |
 | Real agent smoke test | Not part of `pnpm check` | `nightly-agent-smoke.yml`, off until you turn it on (see its header) |
 
+The Linux browser job runs in the pinned Playwright Ubuntu 24.04 image. Its browser and system libraries come with the image. When changing the version of `@playwright/test` in `apps/web/package.json`, update the container tag and digest in `ci-full.yml` together.
+
 Two commands this section used to list do not exist yet: `pnpm test:agents` (a real-agent smoke test; no real agent is started by any automated test) and `pnpm marshal <command>` (run the built CLI directly, as `dist/bin/marshal status --dev`).
 
 ---

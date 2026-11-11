@@ -1,5 +1,6 @@
-import type { Event as WireEvent } from "@marshal/protocol";
+import { ErrorCodeNotFound, type Event as WireEvent } from "@marshal/protocol";
 import type { ApiClient } from "~/data/api-client";
+import { ApiError } from "~/data/api-error";
 import type { SectionId } from "~/data/sections";
 import type { Ctx } from "~/mock/context";
 
@@ -36,4 +37,19 @@ export interface Syncer<T = unknown> {
    * store starts following the daemon, and only for a section that is switched to the daemon.
    */
   start?(ctx: Ctx, api: ApiClient): () => void;
+}
+
+/** A project can be deleted after the list arrived and before its snapshot is read. */
+export async function loadProjectSnapshots<T>(ctx: Ctx, load: (projectId: string) => Promise<T>) {
+  const results = await Promise.all(
+    ctx.S.projects.map(async ({ id }) => {
+      try {
+        return await load(id);
+      } catch (error) {
+        if (error instanceof ApiError && error.code === ErrorCodeNotFound) return undefined;
+        throw error;
+      }
+    }),
+  );
+  return results.filter((result) => result !== undefined);
 }

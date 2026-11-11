@@ -14,7 +14,7 @@ import { mirroredCard, toStoredCard } from "~/data/mappers/card";
 import type { CardKey } from "~/mock/card-key";
 import type { Ctx } from "~/mock/context";
 import type { Card } from "~/mock/types";
-import type { Syncer } from "./syncer";
+import { loadProjectSnapshots, type Syncer } from "./syncer";
 
 /** One project's board, as the daemon answered it. */
 export interface DaemonBoard {
@@ -37,13 +37,10 @@ export const cardsSyncer: Syncer<DaemonBoard[]> = {
   projectTopics: (projectID) => [`project:${projectID}`],
   async load(api: ApiClient, ctx: Ctx) {
     // One board per project. There is no call that lists cards across projects.
-    const projects = ctx.S.projects.map((project) => project.id);
-    return Promise.all(
-      projects.map(async (projectId) => ({
-        projectId,
-        cards: (await api.board(projectId)).cards,
-      })),
-    );
+    return loadProjectSnapshots(ctx, async (projectId) => ({
+      projectId,
+      cards: (await api.board(projectId)).cards,
+    }));
   },
   apply: applyCardSnapshot,
   onEvent: applyCardEvent,

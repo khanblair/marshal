@@ -90,7 +90,7 @@ func TestTheMostImmediateCeilingIsNamedFirst(t *testing.T) {
 
 	// With the time ceiling satisfied, the cost ceiling is the next one named.
 	reason, _ = limits.Check(harness.Usage{TurnMinutes: 1, CostMicros: 2_000_000, Rounds: 2})
-	if !strings.Contains(reason.Text, "has cost") {
+	if !strings.Contains(reason.Text, "$2.00 in usage") {
 		t.Errorf("text = %q, want the cost ceiling named next", reason.Text)
 	}
 

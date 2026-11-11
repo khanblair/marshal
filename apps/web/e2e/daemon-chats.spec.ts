@@ -46,6 +46,7 @@ test.describe("a project chat", () => {
     const repo = makeRepo("e2e-chats");
     const name = uniqueName("chats");
     let id = "";
+    let cleanupError: unknown;
     try {
       const project = await createProjectViaApi(request, repo.dir, name);
       id = project.id;
@@ -82,7 +83,12 @@ test.describe("a project chat", () => {
 
       await expectCleanScreen(page, problems, "light");
     } finally {
-      if (id) await removeProjectViaApi(request, id);
+      // If Playwright closed the request context on timeout, keep the original failure.
+      if (id)
+        await removeProjectViaApi(request, id).catch((error: unknown) => {
+          cleanupError = error;
+        });
     }
+    if (cleanupError) throw cleanupError;
   });
 });

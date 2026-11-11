@@ -59,8 +59,8 @@ jobs:
           path: .tools
           key: go-tools-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/setup-tools.mjs') }}
       - run: pnpm gen
-      # Client tests already passed in their own job. Retain every remaining workspace test
-      # (daemon and Go tools), including race instrumentation and the daemon coverage profile.
+      # Client tests run in ci.yml. Run every daemon and Go tool test here with
+      # race instrumentation and the daemon coverage profile.
       - name: Test daemon and tools
         run: pnpm -r --filter '!marshal' --filter '!web' --filter '!@marshal/ui' --filter '!@marshal/tokens' --filter '!@marshal/protocol' --filter '!desktop' --filter '!mobile' --workspace-concurrency=1 --if-present test
         env:
@@ -77,7 +77,12 @@ jobs:
   e2e:
     timeout-minutes: 30
     name: e2e (phone, tablet, desktop)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    container:
+      # Match @playwright/test in apps/web/package.json. The image includes
+      # Chromium and its OS libraries, so this job does not fetch Ubuntu packages.
+      image: mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27
+      options: --ipc=host
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -98,7 +103,6 @@ jobs:
           key: go-tools-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/setup-tools.mjs') }}
       - run: pnpm setup:tools
       - run: pnpm gen
-      - run: pnpm --filter web exec playwright install --with-deps chromium
       - run: pnpm build
       - run: pnpm test:e2e
       - uses: actions/upload-artifact@v4

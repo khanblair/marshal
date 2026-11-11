@@ -51,10 +51,10 @@ jobs:
         run: |
           node --test apps/mobile/scripts/patch-android.test.mjs
           pnpm --filter web exec vitest run --coverage.enabled=false src/views/card/CardHeader.test.tsx src/views/card/SessionSettings.test.tsx src/views/card/DiffTab.test.tsx src/views/card/PreviewTab.daemon.test.tsx src/views/card/details-collapsed.test.ts src/views/card/preview-link.test.ts src/features/chat/agent-activity.test.ts src/platform/native-system-bars.test.ts src/mock/index.test.ts src/styles/responsive-guards.test.ts
-      - name: Fast runtime and preview regressions
+      - name: Fast runtime, limits, and preview regressions
         working-directory: daemon
         run: |
-          node ../scripts/go-tool.mjs go test -timeout 2m ./internal/agents/catalog ./internal/tailnet ./internal/previewrelay
+          node ../scripts/go-tool.mjs go test -timeout 2m ./internal/agents/catalog ./internal/harness ./internal/tailnet ./internal/previewrelay
           node ../scripts/go-tool.mjs go test -timeout 2m ./cmd/marshald -run '^TestDaemonKeychain'
       - run: pnpm smells
       - run: pnpm --filter @marshal/tokens check:contrast

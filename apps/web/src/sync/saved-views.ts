@@ -14,7 +14,7 @@ import type { State } from "~/mock/state-types";
 import type { SavedView } from "~/mock/types";
 import { toStoredView, toViewList, toWireFilters } from "./me-mapper";
 import { noteSavedViewGone } from "./preferences";
-import type { Syncer } from "./syncer";
+import { loadProjectSnapshots, type Syncer } from "./syncer";
 
 /**
  * Section S6a: each project's saved views, and the `saved_view.updated` event of its topic.
@@ -125,9 +125,7 @@ export const savedViewsSyncer: Syncer<ProjectViews[]> = {
   topics: [],
   projectTopics: (projectID) => [`project:${projectID}`],
   async load(api: ApiClient, ctx: Ctx) {
-    const lists = await Promise.all(
-      ctx.S.projects.map((project) => api.listSavedViews(project.id)),
-    );
+    const lists = await loadProjectSnapshots(ctx, (id) => api.listSavedViews(id));
     return lists.map((list) => ({ projectId: list.projectId, views: list.views }));
   },
   apply(ctx, lists) {

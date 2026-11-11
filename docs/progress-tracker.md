@@ -204,6 +204,13 @@ Phase 2 (core UI) is scoped as eight slices, A to H, in `backend-checklist.md` s
 
 ## Session log
 
+### 2026-11-11 — Full CI recovery
+
+- GitHub run 43049745755 found an outdated cost-warning assertion and Ubuntu mirror DNS failures during browser setup. Updated the assertion, added the harness suite to fast CI, and pinned the Linux browser job to the matching Playwright image.
+- Earlier run 42899543014 reached the browser suite and exposed stale sign-in and reconnect expectations. Updated the specs to follow the phone’s pairing-first screen and current reconnect notice.
+- A browser trace showed that another device removing a project during startup made a board request return 404. The client now continues loading the other project snapshots, and chat-test cleanup preserves the original failure.
+- GitHub will verify the complete workflow on the next push.
+
 ### 2026-11-11 — Desktop restart, preview, and card usage
 
 - GitHub CI rejected the Preview tab for exceeding the function line limit. Extracted the server start and stop actions and kept the lint rule enabled.

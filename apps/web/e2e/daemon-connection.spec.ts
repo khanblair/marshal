@@ -79,21 +79,26 @@ async function checkSignIn({ page, size, theme }: Case): Promise<void> {
     allow: BROWSER_NETWORK_NOISE,
   });
   await expect(root(page)).toHaveAttribute("data-connection", "unauthorized");
-  await expect(page.getByRole("heading", { name: "Sign in to Marshal" })).toBeVisible();
+  const phone = size.name === "phone";
+  const heading = page.getByRole("heading", {
+    name: phone ? "Connect to your computer" : "Sign in to Marshal",
+  });
+  await expect(heading).toBeVisible();
   await expect(page.getByRole("alert")).toHaveCount(0);
   await expectCleanScreen(page, problems, theme);
 
+  if (phone) await page.getByText("Use an access token instead", { exact: true }).click();
   await page.getByLabel("Access token").fill("this-is-not-the-token");
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByRole("alert")).toHaveText(REFUSED);
-  await expect(page.getByRole("heading", { name: "Sign in to Marshal" })).toBeVisible();
+  await expect(heading).toBeVisible();
   await expectCleanScreen(page, problems, theme);
   expect(await page.locator("body").innerText()).not.toContain("this-is-not-the-token");
 
   await page.getByLabel("Access token").fill(realToken());
   await page.getByRole("button", { name: "Sign in" }).click();
   await waitUntilOnline(page);
-  await expect(page.getByRole("heading", { name: "Sign in to Marshal" })).toHaveCount(0);
+  await expect(heading).toHaveCount(0);
   expect(await page.evaluate(() => window.localStorage.getItem("marshal-token"))).toBe(realToken());
   await expectCleanScreen(page, problems, theme);
 }
@@ -107,7 +112,7 @@ async function checkOfflineBar({ page, size, theme }: Case): Promise<void> {
     allow: BROWSER_NETWORK_NOISE,
   });
   await expect(root(page)).toHaveAttribute("data-connection", "reconnecting");
-  const bar = page.getByRole("status").filter({ hasText: /You're offline\. Marshal reconnects/ });
+  const bar = page.getByRole("status").filter({ hasText: "Marshal reconnects on its own." });
   await expect(bar).toBeVisible();
   // The bar is the first thing in the main column: flush with the top and one short strip tall.
   const box = await bar.boundingBox();
