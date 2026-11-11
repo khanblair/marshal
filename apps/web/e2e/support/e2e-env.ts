@@ -6,6 +6,8 @@ import { fileURLToPath } from "node:url";
  * or the default dev port (47801): the run has a throwaway folder and a port of its own.
  */
 export const VITE_PORT = 5299;
+export const VITE_HOST = "127.0.0.1";
+export const VITE_ORIGIN = `http://${VITE_HOST}:${VITE_PORT}`;
 export const DAEMON_PORT = 47_811;
 
 const webRoot = resolve(fileURLToPath(new URL("../..", import.meta.url)));

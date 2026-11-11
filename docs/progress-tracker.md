@@ -204,6 +204,12 @@ Phase 2 (core UI) is scoped as eight slices, A to H, in `backend-checklist.md` s
 
 ## Session log
 
+### 2026-11-11 — v0.1.4 published and full CI follow-up
+
+- GitHub published v0.1.4 from 50986a2 with the universal Mac installer, signed updater files, and Android APK and AAB.
+- Full CI 43059578016 built successfully in the browser container, then global setup could not reach Vite at 127.0.0.1. Vite now binds explicitly to IPv4 loopback and the readiness probe, browser, and setup share that origin.
+- The macOS workspace lease test hit its 10-second subprocess deadline. The test now has a bounded 45-second window, keeps the child alive through a pipe, and reports stderr and process status if startup fails.
+
 ### 2026-11-11 — Release v0.1.4 requested
 
 - Fast CI 43053846750 passed. The release workflow still requested the already published v0.1.3. Set the requested version to v0.1.4 so GitHub can build the next version after fast CI passes.

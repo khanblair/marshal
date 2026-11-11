@@ -1,7 +1,9 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { assertBootEndpoints, finishFirstLaunch } from "./daemon-api";
-import { DATA_DIR, VITE_PORT } from "./e2e-env";
+import { DATA_DIR, VITE_ORIGIN } from "./e2e-env";
+
+const TOKEN_REQUEST_TIMEOUT_MS = 10_000;
 
 /**
  * Runs once, after the two servers are up. With `reuseExistingServer` a Vite server that was already
@@ -16,12 +18,17 @@ import { DATA_DIR, VITE_PORT } from "./e2e-env";
  */
 export default async function globalSetup(): Promise<void> {
   const expected = readFileSync(join(DATA_DIR, "dev-token"), "utf8").trim();
-  const answer = await fetch(`http://localhost:${VITE_PORT}/__marshal/dev-token`);
+  const tokenURL = `${VITE_ORIGIN}/__marshal/dev-token`;
+  const answer = await fetch(tokenURL, {
+    signal: AbortSignal.timeout(TOKEN_REQUEST_TIMEOUT_MS),
+  }).catch((cause: unknown) => {
+    throw new Error(`Could not reach the E2E Vite server at ${VITE_ORIGIN}.`, { cause });
+  });
   const body: unknown = answer.ok ? await answer.json() : null;
   const served = typeof body === "object" && body !== null ? Reflect.get(body, "token") : null;
   if (served !== expected) {
     throw new Error(
-      `The Vite server on port ${VITE_PORT} is not the one this run should use: it does not serve this run's ` +
+      `The Vite server at ${VITE_ORIGIN} is not the one this run should use: it does not serve this run's ` +
         "dev token, so it points at another daemon. Stop it and run the tests again.",
     );
   }

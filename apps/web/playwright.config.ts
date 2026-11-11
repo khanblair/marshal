@@ -1,5 +1,12 @@
 import { defineConfig } from "@playwright/test";
-import { DAEMON_ORIGIN, DAEMON_PORT, DATA_DIR, VITE_PORT } from "./e2e/support/e2e-env";
+import {
+  DAEMON_ORIGIN,
+  DAEMON_PORT,
+  DATA_DIR,
+  VITE_HOST,
+  VITE_ORIGIN,
+  VITE_PORT,
+} from "./e2e/support/e2e-env";
 
 /** The one spec that stops and starts the daemon, so it must not run beside the others. */
 const LIFECYCLE_SPEC = /daemon-lifecycle\.spec\.ts/;
@@ -7,6 +14,8 @@ const LIFECYCLE_SPEC = /daemon-lifecycle\.spec\.ts/;
 const ONBOARDING_SPEC = /daemon-onboarding\.spec\.ts/;
 const SERVER_START_MS = 60_000;
 const DAEMON_STOP_MS = 10_000;
+const CI_MAX_FAILURES = 5;
+const CI_TIMEOUT_MS = 1_200_000;
 
 /**
  * End-to-end checks run against two servers of their own: the built dev daemon (`pnpm build` first)
@@ -18,15 +27,15 @@ export default defineConfig({
   fullyParallel: true,
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
   // End failing runs while there is still time for GitHub to upload diagnostics.
-  maxFailures: process.env.CI ? 5 : undefined,
-  globalTimeout: process.env.CI ? 20 * 60_000 : undefined,
+  maxFailures: process.env.CI ? CI_MAX_FAILURES : undefined,
+  globalTimeout: process.env.CI ? CI_TIMEOUT_MS : undefined,
   workers: process.env.CI ? 2 : undefined,
   // Playwright empties its output folder; the daemon's data folder lives beside it, not in it.
   outputDir: "test-results/playwright",
   // Stops the run early when a server that was already running is not the one made for it.
   globalSetup: "./e2e/support/global-setup.ts",
   use: {
-    baseURL: `http://localhost:${VITE_PORT}`,
+    baseURL: VITE_ORIGIN,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
@@ -53,8 +62,8 @@ export default defineConfig({
       env: { E2E_DAEMON_PORT: String(DAEMON_PORT), E2E_DATA_DIR: DATA_DIR },
     },
     {
-      command: `pnpm exec vite --port ${VITE_PORT} --strictPort`,
-      url: `http://localhost:${VITE_PORT}`,
+      command: `pnpm exec vite --host ${VITE_HOST} --port ${VITE_PORT} --strictPort`,
+      url: VITE_ORIGIN,
       reuseExistingServer: !process.env.CI,
       // The dev server forwards `/v1` to this daemon and reads its dev token from this folder.
       env: { MARSHAL_PORT: String(DAEMON_PORT), MARSHAL_DATA_DIR: DATA_DIR },

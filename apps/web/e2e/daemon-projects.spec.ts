@@ -10,6 +10,7 @@ import {
   waitUntilOnline,
 } from "./support/app";
 import { createProjectViaApi, getProjectViaApi, removeProjectViaApi } from "./support/daemon-api";
+import { VITE_ORIGIN } from "./support/e2e-env";
 import { makeFolder, makeRepo } from "./support/git";
 
 const DESKTOP = SIZES[2];
@@ -242,7 +243,7 @@ test.describe("the fixture and other devices", () => {
   }) => {
     const repo = makeRepo("e2e-live");
     const name = uniqueName("live");
-    const context = await browser.newContext({ baseURL: `http://localhost:5299` });
+    const context = await browser.newContext({ baseURL: VITE_ORIGIN });
     let id = "";
     try {
       const first = await context.newPage();

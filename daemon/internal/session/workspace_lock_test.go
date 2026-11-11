@@ -2,9 +2,11 @@ package session
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -63,6 +65,9 @@ func TestWorkspaceLockAliasesShareOneLease(t *testing.T) {
 	}
 }
 
+// Allow the race-instrumented test executable to start on a busy CI runner.
+const workspaceLeaseChildTimeout = 45 * time.Second
+
 // The installed daemon and dev daemon are separate processes, so contention must work
 // beyond a single Manager map. A crashed owner must release its OS lease as well.
 func TestWorkspaceLeaseSurvivesAcrossProcessesAndReleasesAfterCrash(t *testing.T) {
@@ -75,10 +80,17 @@ func TestWorkspaceLeaseSurvivesAcrossProcessesAndReleasesAfterCrash(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), workspaceLeaseChildTimeout)
 	defer cancel()
 	command := exec.CommandContext(ctx, executable, "-test.run=^TestWorkspaceLeaseChild$")
 	command.Env = append(os.Environ(), "MARSHAL_LOCK_TEST_ID="+identity, "MARSHAL_LOCK_TEST_DIR="+lockDir)
+	var stderr bytes.Buffer
+	command.Stderr = &stderr
+	input, err := command.StdinPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = input.Close() }()
 	output, err := command.StdoutPipe()
 	if err != nil {
 		t.Fatal(err)
@@ -86,10 +98,18 @@ func TestWorkspaceLeaseSurvivesAcrossProcessesAndReleasesAfterCrash(t *testing.T
 	if err := command.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer func() { _ = command.Process.Kill(); _ = command.Wait() }()
+	defer func() {
+		if command.ProcessState == nil {
+			_ = command.Process.Kill()
+			_ = command.Wait()
+		}
+	}()
 	line, err := bufio.NewReader(output).ReadString('\n')
 	if err != nil || line != "locked\n" {
-		t.Fatalf("child did not acquire lease: %q %v", line, err)
+		_ = command.Process.Kill()
+		waitErr := command.Wait()
+		t.Fatalf("child did not acquire lease: stdout %q, read %v, context %v, exit %v, stderr %q",
+			line, err, ctx.Err(), waitErr, stderr.String())
 	}
 	if _, err := acquireWorkspaceLock(identity, lockDir); !errors.Is(err, platform.ErrAlreadyRunning) {
 		t.Fatalf("second process acquired owned lease: %v", err)
@@ -118,5 +138,5 @@ func TestWorkspaceLeaseChild(t *testing.T) {
 	}
 	defer func() { _ = lease.Release() }()
 	_, _ = fmt.Println("locked")
-	select {}
+	_, _ = io.Copy(io.Discard, os.Stdin)
 }
